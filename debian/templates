@@ -1,0 +1,34 @@
+Template: ejabberd/hostname
+Type: string
+Default: localhost
+_Description: The name of the host ejabberd will serve:
+ Please enter the hostname of your Jabber server (in lowercase).
+
+Template: ejabberd/user
+Type: string
+_Description: The username of an admin account for ejabberd:
+ Please provide the name of an account to administrate the ejabberd server.
+ After the installation of ejabberd you can use this account to log in with any
+ Jabber client to do administrative tasks or go to
+ http://${hostname}:5280/admin/ and log in with this account to enter the admin
+ interface. Enter the username part here (e.g. ${user}), but use the full Jabber
+ ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; otherwise it
+ will fail.
+ .
+ Leave empty if you don't want to create an admin account automatically.
+
+Template: ejabberd/password
+Type: password
+_Description: The password for the admin account:
+ Please enter the password for the administrative user.
+
+Template: ejabberd/verify
+Type: password
+_Description: The password for the admin account again for verification:
+ Please reenter the password for the administrative user for verification.
+
+Template: ejabberd/nomatch
+Type: error
+_Description: The passwords do not match!
+ The passwords you have typed do not match. Please try again.
+

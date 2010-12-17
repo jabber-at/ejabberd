@@ -1,0 +1,3 @@
+src/ejabberd.cfg.example
+examples/*
+src/odbc/*.sql

@@ -1,0 +1,164 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+include /usr/share/quilt/quilt.make
+
+# This is Debian or Ubuntu
+DIST_ID=$(shell lsb_release -si)
+# This is hardy, squeeze, lucid, ...
+DIST_CODE=$(shell lsb_release -sc)
+
+DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-pam
+DEB_VERSION = $(shell dpkg-parsechangelog -ldebian/changelog|grep '^Version'|sed  -e 's/[^ ]* //' -e 's/[^:]://')
+DEB_UPSTREAM_VERSION = $(shell echo $(DEB_VERSION)|sed 's/-.*$$//')
+ERLANG_VERSION = $(shell dpkg-query -f $$\{Version\} -W erlang | sed 's/.*://')
+DEBHELPER_VERSION = $(shell dpkg-query -f $$\{Version\} -W debhelper | sed 's/.*://')
+
+ifeq "$(shell dpkg --compare-versions ${ERLANG_VERSION} ge 13.b.4; echo $$?)" "0"
+ifeq "$(shell dpkg --compare-versions ${ERLANG_VERSION} lt 14; echo $$?)" "0"
+DEB_CONFIGURE_EXTRA_FLAGS += --enable-nif
+endif
+endif
+# Not sure if we should enable workaround for gateway subscription
+# Adding it breaks XMPP compatibility
+# Not adding breaks roster import for some gateways (specifically JIT)
+#DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-roster-gateway-workaround
+
+test:
+	# ${DEB_CONFIGURE_EXTRA_FLAGS}
+
+prepare: cleanup
+	dh_testdir
+	tar xzf ../ejabberd_${DEB_UPSTREAM_VERSION}.orig.tar.gz -C ..
+
+cleanup:
+	dh_testdir
+	dh_clean
+	rm -f debian/stamp-*
+	ls -A | grep --invert-match "^debian" | grep --invert-match "^.svn" | xargs rm -rf
+
+AUTO_OPTS = --sourcedirectory=src -v
+
+ifeq "$(shell dpkg --compare-versions ${DEBHELPER_VERSION} lt 7.3; echo $$?)" "0"
+DPKG_ARCHITECTURE=$(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+SRCDIR=src/
+endif
+
+DESTDIR=$(CURDIR)/debian/ejabberd
+
+configure: configure-stamp
+configure-stamp: $(QUILT_STAMPFN)
+	dh_testdir
+
+ifeq "$(shell dpkg --compare-versions ${DEBHELPER_VERSION} ge 7.3; echo $$?)" "0"
+	dh_auto_configure $(AUTO_OPTS) -- $(DEB_CONFIGURE_EXTRA_FLAGS)
+else
+# this is hardy, jaunty and lenny
+	cd ${SRCDIR} && ./configure --build=${DPKG_ARCHITECTURE} --prefix=/usr --includedir=\$${prefix}/include --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info --sysconfdir=/etc --localstatedir=/var --libexecdir=\$${prefix}/lib/ejabberd --disable-maintainer-mode --disable-dependency-tracking ${DEB_CONFIGURE_EXTRA_FLAGS}
+endif
+
+	touch configure-stamp
+
+
+build: build-stamp
+
+build-stamp: configure-stamp  
+	dh_testdir
+
+ifeq "$(shell dpkg --compare-versions ${DEBHELPER_VERSION} ge 7.3; echo $$?)" "0"
+	dh_auto_build $(AUTO_OPTS)
+else
+# this is hardy, jaunty and lenny
+	cd ${SRCDIR} && make -j1
+endif
+
+	touch $@
+
+clean: unpatch
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp configure-stamp
+
+ifeq "$(shell dpkg --compare-versions ${DEBHELPER_VERSION} ge 7.3; echo $$?)" "0"
+	dh_auto_clean $(AUTO_OPTS)
+else
+# this is hardy, jaunty and lenny
+	-cd ${SRCDIR} && make clean
+	-cd ${SRCDIR} && /usr/bin/make -k distclean
+endif
+	rm -f debian/stamp-*
+	dh_clean 
+
+install: build
+	# ${DESTDIR}
+	dh_testdir
+	dh_testroot
+	dh_prep  
+	dh_installdirs
+
+ifeq "$(shell dpkg --compare-versions ${DEBHELPER_VERSION} ge 7.3; echo $$?)" "0"
+	dh_auto_install $(AUTO_OPTS)
+else
+# this is hardy, jaunty and lenny
+
+	cd ${SRCDIR} && make -j1 install DESTDIR=${DESTDIR}
+endif
+
+	# Remove unused upstream config files:
+	rm $(DESTDIR)/etc/ejabberd/ejabberd.cfg
+	rm $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
+
+	# Remove unused upstream directories:
+	rm -rf $(DESTDIR)/var/lock
+
+	# Remove unused modules:
+	rm -f $(DESTDIR)/usr/lib/ejabberd/ebin/ejabberd_debug.beam
+
+
+# Build architecture-independent files here.
+binary-indep: install
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs
+	dh_installdocs
+	dh_installexamples
+	dh_install
+#	dh_installmenu
+	dh_installdebconf
+	dh_installlogrotate
+#	dh_installemacsen
+#	dh_installpam
+#	dh_installmime
+#	dh_python
+	dh_installinit
+#	dh_installcron
+#	dh_installinfo
+	dh_installman
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+#	dh_perl
+#	dh_makeshlibs
+	erlang-depends
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+get-orig-source:
+	dh_testdir
+	wget -O ../ejabberd_$(DEB_UPSTREAM_VERSION).orig.tar.gz \
+		http://www.process-one.net/en/projects/ejabberd/download/$(DEB_UPSTREAM_VERSION)/ejabberd-$(DEB_UPSTREAM_VERSION).tar.gz
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure get-orig-source
+

@@ -1,0 +1,153 @@
+Implements the "@recent@" shared roster group invented by the OLPC project.
+This group lists the users who had active sessions during the last 7 days
+or are online now.
+
+See http://wiki.laptop.org/go/Ejabberd_Configuration
+
+Index: pkg-ejabberd/src/mod_shared_roster.erl
+===================================================================
+--- pkg-ejabberd.orig/src/mod_shared_roster.erl	2010-04-06 12:54:38.000000000 +0400
++++ pkg-ejabberd/src/mod_shared_roster.erl	2010-04-06 12:54:44.000000000 +0400
+@@ -470,13 +470,63 @@
+ 	    Default
+     end.
+ 
++-record(last_activity, {us, timestamp, status}).
++
++%% stolen from mod_ctlextra, thanks Badlop! :)
++get_recent_users(Host, Days) ->
++    %% Convert older time
++    SecOlder = Days*24*60*60,
++
++    %% Get current time
++    {MegaSecs, Secs, _MicroSecs} = now(),
++    TimeStamp_now = MegaSecs * 1000000 + Secs,
++
++    %% Get the list of registered users
++    Users = ejabberd_auth:get_vh_registered_users(Host),
++
++    %% For a user, answer true if they are online, or were online within
++    %% the given number of Days
++    F = fun({LUser, LServer}) ->
++		%% Check if the user is logged
++		case ejabberd_sm:get_user_resources(LUser, LServer) of
++		    %% If it isnt
++		    [] ->
++			%% Look for his last_activity
++			case mnesia:dirty_read(last_activity, {LUser, LServer}) of
++			    %% If it is existent:
++			    [#last_activity{timestamp = TimeStamp}] ->
++				%% get his age
++				Sec = TimeStamp_now - TimeStamp,
++				%% true if he's recently active
++				Sec < SecOlder;
++			    %% nonexistent:
++			    [] ->
++				%% never signed in, skip
++				false
++			end;
++		    %% Else
++		    _ ->
++			%% currently online, include
++			true
++		end
++	end,
++    %% Apply the function to every user in the list
++    lists:filter(F, Users).
++
+ get_group_users(Host, Group) ->
+     case get_group_opt(Host, Group, all_users, false) of
+ 	true ->
+ 	    ejabberd_auth:get_vh_registered_users(Host);
+ 	false ->
+ 	    []
+-    end ++ get_group_explicit_users(Host, Group).
++    end ++
++    case get_group_opt(Host, Group, recent_users_days, 0) of
++	0 ->
++	    [];
++	Days when is_integer(Days) ->
++            get_recent_users(Host, Days)
++    end ++
++    get_group_explicit_users(Host, Group).
+ 
+ get_group_users(_User, Host, Group, GroupOpts) ->
+     case proplists:get_value(all_users, GroupOpts, false) of
+@@ -484,7 +534,14 @@
+ 	    ejabberd_auth:get_vh_registered_users(Host);
+ 	false ->
+ 	    []
+-    end ++ get_group_explicit_users(Host, Group).
++    end ++
++    case proplists:get_value(recent_users_days, GroupOpts, 0) of
++	0 ->
++	    [];
++	Days when is_integer(Days) ->
++            get_recent_users(Host, Days)
++    end ++
++    get_group_explicit_users(Host, Group).
+ 
+ %% @spec (Host::string(), Group::string()) -> [{User::string(), Server::string()}]
+ get_group_explicit_users(Host, Group) ->
+@@ -506,7 +563,8 @@
+ get_special_users_groups(Host) ->
+     lists:filter(
+       fun(Group) ->
+-	      get_group_opt(Host, Group, all_users, false)
++	      get_group_opt(Host, Group, all_users, false) orelse
++	      get_group_opt(Host, Group, recent_users_days, 0) > 0
+       end,
+       list_groups(Host)).
+ 
+@@ -859,6 +917,7 @@
+     Name = get_opt(GroupOpts, name, ""),
+     Description = get_opt(GroupOpts, description, ""),
+     AllUsers = get_opt(GroupOpts, all_users, false),
++    RecentUsersDays = get_opt(GroupOpts, recent_users_days, 0),
+     %%Disabled = false,
+     DisplayedGroups = get_opt(GroupOpts, displayed_groups, []),
+     Members = mod_shared_roster:get_group_explicit_users(Host, Group),
+@@ -868,7 +927,14 @@
+ 		"@all@\n";
+ 	    true ->
+ 		[]
+-	end ++ [[us_to_list(Member), $\n] || Member <- Members],
++	end ++
++	if
++	    RecentUsersDays > 0 ->
++		"@recent@\n";
++	    true ->
++		[]
++	end ++
++	[[us_to_list(Member), $\n] || Member <- Members],
+     FDisplayedGroups = [[DG, $\n] || DG <- DisplayedGroups],
+     DescNL = length(element(2, regexp:split(Description, "\n"))),
+     FGroup =
+@@ -952,6 +1018,8 @@
+ 			  case SJID of
+ 			      "@all@" ->
+ 				  USs;
++			      "@recent@" ->
++				  USs;
+ 			      _ ->
+ 				  case jlib:string_to_jid(SJID) of
+ 				      JID when is_record(JID, jid) ->
+@@ -966,10 +1034,17 @@
+ 		    true -> [{all_users, true}];
+ 		    false -> []
+ 		end,
++	    %% FIXME: this should be specified by the user
++	    RecentUsersOpt =
++		case lists:member("@recent@", SJIDs) of
++		    true -> [{recent_users_days, 7}];
++		    false -> []
++		end,
+ 
+ 	    mod_shared_roster:set_group_opts(
+ 	      Host, Group,
+-	      NameOpt ++ DispGroupsOpt ++ DescriptionOpt ++ AllUsersOpt),
++	      NameOpt ++ DispGroupsOpt ++ DescriptionOpt ++ AllUsersOpt
++		++ RecentUsersOpt),
+ 
+ 	    if
+ 		NewMembers == error -> error;

@@ -1,0 +1,38 @@
+ejabberd (2.1.2-2) unstable; urgency=high
+
+  This release fixes CVE-2010-0305 by allowing a server administrator
+  to limit the lengths of "message queues" for outgoing connections.
+  Roughly speaking, each message in such queues represents one XML
+  stanza queued to be sent into its relevant outgoing stream.
+
+  Note that the limiting is *NOT* enabled by default; if you want to enable
+  it, use the {max_fsm_queue, Size} option which can either be specified
+  globally (at the top level of the configuration file) and/or
+  specifically for ejabberd_service and ejabberd_c2s_in listeners.
+  Local options specified for the said listeners override the global one.
+  The global option, if present, also affects outgoing server-to-server
+  connections.
+  The argument to this option can be either an atom 'undefined' -- the default
+  value -- or an integer number, specifying the maximum number of queued messages.
+
+  Refer to /usr/share/doc/ejabberd/guide.html for more details.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Tue, 09 Feb 2010 01:46:55 +0300
+
+ejabberd (2.1.0-1) unstable; urgency=low
+
+  Calling convention of the ejabberdctl program was changed.
+  Also some of its commands were renamed or removed,
+  or their calling convention was changed due to switching
+  to another ejabberd module providing a set of additional commands.
+
+  "sasl.log" was renamed to "erlang.log", and ejabberd command-line option
+  to change its location was renamed accordingly as well.
+
+  ejabberdctl no more generates unique node names for the erl process
+  it spawns by default, it only does so if the "--concurrent" option is specified. 
+  The method used to generate unique node names was also changed.
+
+  See the "Upgrading from 2.0.x series" section in README.Debian for details.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Tue, 17 Nov 2009 16:56:08 +0300

@@ -1,0 +1,4 @@
+debian/scripts/ejabberd usr/sbin/
+debian/scripts/ejabberdctl usr/sbin/
+debian/ejabberd.cfg usr/share/ejabberd/
+

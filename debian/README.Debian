@@ -1,0 +1,371 @@
+Table of contents
+=================
+
+1. Running.
+1.1. Using privileged TCP ports
+1.2. Custom options for Erlang emulator
+1.3. Backups
+1.4. Using IPv6
+1.5. Using captcha
+2. Hostname issues
+3. PAM authentication
+4. Using DBMS for data storage
+5. External modules
+6. Upgrading from 2.0.x series
+6.1 Changes in ejabberdctl program
+6.2 Changes in logging
+
+
+1. Running
+==========
+
+1.1. Using privileged TCP ports
+-------------------------------
+
+The ejabberd daemon which is run in init.d script is owned by user ejabberd,
+so it cannot bind to privileged ports (below 1024). The error message in
+/var/log/ejabberd/ejabberd.log looks similar to the following:
+
+E(<0.242.0>:ejabberd_listener:80):
+                 Failed to open socket for {443,
+                                            ejabberd_c2s,
+                                            [{access,c2s},
+                                             {max_stanza_size,
+                                                 65536},
+                                             starttls,
+                                             {certfile,
+                                                 "/etc/ejabberd/ejabberd.pem"},
+                                             {shaper,
+                                                 c2s_shaper}]}: eacces
+
+If you want ejabberd to listen for example port 443 you could redirect it to
+port 5222 (the default XMPP port) by a firewall rule. For example:
+
+iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 5222
+
+
+1.2. Custom options for Erlang emulator
+---------------------------------------
+
+You can add extra options to the erl command line like
+
+  -pa /usr/local/lib/ejabberd/ebin
+
+by adding them to ERL_OPTIONS in /etc/default/ejabberd.
+
+
+1.3. Backups
+------------
+
+The package always makes a backup of the ejabberd database if it's running
+when it is upgraded or removed. The backup files are stored in
+/var/backups/ejabberd-<timestamp>.* directory.
+
+
+1.4. Using IPv6
+---------------
+
+IPv6 is not enabled by default for any network activity in ejabberd.
+This is because with the current state of ejabberd code it's impossible
+to fall back to IPv4 if IPv6 is unavailable, and hence enabling IPv6
+by default would immediately break things for users with IPv6 disabled
+(see http://bugs.debian.org/503313 for more details).
+
+The actions to be carried out to enable IPv6 depend on whether
+IPv6-only or mixed setup is needed.
+
+To make ejabberd use IPv6 only, proceed with one of these methods:
+* Add the "inet6" atom to the configuration clauses describing
+  c2s and s2s listeners.
+* Specify and IPv6 address for the "ip" option in the configuration
+  of a listener, like {ip, "::"} -- ejabberd is able to deduce the
+  protocol family from an IP address it parses and enable the appropriate
+  mode on the socket such an IP address is configured for.
+* Specify the address to bind to along with the listener port;
+  the notes above about the IP address formatting also apply here.
+
+To support both IPv6 and IPv4, you have to duplicate the sections for
+appropriate listeners hinting ejabberd about the protocol to use
+for each one. One way to do this looks like this (for the c2s listener):
+
+{listen,
+  {{5222, "0.0.0.0"}, ejabberd_c2s, [...]},
+  {{5222, "::"}, ejabberd_c2s, [...]},
+  ...
+}
+
+This way, two (supposedly identical, though not required) c2s listeners
+are configured: the first one for IPv4 and the second one for IPv6;
+ejabberd figures the necessary protocol family out by looking at how
+the IP address to bind to is specified.
+
+Refer to the "Listening Ports" section of the Installation and
+Operation Guide for more info, specifically, to its "Port Number,
+IP Address and Transport Protocol" and "Examples" parts.
+
+
+1.5. Using captcha
+------------------
+
+Captcha generation script uses the "convert" program from the "imagemagick"
+package. As it depends on a lot of packages related to graphics and
+X Window System, it is listed as suggested. Therefore, if you intend to
+enable captcha support for your multi-user conferences be sure to install
+imagemagick besides enabling captcha in the ejabberd configuration file.
+Also the "graphicsmagick-imagemagick-compat" package can be installed
+instead of "imagemagick" -- it provides the "convert" program compatible
+with that of imagemagick.
+
+
+2. Hostname issues
+===================
+
+The ejabberd daemon uses Erlang database Mnesia. Even if it's configured for
+using ODBC it uses Mnesia for some data (privacy lists et.) and runtime tasks
+(keeping routing table etc.). Mnesia is a multi-master database, and it tightly
+bounds to a hostname where it's working. Therefore, if you change computer
+hostname then ejabberd will stop working.
+
+If you don't have a current database backup then run ejabberd (attached to the
+terminal, otherwise you'll not be able to backup database and quit) by
+
+/usr/sbin/ejabberd --node ejabberd@oldhostname
+
+and in the Erlang shell prompt call
+
+(ejabberd@oldhostname)1> mnesia:backup("/tmp/ejabberd_at_oldhostname.backup").
+
+(note the trailing fullstop). Then stop ejabberd by typing
+
+(ejabberd@oldhostname)1> q().
+
+Now you have the latest Mnesia database backup.
+
+After that run a new Erlang shell by
+
+erl -pa /usr/lib/ejabberd/ebin
+
+and convert the backup file to a new hostname:
+
+1> mnesia_convert:change_node_name('ejabberd@oldhostname',
+				   'ejabberd@newhostname',
+				   "/tmp/ejabberd_at_oldhostname.backup",
+				   "/tmp/ejabberd_at_newhostname.backup").
+
+2> q().
+
+Then use file /tmp/ejabberd_at_newhostname.backup to restore ejabberd database
+as it is described in ejabberdctl manual page.
+
+
+3. PAM authentication
+=======================
+
+Ejabberd uses "/usr/lib/ejabberd/priv/bin/epam" binary as a helper
+program to perform PAM authentication.
+Depending on the PAM plugins used, the process accessing these plugins
+might have to be run with elevated privileges. The official ejabberd
+Installation and Operation Guide simplemindedly suggests to make epam
+setuid root which would make it work for any possible case.
+Debian's ejabberd package, on the other hand, ships the epam program
+with the setuid and setgid bits cleared, and here is why:
+* Setuid and setgid programs present a serious potential security
+  risk and are a target for exploitation attempts (especially
+  programs which are made setuid root).
+* Different PAM plugins have different requirements for the privileges
+  of the user working with them, for instance, to use the shadow passwords
+  database for authentication, it is sufficient for the accessing process
+  to be in the group "shadow"; to use LDAP backend, no elevation of
+  privileges is needed at all.
+Taking into account the fact that ejabberd uses internal authentication
+by default (using its own private database), the decision of what
+special access rights to set for the epam program is left to the
+system administrator.
+
+To maintain non-standard access rights for the epam binary, it is
+advised to use dpkg-statoverride, as suggested by the Debian policy
+(section 10.9 "Permissions and owners") -- ejabberd package configuration
+scripts honor this setting so it survives upgrades.
+
+As an example, to make epam setgid shadow, you can use:
+
+dpkg-statoverride --add root shadow 02755 /usr/lib/ejabberd/priv/bin/epam
+
+and to make epam setuid root you can do:
+
+dpkg-statoverride --add root ejabberd 04754 /usr/lib/ejabberd/priv/bin/epam
+
+(Note that we set o-x there so that only users in the ejabberd group
+are able to elevate their privileges by executing this program.)
+
+
+4. Using DBMS for data storage
+===============================
+
+The ejabberd Installation and Operation Guide mentions that ejabberd
+is able to use various DBMS engines to manage most of ejabberd's data,
+such as user accounts, rosters, offline messages, pubsub storage etc.
+This is confusing, as the only database driver ejabberd supports
+"out of the box" is ODBC; working with any listed DBMS directly
+requires installation of a special database driver for Erlang, which are
+third-party code and are not distributed along with ejabberd.
+
+Debian's ejabberd package does not ship these database drivers,
+and hence it is not possible to work natively with MySQL, PostgreSQL
+and other DBMSes listed as supported by the Guide.
+This issue is discussed in the Debian BTS (see bugs #507144 and #540915).
+
+Therefore, as no one yet stepped forward to create and maintain
+packages which would enable native access to the supported DBMSes,
+you have two options to use them:
+
+* Get, build and install the required Erlang database driver
+  then configure ejabberd to locate the compiled code and use it.
+  Drivers for MySQL and PostgreSQL can be obtained from
+  https://forge.process-one.net/browse/ejabberd-modules
+  Refer to the section "External modules" of this file for details
+  on managing external ejabberd modules.
+
+* Use ODBC backend with a proper ODBC driver. On the ejabberd side,
+  this only requires making corresponding changes in the configuration
+  file. Gerfried Fuchs presented a sample configuration for using
+  PostgreSQL via ODBC in
+  http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=540915#10
+
+Note that it appears that currently the only way to use Microsoft SQL
+Server as a database backend is via ODBC (and the FreeTDS ODBC driver).
+
+
+5. External modules
+===================
+
+The package installs ejabberd Erlang headers into /usr/lib/ejabberd/include
+directory. To build a module using these headers, as usual include them using
+    -include_lib("ejabberd/include/headername.hrl").
+and compile the module using -pa option to add ejabberd path to a search list
+    erlc -pa /usr/lib/ejabberd/ebin module.erl
+
+Alternatively, include headers as
+    -include("headername.hrl").
+and add option -I /usr/lib/ejabberd/include to erlc command line.
+This is possibly the preferred way to build third-party ejabberd modules.
+
+
+To install a module, copy the resulting beam file(s) to a directory
+in which the Erlang emulator running ejabberd looks for compiled
+files. One of such directories is "/usr/lib/ejabberd/ebin", but you are
+strongly advised not to place any files there unless they come from
+a Debian package. Hence, the best way to handle external modules is
+to maintain a special directory for them under "/usr/local" -- for instance,
+the "/usr/local/lib/ejabberd/ebin".
+To make Erlang emulator know about this directory, add an appropriate
+option to the ERL_OPTIONS variable in the "/etc/default/ejabberd" file.
+For the location proposed, you will probably want to add
+
+  -pa /usr/local/lib/ejabberd/ebin
+
+to that variable. See the erl(1) manual page for more info on the "-pa"
+Erlang emnulator command line option.
+
+
+6. Upgrading from 2.0.x series
+==============================
+
+Certain changes were made in version 2.1.0 which are incompatible with
+2.0.x series packaged in Debian.
+
+While upgrading of the database should occur fully automatically,
+there are changes in the infrastructure, which you might need to
+take into account,
+
+6.1 Changes in ejabberdctl program
+----------------------------------
+
+1) The calling format of the ejabberdctl program was changed:
+   a special prefix "vhost HOSTNAME" which selected operation on the
+   specified virtual host was dropped; now previously vhost-specific
+   commands gained one extra argument specifying a virtual host
+   (such as "ban-users") or come in pairs, such as "delete-old-users"
+   with "delete-old-users-vhost".
+
+2) Some ejabberdctl commands were renamed (see below).
+
+3) ejabberd in Debian was shipped with the mod_ctlextra module which
+   provided several advanced commands for the ejabberdctl program.
+   mod_ctlextra is not supported since 2.1.0 anymore and so it was replaced
+   my its successor, mod_admin_extra. This resulted in renaming of several
+   commands previously provided by mod_ctlextra.
+
+   Note that for mod_admin_extra module to be loaded, it must be mentioned
+   in the appropriate section of the ejabberd configuration file.
+   As this file is not upgraded automatically, make sure you have replaced
+   the request to load mod_ctlextra with the request to load mod_admin_extra.
+   Refer to the ejabberdctl(8) manual page for more details.
+
+The summary of changes in ejabberdctl commands is given below.
+
+Renamed:
+  "set-password" to "change-password";
+  "delete-older-messages" to "delete-old-messages";
+  "delete-older-users" to "delete-old-users";
+  "rem-rosteritem" to "delete-rosteritem";
+  "killsession" to "kick-session";
+
+Renamed and calling convention changed:
+  "vcard-get" to "get-vcard" and "get-vcard2";
+  "vcard-set" to "set-vcard" and "set-vcard2";
+
+Deleted:
+  "rosteritem-purge"
+
+Virtual-host specific commands which now accept a virtual host
+to operate on as their extra argument:
+  "ban-account"
+  "num-active-users"
+  "registered-users"
+
+4) The ejabberdctl program was changed not to generate unique node names
+   by default for the Erlang process it starts; to enable generation
+   of unique node names you now has to pass the "--concurrent" command-line
+   option to the ejabberdctl program.
+
+   This was made to prevent overflows of atom table in the ejabberd process
+   which may occur if ejabberdctl is started many times during the ejabberd
+   process lifetime, which is not uncommon on some high-profile sites.
+   Now, ejabberdctl assumes you take care of ensuring all invocations of
+   ejabberdctl are done in a sequence and uses constant names for the nodes
+   of the Erlang processes it starts.
+
+   If you can not (or don't want to) guarantee sequential invocations,
+   pass the "--concurrent" command-line option to the ejabberdctl program.
+   In this case, it will append the PID of the shell process executing the
+   ejabberdctl code to the node name of the Erlang process ejabberdctl starts.
+   This will inevitably grow the ejabberd process's atom table but the maximum
+   theoretical number of the entries added will be no more than twice the
+   maximum number of unique PIDs configured for the system (kernel.pid_max
+   sysctl variable).
+
+   See http://lists.jabber.ru/pipermail/ejabberd/2009-September/005337.html
+   and http://lists.jabber.ru/pipermail/ejabberd/2009-November/005456.html
+   threads for more info on this issue.
+
+6.2 Changes in logging
+----------------------
+
+Erlang emulator log was renamed from "sasl.log" to "erlang.log"
+to remove confusion (some people interpreted "sasl" as standing for
+"Simple Authentication and Security Layer" instead of Erlang runtime's
+logging mechanism).
+
+The "--sasl-log" command-line option of the ejabberd program was renamed
+to "--erlang-log" to match the change above.
+
+
+Authors
+=======
+
+Torsten Werner <twerner@debian.org>
+Sergei Golovan <sgolovan@debian.org>
+Konstantin Khomoutov <flatworm@users.sourceforge.net>
+
+Sun, 15 Nov 2009 03:52:33 +0300

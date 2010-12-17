@@ -1,0 +1,13 @@
+Index: ejabberd-2.1.5/src/configure
+===================================================================
+--- ejabberd-2.1.5.orig/src/configure	2010-08-02 18:33:20.000000000 +0200
++++ ejabberd-2.1.5/src/configure	2010-08-05 19:33:41.550358501 +0200
+@@ -3224,7 +3224,7 @@
+    if
+ 	OTP >= "R14" -> "-DSSL40\n";
+ 	OTP >= "R12" -> "-DSSL39\n";
+-        true -> ""
++        true -> "\n"
+    end.
+ 
+ %% return physical architecture based on OS/Processor

@@ -1,0 +1,13 @@
+/var/log/ejabberd/*.log {
+	weekly
+	missingok
+	rotate 12
+	size 1M
+	compress
+	delaycompress
+	ifempty
+	create 640 ejabberd adm
+	postrotate
+		/usr/sbin/ejabberdctl reopen-log > /dev/null
+	endscript
+}

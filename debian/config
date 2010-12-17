@@ -1,0 +1,49 @@
+#!/bin/sh
+
+set -e
+
+get_passwd()
+{
+  db_input medium ejabberd/password || true
+  db_input medium ejabberd/verify || true
+  db_go || true
+  db_get ejabberd/password
+  PASSWORD="$RET"
+  db_get ejabberd/verify
+  VERIFY="$RET"
+  if [ "$PASSWORD" != "$VERIFY" ]; then
+    db_input medium ejabberd/nomatch || true
+    db_go || true
+    get_passwd
+  fi
+}
+
+get_credentials()
+{
+  db_get ejabberd/user
+  USER=${RET:-admin}
+  db_subst ejabberd/user user "$USER"
+  db_get ejabberd/hostname
+  HOST=${RET:-hostname}
+  db_subst ejabberd/user hostname "$HOST"
+  db_input medium ejabberd/user || true
+  db_go || true
+  db_get ejabberd/user
+  if [ -n "$RET" ]; then
+    get_passwd
+  fi
+}
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+db_input medium ejabberd/hostname || true
+db_go || true
+
+FLAG="/var/lib/ejabberd/.admin_registered"
+if [ ! -f $FLAG ]; then
+  get_credentials
+fi
+
+exit 0
+

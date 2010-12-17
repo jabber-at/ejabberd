@@ -1,0 +1,26 @@
+This package was first debianized by Sergei Golovan <sgolovan@nes.ru> on
+Sun, 25 Apr 2004 16:39:22 +0400. It was maintained since then by
+Torsten Werner <twerner@debian.org>, Gerfried Fuchs <rhonda@debian.at> and
+Konstantin Khomoutov <flatworm@users.sourceforge.net>.
+
+This version of the package is maintained by Mathias Ertl <mati@fsinf.at>.
+
+Original source has been downloaded from
+  http://www.process-one.net/en/projects/ejabberd/download.html
+
+Upstream Author: Alexey Shchepin <alexey@sevcom.net>
+
+This software is Copyright (c) 2002-2005 Alexey Shchepin
+
+You are free to distribute this software under the terms of
+the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+On Debian systems, the complete text of the GNU General Public
+License version 2 can be found in `/usr/share/common-licenses/GPL-2',
+later versions can be found in there too.
+
+As a special exception, the author gives permission to link this program
+with the OpenSSL library and distribute the resulting binary.
+

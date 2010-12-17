@@ -1,0 +1,245 @@
+Implements the "@online@" shared roster group invented by the OLPC project.
+This group lists the users who are online on the user's virtual host.
+
+See http://wiki.laptop.org/go/Ejabberd_Configuration
+
+This patch must be applied after shared_roster_recent.patch
+as it depends on the functionality provided by that patch.
+
+Index: pkg-ejabberd/src/mod_shared_roster.erl
+===================================================================
+--- pkg-ejabberd.orig/src/mod_shared_roster.erl	2010-04-06 12:54:44.000000000 +0400
++++ pkg-ejabberd/src/mod_shared_roster.erl	2010-04-06 12:54:58.000000000 +0400
+@@ -39,6 +39,8 @@
+ 	 out_subscription/4,
+ 	 register_user/2,
+ 	 remove_user/2,
++	 user_available/1,
++	 unset_presence/4,
+ 	 list_groups/1,
+ 	 create_group/2,
+ 	 create_group/3,
+@@ -88,7 +90,11 @@
+     ejabberd_hooks:add(register_user, Host,
+ 		       ?MODULE, register_user, 50),
+     ejabberd_hooks:add(remove_user, Host,
+-		       ?MODULE, remove_user, 50).
++		       ?MODULE, remove_user, 50),
++    ejabberd_hooks:add(user_available_hook, Host,
++         	       ?MODULE, user_available, 50),
++    ejabberd_hooks:add(unset_presence_hook, Host,
++         	       ?MODULE, unset_presence, 50).
+ %%ejabberd_hooks:add(remove_user, Host,
+ %%    	       ?MODULE, remove_user, 50),
+ 
+@@ -112,7 +118,11 @@
+     ejabberd_hooks:delete(register_user, Host,
+ 			  ?MODULE, register_user, 50),
+     ejabberd_hooks:delete(remove_user, Host,
+-			  ?MODULE, remove_user, 50).
++			  ?MODULE, remove_user, 50),
++    ejabberd_hooks:delete(user_available_hook, Host,
++			  ?MODULE, user_available, 50),
++    ejabberd_hooks:delete(unset_presence_hook, Host,
++			  ?MODULE, unset_presence, 50).
+ %%ejabberd_hooks:delete(remove_user, Host,
+ %%    		  ?MODULE, remove_user, 50),
+ 
+@@ -513,6 +523,9 @@
+     %% Apply the function to every user in the list
+     lists:filter(F, Users).
+ 
++get_online_users(Host) ->
++    lists:usort([{U, S} || {U, S, _} <- ejabberd_sm:get_vh_session_list(Host)]).
++
+ get_group_users(Host, Group) ->
+     case get_group_opt(Host, Group, all_users, false) of
+ 	true ->
+@@ -526,6 +539,12 @@
+ 	Days when is_integer(Days) ->
+             get_recent_users(Host, Days)
+     end ++
++    case get_group_opt(Host, Group, online_users, false) of
++	true ->
++	    get_online_users(Host);
++	false ->
++	    []
++    end ++
+     get_group_explicit_users(Host, Group).
+ 
+ get_group_users(_User, Host, Group, GroupOpts) ->
+@@ -541,6 +560,12 @@
+ 	Days when is_integer(Days) ->
+             get_recent_users(Host, Days)
+     end ++
++    case proplists:get_value(online_users, GroupOpts,false) of
++	true ->
++	    get_online_users(Host);
++	false ->
++	    []
++    end ++
+     get_group_explicit_users(Host, Group).
+ 
+ %% @spec (Host::string(), Group::string()) -> [{User::string(), Server::string()}]
+@@ -564,7 +589,8 @@
+     lists:filter(
+       fun(Group) ->
+ 	      get_group_opt(Host, Group, all_users, false) orelse
+-	      get_group_opt(Host, Group, recent_users_days, 0) > 0
++	      get_group_opt(Host, Group, recent_users_days, 0) > 0 orelse
++	      get_group_opt(Host, Group, online_users, false)
+       end,
+       list_groups(Host)).
+ 
+@@ -720,6 +746,103 @@
+ 			push_roster_item(U, S, LUser, LServer, GroupName, Subscription)
+ 		end, get_group_users(LUser, LServer, Group, GroupOpts))
+       end, lists:usort(SpecialGroups++UserGroups)).
++ 
++%% get a roster item for a contact from a particular user's
++%% perspective, considering both normal and shared roster items
++%% FIXME: is there a more efficient way to do this?
++get_user_roster_item(FromUS, ToUS) ->
++    {FUser, FServer} = FromUS,
++    case catch ejabberd_hooks:run_fold(roster_get, FServer, [], [ToUS]) of
++      Items when is_list(Items) ->
++	case [I || I <- Items, I#roster.jid == {FUser, FServer, []}] of
++	  [Item | _ ] ->
++	    Item;
++	  [] ->
++	    false
++	end;
++      _ ->
++	error
++    end.
++
++user_available(New) ->
++    LUser = New#jid.luser,
++    LServer = New#jid.lserver,
++    ?INFO_MSG("user_available for ~p @ ~p (~p resources)",
++        [LUser, LServer,
++         length(ejabberd_sm:get_user_resources(LUser, LServer))]),
++    case length(ejabberd_sm:get_user_resources(LUser, LServer)) of
++      %% first session for this user
++      1 ->
++	%% find all online users on the new user's server, but not the new user himself
++	OnlineUsers = [US || US <- get_online_users(LServer),
++			     US /= {LUser, LServer}],
++	%% for each of these people
++	lists:foreach(
++	  fun({U, S} = OnlineUS) ->
++	    %% see if they are displaying any @online@ groups
++	    DisplayedGroups = get_user_displayed_groups(OnlineUS),
++	    OnlineGroups = lists:filter(
++		fun(Group) ->
++		  get_group_opt(LServer, Group, online_users, false)
++		end, DisplayedGroups),
++	    case OnlineGroups of
++	      [] ->
++		ok;
++	      _ ->
++		%% if so, push them an item for the new user
++		case get_user_roster_item({LUser, LServer}, OnlineUS) of
++		  Item when is_record(Item, roster) ->
++		    push_item(U, S, jlib:make_jid("", S, ""), Item), ok;
++		  _ ->
++		    ok
++		end
++	    end
++	  end, OnlineUsers);
++      _ ->
++	ok
++    end.
++
++unset_presence(LUser, LServer, Resource, Status) ->
++    ?INFO_MSG("unset_presence for ~p @ ~p / ~p -> ~p (~p resources)",
++        [LUser, LServer, Resource, Status,
++         length(ejabberd_sm:get_user_resources(LUser, LServer))]),
++    %% if user has no resources left...
++    case length(ejabberd_sm:get_user_resources(LUser, LServer)) of
++      0 ->
++	%% find all users on their server
++	OnlineUsers = get_online_users(LServer),
++	lists:foreach(
++	  fun({U, S} = OnlineUS) ->
++	    %% see if they are displaying any @online@ groups
++	    DisplayedGroups = get_user_displayed_groups(OnlineUS),
++	    OnlineGroups = lists:filter(
++	      fun(Group) ->
++		get_group_opt(LServer, Group, online_users, false)
++	      end, DisplayedGroups),
++	    case OnlineGroups of
++	      [] ->
++	        ok;
++	      _ ->
++		%% push them their item for the departed user, or remove it
++		case get_user_roster_item({LUser, LServer}, OnlineUS) of
++		  Item when is_record(Item, roster) ->
++		    PushItem = Item;
++		  _ ->
++		    PushItem = #roster{usj = {U, S, {LUser, LServer, ""}},
++				       us = OnlineUS,
++				       jid = {LUser, LServer, ""},
++				       name = "",
++				       subscription = remove,
++				       ask = none,
++				       groups = []}
++		end,
++		push_item(U, S, jlib:make_jid("", S, ""), PushItem),
++		ok
++	    end
++	  end, OnlineUsers);
++      _ ->
++	ok
++    end.
+ 
+ push_user_to_displayed(LUser, LServer, Group, Subscription) ->
+     GroupsOpts = groups_with_opts(LServer),
+@@ -918,6 +1041,7 @@
+     Description = get_opt(GroupOpts, description, ""),
+     AllUsers = get_opt(GroupOpts, all_users, false),
+     RecentUsersDays = get_opt(GroupOpts, recent_users_days, 0),
++    OnlineUsers = get_opt(GroupOpts, online_users, false),
+     %%Disabled = false,
+     DisplayedGroups = get_opt(GroupOpts, displayed_groups, []),
+     Members = mod_shared_roster:get_group_explicit_users(Host, Group),
+@@ -934,6 +1058,12 @@
+ 	    true ->
+ 		[]
+ 	end ++
++	if
++	    OnlineUsers ->
++		"@online@\n";
++	    true ->
++		[]
++	end ++
+ 	[[us_to_list(Member), $\n] || Member <- Members],
+     FDisplayedGroups = [[DG, $\n] || DG <- DisplayedGroups],
+     DescNL = length(element(2, regexp:split(Description, "\n"))),
+@@ -1020,6 +1150,8 @@
+ 				  USs;
+ 			      "@recent@" ->
+ 				  USs;
++			      "@online@" ->
++				  USs;
+ 			      _ ->
+ 				  case jlib:string_to_jid(SJID) of
+ 				      JID when is_record(JID, jid) ->
+@@ -1040,11 +1172,16 @@
+ 		    true -> [{recent_users_days, 7}];
+ 		    false -> []
+ 		end,
++	    OnlineUsersOpt =
++		case lists:member("@online@", SJIDs) of
++		    true -> [{online_users, true}];
++		    false -> []
++		end,
+ 
+ 	    mod_shared_roster:set_group_opts(
+ 	      Host, Group,
+ 	      NameOpt ++ DispGroupsOpt ++ DescriptionOpt ++ AllUsersOpt
+-		++ RecentUsersOpt),
++		++ RecentUsersOpt ++ OnlineUsersOpt),
+ 
+ 	    if
+ 		NewMembers == error -> error;

@@ -1,0 +1,30 @@
+Source: ejabberd
+Section: net
+Priority: optional
+Maintainer: Mathias Ertl <apt-repository@fsinf.at>
+Build-Depends: debhelper (>= 7.0), quilt, erlang-base, erlang-dev (>= 1:10.b), libexpat1-dev, libssl-dev, zlib1g-dev, libpam0g-dev, po-debconf
+Standards-Version: 3.8.4
+Homepage: http://www.process-one.net/en/projects/ejabberd/
+Vcs-Svn: http://svn.fsinf.at/repositories/all/ejabberd
+Vcs-Browser: http://websvn.fsinf.at/listing.php?repname=repositories&path=%2Fall%2Fejabberd-2.1.5%2F&#a3a3d7f2849116ebe4ea5a6e05fc92c70
+
+Package: ejabberd
+Architecture: any
+Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, erlang-nox, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}
+Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat
+Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
+ ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
+ Its features contain:
+  - XMPP-compliant
+  - Web based administration
+  - Load balancing: can run in a cluster of machines
+  - Fault-tolerance: database can be replicated and stored on multiple
+    nodes (nodes can be added or replaced 'on the fly')
+  - Virtual hosting: several virtual domains can be served using single ejabberd
+    instance
+  - SSL/TLS support
+  - Multi-User Chat (MUC/conference)
+  - IRC transport
+  - Jabber Users Directory, based on users vCards
+  - Service Discovery
+  - Shared roster

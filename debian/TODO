@@ -1,0 +1,129 @@
+* Ponder reimplementing the logic of allowing several
+  instances of ejabberdctl to run in parallel while
+  not overflowing the server's atom table.
+
+  The idea is to modify the solution offered by Martin Langhoff
+  at http://lists.jabber.ru/pipermail/ejabberd/2009-December/005627.html 
+  which is clever (uses the flock program, which is essential
+  in Debian and so can be relied upon) but weak in that
+  any "extra" instance will still fail.
+
+  The current plan is to go this route:
+  - Hardcode some limit on the number of parallel instances
+    into ejabberdctl but allow to override it using a command-line
+    argument (say, via --concurrent N).
+  - Upon startup, lock a well-known file under /var/lock/ejabberd
+    in a "blocking forever" mode, that is, if a file is already
+    locked, wait for unlock.
+  - After acquiring the lock, iterate over a sequence 1..N
+    trying to lock specific ("instance") lock files.
+  - Upon successful locking of any of these files, release the
+    "master" lock and continue working.
+  - At exit, unlock the "instance" file and remove it.
+
+  This way, no instance will ever (soft-) fail: they'll be queued
+  for execution while waiting on the "master lock".
+  And the server's atom table will be safe from overflowing as
+  there will ever see at most N unique node names of connecting
+  Erlang nodes running ejabberdctl instances.
+
+* Fix lintian warnings where possible.
+
+* In debconf code, check if the user name contains
+  the "@" character and if it is, does the part of
+  the username to the right of it equals to the
+  provided hostname. If both conditions hold,
+  extract the real username and proceed, otherwise
+  complain. At the current state it's possible to
+  enter an invalid username and several users
+  tripped over this issue.
+
+* Implement processing of standard Debian build options
+  to allow parallel builds (has to be tested) and
+  builds with gcc code optimizations turned off.
+
+* Better parsing of FIREWALL_WINDOW:
+  a) make it robust against invalid input.
+  b) allow open ranges like 123- and -234.
+
+* Add comments (and commented out examples) to the
+  clauses in the "LISTENING PORTS" config file section
+  explaining how to enable IPv6 on a port.
+
+* Seems like git-orig-source doesn't catch
+  RC releases. Might be it would be cool to train
+  it to find them.
+
+
+ejabberdctl.8 tasks
+===================
+
+* It seems (from the stop-kindly command) that ejabberdctl
+  assumes all strings it is passed are encoded in UTF-8
+  no matter what locale settings it and the server see.
+  This is now documented for stop-kindly, but some testing
+  should be done to support or disprove this hypothesis;
+  if it is true, we should document this behaviour
+  exactly once in the man page.
+
+* get-cookie
+  Verify the claim made about its functionality.
+
+* push-roster
+  recheck, manpage entries for mod_ctlextra mentioned other format.
+
+* push-roster-all
+  all users on all vhosts?
+
+* push-alltoall
+  does each user get the entry for theirselves?
+
+* process-rosteritems
+  need more info
+
+* srg-create
+  what format of "display"?
+
+* srg-get-info " group host"
+  what format?
+
+* srg-get-members " group host"
+  what format?
+
+
+Low priority
+============
+
+* Think of implementing /usr/share/ejabberd/common
+  which would be sourced by both ejabberdctl and
+  ejabberd and processed/constructed certain options.
+  Also it seems that the upstream's approach with
+  having just one file both for startup and control
+  isn't that bad, as current packaging leads to some
+  code duplication in scripts.
+
+  Do we need the separate ejabberd script at all?
+
+
+For reference
+=============
+
+* Use upstream ejabberdctl.cfg as /etc/default/ejabberd.
+  Requires patching, see the master branch.
+  Also ensure that the config is safe w.r.t. proxy65 etc,
+  def. log level match etc (compate to the current one).
+
+* Re-check whether the upstream startup files would do
+  better than current.
+  The current have some nice ideas but they
+  a) deviate from upstream
+  b) artifically constructing node names for ejabberdctl
+     provokes the atom list overflow of the ejabberd host
+     in certain scenarious; no robust workaround is known yet.
+
+  On the other hand, upstream scripts:
+  a) more cumbersome;
+  b) kill epmd;
+  c) don't draw dots while waiting for ejabberd to start/stop;
+  d) Show nag screens on debug and live targets.
+

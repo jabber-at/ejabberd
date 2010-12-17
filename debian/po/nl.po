@@ -1,0 +1,101 @@
+# translation of nl.po to
+# Czech translation of ejabberd debconf messages
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the ejabberd package.
+#
+# Sander Devrieze <s.devrieze@pandora.be>, 2006.
+msgid ""
+msgstr ""
+"Project-Id-Version: nl\n"
+"Report-Msgid-Bugs-To: twerner@debian.org\n"
+"POT-Creation-Date: 2008-02-15 10:37+0300\n"
+"PO-Revision-Date: 2006-08-02 17:34+0200\n"
+"Last-Translator: Sander Devrieze <s.devrieze@pandora.be>\n"
+"Language-Team:  <nl@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.2\n"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+msgid "The name of the host ejabberd will serve:"
+msgstr "Hostnaam die ejabberd moet aanbieden:"
+
+#. Type: string
+#. Description
+#: ../templates:1001
+#, fuzzy
+msgid "Please enter the hostname of your Jabber server (in lowercase)."
+msgstr "Voer de hostnaam van uw Jabber-server in."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+#, fuzzy
+msgid "The username of an admin account for ejabberd:"
+msgstr "Naam van een beheerdersaccount voor ejabberd:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+#, fuzzy
+msgid ""
+"Please provide the name of an account to administrate the ejabberd server. "
+"After the installation of ejabberd you can use this account to log in with "
+"any Jabber client to do administrative tasks or go to http://"
+"${hostname}:5280/admin/ and log in with this account to enter the admin "
+"interface. Enter the username part here (e.g. ${user}), but use the full "
+"Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
+"otherwise it will fail."
+msgstr ""
+"Geef de naam op voor een account om ejabberd te beheren. Na de installatie "
+"van ejabberd kunt u met deze account in elke Jabber-client beheerderstaken "
+"uitvoeren of kunt u naar http://${hostname}:5280/admin/ surfen om "
+"beheerderstaken uit te voeren. Let erop dat u de volledige Jabber ID (bv. "
+"'${user}@${hostname}') gebruikt om aan te melden; anders zal het niet lukken."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Leave empty if you don't want to create an admin account automatically."
+msgstr ""
+"Voer niets in als u niet automatisch een beheerdersaccount wilt aanmaken."
+
+#. Type: password
+#. Description
+#: ../templates:3001
+msgid "The password for the admin account:"
+msgstr "Wachtwoord voor de beheerdersaccount:"
+
+#. Type: password
+#. Description
+#: ../templates:3001
+msgid "Please enter the password for the administrative user."
+msgstr "Voer het wachtwoord in voor de beheerder."
+
+#. Type: password
+#. Description
+#: ../templates:4001
+msgid "The password for the admin account again for verification:"
+msgstr "Nogmaals het wachtwoord voor de beheerdersaccount ter controle:"
+
+#. Type: password
+#. Description
+#: ../templates:4001
+msgid ""
+"Please reenter the password for the administrative user for verification."
+msgstr "Voer het wachtwoord voor de beheerder nogmaals in ter controle."
+
+#. Type: error
+#. Description
+#: ../templates:5001
+msgid "The passwords do not match!"
+msgstr "De wachtwoorden komen niet overeen!"
+
+#. Type: error
+#. Description
+#: ../templates:5001
+msgid "The passwords you have typed do not match. Please try again."
+msgstr "De ingevoerde wachtwoorden komen niet overeen. Probeer opnieuw."
