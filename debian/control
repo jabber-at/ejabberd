@@ -2,7 +2,7 @@ Source: ejabberd
 Section: net
 Priority: optional
 Maintainer: Mathias Ertl <apt-repository@fsinf.at>
-Build-Depends: debhelper (>= 7.0), quilt, erlang-base, erlang-dev (>= 1:10.b), libexpat1-dev, libssl-dev, zlib1g-dev, libpam0g-dev, po-debconf
+Build-Depends: debhelper (>= 7.0), quilt, erlang-base, erlang-dev (>= 1:10.b), libexpat1-dev, libssl-dev, zlib1g-dev, libpam0g-dev, po-debconf, erlang-asn1 | erlang-nox, erlang-parsetools | erlang-nox
 Standards-Version: 3.8.4
 Homepage: http://www.process-one.net/en/projects/ejabberd/
 Vcs-Svn: http://svn.fsinf.at/repositories/all/ejabberd

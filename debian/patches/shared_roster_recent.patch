@@ -99,7 +99,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
        end,
        list_groups(Host)).
  
-@@ -859,6 +917,7 @@
+@@ -860,6 +918,7 @@
      Name = get_opt(GroupOpts, name, ""),
      Description = get_opt(GroupOpts, description, ""),
      AllUsers = get_opt(GroupOpts, all_users, false),
@@ -107,7 +107,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
      %%Disabled = false,
      DisplayedGroups = get_opt(GroupOpts, displayed_groups, []),
      Members = mod_shared_roster:get_group_explicit_users(Host, Group),
-@@ -868,7 +927,14 @@
+@@ -869,7 +928,14 @@
  		"@all@\n";
  	    true ->
  		[]
@@ -123,7 +123,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
      FDisplayedGroups = [[DG, $\n] || DG <- DisplayedGroups],
      DescNL = length(element(2, regexp:split(Description, "\n"))),
      FGroup =
-@@ -952,6 +1018,8 @@
+@@ -953,6 +1019,8 @@
  			  case SJID of
  			      "@all@" ->
  				  USs;
@@ -132,7 +132,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
  			      _ ->
  				  case jlib:string_to_jid(SJID) of
  				      JID when is_record(JID, jid) ->
-@@ -966,10 +1034,17 @@
+@@ -967,10 +1035,17 @@
  		    true -> [{all_users, true}];
  		    false -> []
  		end,

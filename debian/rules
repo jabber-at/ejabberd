@@ -27,9 +27,6 @@ endif
 # Not adding breaks roster import for some gateways (specifically JIT)
 #DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-roster-gateway-workaround
 
-test:
-	# ${DEB_CONFIGURE_EXTRA_FLAGS}
-
 prepare: cleanup
 	dh_testdir
 	tar xzf ../ejabberd_${DEB_UPSTREAM_VERSION}.orig.tar.gz -C ..

@@ -1,4 +1,3 @@
-build_on_hardy.patch
 shared_roster_recent.patch
 shared_roster_online.patch
 captcha.patch

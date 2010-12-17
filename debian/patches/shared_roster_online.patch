@@ -91,7 +91,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
        end,
        list_groups(Host)).
  
-@@ -720,6 +746,103 @@
+@@ -721,6 +747,103 @@
  			push_roster_item(U, S, LUser, LServer, GroupName, Subscription)
  		end, get_group_users(LUser, LServer, Group, GroupOpts))
        end, lists:usort(SpecialGroups++UserGroups)).
@@ -195,7 +195,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
  
  push_user_to_displayed(LUser, LServer, Group, Subscription) ->
      GroupsOpts = groups_with_opts(LServer),
-@@ -918,6 +1041,7 @@
+@@ -919,6 +1042,7 @@
      Description = get_opt(GroupOpts, description, ""),
      AllUsers = get_opt(GroupOpts, all_users, false),
      RecentUsersDays = get_opt(GroupOpts, recent_users_days, 0),
@@ -203,7 +203,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
      %%Disabled = false,
      DisplayedGroups = get_opt(GroupOpts, displayed_groups, []),
      Members = mod_shared_roster:get_group_explicit_users(Host, Group),
-@@ -934,6 +1058,12 @@
+@@ -935,6 +1059,12 @@
  	    true ->
  		[]
  	end ++
@@ -216,7 +216,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
  	[[us_to_list(Member), $\n] || Member <- Members],
      FDisplayedGroups = [[DG, $\n] || DG <- DisplayedGroups],
      DescNL = length(element(2, regexp:split(Description, "\n"))),
-@@ -1020,6 +1150,8 @@
+@@ -1021,6 +1151,8 @@
  				  USs;
  			      "@recent@" ->
  				  USs;
@@ -225,7 +225,7 @@ Index: pkg-ejabberd/src/mod_shared_roster.erl
  			      _ ->
  				  case jlib:string_to_jid(SJID) of
  				      JID when is_record(JID, jid) ->
-@@ -1040,11 +1172,16 @@
+@@ -1041,11 +1173,16 @@
  		    true -> [{recent_users_days, 7}];
  		    false -> []
  		end,
