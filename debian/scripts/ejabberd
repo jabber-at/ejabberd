@@ -69,6 +69,8 @@ else
     SNAME=-name
 fi
 
+umask 027
+
 exec $ERL $SNAME $ERLANG_NODE \
     -pa $EBIN_DIR \
     -s ejabberd \

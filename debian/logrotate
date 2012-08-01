@@ -7,6 +7,7 @@
 	delaycompress
 	ifempty
 	create 640 ejabberd adm
+	sharedscripts
 	postrotate
 		/usr/sbin/ejabberdctl reopen-log > /dev/null
 	endscript

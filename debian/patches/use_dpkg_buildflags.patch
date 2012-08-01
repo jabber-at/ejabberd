@@ -1,0 +1,70 @@
+Description: Use CPPFLAGS from environment (dpkg-buildflags).
+ Necessary for hardening flags.
+Author: Simon Ruderich <simon@ruderich.org>
+Last-Update: 2012-03-15
+
+Index: ejabberd-2.1.10/src/configure
+===================================================================
+--- ejabberd-2.1.10.orig/src/configure	2012-03-15 00:20:28.288591657 +0100
++++ ejabberd-2.1.10/src/configure	2012-03-15 00:22:09.780595520 +0100
+@@ -4479,7 +4479,7 @@
+ 	fi
+ 	zlib_save_CFLAGS="$CFLAGS"
+ 	CFLAGS="$CFLAGS $ZLIB_CFLAGS"
+-       zlib_save_CPPFLAGS="$CFLAGS"
++       zlib_save_CPPFLAGS="$CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $ZLIB_CFLAGS"
+ 	for ac_header in zlib.h
+ do :
+Index: ejabberd-2.1.10/src/acinclude.m4
+===================================================================
+--- ejabberd-2.1.10.orig/src/acinclude.m4	2012-03-15 00:20:28.288591657 +0100
++++ ejabberd-2.1.10/src/acinclude.m4	2012-03-15 00:22:09.784595520 +0100
+@@ -54,7 +54,7 @@
+ 	fi
+ 	zlib_save_CFLAGS="$CFLAGS"
+ 	CFLAGS="$CFLAGS $ZLIB_CFLAGS"
+-       zlib_save_CPPFLAGS="$CFLAGS"
++       zlib_save_CPPFLAGS="$CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $ZLIB_CFLAGS"
+ 	AC_CHECK_HEADERS(zlib.h, , zlib_found=no)
+ 	if test $zlib_found = no; then
+Index: ejabberd-2.1.10/src/Makefile.in
+===================================================================
+--- ejabberd-2.1.10.orig/src/Makefile.in	2012-03-15 00:20:28.288591657 +0100
++++ ejabberd-2.1.10/src/Makefile.in	2012-03-15 00:22:09.784595520 +0100
+@@ -168,7 +168,7 @@
+ 	@ERLC@ -W $(EFLAGS) $*.erl
+ 
+ $(ERLSHLIBS):	%.so:	%.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBS) \
++	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LIBS) \
+ 		$(subst ../,,$(subst .so,.c,$@)) \
+ 		$(EXPAT_LIBS) \
+ 		$(EXPAT_CFLAGS) \
+Index: ejabberd-2.1.10/src/mod_irc/Makefile.in
+===================================================================
+--- ejabberd-2.1.10.orig/src/mod_irc/Makefile.in	2012-03-15 00:20:28.288591657 +0100
++++ ejabberd-2.1.10/src/mod_irc/Makefile.in	2012-03-15 00:22:09.784595520 +0100
+@@ -41,7 +41,7 @@
+ #	erl -s make all report "{outdir, \"..\"}" -noinput -s erlang halt
+ 
+ $(ERLSHLIBS):	../%.so:	%.c
+-	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) \
++	$(CC) $(INCLUDES) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) \
+ 		$(subst ../,,$(subst .so,.c,$@)) \
+ 		$(LIBS) \
+ 		$(ERLANG_CFLAGS) \
+Index: ejabberd-2.1.10/src/stringprep/Makefile.in
+===================================================================
+--- ejabberd-2.1.10.orig/src/stringprep/Makefile.in	2012-03-15 00:22:43.904596819 +0100
++++ ejabberd-2.1.10/src/stringprep/Makefile.in	2012-03-15 00:22:58.844597386 +0100
+@@ -42,7 +42,7 @@
+ #	erl -s make all report "{outdir, \"..\"}" -noinput -s erlang halt
+ 
+ $(ERLSHLIBS):	../%.so:	%.c uni_data.c uni_norm.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) $(INCLUDES) \
++	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(INCLUDES) \
+ 		$(subst ../,,$(subst .so,.c,$@)) $(LIBS) \
+ 		$(ERLANG_LIBS) \
+ 		$(ERLANG_CFLAGS) \

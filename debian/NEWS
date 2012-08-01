@@ -1,0 +1,65 @@
+ejabberd (2.1.8-1) unstable; urgency=low
+
+  This release drops support for the @recent@ shared roster group
+  (implemented as part of the OLPC project), and now only the @online@
+  shared roster group is supported.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Sun, 07 Aug 2011 20:40:02 +0400
+
+ejabberd (2.1.4-1) unstable; urgency=low
+
+  umask is now forcibly set to 027 before ejabberd's main process
+  is started. This means all the files created by ejabberd now have
+  permissions set to 0640 (0750 for directories). This does not have
+  any impact on the routine operation of ejabberd but this affects
+  all the commands which export data, such as `ejabberdctl export2odbc` --
+  the files they generate now cannot be read by users other than
+  root, ejabberd and those included in the "ejabberd" group.
+
+  The directory containing ejabberd logs (/var/log/ejabberd) is now
+  owned by the "adm" group and have the group sticky bit set on it
+  so that the log files are also owned by this group. In addition, due
+  to the change described above they are now not world-readable.
+  This is a change in behaviour; if you don't like it, use dpkg-statoverride
+  on the /var/log/ejabberd directory to force other owner/permissions.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Mon, 12 Jul 2010 03:28:32 +0400
+
+ejabberd (2.1.2-2) unstable; urgency=high
+
+  This release fixes CVE-2010-0305 by allowing a server administrator
+  to limit the lengths of "message queues" for outgoing connections.
+  Roughly speaking, each message in such queues represents one XML
+  stanza queued to be sent into its relevant outgoing stream.
+
+  Note that the limiting is *NOT* enabled by default; if you want to enable
+  it, use the {max_fsm_queue, Size} option which can either be specified
+  globally (at the top level of the configuration file) and/or
+  specifically for ejabberd_service and ejabberd_c2s_in listeners.
+  Local options specified for the said listeners override the global one.
+  The global option, if present, also affects outgoing server-to-server
+  connections.
+  The argument to this option can be either an atom 'undefined' -- the default
+  value -- or an integer number, specifying the maximum number of queued messages.
+
+  Refer to /usr/share/doc/ejabberd/guide.html for more details.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Tue, 09 Feb 2010 01:46:55 +0300
+
+ejabberd (2.1.0-1) unstable; urgency=low
+
+  Calling convention of the ejabberdctl program was changed.
+  Also some of its commands were renamed or removed,
+  or their calling convention was changed due to switching
+  to another ejabberd module providing a set of additional commands.
+
+  "sasl.log" was renamed to "erlang.log", and ejabberd command-line option
+  to change its location was renamed accordingly as well.
+
+  ejabberdctl no more generates unique node names for the erl process
+  it spawns by default, it only does so if the "--concurrent" option is specified. 
+  The method used to generate unique node names was also changed.
+
+  See the "Upgrading from 2.0.x series" section in README.Debian for details.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Tue, 17 Nov 2009 16:56:08 +0300

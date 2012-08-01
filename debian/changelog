@@ -1,3 +1,10 @@
+ejabberd (2.1.11-2) wheezy; urgency=low
+
+  * Package is now build using git-buildpackage
+  * merge upstream packaging changes
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Wed, 01 Aug 2012 21:47:57 +0200
+
 ejabberd (2.1.11-1) wheezy; urgency=low
 
   * bump from upstream

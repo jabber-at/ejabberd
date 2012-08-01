@@ -1,14 +1,14 @@
 This patch fixes several problems pinpointed when dealing
 with Debian bug #580951:
  * erlang.log (SASL log file) for some reason only gets reopened
-   each second call to `ejabberdcl reopen-log`;
+   each second call to `ejabberdctl reopen-log`;
  * After reopening the same files (that is, when the files were
    not renamed (by logrotate, for instance) before reopening),
    erlang.log gets truncated, and ejabberd.log gets renamed
-   to "ejabberd-old.log"; both behaviours break the contract
-   of the "reopening of log files" contract;
+   to "ejabberd-old.log"; both behaviours break the
+   "reopening of log files" contract common in Unix.
 
-The patch fixes this problems in the following way:
+The patch fixes these problems in the following way:
  * The SASL application is started with its built-in file logger
    disabled. After this a custom module is inserted to handle
    SASL messages; this module does not truncate its log file
@@ -22,10 +22,11 @@ The patch fixes this problems in the following way:
    synchronously sent to these modules when `ejabberdctl reopen-log`
    is being run.
 
-Index: ejabberd-2.1.9/src/ejabberd_logger_h.erl
-===================================================================
---- ejabberd-2.1.9.orig/src/ejabberd_logger_h.erl	2011-09-26 18:11:18.000000000 +0200
-+++ ejabberd-2.1.9/src/ejabberd_logger_h.erl	2011-10-10 16:14:14.329106771 +0200
+This problem is being tracked upstream as
+https://support.process-one.net/browse/EJAB-1243
+
+--- a/src/ejabberd_logger_h.erl
++++ b/src/ejabberd_logger_h.erl
 @@ -58,6 +58,20 @@
  %%          {swap_handler, Args1, State1, Mod2, Args2} |
  %%          remove_handler                              
@@ -55,11 +56,9 @@ Index: ejabberd-2.1.9/src/ejabberd_logger_h.erl
      case file:open(State#state.file, [append, raw]) of
  	{ok, Fd} ->
  	    {ok, State#state{fd = Fd}};
-Index: ejabberd-2.1.9/src/ejabberd_admin.erl
-===================================================================
---- ejabberd-2.1.9.orig/src/ejabberd_admin.erl	2011-09-26 18:11:18.000000000 +0200
-+++ ejabberd-2.1.9/src/ejabberd_admin.erl	2011-10-10 16:14:14.329106771 +0200
-@@ -219,28 +219,9 @@
+--- a/src/ejabberd_admin.erl
++++ b/src/ejabberd_admin.erl
+@@ -223,28 +223,9 @@
  
  reopen_log() ->
      ejabberd_hooks:run(reopen_log_hook, []),
@@ -89,10 +88,8 @@ Index: ejabberd-2.1.9/src/ejabberd_admin.erl
  %%%
  %%% Stop Kindly
  %%%
-Index: ejabberd-2.1.9/src/sasl_report_append_file_h.erl
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ejabberd-2.1.9/src/sasl_report_append_file_h.erl	2011-10-10 16:14:14.349106726 +0200
+--- /dev/null
++++ b/src/sasl_report_append_file_h.erl
 @@ -0,0 +1,59 @@
 +%%
 +%% SASL report logging to a file in append mode.
@@ -153,10 +150,8 @@ Index: ejabberd-2.1.9/src/sasl_report_append_file_h.erl
 +tag_event(Event) ->
 +    {calendar:local_time(), Event}.
 +
-Index: ejabberd-2.1.9/src/ejabberd_app.erl
-===================================================================
---- ejabberd-2.1.9.orig/src/ejabberd_app.erl	2011-09-26 18:11:18.000000000 +0200
-+++ ejabberd-2.1.9/src/ejabberd_app.erl	2011-10-10 16:14:14.369106648 +0200
+--- a/src/ejabberd_app.erl
++++ b/src/ejabberd_app.erl
 @@ -103,6 +103,13 @@
      register(ejabberd, self()),
      %erlang:system_flag(fullsweep_after, 0),

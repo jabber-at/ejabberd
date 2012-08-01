@@ -1,3 +1,5 @@
+use_dpkg_buildflags.patch
+ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
 reopen-log.patch

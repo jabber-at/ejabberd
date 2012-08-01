@@ -22,6 +22,7 @@ case "$1" in
 	rm -f $CONFIG_TARGET
 	rm -f /etc/ejabberd/ejabberd.pem
 	rm -Rf /var/log/ejabberd /var/lib/ejabberd
+	rm -Rf /var/run/ejabberd || true
 	rm -f /etc/default/ejabberd
 	if which deluser >/dev/null ; then
 	    deluser ejabberd 2>/dev/null || true

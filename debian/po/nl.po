@@ -1,46 +1,43 @@
-# translation of nl.po to
-# Czech translation of ejabberd debconf messages
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# Dutch translation of ejabberd debconf templates.
+# Copyright (C) 2006-2012 THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the ejabberd package.
-#
 # Sander Devrieze <s.devrieze@pandora.be>, 2006.
+# Jeroen Schot <schot@a-eskwadraat.nl>, 2012.
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: nl\n"
+"Project-Id-Version: ejabberd 2.1.9-1\n"
 "Report-Msgid-Bugs-To: twerner@debian.org\n"
 "POT-Creation-Date: 2008-02-15 10:37+0300\n"
-"PO-Revision-Date: 2006-08-02 17:34+0200\n"
-"Last-Translator: Sander Devrieze <s.devrieze@pandora.be>\n"
+"PO-Revision-Date: 2012-01-27 10:54+0100\n"
+"Last-Translator: Jeroen Schot <schot@a-eskwadraat.nl>\n"
 "Language-Team:  <nl@li.org>\n"
+"Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: KBabel 1.11.2\n"
 
 #. Type: string
 #. Description
 #: ../templates:1001
 msgid "The name of the host ejabberd will serve:"
-msgstr "Hostnaam die ejabberd moet aanbieden:"
+msgstr "Naam van de computer die ejabberd moet aanbieden:"
 
 #. Type: string
 #. Description
 #: ../templates:1001
-#, fuzzy
 msgid "Please enter the hostname of your Jabber server (in lowercase)."
-msgstr "Voer de hostnaam van uw Jabber-server in."
+msgstr "Wat is de computernaam van uw Jabber-server (in kleine letters)?"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
 msgid "The username of an admin account for ejabberd:"
 msgstr "Naam van een beheerdersaccount voor ejabberd:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
@@ -50,11 +47,12 @@ msgid ""
 "Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
 "otherwise it will fail."
 msgstr ""
-"Geef de naam op voor een account om ejabberd te beheren. Na de installatie "
-"van ejabberd kunt u met deze account in elke Jabber-client beheerderstaken "
-"uitvoeren of kunt u naar http://${hostname}:5280/admin/ surfen om "
-"beheerderstaken uit te voeren. Let erop dat u de volledige Jabber ID (bv. "
-"'${user}@${hostname}') gebruikt om aan te melden; anders zal het niet lukken."
+"Geef de naam op van een account om ejabberd te beheren. Na de installatie "
+"van ejabberd kunt u met deze account in elke Jabber-client of op http://"
+"${hostname}:5280/admin/ beheerderstaken uitvoeren. Geeft hier alleen het "
+"gebruiksnaam-deel op (bv. ${user}), maar gebruik het volledige Jabber-ID "
+"(bv. ${user}@${hostname) om in te loggen op de webinterface van ejabberd, "
+"anders zal dit mislukken."
 
 #. Type: string
 #. Description

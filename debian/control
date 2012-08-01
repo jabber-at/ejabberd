@@ -2,16 +2,17 @@ Source: ejabberd
 Section: net
 Priority: optional
 Maintainer: Mathias Ertl <apt-repository@fsinf.at>
-Build-Depends: debhelper (>= 7.0), quilt, erlang-base, erlang-dev (>= 1:10.b), libexpat1-dev, libssl-dev, zlib1g-dev, libpam0g-dev, po-debconf, erlang-asn1, erlang-parsetools
-Standards-Version: 3.9.1
+Build-Depends: debhelper (>= 7.3~), quilt, erlang-base, erlang-asn1, erlang-parsetools, erlang-dev (>= 1:15.b), libexpat1-dev, libssl-dev, zlib1g-dev, libpam0g-dev, po-debconf
+Standards-Version: 3.9.2
 Homepage: http://www.process-one.net/en/projects/ejabberd/
-Vcs-Svn: http://svn.fsinf.at/repositories/all/ejabberd
-Vcs-Browser: http://websvn.fsinf.at/listing.php?repname=repositories&path=%2Fall%2Fejabberd-2.1.5%2F&#a3a3d7f2849116ebe4ea5a6e05fc92c70
+Vcs-Git: https://git.git.fsinf.at/apt/ejabberd.git
+Vcs-Browser: https://git.fsinf.at/apt/ejabberd
 
 Package: ejabberd
 Architecture: any
-Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, erlang-nox, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}
+Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}
 Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat
+Conflicts: ejabberd-mod-shared-roster-ldap
 Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
  ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
  Its features contain:

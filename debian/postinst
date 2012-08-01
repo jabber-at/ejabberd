@@ -31,18 +31,14 @@ setup_ejabberd()
     install -d /var/log/ejabberd
     if ! dpkg-statoverride --list /var/log/ejabberd >/dev/null; then
 	chown ejabberd:adm /var/log/ejabberd
-	chmod 750 /var/log/ejabberd
-    fi
-
-    # Moving certificate from /etc/ssl/certs to /etc/ejabberd (see bug #368414).
-    cd /etc/ssl/certs
-    if [ -f ejabberd.pem ] && [ ! -z $2 ] && dpkg --compare-versions "$2" lt-nl "1.1.1-3"
-    then
-	echo "Moving ejabberd.pem from /etc/ssl/certs to /etc/ejabberd..."
-	rm -f $(openssl x509 -noout -hash < ejabberd.pem).0
-	mv ejabberd.pem /etc/ejabberd
-	echo "Replacing /etc/ejabberd/ejabberd.pem for /etc/ssl/certs/ejabberd.pem in the config file..."
-	sed -i -e 's:/etc/ssl/certs/ejabberd.pem:/etc/ejabberd/ejabberd.pem:g' /etc/ejabberd/ejabberd.cfg
+	chmod 2750 /var/log/ejabberd
+	if dpkg --compare-versions "$2" lt '2.1.4'; then
+	    find /var/log/ejabberd -type f -name '*.log*' \
+		| while read f; do
+		    chown ejabberd:adm "$f"
+		    chmod 0640 "$f"
+	    done
+	fi
     fi
 
     # Making /etc/ejabberd/ejabberd.pem if it does not exist.
@@ -129,7 +125,7 @@ register_admin()
 case "$1" in
     configure|reconfigure)
 	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd
-	setup_ejabberd
+	setup_ejabberd "$@"
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
