@@ -1,0 +1,67 @@
+#!/bin/sh
+
+ERLANG_NODE=ejabberd
+
+if [ -f /etc/default/ejabberd ] ; then
+    . /etc/default/ejabberd
+fi
+
+if [ "$FIREWALL_WINDOW" = "" ] ; then
+    KERNEL_OPTS=""
+else
+    KERNEL_OPTS="-kernel \
+	inet_dist_listen_min ${FIREWALL_WINDOW%-*} \
+	inet_dist_listen_max ${FIREWALL_WINDOW#*-}"
+fi
+
+if [ -r /var/lib/ejabberd/.erlang.cookie ] ; then
+    HOME=/var/lib/ejabberd
+    export HOME
+fi
+
+ERL_CRASH_DUMP=/var/log/ejabberd/erl_crash.dump
+export ERL_CRASH_DUMP
+
+ERL=/usr/bin/erl
+EBIN_DIR=/usr/lib/ejabberd/ebin
+SUFFIX=''
+
+if [ $# -ne 0 ] ; then
+    case $1 in
+	--) shift; break ;;
+	--node) shift ; ERLANG_NODE=$1 ; shift ;;
+	--concurrent) shift; SUFFIX=$$ ;;
+    esac
+fi
+
+if [ "$ERLANG_NODE" = "${ERLANG_NODE%.*}" ] ; then
+    SNAME=-sname
+else
+    SNAME=-name
+fi
+
+case $1 in
+    debug)
+	shift
+
+	if [ "$ERLANG_NODE" = "${ERLANG_NODE%@*}" ] ; then
+	    ERLANG_NODE=$ERLANG_NODE@$(hostname -s)
+	fi
+
+	echo "Attaching Erlang shell to node $ERLANG_NODE."
+	echo "To detach it, press: Ctrl+G, q, Return"
+	echo ""
+	exec $ERL $SNAME ejabberddebug$SUFFIX \
+	    -remsh $ERLANG_NODE \
+	    $KERNEL_OPTS \
+	    "$@"
+    ;;
+    *)
+	exec $ERL $SNAME ejabberdctl$SUFFIX \
+	    -pa $EBIN_DIR \
+	    -s ejabberd_ctl \
+	    -noinput \
+	    $KERNEL_OPTS \
+	    -extra $ERLANG_NODE "$@"
+    ;;
+esac

@@ -1,0 +1,814 @@
+ejabberd (2.1.11-1) wheezy; urgency=low
+
+  * bump from upstream
+  * remove old erlang-nox dependencies
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Wed, 09 May 2012 13:17:33 +0200
+
+ejabberd (2.1.10-1) wheezy; urgency=low
+
+  * bump from upstream
+  * cleanup rules file
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Thu, 29 Dec 2011 11:44:32 +0200
+
+ejabberd (2.1.9-1) wheezy; urgency=low
+
+  * bump from upstream
+  * apply source format 3.0
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Thu, 06 Oct 2011 22:41:39 +0200
+
+ejabberd (2.1.8-1) wheezy; urgency=low
+  
+  * Version bump from upstream (2.1.7 was skipped)
+  * Do not install unnecessary COPYING (redundant license file)
+  * remove unmaintained NEWS file
+  * drop patches that no longer apply: 
+    * shared_roster_recent
+    * shared_roster_online (applied upstream)
+ 
+ -- Mathias Ertl <apt-repository@fsinf.at>  Sat, 04 Jun 2011 14:02:56 +0200
+
+ejabberd (2.1.6-1) maverick; urgency=low
+  
+  * Version bump from upstream
+  * removed build_on_hardy.patch (fixed upstream)
+  * add erlang-asn1 and erlang-parsetools as dependencies. Replaces erlang-nox
+    package from older architectures
+ 
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 17 Dec 2010 11:56:02 +0100
+
+ejabberd (2.1.5-1) maverick; urgency=low
+
+  * Version bump from upstream
+  * This package remerges all the changes that happened to the Debian packag
+    upstream since 2008:
+    * Call set -e explicitly in debian/config instead of on the hashbang line.
+    * Provide NEWS and TODO file
+    * Use upstream inetrc file
+    * Provide japanese translations
+    * Refreshed translations; fr, eu, tr, sv, fi
+    * removed unused debian/control.in
+    * added new patches: captcha, fix_examples, reopen-log, 
+      shared_roster_online and shared_roster_recent
+    * Improve init script:
+      * Make init script LSB-compliant.
+      * Implement "live" target which allows to run ejabberd in foreground.
+      * Use $remote_fs facility in init-script as ejabberd uses files under
+        /usr (fixes lintian error).
+    * Add global option max_fsm_queue set to 1000 to the configuration file 
+      (amendment to the fix for #568383).
+    * Document connected-users-info and stop-kindly ejabberdctl commands.
+    * Document --concurrent option of ejabberdctl
+    * Add FIREWALL_WINDOW option to defaults file (/etc/defaults/ejabberd)
+    * Set place for Erlang crash dumps in ejabberdctl.
+    * rename --sasl-log to --erlang-log in ejabberd script
+    * update ejabberd and ejabberdctl manpage
+    * Do not regenerate /etc/ejabberd/ejabberd.pem if we are upgrading and the
+      file doesn't exist (maintainer has probably removed it for good reason.)
+    * Make logrotate process all files matching "*.log".
+    * updated README.source and README.Debian
+    * update debian/rules
+    * control-file:
+      * update descriptions for binary package
+      * Do not depend on cdbs anymore, port debian/rules to dh+quilt,
+        remove build dependency on patchutils, use erlang-depends.
+      * Depend on erlang R13B.
+      * Recommend imagemagick (for captcha support)
+      * Replace ${erlang-nox:Depends} with ${erlang:Depends} to generate a
+        minimal list of Erlang
+      * Reduce the set of Erlang packages required to build ejabberd.
+    * Disable ejabberd_debug module and exclude it from packagin
+    Note that *unlike* the package from debian/squeeze this package does NOT
+    include mod_admin_extra - its provided in its own package.
+    For details on any of the changes listed above, please see the original
+    package in debian/squeeze.
+  * Other improvements:
+    * Added build_on_hardy.patch (fixes EJAB-1287)
+    * Added mention of me in the copyrights file
+    * Added correct Vcs-Svn and Vcs-Browser variables to source package
+    * removed obsolete patches: dbcheck, module_list and s2s
+    * remove mod-admin-extra from the default configuration
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Thu, 05 Aug 2010 21:25:49 +0200
+
+ejabberd (2.1.4-1) lucid; urgency=low
+
+  * version bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 04 Jun 2010 12:22:03 +0200
+
+ejabberd (2.1.3-2) lucid; urgency=low
+
+  * add route-error.patch, which fixes EJAB-930
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Mon, 24 May 2010 00:37:37 +0200
+
+ejabberd (2.1.3-1) karmic; urgency=low
+
+  * version bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Mon, 05 Apr 2010 20:48:59 +0200
+
+ejabberd (2.1.1-2) karmic jaunty intrepid hardy lenny; urgency=low
+
+  * Only check auth if an AccessCommand requires. Don't complain
+      otherwise: ejabberd_commands will do.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 08 Jan 2010 18:53:22 +0000
+
+ejabberd (2.1.1-1) karmic jaunty intrepid hardy lenny; urgency=low
+
+  * bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Thu, 24 Dec 2009 00:54:29 +0100
+
+ejabberd (2.1.0-1) karmic jaunty intrepid hardy lenny; urgency=low
+
+  * bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Sat, 14 Nov 2009 19:40:44 +0100
+
+ejabberd (2.0.5-1) unstable; urgency=low
+
+  * bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Tue, 14 Apr 2009 19:31:46 +0200
+
+ejabberd (2.0.3-1) unstable; urgency=low
+
+  * removed s2s.patch. I'm not a good erlang-coder, but I didn't like what it
+    was doing.
+  * bump from upstream
+  * remove --enable-mssql during configure since this causes massive problems
+    (see https://support.process-one.net/browse/EJAB-830)
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Sat, 14 Feb 2009 18:55:40 +0100
+
+ejabberd (2.0.2-2) unstable; urgency=low
+
+  * Do not regenerate /etc/ejabberd/ejabberd.pem if we are upgrading and the
+    file doesn't exist (maintainer has probably removed it for good reason.)
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Tue, 30 Dec 2008 16:12:14 +0100
+
+ejabberd (2.0.2-1) unstable; urgency=low
+
+  * bump from upstream.
+  * removed some patches that are no longer needed:
+    * web.patch
+    * some lines inside individual patches
+  * added support for mssql
+  * added libkrb5-dev as build-dependency (configure checks for krb5.h)
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Tue, 30 Dec 2008 12:27:24 +0100
+
+ejabberd (2.0.1-5) unstable; urgency=low
+
+  * Added Brazilian Portuguese debconf templates translation
+    (closes: #501751).
+  * Protected hostname -s and hostname -d calls in postinst script to prevent
+    its failure in case when hostname is incorrectly configured. It's harmless
+    to replace hostname by "localhost" because it's used only for generating
+    a reference SSL certificate which is to be replaced by a proper one.
+  * Added option {keepalive, true} to ssl socket in LDAPS support patch.
+    This helps not to loose long-term connections to LDAPS server (thanks
+    to Alex Mauer for a suggestion).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 10 Oct 2008 09:48:34 +0400
+
+ejabberd (2.0.1-4) unstable; urgency=low
+
+  * Added Basque debconf templates translation (closes: #492129).
+  * Removed unneeded package grep-dctrl from build-dependencies (a call to
+    erlang-depends has replaced it long time ago).
+  * Updated Czech debconf templates translation (closes: #492495).
+  * Added a unique suffix to ejabberdctl nodes to allow several commands to
+    run in parallel.
+  * Fixed a bug in building mod_http_fileserver, which made it completely
+    unusable.
+  * Added missing description of reopen-weblog ejabberdctl command to
+    ejabberdctl.8 manpage.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Mon, 04 Aug 2008 14:10:00 +0400
+
+ejabberd (2.0.1-3) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * Synced mod_ctlextra module with upstream (closes: #488991).
+  * Updated Portuguese debconf templates translation (closes: #487822).
+  * Switched off autoupdating debian/control by cdbs to make
+    build-dependencies consistent.
+  * Added Swedish debconf templates translation (closes: #490681).
+  * Updated Russian debconf templates translation (closes: #491424).
+  * Updated Spanish debconf templates translation.
+  * Added Galician debconf templates translation (closes: #490855).
+  * Added Vietnamese debconf templates translation (closes: #491056).
+  * Cleaned up LDAPS patch and fixed a bug with leaking SSL sockets
+    (closes: #490059).
+  * Don't return from init script until at least Erlang VM is started to make
+    subsequent checks for running ejabberd simpler.
+  * Added an additional check for starting Erlang VM and don't try to register
+    admin user if ejabberd isn't started. This allows to shorten waiting
+    interval during upgrade if it isn't desirable to start ejabberd
+    automatically (closes: #462357).
+  * Added Turkish debconf templates translation (closes: #491493).
+  * Added Finnish debconf templates translation (closes: #491652).
+  * Install SQL database schemas to examples directory.
+  * Fixed crash in checking relational DB modules (closes: #491664).
+
+  [ Torsten Werner ]
+  * Updated German debconf templates translation.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Wed, 23 Jul 2008 16:32:03 +0400
+
+ejabberd (2.0.1-2) unstable; urgency=low
+
+  * Improved a patch which removes message rejecting intervals for
+    server-to-server recipients.
+  * Bumped standards version to 3.8.0.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 20 Jun 2008 10:07:29 +0400
+
+ejabberd (2.0.1-1) unstable; urgency=low
+
+  * New upstream bugfix release.
+  * Refreshed patches, removed those which were included into upstream.
+  * Added _2 suffix to get-orig-source target in debian/rules (temporarily).
+  * Fixed debian/watch to cover current release version (with _2 suffix).
+  * Fixed mod_ctlextra to work with ejabberd 2.0.1 (changed session record
+    definition).
+  * Added new ejabberdctl commands (both new in 2.0.1 and in mod_ctlextra)
+    to ejabberdctl manual page.
+  * Changed restart branch in init.d script to perform full Erlang VM stop
+    and start again (this allows to apply changes in /etc/default/ejabberd
+    if any during ejabberd restart).
+  * Clarified -sname and -name Erlang option usage by ejabberd and ejabberdctl
+    in their manual pages (closes: #482904).
+  * Added BUGS section to ejabberd manual page with a short description of
+    the most common cases of ejabberd start failures (closes: #481819).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sun, 08 Jun 2008 16:32:18 +0400
+
+ejabberd (2.0.0-7) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * Installed eldap.hrl header. It is necessary to build some external modules
+    for ejabberd.
+  * Moved headers which are in subdirectories of src directory to
+    corresponding subdirectory of /usr/lib/ejabberd/include/ as they are
+    usually included with subdirectory prepended.
+  * Included a patch which adds LDAPS support and added {ldap_encrypt} and
+    {ldap_port} example options to ejabberd config file (closes: #477918).
+  * Added an additional info on how to use ejabberd headers to README.Debian.
+  * Changed section in doc-base registration file to Network/Communication.
+  * Don't use HOSTNAME variable in postinstall and debconf config scripts to
+    prevent confusion with the same bash standard environment variable.
+  * Removed empty preinstall maintainer script.
+  * Fixed minus signs in ejabberd and ejabberdctl manual pages.
+  * Updated Russian debconf templates translation.
+
+  [ Torsten Werner ]
+  * Updated German debconf templates translation.
+  * Update Vcs headers in debian/control.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sat, 17 May 2008 23:30:17 +0400
+
+ejabberd (2.0.0-6) unstable; urgency=low
+
+  * Replaced a patch for proxy65 module with nicer one (thanks to Evgeniy
+    Khramtsov).
+  * Added a patch for S2S module to make STARTTLS working with Erlang R12B.
+  * Added a patch by upstream fixes crash when browsing the Update page in
+    Erlang R12B.
+  * Fixed ODBC patch to work with Erlang R11B also.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Tue, 11 Mar 2008 15:10:42 +0300
+
+ejabberd (2.0.0-5) experimental; urgency=low
+
+  * Turned unnecessary error messages in mod_caps module into debug messages.
+  * Added a few patches to shared roster module and also added mod_ctlextra
+    (a module which offers many more or less useful commands to ejabberdctl)
+    following the discussion in the following thread:
+    http://lists.debian.org/debian-edu/2008/03/msg00017.html
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 07 Mar 2008 20:30:07 +0300
+
+ejabberd (2.0.0-4) experimental; urgency=low
+
+  * Updated French debconf templates translation (closes: #468788).
+  * Disabled epoll by default in /etc/default/ejabberd.
+  * Increased default maximum number of conference room occupants to 500.
+    Given increasing popularity of XMPP old default value 200 is too low.
+  * Disabled SMP support in ejabberd by default. It isn't necessary in most
+    cases but can be less reliable.
+  * Enabled PAM authentication support (yet needs to be refined).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Mon, 03 Mar 2008 22:54:48 +0300
+
+ejabberd (2.0.0-3) experimental; urgency=low
+
+  * Increased S2S timeouts. Defaults seems to be too short.
+  * Removed a 5-minute delay between a remote server connect failure and the
+    next connection attempt. It causes more harm than good.
+  * Changed ownership of ejabberd config directory and SSL certificate to
+    root:ejabberd and mode to to make sure they aren't overwritten by running
+    ejabberd.
+  * Remove an SSL certificate on package purge. It is assumed that it's a
+    generated certificate, so the removal is unconditional.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sun, 24 Feb 2008 10:40:03 +0300
+
+ejabberd (2.0.0-2) experimental; urgency=low
+
+  * Saved a little bit of resources by not starting ssl module which isn't
+    used by ejabberd anymore.
+  * Added several new variables to ejabberd script and default settings
+    following upstream.
+  * Added 'debug' option to ejabberdctl script which attaches Erlang shell to
+    already running ejabberd server.
+  * Removed useless README and /etc/ejabberd/ejabberdctl.cfg files from the
+    binary package (/etc/ejabberd/ejabberdctl.cfg content is moved to
+    /etc/default/ejabberd).
+  * Added a patch which makes proxy65 module working with Erlang R12B.
+  * Fixed position of override section in ejabberd.cfg and uncommented proxy65
+    module (with adding restrictive options).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 22 Feb 2008 13:51:14 +0300
+
+ejabberd (2.0.0-1) experimental; urgency=low
+
+  * New upstream release.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Thu, 21 Feb 2008 18:36:46 +0300
+
+ejabberd (1.1.4-6) unstable; urgency=low
+
+  * Loosened build dependencies to make backporting to etch easier.
+  * Added a requirement for $remote_fs into init.d script because ejabberd
+    needs mounted /usr to run.
+  * Added a patch which allows ODBC to work with Erlang R12B.
+  * Clarified debconf messages (closes: #390206).
+  * Added a notice about hostname change to README.Debian and included erlang
+    node conversion utility to the binary package (closes: #457097).
+  * Added a patch which allows to use certificate chain files for encrypted
+    connections (closes: #466676).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Thu, 21 Feb 2008 18:21:32 +0300
+
+ejabberd (1.1.4-5) unstable; urgency=low
+
+  * Do not remove /etc/ejabberd on package purge to preserve user files if
+    any (closes: #460459).
+  * Bumped standards version to 3.7.3.
+  * Added homepage header to debian control file.
+  * Fixed unnecessary space in doc-base.
+  * Changed default setting for nicknames which can be registered to 'none'
+    (which effectively forbids registration) as this setting is more safe
+    (closes: #458627).
+  * Fixed name section of ejabberd and ejabberdctl manual pages.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sun, 13 Jan 2008 01:37:19 +0300
+
+ejabberd (1.1.4-4) unstable; urgency=low
+
+  * Added a patch which fixes access rule check in mod_irc.
+  * Added a patch which fixes ejabberd build using erlang R12B-0.
+  * Increased number of erlang ports in /etc/ejabberd/default. The default
+    value of 1024 allows too few simultaneous connections (from 300 to 500
+    for both clients and servers depending of whether they use SSL or traffic
+    compression).
+  * Fixed shell backquotes in ejabberd and ejabberdctl manual pages. Also
+    bumped their versions to 1.1.4.
+  * Added a note about binding to privileged ports to README.Debian.
+  * Fixed a race condition between starting log handler and port listener.
+    Otherwise, error reports about port binding can't get into log file
+    (closes: #458518).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Tue, 01 Jan 2008 17:09:57 +0300
+
+ejabberd (1.1.4-3) unstable; urgency=low
+
+  * Applied a patch by upstream which fixes usage of relational databases in
+    ejabberd modules while using internal or LDAP-based authentication
+    (closes: #446848). The patch was adopted from ejabberd SVN by Andreas
+    Oberritter.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Tue, 16 Oct 2007 10:34:07 +0400
+
+ejabberd (1.1.4-2) unstable; urgency=low
+
+  * Moved ejabberd application directory from
+    /usr/lib/erlang/lib/ejabberd-1.1.4 to /usr/lib/ejabberd to avoid conflicts
+    of modules names (specifically, eldap module conflicts with shiiped in Yxa
+    SIP server).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 12 Oct 2007 10:07:19 +0400
+
+ejabberd (1.1.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fixed debian/watch file.
+  * Removed ejabberd_sm.diff patch. This makes ejabberd using recommended
+    error condition <service-unavailable/> instead of
+    <feature-not-implemented/>. There was sufficient time to fix broken
+    clients.
+  * Removed perl-path.diff, shaper.diff, ejabberd_http_poll.diff, eldap.diff,
+    sql_escape.diff patches since they are included into upstream release.
+  * Redefined HOME environment variable to fix Erlang compiler warnings in
+    case when HOME points to an existent inaccessible directory.
+  * Bumped debhelper compatibility level to 5.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sun, 09 Sep 2007 14:25:16 +0400
+
+ejabberd (1.1.2-10) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * Added Sergei Golovan <sgolovan@debian.org> to uploaders list.
+  * Included a fix for IE bug (it sends zero length queries which cause
+    error 404) from http://www.jabber.ru/bugzilla/attachment.cgi?id=205
+    (closes: #428864).
+  * Included experimental Personal Eventing via Pubsub (XEP-0163) support
+    using patch from https://svn.process-one.net/ejabberd-modules/pep/.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Mon, 27 Aug 2007 20:19:43 +0400
+
+ejabberd (1.1.2-9) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * Added binary package dependency on erlang-abi-* virtual package to
+    prevent installation of ejabberd which uses incompatible erlang ABI.
+  * Included ejabberd headers to binary package to make building external
+    modules for ejabberd possible (closes: #428081).
+
+ -- Torsten Werner <twerner@debian.org>  Sun, 10 Jun 2007 19:19:20 +0400
+
+ejabberd (1.1.2-8) unstable; urgency=high
+
+  [ Torsten Werner ]
+  * Remove redundant Build-Depends.
+  * Use erlang-depends for calculating Depends now.
+  * Change email address of Christophe Romain in man page as requested by
+    himself.
+  * Add XS-X-Vcs-Svn header to debian/control.
+
+  [ Sergei Golovan ]
+  * Security fix, mentioned in 1.1.2-5 was backported from SVN and not
+    from 1.1.3, where it is incomplete (the bug affects ejabberd only if
+    users' rosters are stored in relational database, and not in Mnesia,
+    which is default).
+  * Moved patches to debian directory. This fixes cleaning up
+    after build process. (Closes: #424193)
+  * Moved creating user ejabberd from preinst to postinst because preinst
+    cannot rely on existence of adduser package.
+  * Added a comment to ejabberd.cfg concerning UTF-8 encoding.
+  * Unfuzzied one string in russian debconf translation (closes: #408410).
+  * Removed annoying message about existing SSL certificate.
+  * Fixed references to ejabberd installation and operation guide in manual
+    pages (closes: #416050).
+  * Backup ejabberd database on package removal or upgrade to a subdirectory
+    of /var/backups instead of /var/tmp (closes: #409916).
+  * Do not change /etc/ejabberd, /var/lib/ejabberd and /var/log/ejabberd
+    ownership and permissions if they are overridden using dpkg-statoverride
+    (closes: #416178).
+  * Conditionally source /usr/share/debconf/confmodule in postrm script as
+    debconf isn't an essential package (closes: #416743).
+  * Included Portuguese translation of debconf messages (closes: #416779).
+
+ -- Torsten Werner <twerner@debian.org>  Fri, 18 May 2007 13:44:53 +0200
+
+ejabberd (1.1.2-7) unstable; urgency=low
+
+  * Rebuild the package with newer erlang.
+
+ -- Torsten Werner <twerner@debian.org>  Fri, 13 Apr 2007 20:14:12 +0200
+
+ejabberd (1.1.2-6) unstable; urgency=high
+
+  [ Sergei Golovan ]
+  * Fixed users database and logs directoriy permissions (closes: #412583).
+
+ -- Torsten Werner <twerner@debian.org>  Tue, 27 Feb 2007 08:28:31 +0300
+
+ejabberd (1.1.2-5) unstable; urgency=high
+
+  * apply security fix backported from version 1.1.3
+    (http://ejabberd.jabber.ru/ejabberd-1.1.3); thanks to Sergei
+
+ -- Torsten Werner <twerner@debian.org>  Sat,  3 Feb 2007 23:08:08 +0100
+
+ejabberd (1.1.2-4) unstable; urgency=medium
+
+  [ Sergei Golovan ]
+  * Fixed bug with LDAP support, thanks to Evgeniy Khramtsov. (Closes: #399659)
+  * Documented quilt patches in patches/ directory.
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 22 Nov 2006 13:44:13 +0300
+
+ejabberd (1.1.2-3) unstable; urgency=low
+
+  * Add patch http_bind.diff, thanks to Matthew Harrell. (Closes: #399560)
+  * Updated debian/control from debian/control.in.
+
+ -- Torsten Werner <twerner@debian.org>  Mon, 20 Nov 2006 20:11:08 +0100
+
+ejabberd (1.1.2-2) unstable; urgency=medium
+
+  [ Sergei Golovan ]
+  * backported bugfix for HTTP-polling from the ejabberd author
+
+  [ Torsten Werner ]
+  * Set urgency to medium.
+
+ -- Torsten Werner <twerner@debian.org>  Sun,  8 Oct 2006 11:32:25 +0200
+
+ejabberd (1.1.2-1) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * new upstream release
+  * added spanish translation
+  * removed no longer needed mod_muc_log patch 
+  * added variable ERLANG_NODE, which allows to override default
+    ejabberd node, to /etc/default/ejabberd file
+  * changed erlang node selection by ejabberdctl (in some cases
+    `hostname -s` and erlang's view of hostname are different, so
+    let ejabberd_ctl module find hostname), closes: #389635
+  * documented ERLANG_NODE variable in ejabberd and ejabberdctl manual
+    pages
+  * explicitly specify hostname in admin ACL
+  * improved admin user registering in debian/postinst. installation
+    is not interrupted if the user can't be registered, so, closes: #385020
+  * only call ucf and deluser on purge when they are available,
+    closes: #389756
+  * added check for running ejabberd before backup in debian/prerm,
+    closes: #389757
+  * added workaround for centericq users (replaced fetaure-not-implemented
+    error for service-unavailable in session management)
+  * backported bugfix for shapers from ejabberd SVN
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 04 Oct 2006 08:00:46 +0400
+
+ejabberd (1.1.1-9) unstable; urgency=low
+
+  [ Miroslav Kure ]
+  * updated czech translation
+
+  [ Sergei Golovan ]
+  * replaced 'note' type in debconf template ejabberd/nomatch by 'error'
+    since it is more approppriate, closes: #388890
+
+ -- Torsten Werner <twerner@debian.org>  Sat, 23 Sep 2006 10:42:03 +0400
+
+ejabberd (1.1.1-8) unstable; urgency=medium
+
+  [ Sergei Golovan ]
+  * security fix! fixed vulnerability in mod_muc_log where users were
+    able to insert an HTML code to MUC weblogs (fix is backported from
+    ejabberd SVN)
+  * added LSB keyword section to init.d script
+
+  [ Torsten Werner ]
+  * setting urgency to medium because of a securetty issue
+
+ -- Torsten Werner <twerner@debian.org>  Thu, 14 Sep 2006 07:20:39 +0200
+
+ejabberd (1.1.1-7) unstable; urgency=low
+
+  * updated french translation, closes: #385811
+  * bugfix in postrm
+
+ -- Torsten Werner <twerner@debian.org>  Sun, 10 Sep 2006 02:27:19 +0200
+
+ejabberd (1.1.1-6) unstable; urgency=low
+
+  * add french translation, closes: #381900
+  * add czech translation, closes: #380525
+  * add dutch translation, closes: #381131
+  * updated debconf question ejabberd/user
+  * fix in debian/config
+  * make a backup of the database when removing or updating the package
+  * remove the actual database when purging
+
+ -- Torsten Werner <twerner@debian.org>  Wed,  2 Aug 2006 15:20:14 +0200
+
+ejabberd (1.1.1-5) unstable; urgency=low
+
+  [ Torsten Werner ]
+  * add target get-orig-source in debian/rules
+  * updated Standards-Version to 3.7.2, no changes needed
+  * use ucf for handling conffiles
+  * remove old cruft not needed any more
+  * use debconf to setup an admin account, partially fixes: #286110
+  * make bashism explicit
+  * minor cleanups in debian/rules
+  * renamed some files in debian/
+  * add german translation of the debconf template
+
+  [ Sergei Golovan ]
+  * use debconf to setup a served hostname
+  * added russian translation of the debconf template
+
+ -- Torsten Werner <twerner@debian.org>  Sun, 23 Jul 2006 12:12:12 +0400
+
+ejabberd (1.1.1-4) unstable; urgency=low
+
+  * updated Build-Depends for erlang 10.b.10
+  * switched to quilt for managing upstream patches
+
+ -- Torsten Werner <twerner@debian.org>  Sat, 24 Jun 2006 21:06:59 +0200
+
+ejabberd (1.1.1-3) unstable; urgency=low
+
+  [ Sergei Golovan ]
+  * moved ejabberd SSL certificate from /etc/ssl/certs to /etc/ejabberd,
+    closes: #368414
+
+  [ Torsten Werner ]
+  * upload to unstable
+
+ -- Torsten Werner <twerner@debian.org>  Sat, 10 Jun 2006 18:13:34 +0200
+
+ejabberd (1.1.1-2) experimental; urgency=low
+
+  [ Sergei Golovan ]
+  * changed Build-Depends from erlang-base-hipe to erlang-base
+  * fix for lintian complaint about incorrect usage of chown
+
+  [ Torsten Werner ]
+  * making Build-Depends and erlang:Depends more strict: they are working now
+    only with the latest versions of erlang
+
+ -- Torsten Werner <twerner@debian.org>  Tue,  2 May 2006 21:00:47 +0200
+
+ejabberd (1.1.1-1) experimental; urgency=low
+
+  * New upstream release
+  * applied changes from Sergei Golovan
+  * removed src/Makefile.in from Debians SVN because the changes have been
+    included upstream
+
+ -- Torsten Werner <twerner@debian.org>  Mon,  1 May 2006 19:36:19 +0200
+
+ejabberd (1.0.0-2) unstable; urgency=low
+
+  * downgraded erlang-Depends to erlang-runtime, closes: #361739
+
+ -- Torsten Werner <twerner@debian.org>  Mon, 10 Apr 2006 20:52:45 +0200
+
+ejabberd (1.0.0-1) unstable; urgency=low
+
+  * new upstream release, closes: #344330, #353989
+    - Server-to-server Encryption for Enhanced Security: STARTTLS +
+    SASL_EXTERNAL and STARTTLS + Dialback.
+    - Different certificates can be defined for each virtual host.
+    - Shared Roster groups support has been enhanced. New is the ability to
+    add all registered users to a Shared Roster group.
+    - Improved ODBC support.
+    - Support for vCard storage in ODBC has been added.
+    - New tool to convert an Mnesia-based installation to an ODBC compatible
+    relational database.
+    - Native PostgreSQL support.
+    - More XHTML 1.0 Transitional compliancy work is included.
+    - Documentation has been extended to cover more topics.
+
+ -- Torsten Werner <twerner@debian.org>  Sun,  5 Mar 2006 10:20:50 +0100
+
+ejabberd (0.9.8-1) unstable; urgency=low
+
+  * new upstream version
+  * added debian/watch
+  * merged some documentation and configuration fixes from Sergei Golovan
+    <sgolovan@nes.ru>
+
+ -- Torsten Werner <twerner@debian.org>  Sat,  6 Aug 2005 19:39:59 +0200
+
+ejabberd (0.9.1-2) unstable; urgency=low
+
+  * some fixes to the german translation, thanks to Patrick Dreker
+    <pdreker@debianforum.de> for pointing that out, closes: #317955
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 13 Jul 2005 21:53:16 +0200
+
+ejabberd (0.9.1-1) unstable; urgency=low
+
+  * New upstream release, closes: #309526
+  * added --enable-odbc to configure
+  * small fix to init script
+  * thanks to Sergei Golovan <sgolovan@nes.ru> for helping
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 25 May 2005 23:55:28 +0200
+
+ejabberd (0.9-2) unstable; urgency=low
+
+  * smoothed the upgrade procedure from 0.7.5
+  * added custom inetrc file (erlang R10 doesn't load /etc/resolv.conf when
+    running in -sname mode, making resolving of SRV record impossible),
+    thanks to Sergej Golovan, closes: #299533
+  * updated homepage
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 18 May 2005 00:16:22 +0200
+
+ejabberd (0.9-1) unstable; urgency=low
+
+  * new upstream version, closes: #307652
+
+ -- Torsten Werner <twerner@debian.org>  Tue, 10 May 2005 22:04:03 +0200
+
+ejabberd (0.7.5-7) unstable; urgency=low
+
+  * can build now with various erlang versions because of buggy erlang on arm
+
+ -- Torsten Werner <twerner@debian.org>  Sat,  8 Jan 2005 23:34:27 +0100
+
+ejabberd (0.7.5-6) unstable; urgency=low
+
+  * changed to versioned (Build-)Depends: erlang (>= 1:10), closes: #282836
+  * fixed error in init script, closes: #283205
+  * scripts ejabberd and ejabberdctl export $HOME environment variable now
+  * usage message for ejabberdctl updated to reflect the different call syntax
+    thanks to Sergei Golovan (both changes)
+  * updated the Description proposed by Andreas van Cranenburgh
+
+ -- Torsten Werner <twerner@debian.org>  Tue, 30 Nov 2004 22:05:28 +0100
+
+ejabberd (0.7.5-5) unstable; urgency=low
+
+  * renamed debian/control to debian/control.in and changed Build-Depends:
+    @cdbs@
+
+ -- Torsten Werner <twerner@debian.org>  Fri, 19 Nov 2004 23:58:01 +0100
+
+ejabberd (0.7.5-4) unstable; urgency=low
+
+  * switched to cdbs
+  * fixed perl script and added Suggests: libunix-syslog-perl
+
+ -- Torsten Werner <twerner@debian.org>  Thu, 18 Nov 2004 15:48:36 +0100
+
+ejabberd (0.7.5-3) unstable; urgency=low
+
+  * changed maintainer to myself
+
+ -- Torsten Werner <twerner@debian.org>  Wed, 17 Nov 2004 19:23:08 +0100
+
+ejabberd (0.7.5-2) unstable; urgency=low
+
+  * fixed doc-base file
+  * initial upload based on Sergei's work
+
+ -- Torsten Werner <twerner@debian.org>  Wed,  3 Nov 2004 21:43:58 +0100
+
+ejabberd (0.7.5-1) unstable; urgency=low
+
+  * new upstream release (highlights: new tls module, starttls,
+    improvements in admiin web interface, bugfixes)
+  * improved init.d script
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Sun, 10 Oct 2004 21:44:25 +0400
+
+ejabberd (0.7-2) unstable; urgency=low
+
+  * workaround for mnesia issue in mod_last
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Wed, 14 Jul 2004 01:43:13 +0400
+
+ejabberd (0.7-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Tue, 13 Jul 2004 20:35:29 +0400
+
+ejabberd (0.6-alpha-20040522-4) unstable; urgency=low
+
+  * fixed icq.localhost entry in config file
+  * added example options to config file
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Thu, 17 Jun 2004 00:23:32 +0400
+
+ejabberd (0.6-alpha-20040522-3) unstable; urgency=low
+
+  * fixed comments in config file
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Wed, 16 Jun 2004 21:10:13 +0400
+
+ejabberd (0.6-alpha-20040522-2) unstable; urgency=low
+
+  * added comments to config file
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Sun, 13 Jun 2004 13:24:58 +0400
+
+ejabberd (0.6-alpha-20040522-1) unstable; urgency=low
+
+  * new upstream CVS snapshot
+  * updated manual pade for ejabberdctl
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Sun, 30 May 2004 09:36:59 +0400
+
+ejabberd (0.6-alpha-20040417-1) unstable; urgency=low
+
+  * initial prerelease from upstream CVS snapshot
+
+ -- Sergei Golovan <sgolovan@nes.ru>  Sun, 25 Apr 2004 16:39:22 +0400
+

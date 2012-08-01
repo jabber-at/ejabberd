@@ -1,0 +1,243 @@
+.TH ejabberd 8 "08 June 2008" "Version 2.0.1" "ejabberd manual page"
+
+.SH NAME
+ejabberd \(em a distributed fault-tolerant Jabber/XMPP server 
+
+.SH SYNOPSIS
+.PP 
+\fBejabberd\fR \fI[options] [\-\-] [erlang_options]\fP
+
+.SH DESCRIPTION
+.PP 
+\fBejabberd\fR is a distributed fault-tolerant Jabber/XMPP server written in
+Erlang. 
+
+Its main features are:
+.PD 0
+.TP
+\(em XMPP-compliant 
+.TP
+\(em Distributed: \fBejabberd\fR can run on a cluster of machines
+.TP
+\(em Fault-tolerant: All the information can be stored on more than one node, nodes can be added or replaced `on the fly' 
+.TP
+\(em Built-in Multi-User Chat service 
+.TP
+\(em Built-in IRC transport 
+.TP
+\(em Built-in Publish-Subscribe service 
+.TP
+\(em Built-in Jabber User Directory service based on users vCards 
+.TP
+\(em SSL support 
+.TP
+\(em Support for internationalized user messages
+
+.SH OPTIONS
+.TP
+.BI \-\-node " node"
+Specifies Erlang \fInode\fP at which ejabberd server will be run. Default
+node is \fBejabberd\fP.
+If the node name does not contain symbol \fI@\fR then actual node name
+becomes \fBnode@hostname\fP where hostname is short host name (usually it
+coincides with \fI\(gahostname \-s\(ga\fP). If the node name contain symbol \fI@\fR
+and its hostname part is a FQDN then \fBejabberd\fR will use so-called
+long names (see \fBerl\fR(1) manual page and look for options \fI\-name\fP
+and \fI\-sname\fP for details).
+
+Examples of \fI\-\-node\fP option:
+
+.BI ejabberd
+Locally run ejabberd server at node \fIejabberd@\(gahostname \-s\(ga\fP.
+
+.BI ejabberd@otherhost
+Pretend that ejabberd server runs at otherhost at node \fIejabberd@otherhost\fP.
+(Note that noone can remotely connect to this node if otherhost is resoved
+to other computer IP.)
+
+.BI ejabberd@localhost
+Locally run ejabberd server at node \fIejabberd@localhost\fP. Only nodes
+running at the same host can connect to this node.
+
+.BI ejabberd@hostname.domainname
+Using \fI\-name\fP Erlang option, run ejabberd server at long-name node
+\fIejabberd@hostname.domainname\fP. To be able to control this server instance
+\fIhostname.domainname\fP must resolve (either by DNS or via /etc/hosts) to
+the server's IP.
+
+.PP
+The default node can be overridden by defining ERLANG_NODE environment variable
+in /etc/default/ejabberd, see below.
+
+.TP
+.BI \-\-config " config\-file"
+Specifies an alternate \fIconfig\-file\fP to be parsed at startup, rather
+than the default (\fB/etc/ejabberd/ejabberd.cfg\fP).
+
+.TP
+.BI \-\-spool " spool\-dir"
+Specifies an alternate \fIspool\-dir\fP to store user database instead of
+the default (\fB/var/lib/ejabberd\fP).
+
+.TP
+.BI \-\-log " log\-file"
+Log Jabber events to specified \fIlog\-file\fP rather than to the default
+(\fB/var/log/ejabberd/ejabberd.log\fP).
+
+.TP
+.BI \-\-erlang\-log " sasl\-log\-file"
+Log SASL (System Application Support Libraries) events to specified
+\fIsasl\-log\-file\fP rather than to the default (\fB/var/log/ejabberd/erlang.log\fP).
+
+.TP
+.I erlang_options
+Other options (and all options following \fB\-\-\fR) are passed directly to
+\fBErlang\fR interpreter. See \fBErlang\fR documentation for more details on
+interpreter options.
+Some useful options are:
+.br
+.sp
+.BI \-detached
+    Starts the Erlang system detached from the system console.
+.br
+.BI \-heart
+    Starts heart beat monitoring of the Erlang system.
+.br
+.BI \-noinput
+    Ensures that the Erlang system never tries to read any input.
+
+.SH CONFIGURATION FILE
+.PP 
+The file \fB/etc/ejabberd/ejabberd.cfg\fR contains the main configuration.
+It is initially loaded the first time \fBejabberd\fR is
+executed, then it is parsed and stored in a database. Subsiquently the
+configuration is loaded from the database and any commands in the configuration
+file are appended to the entries in the database. The configuration file
+consists of a sequence of Erlang terms. Parts of lines after `%' sign
+are ignored. Each term is a tuple, where the first element is the name of an
+option, and the others are option values. E. g. if this file does not contain a
+"host" definition, then the value stored in the database will be used.
+
+To override old values stored in the database the following lines can be added
+in config:
+.br
+  override_global.
+.br
+  override_local.
+.br
+  override_acls.
+
+A complete explanation of each configuration value can be found in the
+official \fBejabberd\fR documentation. See "\fBSEE ALSO\fR" part of this
+manual page for more information about the documentation.
+
+.SH OPTIONS FILE
+.PP 
+The file \fB/etc/default/ejabberd\fR contains specific options.
+
+.PD 0
+.TP
+.I POLL
+If set to true this variable enables kernel polling which can reduce CPU
+load on a system with a high number of users.
+This option requires support in the kernel and in Erlang emulator.
+
+.TP
+.I SMP
+Enables or disables SMP support in Erlang emulator. Valid values are disable
+(default), auto, and enable.
+.br
+.sp
+Explanation in Erlang/OTP documentation:
+
+.BI enable:
+Starts the Erlang runtime system with SMP support enabled. This
+may fail if no runtime system with SMP support is available.
+.br
+.BI auto:
+Starts the Erlang runtime system with SMP support enabled if it
+is available and more than one logical processor are detected.
+.br
+.BI disable:
+Starts a runtime system without SMP support.
+
+.TP
+.I ERL_MAX_PORTS
+To use more than 1024 connections (default value), \fIERL_MAX_PORTS\fP should be set
+to the number of connections needed.
+
+.TP
+.I PROCESSES
+Specifies the maximum number of Erlang processes to use. Default value is 250000.
+Maximum value is 268435456. Ejabberd uses up to three processes per user or
+server connection.
+
+.TP
+.I ERL_MAX_ETS_TABLES
+Sets the maximum number of ETS and Mnesia tables. Default value is 1400 which
+should be sufficient for a sever without many custom modules. If a message
+** Too many db tables ** appears in ejabberd log files then increase this number.
+
+.TP
+.I ERL_OPTIONS
+With this option, parameters can be passed to \fBErlang\fR interpretor. See
+\fBErlang\fR documentation for more details on interpreter options.
+
+.TP
+.I ERL_FULLSWEEP_AFTER
+To reduce memory usage when allowing a large number of connections, \fIERL_FULLSWEEP_AFTER\fP
+may be set to 0 in the options file,
+but in this case \fBejabberd\fR may start to work slower.
+
+.TP
+.I ERLANG_NODE
+Use specified string as erlang node. It overrides default \fBejabberd\fP
+node name. The string may take one of the following forms:
+\fBnodename\fP, \fBnodename@hostname\fP or \fBnodename@hostname.domainname\fP
+
+.SH FILES
+.PD 0
+.TP
+.I /etc/ejabberd/ejabberd.cfg
+default configuration file
+
+.TP
+.I /etc/default/ejabberd
+default variables
+
+.SH BUGS
+.PP
+Ejabberd uses distributed Erlang mode to work properly. This means that on start it
+connects to \fBepmd\fP (Erlang port mapping daemon) which is listening at port 4369
+and tries to register ejabberd node name. If the connection fails (known failure
+reasons are unavailability of a loopback interface or firewall issues) Erlang emulator
+fails to start with not very clear error message. If there's already started Erlang
+node with the same name (\fIejabberd\fP by default) then ejabberd will also fail with
+a cryptic error message (in which one can find words \fI{error,duplicate_name}\fP).
+Another possible case when ejabberd cannot start is incorrect permissions of
+\fI/var/lib/ejabberd\fP directory (it must be writable by user ejabberd).
+
+.SH SEE ALSO 
+.PP 
+\fBerl\fR(1), \fBsasl\fR(6), \fBejabberdctl\fR(8), \fBepmd\fR. 
+
+.PP 
+The program documentation is available at
+\fIhttp://www.process\-one.net/en/projects/ejabberd/\fP. 
+A copy of the documentation can be found at
+/usr/share/doc/ejabberd/guide.html.
+ 
+.SH AUTHORS
+.PP 
+This manual page was adapted by Christophe Romain
+<christophe.romain@process\-one.net> and Sergei Golovan <sgolovan@nes.ru> for
+the \fBDebian\fP system (but may be used by others) from the \fBejabberd\fP
+documentation written by Alexey Shchepin <alexey@sevcom.net>.
+
+Permission is granted to copy, distribute and/or modify this document under 
+the terms of the GNU General Public License, Version 2 any  
+later version published by the Free Software Foundation. 
+.PP 
+On Debian systems, the complete text of the GNU General Public 
+License can be found in /usr/share/common\-licenses/GPL. 
+

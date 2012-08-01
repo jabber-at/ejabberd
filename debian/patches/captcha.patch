@@ -1,0 +1,20 @@
+Makes the captcha script explicitly request bash as it uses
+its special variable "RANDOM" which is not defined by POSIX.
+
+The issue is tracked upstream at
+https://support.process-one.net/browse/EJAB-1105
+
+While it will be sensible to incorporate the upstream fix
+(which will make the script work in POSIX-compliant shells also),
+until bash is required in Debian, this patch is OK.
+
+diff --git a/tools/captcha.sh b/tools/captcha.sh
+index 4d40567..d68edfa 100755
+--- a/tools/captcha.sh
++++ b/tools/captcha.sh
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+ INPUT=$1
+ 

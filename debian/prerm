@@ -1,0 +1,52 @@
+#! /bin/sh
+# prerm script for ejabberd
+#
+# see: dh_installdeb(1)
+
+set -e
+
+# summary of how this script can be called:
+#        * <prerm> `remove'
+#        * <old-prerm> `upgrade' <new-version>
+#        * <new-prerm> `failed-upgrade' <old-version>
+#        * <conflictor's-prerm> `remove' `in-favour' <package> <new-version>
+#        * <deconfigured's-prerm> `deconfigure' `in-favour'
+#          <package-being-installed> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see /usr/doc/packaging-manual/
+
+case "$1" in
+    remove|upgrade)
+	if ejabberdctl status >/dev/null ; then
+	    # Use timestamp to make database restoring easier
+	    TIME=$(date +%Y-%m-%dT%H:%M:%S)
+	    BACKUPDIR=$(mktemp -d -p /var/backups/ ejabberd-$TIME.XXXXXX)
+	    chown ejabberd:ejabberd $BACKUPDIR
+	    BACKUP=$BACKUPDIR/ejabberd-database
+	    ejabberdctl backup $BACKUP
+	    # Change ownership to root:root because ejabberd user might be
+	    # removed on package removal.
+	    chown -R root:root $BACKUPDIR
+	    chmod 700 $BACKUPDIR
+	    echo
+	    echo The ejabberd database has been backed up to $BACKUP.
+	    echo
+	fi
+    ;;
+
+    deconfigure)
+    ;;
+
+    failed-upgrade)
+    ;;
+
+    *)
+	echo "prerm called with unknown argument \`$1'" >&2
+	exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0
+
