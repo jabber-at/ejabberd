@@ -1,3 +1,9 @@
+ejabberd (2.1.11-4) wheezy; urgency=low
+
+  * Call dpkg-buildflags only when available
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Sun, 11 Nov 2012 01:12:56 +0100
+
 ejabberd (2.1.11-3) wheezy; urgency=low
 
   * Update defaults file with some good settings
