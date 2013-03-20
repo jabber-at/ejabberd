@@ -1,3 +1,10 @@
+ejabberd (2.1.11-5) wheezy; urgency=low
+
+  * ejabberdctl: remove undocumented --concurrent flag, its now the default
+    behaviour.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Wed, 20 Mar 2013 20:55:10 +0100
+
 ejabberd (2.1.11-4) wheezy; urgency=low
 
   * Call dpkg-buildflags only when available
