@@ -33,7 +33,6 @@
 
 -export([set/1,
 	 get/0,
-	 get_default/0,
 	 set_custom/2,
 	 clear_custom/0,
 	 clear_custom/1]).
@@ -68,11 +67,6 @@
 %% @spec () -> {DefaultLevelOrdinal::integer(), [{Module::atom(), LevelOrdinal::integer()}]}
 %% @doc Get the default and all custom levels
 get() ->
-    ejabberd_logger:get().
-
-%% @spec () -> {Ordinal::integer(), Name::atom(), Description::string()}
-%% @doc Get the default level
-get_default() ->
     {DefaultLevel, _CustomLevels} = ejabberd_logger:get(),
     case lists:keysearch(DefaultLevel, #loglevel.ordinal, ?LOG_LEVELS) of
         {value, Result = #loglevel{}} ->

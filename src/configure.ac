@@ -14,6 +14,10 @@ fi
 
 #locating erlang
 AM_WITH_ERLANG
+#locating iconv
+AM_ICONV
+#locating libexpat
+AM_WITH_EXPAT
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -28,6 +32,7 @@ AC_PREFIX_DEFAULT(/)
 AC_FUNC_MALLOC
 AC_HEADER_STDC
 
+AC_MOD_ENABLE(mod_irc, yes)
 AC_MOD_ENABLE(mod_muc, yes)
 AC_MOD_ENABLE(mod_proxy65, yes)
 AC_MOD_ENABLE(mod_pubsub, yes)
@@ -35,6 +40,10 @@ AC_MOD_ENABLE(eldap, yes)
 AC_MOD_ENABLE(odbc, no)
 AC_MOD_ENABLE(tls, yes)
 AC_MOD_ENABLE(web, yes)
+
+AC_MOD_ENABLE(ejabberd_zlib, yes)
+#locating zlib
+AM_WITH_ZLIB
 
 AC_MOD_ENABLE(pam, no)
 #locating PAM
@@ -57,15 +66,6 @@ AC_ARG_ENABLE(roster_gateway_workaround,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-roster-gateway-workaround) ;;
 esac],[roster_gateway_workaround=false])
 AC_SUBST(roster_gateway_workaround)
-
-AC_ARG_ENABLE(flash_hack,
-[AC_HELP_STRING([--enable-flash-hack], [support Adobe Flash client XML (default: no)])],
-[case "${enableval}" in
-  yes) flash_hack=true ;;
-  no)  flash_hack=false ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-flash-hack) ;;
-esac],[flash_hack=false])
-AC_SUBST(flash_hack)
 
 AC_ARG_ENABLE(mssql,
 [AC_HELP_STRING([--enable-mssql], [use Microsoft SQL Server database (default: no, requires --enable-odbc)])],
@@ -94,16 +94,28 @@ AC_ARG_ENABLE(full_xml,
 esac],[full_xml=false])
 AC_SUBST(full_xml)
 
+AC_ARG_ENABLE(nif,
+[AC_HELP_STRING([--enable-nif], [replace some functions with C equivalents. Requires Erlang R13B04 or higher (default: no)])],
+[case "${enableval}" in
+  yes) nif=true ;;
+  no)  nif=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-nif) ;;
+esac],[nif=false])
+AC_SUBST(nif)
+
 AC_CONFIG_FILES([Makefile
+                 $make_mod_irc
                  $make_mod_muc
                  $make_mod_pubsub
                  $make_mod_proxy65
                  $make_eldap
                  $make_pam
                  $make_web
+                 stringprep/Makefile
                  stun/Makefile
                  $make_tls
-                 $make_odbc])
+                 $make_odbc
+                 $make_ejabberd_zlib])
 #openssl
 AM_WITH_OPENSSL
 # If ssl is kerberized it need krb5.h
@@ -167,12 +179,3 @@ LD_SHARED="$LD_SHARED $CBIT"
 echo "CBIT is set to '$CBIT'"
 
 AC_OUTPUT
-
-echo
-echo "********************** WARNING ! ************************"
-echo "*  ejabberd master is NOT ready for real usage yet,     *"
-echo "*  because it is still in heavy development.            *"
-echo "*  Don't use ejabberd master, it is still alpha code!   *"
-echo "*  Please use ejabberd 2.1.x branch instead.            *"
-echo "*********************************************************"
-echo

@@ -44,7 +44,7 @@
 -export([process/2]).
 
 %% ejabberd_hooks callbacks
--export([reopen_log/0, reopen_log/1]).
+-export([reopen_log/1]).
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
@@ -65,6 +65,16 @@
 		  tp, % transfer protocol = http | https
 		  headers
 		 }).
+
+-ifdef(SSL40).
+-define(STRING2LOWER, string).
+-else.
+-ifdef(SSL39).
+-define(STRING2LOWER, string).
+-else.
+-define(STRING2LOWER, httpd_util).
+-endif.
+-endif.
 
 -record(state, {host, docroot, accesslog, accesslogfd, directory_indices,
                 custom_headers, default_content_type, content_types = []}).
@@ -96,13 +106,11 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, Opts) ->
-    Proc = get_proc_name(HostB),
+start(Host, Opts) ->
+    Proc = get_proc_name(Host),
     ChildSpec =
 	{Proc,
-	 {?MODULE, start_link, [HostB, Opts]},
+	 {?MODULE, start_link, [Host, Opts]},
 	 transient, % if process crashes abruptly, it gets restarted
 	 1000,
 	 worker,
@@ -166,6 +174,7 @@ initialize(Host, Opts) ->
     DefaultContentType = gen_mod:get_opt(default_content_type, Opts,
                                          ?DEFAULT_CONTENT_TYPE),
     ContentTypes = build_list_content_types(gen_mod:get_opt(content_types, Opts, []), ?DEFAULT_CONTENT_TYPES),
+    ?INFO_MSG("initialize: ~n ~p", [ContentTypes]),%+++
     {DocRoot, AccessLog, AccessLogFD, DirectoryIndices,
      CustomHeaders, DefaultContentType, ContentTypes}.
 
@@ -208,7 +217,7 @@ check_docroot_is_readable(DRInfo, DocRoot) ->
 
 try_open_log(undefined, _Host) ->
     undefined;
-try_open_log(FN, HostB) ->
+try_open_log(FN, Host) ->
     FD = try open_log(FN) of
 	     FD1 -> FD1
 	 catch
@@ -216,7 +225,7 @@ try_open_log(FN, HostB) ->
 		 ?ERROR_MSG("Cannot open access log file: ~p~nReason: ~p", [FN, Reason]),
 		 undefined
 	 end,
-    ejabberd_hooks:add(reopen_log_hook, HostB, ?MODULE, reopen_log, 50),
+    ejabberd_hooks:add(reopen_log_hook, Host, ?MODULE, reopen_log, 50),
     FD.
 
 %%--------------------------------------------------------------------
@@ -289,7 +298,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns the page to be sent back to the client and/or HTTP status code.
 process(LocalPath, Request) ->
     ?DEBUG("Requested ~p", [LocalPath]),
-    try gen_server:call(get_proc_name_existing(Request#request.host), {serve, LocalPath}) of
+    try gen_server:call(get_proc_name(Request#request.host), {serve, LocalPath}) of
 	{FileSize, Code, Headers, Contents} ->
 	    add_to_log(FileSize, Code, Request),
 	    {Code, Headers, Contents}
@@ -361,14 +370,11 @@ reopen_log(FN, FD) ->
     close_log(FD),
     open_log(FN).
 
-reopen_log() ->
-    %% This function is called when the hook was registered for host 'global'
-    gen_server:cast(get_proc_name_existing(global), reopen_log).
 reopen_log(Host) ->
-    gen_server:cast(get_proc_name_existing(Host), reopen_log).
+    gen_server:cast(get_proc_name(Host), reopen_log).
 
 add_to_log(FileSize, Code, Request) ->
-    gen_server:cast(get_proc_name_existing(Request#request.host),
+    gen_server:cast(get_proc_name(Request#request.host),
 		    {add_to_log, FileSize, Code, Request}).
 
 add_to_log(undefined, _FileSize, _Code, _Request) ->
@@ -409,7 +415,6 @@ find_header(Header, Headers, Default) ->
 %%----------------------------------------------------------------------
 
 get_proc_name(Host) -> gen_mod:get_module_proc(Host, ?PROCNAME).
-get_proc_name_existing(Host) -> gen_mod:get_module_proc_existing(Host, ?PROCNAME).
 
 join([], _) ->
     "";
@@ -419,7 +424,7 @@ join([H | T], Separator) ->
     lists:foldl(fun(E, Acc) -> lists:concat([Acc, Separator, E]) end, H, T).
 
 content_type(Filename, DefaultContentType, ContentTypes) ->
-    Extension = string:to_lower(filename:extension(Filename)),
+    Extension = ?STRING2LOWER:to_lower(filename:extension(Filename)),
     case lists:keysearch(Extension, 1, ContentTypes) of
         {value, {_, ContentType}} -> ContentType;
         false                     -> DefaultContentType
@@ -435,4 +440,4 @@ ip_to_string(Address) when size(Address) == 4 ->
     join(tuple_to_list(Address), ".");
 ip_to_string(Address) when size(Address) == 8 ->
     Parts = lists:map(fun (Int) -> io_lib:format("~.16B", [Int]) end, tuple_to_list(Address)),
-    string:to_lower(lists:flatten(join(Parts, ":"))).
+    ?STRING2LOWER:to_lower(lists:flatten(join(Parts, ":"))).

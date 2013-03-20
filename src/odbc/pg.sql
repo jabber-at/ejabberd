@@ -17,30 +17,22 @@
 -- 02111-1307 USA
 --
 
---   WARNING !!!
--- ejabberd creates the tables automatically.
--- This file is obsolete.
--- Read the ejabberd modules source code for up-to-date table schema.
-
 CREATE TABLE users (
-    username text NOT NULL,
-    host text NOT NULL,
+    username text PRIMARY KEY,
     "password" text NOT NULL,
-    PRIMARY KEY (host, username)
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
+
 CREATE TABLE last (
-    username text NOT NULL,
-    host text NOT NULL,
+    username text PRIMARY KEY,
     seconds text NOT NULL,
-    state text NOT NULL,
-    PRIMARY KEY (host, username)
+    state text NOT NULL
 );
+
 
 CREATE TABLE rosterusers (
     username text NOT NULL,
-    host text NOT NULL,
     jid text NOT NULL,
     nick text NOT NULL,
     subscription character(1) NOT NULL,
@@ -49,39 +41,63 @@ CREATE TABLE rosterusers (
     server character(1) NOT NULL,
     subscribe text,
     "type" text,
-    PRIMARY KEY (host, username, jid)
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX i_rosteru_user_jid ON rosterusers USING btree (username, jid);
+CREATE INDEX i_rosteru_username ON rosterusers USING btree (username);
+CREATE INDEX i_rosteru_jid ON rosterusers USING btree (jid);
+
 
 CREATE TABLE rostergroups (
     username text NOT NULL,
-    host text NOT NULL,
     jid text NOT NULL,
-    grp text NOT NULL,
-    PRIMARY KEY (host, username, jid)
+    grp text NOT NULL
 );
 
-CREATE TABLE spool (
-    username text NOT NULL,
-    host text NOT NULL,
-    xml text NOT NULL,
-    seq SERIAL,
-    PRIMARY KEY (host, username, seq)
+CREATE INDEX pk_rosterg_user_jid ON rostergroups USING btree (username, jid);
+
+CREATE TABLE sr_group (
+    name text NOT NULL,
+    opts text NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE vcard (
+CREATE TABLE sr_user (
+    jid text NOT NULL,
+    grp text NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX i_sr_user_jid_grp ON sr_user USING btree (jid, grp);
+CREATE INDEX i_sr_user_jid ON sr_user USING btree (jid);
+CREATE INDEX i_sr_user_grp ON sr_user USING btree (grp);
+
+CREATE TABLE spool (
     username text NOT NULL,
-    host text NOT NULL,
+    xml text NOT NULL,
+    seq SERIAL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX i_despool ON spool USING btree (username);
+
+
+CREATE TABLE vcard (
+    username text PRIMARY KEY,
     vcard text NOT NULL,
-    PRIMARY KEY (host, username)
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE TABLE vcard_xupdate (
+    username text PRIMARY KEY,
+    hash text NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE TABLE vcard_search (
-    host text NOT NULL,
     username text NOT NULL,
-    lusername text NOT NULL,
+    lusername text PRIMARY KEY,
     fn text NOT NULL,
     lfn text NOT NULL,
     family text NOT NULL,
@@ -103,11 +119,9 @@ CREATE TABLE vcard_search (
     orgname text NOT NULL,
     lorgname text NOT NULL,
     orgunit text NOT NULL,
-    lorgunit text NOT NULL,
-    PRIMARY KEY (host, lusername)
+    lorgunit text NOT NULL
 );
 
-CREATE INDEX i_vcard_search_lusername ON vcard_search(lusername);
 CREATE INDEX i_vcard_search_lfn       ON vcard_search(lfn);
 CREATE INDEX i_vcard_search_lfamily   ON vcard_search(lfamily);
 CREATE INDEX i_vcard_search_lgiven    ON vcard_search(lgiven);
@@ -121,20 +135,19 @@ CREATE INDEX i_vcard_search_lorgname  ON vcard_search(lorgname);
 CREATE INDEX i_vcard_search_lorgunit  ON vcard_search(lorgunit);
 
 CREATE TABLE privacy_default_list (
-    username text NOT NULL,
-    host text NOT NULL,
-    name text NOT NULL,
-    PRIMARY KEY (host, username)
+    username text PRIMARY KEY,
+    name text NOT NULL
 );
 
 CREATE TABLE privacy_list (
     username text NOT NULL,
-    host text NOT NULL,
     name text NOT NULL,
     id SERIAL UNIQUE,
-    PRIMARY KEY (host, username, name)
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+CREATE INDEX i_privacy_list_username ON privacy_list USING btree (username);
+CREATE UNIQUE INDEX i_privacy_list_username_name ON privacy_list USING btree (username, name);
 
 CREATE TABLE privacy_list_data (
     id bigint REFERENCES privacy_list(id) ON DELETE CASCADE,
@@ -146,25 +159,18 @@ CREATE TABLE privacy_list_data (
     match_iq boolean NOT NULL,
     match_message boolean NOT NULL,
     match_presence_in boolean NOT NULL,
-    match_presence_out boolean NOT NULL,
-    PRIMARY KEY (id)
+    match_presence_out boolean NOT NULL
 );
 
 CREATE TABLE private_storage (
     username text NOT NULL,
-    host text NOT NULL,
     namespace text NOT NULL,
     data text NOT NULL,
-    PRIMARY KEY (host, username, namespace)
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE hosts (
-    clusterid integer NOT NULL,
-    host text NOT NULL,
-    config text NOT NULL,
-    PRIMARY KEY (host)
-);
+CREATE INDEX i_private_storage_username ON private_storage USING btree (username);
+CREATE UNIQUE INDEX i_private_storage_username_namespace ON private_storage USING btree (username, namespace);
 
 
 CREATE TABLE roster_version (
@@ -234,3 +240,37 @@ CREATE TABLE pubsub_subscription_opt (
   opt_value text
 );
 CREATE UNIQUE INDEX i_pubsub_subscription_opt ON pubsub_subscription_opt USING btree (subid, opt_name);
+
+CREATE TABLE muc_room (
+    name text NOT NULL,
+    host text NOT NULL,
+    opts text NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX i_muc_room_name_host ON muc_room USING btree (name, host);
+
+CREATE TABLE muc_registered (
+    jid text NOT NULL,
+    host text NOT NULL,
+    nick text NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX i_muc_registered_nick ON muc_registered USING btree (nick);
+CREATE UNIQUE INDEX i_muc_registered_jid_host ON muc_registered USING btree (jid, host);
+
+CREATE TABLE irc_custom (
+    jid text NOT NULL,
+    host text NOT NULL,
+    data text NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX i_irc_custom_jid_host ON irc_custom USING btree (jid, host);
+
+CREATE TABLE motd (
+    username text PRIMARY KEY,
+    xml text,
+    created_at TIMESTAMP NOT NULL DEFAULT now()
+);

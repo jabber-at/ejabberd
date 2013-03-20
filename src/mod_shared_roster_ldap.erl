@@ -155,8 +155,8 @@ process_item(RosterItem, _Host) ->
     end.
 
 get_subscription_lists({F, T}, User, Server) ->
-    LUser = exmpp_stringprep:nodeprep(User),
-    LServer = exmpp_stringprep:nameprep(Server),
+    LUser = jlib:nodeprep(User),
+    LServer = jlib:nameprep(Server),
     US = {LUser, LServer},
     DisplayedGroups = get_user_displayed_groups(US),
     SRUsers =
@@ -169,19 +169,11 @@ get_subscription_lists({F, T}, User, Server) ->
     {lists:usort(SRJIDs ++ F), lists:usort(SRJIDs ++ T)}.
 
 get_jid_info({Subscription, Groups}, User, Server, JID) ->
-    LUser = exmpp_stringprep:nodeprep(User),
-    LServer = exmpp_stringprep:nameprep(Server),
+    LUser = jlib:nodeprep(User),
+    LServer = jlib:nameprep(Server),
     US = {LUser, LServer},
-
-    %% TODO BADLOP: I don't know what version is correct, A or B:
-    %%
-    %% A) as binaries
-    {U1, S1, _} = jlib:short_prepd_jid(JID),
+    {U1, S1, _} = jlib:jid_tolower(JID),
     US1 = {U1, S1},
-    %%
-    %% B) as strings
-    %% US1 = {exmpp_jid:prep_node_as_list(JID), exmpp_jid:prep_domain_as_list(JID)},
-
     SRUsers = get_user_to_groups_map(US, false),
     case dict:find(US1, SRUsers) of
 	{ok, GroupNames} ->
@@ -201,19 +193,11 @@ out_subscription(User, Server, JID, Type) ->
     process_subscription(out, User, Server, JID, Type, false).
 
 process_subscription(Direction, User, Server, JID, _Type, Acc) ->
-    LUser = exmpp_stringprep:nodeprep(User),
-    LServer = exmpp_stringprep:nameprep(Server),
+    LUser = jlib:nodeprep(User),
+    LServer = jlib:nameprep(Server),
     US = {LUser, LServer},
-
-    %% TODO BADLOP: I don't know what version is correct, A or B:
-    %%
-    %% A) as binaries
-    {U1, S1, _} = jlib:short_prepd_jid(JID),
+    {U1, S1, _} = jlib:jid_tolower(jlib:jid_remove_resource(JID)),
     US1 = {U1, S1},
-    %%
-    %% B) as strings
-    %% US1 = {exmpp_jid:prep_node_as_list(JID), exmpp_jid:prep_domain_as_list(JID)},
-
     DisplayedGroups = get_user_displayed_groups(US),
     SRUsers =
 	lists:usort(
@@ -301,7 +285,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 %% For a given user, map all his shared roster contacts to groups they are
-%% members of. Skip the user himself if SkipUS is true.
+%% members of. Skip the user himself iff SkipUS is true.
 get_user_to_groups_map({_, Server} = US, SkipUS) ->
     DisplayedGroups = get_user_displayed_groups(US),
     lists:foldl(
@@ -345,10 +329,13 @@ eldap_search(State, FilterParseArgs, AttributesList) ->
             []
     end.
 
-get_user_displayed_groups({_User, Host}) ->
+get_user_displayed_groups({User, Host}) ->
     {ok, State} = eldap_utils:get_state(Host, ?MODULE),
     GroupAttr = State#state.group_attr,
-    Entries = eldap_search(State, [State#state.rfilter], [GroupAttr]),
+    Entries = eldap_search(
+                State,
+                [eldap_filter:do_sub(State#state.rfilter, [{"%u", User}])],
+                [GroupAttr]),
     Reply = lists:flatmap(
 	      fun(#eldap_entry{attributes = Attrs}) ->
 		      case Attrs of
@@ -430,10 +417,14 @@ search_group_info(State, Group) ->
 			      when ID /= "", GroupMemberAttr == State#state.uid ->
 				  JIDs = lists:foldl(
 					   fun({ok, UID}, L) ->
-						   PUID = exmpp_stringprep:nodeprep(UID),
-						   case AuthChecker(PUID, Host) of
-						       true -> [{PUID, Host} | L];
-						       _ -> L
+						   PUID = jlib:nodeprep(UID),
+						   case PUID of
+						       error -> L;
+						       _ ->
+							   case AuthChecker(PUID, Host) of
+							       true -> [{PUID, Host} | L];
+							       _ -> L
+							   end
 						   end;
 					      (_, L) ->
 						   L

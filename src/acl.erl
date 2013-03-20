@@ -32,44 +32,12 @@
 	 add/3,
 	 add_list/3,
 	 match_rule/3,
-	 for_host/1,
 	 % for debugging only
 	 match_acl/3]).
 
 -include("ejabberd.hrl").
--include_lib("stdlib/include/ms_transform.hrl").
-
-%% @type aclspec() = all | JID_Exact | JID_Regexp | JID_Glob | Shared_Group
-%%     JID_Exact = {user, U} | {user, U, S} | {server, S} | {resource, R}
-%%         U = string()
-%%         S = string()
-%%         R = string()
-%%     JID_Regexp = {user_regexp, UR} | {user_regexp, UR, S} | {server_regexp, SR} | {resource_regexp, RR} | {node_regexp, UR, SR}
-%%         UR = string()
-%%         SR = string()
-%%         RR = string()
-%%     JID_Glob = {user_glob, UG} | {user_glob, UG, S} | {server_glob, SG} | {resource_glob, RG} | {node_glob, UG, SG}
-%%         UG = string()
-%%         SG = string()
-%%         RG = string()
-%%     Shared_Group = {shared_group, G} | {shared_group, G, H}
-%%         G = string()
-%%         H = string().
-
-%% @type acl() = {acl, ACLName, ACLSpec}
-%%     ACLName = atom()
-%%     ACLSpec = aclspec().
-%% Record in its Ejabberd-configuration-file variant.
-
-%% @type storedacl() = {acl, {ACLName, Host}, ACLSpec}
-%%     ACLName = atom()
-%%     Host = global | string()
-%%     ACLSpec = aclspec().
-%% Record in its Mnesia-table-record variant.
 
 -record(acl, {aclname, aclspec}).
-
-%% @spec () -> ok
 
 start() ->
     mnesia:create_table(acl,
@@ -79,19 +47,8 @@ start() ->
     mnesia:add_table_copy(acl, node(), ram_copies),
     ok.
 
-%% @spec (Host, ACLName, ACLSpec) -> storedacl()
-%%     Host = global | string()
-%%     ACLName = atom()
-%%     ACLSpec = aclspec()
-
 to_record(Host, ACLName, ACLSpec) ->
     #acl{aclname = {ACLName, Host}, aclspec = normalize_spec(ACLSpec)}.
-
-%% @spec (Host, ACLName, ACLSpec) -> {atomic, ok} | {aborted, Reason}
-%%     Host = global | string()
-%%     ACLName = atom()
-%%     ACLSpec = all | none | aclspec()
-%%     Reason = term()
 
 add(Host, ACLName, ACLSpec) ->
     F = fun() ->
@@ -99,11 +56,6 @@ add(Host, ACLName, ACLSpec) ->
 				  aclspec = normalize_spec(ACLSpec)})
 	end,
     mnesia:transaction(F).
-
-%% @spec (Host, ACLs, Clear) -> ok | false
-%%     Host = global | string()
-%%     ACLs = [acl()]
-%%     Clear = bool()
 
 add_list(Host, ACLs, Clear) ->
     F = fun() ->
@@ -134,17 +86,8 @@ add_list(Host, ACLs, Clear) ->
 	    false
     end.
 
-%% @spec (String) -> Prepd_String
-%%     String = string()
-%%     Prepd_String = string()
-
-normalize(String) ->
-    exmpp_stringprep:nodeprep(String).
-
-%% @spec (ACLSpec) -> Normalized_ACLSpec
-%%     ACLSpec = all | none | aclspec()
-%%     Normalized_ACLSpec = aclspec()
-
+normalize(A) ->
+    jlib:nodeprep(A).
 normalize_spec({A, B}) ->
     {A, normalize(B)};
 normalize_spec({A, B, C}) ->
@@ -155,12 +98,6 @@ normalize_spec(none) ->
     none.
 
 
-
-%% @spec (Host, Rule, JID) -> Access
-%%     Host = global | string()
-%%     Rule = all | none | atom()
-%%     JID = exmpp_jid:jid()
-%%     Access = allow | deny | atom()
 
 match_rule(global, Rule, JID) ->
     case Rule of
@@ -206,37 +143,23 @@ match_rule(Host, Rule, JID) ->
 	    end
     end.
 
-%% @spec (ACLs, JID, Host) -> Access
-%%     ACLs = [{Access, ACLName}]
-%%         Access = deny | atom()
-%%         ACLName = atom()
-%%     JID = exmpp_jid:jid()
-%%     Host = string()
-
 match_acls([], _, _Host) ->
     deny;
-match_acls([{Access, ACLName} | ACLs], JID, Host) ->
-    case match_acl(ACLName, JID, Host) of
+match_acls([{Access, ACL} | ACLs], JID, Host) ->
+    case match_acl(ACL, JID, Host) of
 	true ->
 	    Access;
 	_ ->
 	    match_acls(ACLs, JID, Host)
     end.
 
-%% @spec (ACLName, JID, Host) -> bool()
-%%     ACLName = all | none | atom()
-%%     JID = exmpp_jid:jid()
-%%     Host = string()
-
-match_acl(ACLName, JID, Host) ->
-    case ACLName of
+match_acl(ACL, JID, Host) ->
+    case ACL of
 	all -> true;
 	none -> false;
 	_ ->
-	    User = exmpp_jid:prep_node_as_list(JID),
-	    Server = exmpp_jid:prep_domain_as_list(JID),
-	    Resource = exmpp_jid:prep_resource_as_list(JID),
-	    lists:any(fun(#acl{aclname=Name, aclspec = Spec}) ->
+	    {User, Server, Resource} = jlib:jid_tolower(JID),
+	    lists:any(fun(#acl{aclspec = Spec}) ->
 			      case Spec of
 				  all ->
 				      true;
@@ -245,26 +168,24 @@ match_acl(ACLName, JID, Host) ->
 					  andalso
 					    ((Host == Server) orelse
 					     ((Host == global) andalso
-					      ?IS_MY_HOST(Server)));
+					      lists:member(Server, ?MYHOSTS)));
 				  {user, U, S} ->
 				      (U == User) andalso (S == Server);
 				  {server, S} ->
 				      S == Server;
 				  {resource, R} ->
 				      R == Resource;
-                                  {user_regexp, UR} when is_tuple(Name),
-                                                         element(2, Name) =:= global ->
-                                      ?IS_MY_HOST(Server)
-					  andalso is_regexp_match(User, UR);
 				  {user_regexp, UR} ->
 				      ((Host == Server) orelse
 				       ((Host == global) andalso
-					?IS_MY_HOST(Server)))
+					lists:member(Server, ?MYHOSTS)))
 					  andalso is_regexp_match(User, UR);
 				  {shared_group, G} ->
-				      mod_shared_roster:is_user_in_group({User, Server}, G, Host);
+                                      Mod = loaded_shared_roster_module(Host),
+				      Mod:is_user_in_group({User, Server}, G, Host);
 				  {shared_group, G, H} ->
-				      mod_shared_roster:is_user_in_group({User, Server}, G, H);
+                                      Mod = loaded_shared_roster_module(H),
+				      Mod:is_user_in_group({User, Server}, G, H);
 				  {user_regexp, UR, S} ->
 				      (S == Server) andalso
 					  is_regexp_match(User, UR);
@@ -278,7 +199,7 @@ match_acl(ACLName, JID, Host) ->
 				  {user_glob, UR} ->
 				      ((Host == Server) orelse
 				       ((Host == global) andalso
-					?IS_MY_HOST(Server)))
+					lists:member(Server, ?MYHOSTS)))
 					  andalso
 					  is_glob_match(User, UR);
 				  {user_glob, UR, S} ->
@@ -299,41 +220,30 @@ match_acl(ACLName, JID, Host) ->
 				      false
 			      end
 		      end,
-		      ets:lookup(acl, {ACLName, global}) ++
-		      ets:lookup(acl, {ACLName, Host}))
+		      ets:lookup(acl, {ACL, global}) ++
+		      ets:lookup(acl, {ACL, Host}))
     end.
 
-%% @spec (String, RegExp) -> bool()
-%%     String = string() | undefined
-%%     RegExp = string()
-
-is_regexp_match(undefined, _RegExp) ->
-    false;
 is_regexp_match(String, RegExp) ->
-    try re:run(String, RegExp, [{capture, none}]) of
+    case ejabberd_regexp:run(String, RegExp) of
 	nomatch ->
 	    false;
 	match ->
-	    true
-    catch
-	_:ErrDesc ->
+	    true;
+	{error, ErrDesc} ->
 	    ?ERROR_MSG(
-	       "Wrong regexp ~p in ACL:~n~p",
+	       "Wrong regexp ~p in ACL: ~p",
 	       [RegExp, ErrDesc]),
 	    false
     end.
 
-%% @spec (String, Glob) -> bool()
-%%     String = string() | undefined
-%%     Glob = string()
-
 is_glob_match(String, Glob) ->
-    is_regexp_match(String, xmerl_regexp:sh_to_awk(Glob)).
+    is_regexp_match(String, ejabberd_regexp:sh_to_awk(Glob)).
 
-
-for_host(Host) ->
-    mnesia:select(acl,
-		ets:fun2ms(fun (#acl{aclname = {_ACLName, H}}) 
-		                when H =:= Host ->
-				    object()
-		end)).
+loaded_shared_roster_module(Host) ->
+    case {gen_mod:is_loaded(Host, mod_shared_roster_odbc),
+          gen_mod:is_loaded(Host, mod_shared_roster_ldap)} of
+        {true, _} -> mod_shared_roster_odbc;
+        {_, true} -> mod_shared_roster_ldap;
+        _ -> mod_shared_roster
+    end.

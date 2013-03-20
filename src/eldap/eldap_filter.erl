@@ -26,6 +26,9 @@
 %%%----------------------------------------------------------------------
 -module(eldap_filter).
 
+%% TODO: remove this when new regexp module will be used
+-compile({nowarn_deprecated_function, {regexp, sub, 3}}).
+
 -export([parse/1, parse/2, do_sub/2]).
 
 %%====================================================================
@@ -143,32 +146,36 @@ do_sub(S, [{RegExp, New, Times} | T]) ->
     do_sub(Result, T).
 
 do_sub(S, {RegExp, New}, Iter) ->
-    try re:replace(S, RegExp, New, [{return, list}]) of
-	NewS when NewS == S ->
-	    NewS;
-	NewS when Iter =< ?MAX_RECURSION ->
-	    do_sub(NewS, {RegExp, New}, Iter+1);
-	_ when Iter > ?MAX_RECURSION ->
-	    throw({regexp, max_substitute_recursion})
-    catch
-	_:_ ->
-	    throw({regexp, bad_regexp})
+    case ejabberd_regexp:run(S, RegExp) of
+        match ->
+            case ejabberd_regexp:replace(S, RegExp, New) of
+                NewS when Iter =< ?MAX_RECURSION ->
+                    do_sub(NewS, {RegExp, New}, Iter+1);
+                _NewS when Iter > ?MAX_RECURSION ->
+                    erlang:error(max_substitute_recursion)
+            end;
+        nomatch ->
+            S;
+        _ ->
+            erlang:error(bad_regexp)
     end;
 
 do_sub(S, {_, _, N}, _) when N<1 ->
     S;
 
 do_sub(S, {RegExp, New, Times}, Iter) ->
-    try re:replace(S, RegExp, New, [{return, list}]) of
-	NewS when NewS == S ->
-	    NewS;
-	NewS when Iter < Times ->
-	    do_sub(NewS, {RegExp, New, Times}, Iter+1);
-	NewS ->
-	    NewS
-    catch
-	_:_ ->
-	    throw({regexp, bad_regexp})
+    case ejabberd_regexp:run(S, RegExp) of
+        match ->
+            case ejabberd_regexp:replace(S, RegExp, New) of
+                NewS when Iter < Times ->
+                    do_sub(NewS, {RegExp, New, Times}, Iter+1);
+                NewS ->
+                    NewS
+            end;
+        nomatch ->
+            S;
+        _ ->
+            erlang:error(bad_regexp)
     end.
 
 replace_amps(String) ->

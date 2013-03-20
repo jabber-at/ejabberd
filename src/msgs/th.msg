@@ -2,6 +2,7 @@
 {"Access Control List Configuration","การกำหนดค่ารายการควบคุมการเข้าถึง"}.
 {"Access control lists","รายการควบคุมการเข้าถึง"}.
 {"Access Control Lists","รายการควบคุมการเข้าถึง"}.
+{"Access denied by service policy","การเข้าถึงถูกปฏิเสธโดยนโยบายการบริการ"}.
 {"Access rules","กฎการเข้าถึง"}.
 {"Access Rules","กฎการเข้าถึง"}.
 {"Action on user","การดำเนินการกับผู้ใช้"}.
@@ -29,12 +30,15 @@
 {"Birthday","วันเกิด"}.
 {"Change Password","เปลี่ยนรหัสผ่าน"}.
 {"Change User Password","เปลี่ยนรหัสผ่านของผู้ใช้"}.
+{"Chatroom configuration modified","มีการปรับเปลี่ยนการกำหนดค่าของห้องสนทนา"}.
+{"Chatrooms","ห้องสนทนา"}.
 {"Choose a username and password to register with this server","เลือกชื่อผู้ใช้และรหัสผ่านเพื่อลงทะเบียนกับเซิร์ฟเวอร์นี้"}.
 {"Choose modules to stop","เลือกโมดูลเพื่อหยุดการทำงาน"}.
 {"Choose storage type of tables","เลือกชนิดการจัดเก็บของตาราง"}.
 {"Choose whether to approve this entity's subscription.","เลือกว่าจะอนุมัติการสมัครเข้าใช้งานของเอนทิตี้นี้หรือไม่"}.
 {"City","เมือง"}.
 {"Commands","คำสั่ง"}.
+{"Conference room does not exist","ไม่มีห้องประชุม"}.
 {"Configuration","การกำหนดค่า"}.
 {"Connected Resources:","ทรัพยากรที่เชื่อมต่อ:"}.
 {"Country","ประเทศ"}.
@@ -53,9 +57,11 @@
 {"Deliver payloads with event notifications","ส่งส่วนของข้อมูล (payload) พร้อมกับการแจ้งเตือนเหตุการณ์"}.
 {"Description:","รายละเอียด:"}.
 {"Disc only copy","คัดลอกเฉพาะดิสก์"}.
+{"Displayed Groups:","กลุ่มที่แสดง:"}.
 {"Dump Backup to Text File at ","ถ่ายโอนการสำรองข้อมูลไปยังไฟล์ข้อความที่"}.
 {"Dump to Text File","ถ่ายโอนข้อมูลไปยังไฟล์ข้อความ"}.
 {"Edit Properties","แก้ไขคุณสมบัติ"}.
+{"ejabberd IRC module","ejabberd IRC module"}.
 {"ejabberd MUC module","ejabberd MUC module"}.
 {"ejabberd Publish-Subscribe module","ejabberd Publish-Subscribe module"}.
 {"ejabberd SOCKS5 Bytestreams module","ejabberd SOCKS5 Bytestreams module"}.
@@ -99,8 +105,11 @@
 {"Invalid affiliation: ~s","การเข้าร่วมที่ไม่ถูกต้อง: ~s"}.
 {"Invalid role: ~s","บทบาทไม่ถูกต้อง: ~s"}.
 {"IP addresses","ที่อยู่ IP"}.
+{"IRC Transport","การส่ง IRC"}.
+{"IRC Username","ชื่อผู้ใช้ IRC"}.
 {"is now known as","ซึ่งรู้จักกันในชื่อ"}.
 {"It is not allowed to send private messages of type \"groupchat\"","ไม่อนุญาตให้ส่งข้อความส่วนตัวไปยัง \"กลุ่มสนทนา\""}.
+{"It is not allowed to send private messages to the conference","ไม่อนุญาตให้ส่งข้อความส่วนตัวไปยังห้องประชุม"}.
 {"Jabber ID","Jabber ID"}.
 {"Jabber ID ~s is invalid","Jabber ID ~s ไม่ถูกต้อง"}.
 {"January","มกราคม"}.
@@ -142,6 +151,7 @@
 {"Nickname","ชื่อเล่น"}.
 {"Nickname Registration at ","การลงทะเบียนชื่อเล่นที่ "}.
 {"Nickname ~s does not exist in the room","ไม่มีชื่อเล่น ~s อยู่ในห้องนี้"}.
+{"No body provided for announce message","ไม่ได้ป้อนเนื้อหาสำหรับข้อความที่ประกาศ"}.
 {"No Data","ไม่มีข้อมูล"}.
 {"Node ","โหนด "}.
 {"Node ID","ID โหนด"}.
@@ -149,6 +159,7 @@
 {"Nodes","โหนด"}.
 {"No limit","ไม่จำกัด"}.
 {"None","ไม่มี"}.
+{"No resource provided","ไม่ได้ระบุข้อมูล"}.
 {"Notify subscribers when items are removed from the node","แจ้งเตือนผู้สมัครสมาชิกเมื่อรายการถูกลบออกจากโหนด"}.
 {"Notify subscribers when the node configuration changes","แจ้งเตือนผู้สมัครสมาชิกเมื่อการกำหนดค่าโหนดเปลี่ยนแปลง"}.
 {"Notify subscribers when the node is deleted","แจ้งเตือนผู้สมัครสมาชิกเมื่อโหนดถูกลบ"}.
@@ -164,6 +175,9 @@
 {"Online Users:","ผู้ใช้ออนไลน์:"}.
 {"Online Users","ผู้ใช้ออนไลน์"}.
 {"Only deliver notifications to available users","ส่งการแจ้งเตือนถึงผู้ใช้ที่สามารถติดต่อได้เท่านั้น"}.
+{"Only occupants are allowed to send messages to the conference","ผู้ครอบครองห้องเท่านั้นที่ได้รับอนุญาตให้ส่งข้อความไปยังห้องประชุม"}.
+{"Only occupants are allowed to send queries to the conference","ผู้ครอบครองห้องเท่านั้นที่ได้รับอนุญาตให้ส่งกระทู้ถามไปยังห้องประชุม"}.
+{"Only service administrators are allowed to send service messages","ผู้ดูแลด้านการบริการเท่านั้นที่ได้รับอนุญาตให้ส่งข้อความการบริการ"}.
 {"Options","ตัวเลือก"}.
 {"Organization Name","ชื่อองค์กร"}.
 {"Organization Unit","หน่วยขององค์กร"}.
@@ -187,15 +201,19 @@
 {"private, ","ส่วนตัว, "}.
 {"Publish-Subscribe","เผยแพร่-สมัครเข้าใช้งาน"}.
 {"PubSub subscriber request","คำร้องขอของผู้สมัครเข้าใช้งาน PubSub"}.
+{"Queries to the conference members are not allowed in this room","ห้องนี้ไม่อนุญาตให้ส่งกระทู้ถามถึงสมาชิกในห้องประชุม"}.
 {"RAM and disc copy","คัดลอก RAM และดิสก์"}.
 {"RAM copy","คัดลอก RAM"}.
 {"Raw","ข้อมูลดิบ"}.
 {"Really delete message of the day?","แน่ใจว่าต้องการลบข้อความของวันหรือไม่"}.
+{"Recipient is not in the conference room","ผู้รับไม่ได้อยู่ในห้องประชุม"}.
 {"Registered Users:","ผู้ใช้ที่ลงทะเบียน:"}.
 {"Registered Users","ผู้ใช้ที่ลงทะเบียน"}.
+{"Registration in mod_irc for ","การลงทะเบียนใน mod_irc สำหรับ"}.
 {"Remote copy","คัดลอกระยะไกล"}.
 {"Remove","ลบ"}.
 {"Remove User","ลบผู้ใช้"}.
+{"Replaced by new connection","แทนที่ด้วยการเชื่อมต่อใหม่"}.
 {"Resources","ทรัพยากร"}.
 {"Restart","เริ่มต้นใหม่"}.
 {"Restart Service","เริ่มต้นการบริการใหม่อีกครั้ง"}.
@@ -205,6 +223,7 @@
 {"Restore binary backup immediately:","คืนค่าข้อมูลสำรองแบบไบนารีโดยทันที:"}.
 {"Restore plain text backup immediately:","คืนค่าข้อมูลสำรองที่เป็นข้อความธรรมดาโดยทันที:"}.
 {"Room Configuration","การกำหนดค่าห้องสนทนา"}.
+{"Room creation is denied by service policy","การสร้างห้องสนทนาถูกปฏิเสธโดยนโยบายการบริการ"}.
 {"Room title","ชื่อห้อง"}.
 {"Roster","บัญชีรายชื่อ"}.
 {"Roster of ","บัญชีรายชื่อของ "}.
@@ -269,6 +288,7 @@
 {"Update plan","แผนการอัพเดต"}.
 {"Update script","อัพเดตสคริปต์"}.
 {"Uptime:","เวลาการทำงานต่อเนื่อง:"}.
+{"Use of STARTTLS required","ต้องใช้ STARTTLS"}.
 {"User ","ผู้ใช้"}.
 {"User","ผู้ใช้"}.
 {"User Management","การจัดการผู้ใช้"}.
@@ -283,6 +303,7 @@
 {"Whether to allow subscriptions","อนุญาตให้เข้าร่วมเป็นสมาชิกหรือไม่"}.
 {"You have been banned from this room","คุณถูกสั่งห้ามไมให้เข้าห้องนี้"}.
 {"You must fill in field \"Nickname\" in the form","คุณต้องกรอกฟิลด์ \"Nickname\" ในแบบฟอร์ม"}.
+{"You need an x:data capable client to configure mod_irc settings","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อกำหนดการตั้งค่า mod_irc"}.
 {"You need an x:data capable client to configure room","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อกำหนดค่าห้องสนทนา "}.
-{"You need an x:data capable client to register nickname","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อลงทะเบียนชื่อเล่น"}.
 {"You need an x:data capable client to search","คุณต้องใช้ไคลเอ็นต์ที่รองรับ x:data เพื่อค้นหา"}.
+{"Your contact offline message queue is full. The message has been discarded.","ลำดับข้อความออฟไลน์ของผู้ที่ติดต่อของคุณเต็มแล้ว ข้อความถูกลบทิ้งแล้ว"}.

@@ -27,7 +27,6 @@ while [ $# -ne 0 ] ; do
         --ctl-config) EJABBERDCTL_CONFIG_PATH=$1 ; shift ;;
         --logs) LOGS_DIR=$1 ; shift ;;
         --spool) SPOOLDIR=$1 ; shift ;;
-        --erlargs) ERL_ARGS=$1 ; shift ;;
         *) ARGS="$ARGS $PARAM" ;;
     esac
 done
@@ -57,9 +56,8 @@ if [ "$ERLANG_NODE_ARG" != "" ] ; then
 fi
 
 # check the proper system user is used
-if [ `uname -s` = "SunOS" ]; then IDCMD=/usr/xpg4/bin/id; else IDCMD=id; fi
-ID=`$IDCMD -g`
-EJID=`$IDCMD -g $INSTALLUSER`
+ID=`id -g`
+GIDS=`id -G`
 EJID=`id -g $INSTALLUSER`
 EXEC_CMD="false"
 for GID in $GIDS; do
@@ -77,8 +75,6 @@ fi
 
 NAME=-name
 [ "$ERLANG_NODE" = "${ERLANG_NODE%.*}" ] && NAME=-sname
-NODE=${ERLANG_NODE%@*}
-HOST=${ERLANG_NODE#*@}
 
 KERNEL_OPTS=""
 if [ "$FIREWALL_WINDOW" != "" ] ; then
@@ -147,7 +143,6 @@ export EXEC_CMD
 # start server
 start ()
 {
-    check_start
     $EXEC_CMD "$ERL \
       $NAME $ERLANG_NODE \
       -noinput -detached \
@@ -156,7 +151,7 @@ start ()
       $KERNEL_OPTS \
       -s ejabberd \
       -sasl sasl_error_logger \\{file,\\\"$SASL_LOG_PATH\\\"\\} \
-      $ERLANG_OPTS -- $ARGS \"$@\" $ERL_ARGS"
+      $ERLANG_OPTS $ARGS \"$@\""
 }
 
 # attach to server
@@ -186,14 +181,14 @@ debug ()
     $EXEC_CMD "$ERL \
       $NAME debug-${TTY}-${ERLANG_NODE} \
       -remsh $ERLANG_NODE \
+      -hidden \
       $KERNEL_OPTS \
-      $ERLANG_OPTS -- $ARGS \"$@\" $ERL_ARGS"
+      $ERLANG_OPTS $ARGS \"$@\""
 }
 
 # start interactive server
 live ()
 {
-    check_start
     echo "--------------------------------------------------------------------"
     echo ""
     echo "IMPORTANT: ejabberd is going to start in LIVE (interactive) mode."
@@ -219,14 +214,7 @@ live ()
       -mnesia dir \"\\\"$SPOOLDIR\\\"\" \
       $KERNEL_OPTS \
       -s ejabberd \
-      $ERLANG_OPTS -- $ARGS \"$@\" $ERL_ARGS"
-}
-
-etop()
-{
-    $EXEC_CMD "$ERL \
-      $NAME debug-${TTY}-${ERLANG_NODE} \
-      -hidden -s etop -s erlang halt -output text -node $ERLANG_NODE"
+      $ERLANG_OPTS $ARGS \"$@\""
 }
 
 help ()
@@ -244,7 +232,6 @@ help ()
     echo "  --logs dir         Directory for logs: $LOGS_DIR"
     echo "  --spool dir        Database spool dir: $SPOOLDIR"
     echo "  --node nodename    ejabberd node name: $ERLANG_NODE"
-    echo "  --erlargs \"\"       erl arguments:      $ERL_ARGS"
     echo ""
 }
 
@@ -350,26 +337,6 @@ stop_epmd()
     epmd -names | grep -q name || epmd -kill
 }
 
-# make sure node not already running and node name unregistered
-check_start()
-{
-    epmd -names | grep -q $NODE && {
-        ps ux | grep -v grep | grep -q $ERLANG_NODE && {
-            echo "ejabberd in node $ERLANG_NODE is already running."
-            exit 4
-        } || {
-            ps ux | grep beam | grep -v "grep beam" && {
-                echo "ejabberd node is registered, but no ejabberd process has been found."
-                echo "can not kill epmd as other erlang nodes are running."
-                echo "please stop all erlang nodes, and call 'epmd -kill'."
-                exit 5
-            } || {
-                epmd -kill
-            }
-        }
-    }
-}
-
 # allow sync calls
 wait_for_status()
 {
@@ -399,7 +366,6 @@ case $ARGS in
     ' start') start;;
     ' debug') debug;;
     ' live') live;;
-    ' etop') etop;;
     ' started') wait_for_status 0 30 2;; # wait 30x2s before timeout
     ' stopped') wait_for_status 3 15 2; stop_epmd;; # wait 15x2s before timeout
     *) ctl $ARGS;;

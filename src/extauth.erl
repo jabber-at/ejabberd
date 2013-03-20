@@ -96,7 +96,7 @@ remove_user(User, Server, Password) ->
     call_port(Server, ["removeuser3", User, Server, Password]).
 
 call_port(Server, Msg) ->
-    LServer = exmpp_stringprep:nameprep(Server),
+    LServer = jlib:nameprep(Server),
     ProcessName = get_process_name(LServer, random_instance(get_instances(LServer))),
     ProcessName ! {call, self(), Msg},
     receive

@@ -27,32 +27,16 @@
 -module(ejabberd_config).
 -author('alexey@process-one.net').
 
--export([start/0, load_file/1, get_host_option/2,
+-export([start/0, load_file/1,
 	 add_global_option/2, add_local_option/2,
-         mne_add_local_option/2, mne_del_local_option/1,
-	 del_global_option/1, del_local_option/1,
 	 get_global_option/1, get_local_option/1]).
-
--export([for_host/1
-         ,configure_host/2
-         ,delete_host/1
-        ]).
-
--export([search/1]).
-
 -export([get_vh_by_auth_method/1]).
 -export([is_file_readable/1]).
 
 -include("ejabberd.hrl").
 -include("ejabberd_config.hrl").
 -include_lib("kernel/include/file.hrl").
--include_lib("stdlib/include/ms_transform.hrl").
 
--record(state, {opts = [],
-		hosts = [],
-		override_local = false,
-		override_global = false,
-		override_acls = false}).
 
 %% @type macro() = {macro_key(), macro_value()}
 
@@ -167,16 +151,7 @@ search_hosts(Term, State) ->
     end.
 
 add_hosts_to_option(Hosts, State) ->
-    PrepHosts1 = normalize_hosts(Hosts),
-    PrepHosts = ensure_localhost_is_first(PrepHosts1),
-    mnesia:transaction(
-      fun() ->
-	      lists:foreach(
-		fun(H) ->
-			mnesia:write(#local_config{key = {H, host},
-						   value = []})
-		end, PrepHosts)
-      end),
+    PrepHosts = normalize_hosts(Hosts),
     add_option(hosts, PrepHosts, State#state{hosts = PrepHosts}).
 
 normalize_hosts(Hosts) ->
@@ -184,38 +159,15 @@ normalize_hosts(Hosts) ->
 normalize_hosts([], PrepHosts) ->
     lists:reverse(PrepHosts);
 normalize_hosts([Host|Hosts], PrepHosts) ->
-    try
-	PrepHost = exmpp_stringprep:nodeprep(Host),
-	normalize_hosts(Hosts, [PrepHost|PrepHosts])
-    catch
-	_ ->
+    case jlib:nodeprep(Host) of
+	error ->
 	    ?ERROR_MSG("Can't load config file: "
 		       "invalid host name [~p]", [Host]),
-	    exit("invalid hostname")
+	    exit("invalid hostname");
+	PrepHost ->
+	    normalize_hosts(Hosts, [PrepHost|PrepHosts])
     end.
 
-%% @spec (Hosts::[string()]) -> [Localhost::string() | [string()]]
-%% @doc Return the list where the first is surely "localhost".
-ensure_localhost_is_first(Hosts) ->
-    case lists:all(fun is_list/1, Hosts) of
-	true ->
-	    ensure_localhost_is_first1(Hosts);
-	false -> 
-	    ?ERROR_MSG("This list of hosts is bad formed:~n~p", [Hosts]),
-	    ensure_localhost_is_first1([])
-    end.
-
-ensure_localhost_is_first1(["localhost" | _] = Hosts) ->
-    Hosts;
-ensure_localhost_is_first1(Hosts) ->
-    case lists:member("localhost", Hosts) of
-	true ->
-	    ["localhost" | lists:delete("localhost", Hosts)];
-	false ->
-	    ?INFO_MSG("ejabberd added the default virtual host \"localhost\""
-		      " to the list of hosts.", []),
-	    ["localhost" | Hosts]
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Errors reading the config file
@@ -422,11 +374,12 @@ process_term(Term, State) ->
 	    State;
 	{hosts, _Hosts} ->
 	    State;
+	{fqdn, HostFQDN} ->
+	    ?DEBUG("FQDN set to: ~p", [HostFQDN]),
+	    add_option(fqdn, HostFQDN, State);
 	{host_config, Host, Terms} ->
 	    lists:foldl(fun(T, S) -> process_host_term(T, Host, S) end,
 			State, Terms);
-	{clusterid, ClusterID} ->
-	    add_option(clusterid, ClusterID, State);
 	{listen, Listeners} ->
 	    Listeners2 =
 		lists:map(
@@ -443,8 +396,6 @@ process_term(Term, State) ->
 	    add_option(outgoing_s2s_port, Port, State);
 	{outgoing_s2s_options, Methods, Timeout} ->
 	    add_option(outgoing_s2s_options, {Methods, Timeout}, State);
- 	{outgoing_s2s_local_address, Addr} ->
- 	    add_option(outgoing_s2s_local_address, Addr, State);
         {s2s_dns_options, PropList} ->
             add_option(s2s_dns_options, PropList, State);
 	{s2s_use_starttls, Port} ->
@@ -479,19 +430,22 @@ process_term(Term, State) ->
 	    add_option(watchdog_large_heap, LH, State);
 	{registration_timeout, Timeout} ->
 	    add_option(registration_timeout, Timeout, State);
-	{ejabberdctl_access_commands, ACs} ->
-	    add_option(ejabberdctl_access_commands, ACs, State);
 	{captcha_cmd, Cmd} ->
 	    add_option(captcha_cmd, Cmd, State);
 	{captcha_host, Host} ->
 	    add_option(captcha_host, Host, State);
+        {captcha_limit, Limit} ->
+            add_option(captcha_limit, Limit, State);
+	{ejabberdctl_access_commands, ACs} ->
+	    add_option(ejabberdctl_access_commands, ACs, State);
 	{loglevel, Loglevel} ->
 	    ejabberd_loglevel:set(Loglevel),
 	    State;
 	{max_fsm_queue, N} ->
 	    add_option(max_fsm_queue, N, State);
 	{_Opt, _Val} ->
-	    process_host_term(Term, global, State)
+	    lists:foldl(fun(Host, S) -> process_host_term(Term, Host, S) end,
+			State, State#state.hosts)
     end.
 
 process_host_term(Term, Host, State) ->
@@ -513,15 +467,6 @@ process_host_term(Term, Host, State) ->
 	    State;
 	{odbc_server, ODBC_server} ->
 	    add_option({odbc_server, Host}, ODBC_server, State);
-	{auth_method, Methods} ->
-	    {Methods2, StorageOption} = replace_storage_auth(Host, Methods),
-	    State2 = case StorageOption of
-		{auth_storage, Storage} ->
-		    add_option({auth_storage, Host}, Storage, State);
-		undefined -> 
-		    State
-	    end,
-	    add_option({auth_method, Host}, Methods2, State2);
 	{Opt, Val} ->
 	    add_option({Opt, Host}, Val, State)
     end.
@@ -625,47 +570,20 @@ add_global_option(Opt, Val) ->
 		       end).
 
 add_local_option(Opt, Val) ->
-    mnesia:transaction(fun mne_add_local_option/2, [Opt, Val]).
-
-mne_add_local_option(Opt, Val) ->
-    mnesia:write(#local_config{key = Opt,
-                               value = Val}).
-
-del_global_option(Opt) ->
     mnesia:transaction(fun() ->
-			       mnesia:delete({config, Opt})
-		       end).
-
-del_local_option(Opt) ->
-    mnesia:transaction(fun() ->
-			       mnesia:delete({local_config, Opt})
+			       mnesia:write(#local_config{key = Opt,
+							  value = Val})
 		       end).
 
 
-get_global_option({Opt1, Host} = Opt) when is_list(Host) ->
-    case ets:lookup(config, Opt) of
-	[#config{value = Val}] ->
-	    Val;
-	_ ->
-	    get_global_option({Opt1, global})
-    end;
 get_global_option(Opt) ->
     case ets:lookup(config, Opt) of
-	[#config{value = Val}] when Opt == hosts ->
-	    ensure_localhost_is_first(Val);
 	[#config{value = Val}] ->
 	    Val;
 	_ ->
 	    undefined
     end.
 
-get_local_option({Opt1, Host} = Opt) when is_list(Host) ->
-    case ets:lookup(local_config, Opt) of
-	[#local_config{value = Val}] ->
-	    Val;
-	_ ->
-	    get_local_option({Opt1, global})
-    end;
 get_local_option(Opt) ->
     case ets:lookup(local_config, Opt) of
 	[#local_config{value = Val}] ->
@@ -673,17 +591,6 @@ get_local_option(Opt) ->
 	_ ->
 	    undefined
     end.
-
-get_host_option(Host, Option) ->
-    case ets:lookup(local_config, {Option, Host}) of
-        [#local_config{value=V}] -> V;
-        _ -> undefined
-    end.
-
-mne_del_local_option({_OptName, Host} = Opt) when is_list(Host) ->
-    mnesia:delete({local_config, Opt});
-mne_del_local_option({Host, host} = Opt) when is_list(Host) ->
-    mnesia:delete({local_config, Opt}).
 
 %% Return the list of hosts handled by a given module
 get_vh_by_auth_method(AuthMethod) ->
@@ -703,86 +610,3 @@ is_file_readable(Path) ->
 	{error, _Reason} ->
 	    false
     end.
-
-search(Pattern) ->
-    {atomic, Res} = mnesia:transaction(fun mnesia:select/2, [local_config, Pattern]),
-    Res.
-
-for_host(Host) ->
-    mnesia:read({local_config, {Host, host}})
-        ++ mnesia:select(local_config,
-                  ets:fun2ms(fun (#local_config{key={_, H}})
-                                 when H =:= Host ->
-                                     object()
-                             end))
-        ++ acl:for_host(Host).
-
-delete_host(Host) ->
-    mnesia_delete_objects(for_host(Host)),
-    ok.
-
-configure_host(Host, Config) ->
-    HostExistenceTerm = {{Host, host}, []},
-    Records = host_terms_to_records(Host, [HostExistenceTerm | Config]),
-    mnesia_write_objects(Records),
-    ok.
-
-host_terms_to_records(Host, Terms) ->
-    lists:foldl(fun (Term, Acc) ->
-                        host_term_to_record(Term, Host, Acc)
-                end, [], Terms).
-
-host_term_to_record({acl, ACLName, ACLData}, Host, Acc) ->
-    [acl:to_record(Host, ACLName, ACLData) | Acc];
-host_term_to_record({access, RuleName, Rules}, Host, Acc) ->
-    [#config{key={access, RuleName, Host}, value=Rules} | Acc];
-host_term_to_record({shaper, Name, Data}, Host, Acc) ->
-    [#config{key={shaper, Name, Host}, value=Data} | Acc];
-host_term_to_record({host, _}, _Host, Acc) -> Acc;
-host_term_to_record({hosts, _}, _Host, Acc) -> Acc;
-host_term_to_record({{Host, host}, []}, Host, Acc) ->
-    [#local_config{key={Host, host}, value=[]} | Acc];
-host_term_to_record({Opt, Val}, Host, Acc) when is_atom(Opt) ->
-    [#local_config{key={Opt, Host}, value=Val} | Acc].
-
-    
-mnesia_delete_objects(List) when is_list(List) ->
-    true = lists:all(fun (I) ->
-                             ok =:= mnesia:delete_object(I)
-                     end, List).
-mnesia_write_objects(List) when is_list(List) ->
-    true = lists:all(fun (I) ->
-                             ok =:= mnesia:write(I)
-                     end, List).
-
-%% Replace internal and odbc auth_methods with storage.
-%% Only one storage type can be used, either internal or odbc.
-replace_storage_auth(Host, Val) when not is_list(Val) ->
-    replace_storage_auth(Host, [Val]);
-replace_storage_auth(Host, Val) ->
-    replace_storage_auth(Host, Val, [], undefined).
-
-replace_storage_auth(_Host, [], Val2, Storage) ->
-    {lists:reverse(Val2), Storage};
-
-replace_storage_auth(Host, [internal = Val | ValT], Val2, undefined) ->
-    Storage = {auth_storage, mnesia},
-    ?WARNING_MSG("The auth method '~p' is deprecated.~nReplace it with 'storage'"
-		 " and also add this option: ~n~p.", [Val, Storage]),
-    replace_storage_auth(Host, ValT, [storage | Val2], Storage);
-
-replace_storage_auth(Host, [odbc = Val | ValT], Val2, undefined) ->
-    Storage = {auth_storage, odbc},
-    ?WARNING_MSG("The auth method '~p' is deprecated.~nReplace it with 'storage'"
-		 " and also add this option: ~n~p.", [Val, Storage]),
-    replace_storage_auth(Host, ValT, [storage | Val2], Storage);
-
-replace_storage_auth(Host, [Val | ValT], Val2, Storage)
-  when (Val /= internal) and (Val /= odbc) ->
-    replace_storage_auth(Host, ValT, [Val | Val2], Storage);
-
-replace_storage_auth(Host, [Val | _ValT], _Val2, Storage) ->
-    ?CRITICAL_MSG("The auth method '~p' conflicts with~n~p in the host \"~p\"."
-		  "~nOnly one of them can be used in each host.",
-		  [Val, Storage, Host]),
-    throw({unacceptable_auth_conflict, Host, Val, Storage}).

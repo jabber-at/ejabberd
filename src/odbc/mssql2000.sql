@@ -18,11 +18,6 @@
  *
  */
 
-/*   WARNING !!!
- * ejabberd creates the tables automatically.
- * This file is obsolete.
- * Read the ejabberd modules source code for up-to-date table schema. */
-
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -294,6 +289,8 @@ ALTER TABLE [dbo].[privacy_default_list] WITH NOCHECK ADD
 		[username]
 	) WITH  FILLFACTOR = 90  ON [PRIMARY] 
 GO
+
+
 
  CREATE  INDEX [IX_rostergroups_jid] ON [dbo].[rostergroups]([jid]) WITH  FILLFACTOR = 90 ON [PRIMARY]
 GO

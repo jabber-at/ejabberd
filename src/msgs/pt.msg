@@ -2,6 +2,7 @@
 {"Access Control List Configuration","Configuração da Lista de Controlo de Acesso"}.
 {"Access control lists","Listas de Controlo de Acesso"}.
 {"Access Control Lists","Listas de Controlo de Acesso"}.
+{"Access denied by service policy","Acesso negado pela política de serviço"}.
 {"Access rules","Regras de acesso"}.
 {"Access Rules","Regras de Acesso"}.
 {"Action on user","Acção no utilizador"}.
@@ -19,6 +20,7 @@
 {"Choose modules to stop","Seleccione os módulos a parar"}.
 {"Choose storage type of tables","Seleccione o tipo de armazenagem das tabelas"}.
 {"City","Cidade"}.
+{"Conference room does not exist","A sala não existe"}.
 {"Configuration","Configuração"}.
 {"Connected Resources:","Recursos conectados:"}.
 {"Country","País"}.
@@ -28,6 +30,7 @@
 {"Dump Backup to Text File at ","Exporta cópia de segurança para ficheiro de texto em "}.
 {"Dump to Text File","Exportar para ficheiro de texto"}.
 {"Edit Properties","Editar propriedades"}.
+{"ejabberd IRC module","Módulo de IRC ejabberd"}.
 {"ejabberd MUC module","Módulo MUC de ejabberd"}.
 {"ejabberd vCard module","Módulo vCard de ejabberd"}.
 {"Enter list of {Module, [Options]}","Introduza lista de {módulos, [opções]}"}.
@@ -52,7 +55,9 @@
 {"Incorrect password","Palavra-chave incorrecta"}.
 {"Invalid affiliation: ~s","Afiliação inválida: ~s"}.
 {"Invalid role: ~s","Papel inválido: ~s"}.
+{"IRC Username","Nome do utilizador de IRC"}.
 {"It is not allowed to send private messages of type \"groupchat\"","Não é permitido enviar mensagens privadas do tipo \"groupchat\""}.
+{"It is not allowed to send private messages to the conference","Impedir o envio de mensagens privadas para a sala"}.
 {"Jabber ID ~s is invalid","O Jabber ID ~s não é válido"}.
 {"Last Activity","Última actividade"}.
 {"Listened Ports at ","Portas em escuta em "}.
@@ -72,9 +77,13 @@
 {"Node not found","Nodo não encontrado"}.
 {"Nodes","Nodos"}.
 {"None","Nenhum"}.
+{"No resource provided","Não foi passado nenhum recurso"}.
 {"OK","OK"}.
 {"Online","Ligado"}.
 {"Online Users","Utilizadores ligados"}.
+{"Only occupants are allowed to send messages to the conference","Só os ocupantes podem enviar mensagens para a sala"}.
+{"Only occupants are allowed to send queries to the conference","Só os ocupantes podem enviar consultas para a sala"}.
+{"Only service administrators are allowed to send service messages","Só os administradores do serviço têm permissão para enviar mensagens de serviço"}.
 {"Options","Opções"}.
 {"Organization Name","Nome da organização"}.
 {"Organization Unit","Unidade da organização"}.
@@ -87,8 +96,11 @@
 {"Pending","Pendente"}.
 {"Port","Porta"}.
 {"private, ","privado"}.
+{"Queries to the conference members are not allowed in this room","Nesta sala não são permitidas consultas aos seus membros"}.
 {"RAM and disc copy","Cópia em RAM e em disco"}.
 {"RAM copy","Cópia em RAM"}.
+{"Recipient is not in the conference room","O destinatário não está na sala"}.
+{"Registration in mod_irc for ","Registo no mod_irc para"}.
 {"Remote copy","Cópia remota"}.
 {"Remove","Remover"}.
 {"Remove User","Eliminar utilizador"}.
@@ -120,6 +132,6 @@
 {"User","Utilizador"}.
 {"Visitors are not allowed to send messages to all occupants","Os visitantes não podem enviar mensagens para todos os ocupantes"}.
 {"You have been banned from this room","Foi banido desta sala"}.
+{"You need an x:data capable client to configure mod_irc settings","É necessário um cliente com suporte de x:data para configurar as opções do mod_irc"}.
 {"You need an x:data capable client to configure room","É necessário um cliente com suporte de x:data para configurar a sala"}.
-{"You need an x:data capable client to register nickname","É necessário um cliente com suporte de x:data para poder registar a alcunha"}.
 {"You need an x:data capable client to search","É necessário um cliente com suporte de x:data para poder procurar"}.

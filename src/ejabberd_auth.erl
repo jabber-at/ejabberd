@@ -49,73 +49,33 @@
 	 is_user_exists_in_other_modules/3,
 	 remove_user/2,
 	 remove_user/3,
-	 remove_host/1,
 	 plain_password_required/1,
 	 store_type/1,
 	 entropy/1
 	]).
 
--export([start/1
-         ,stop/1
-         ,start_modules/2
-         ,stop_modules/2
-        ]).
-
 -export([auth_modules/1]).
 
 -include("ejabberd.hrl").
 
-%% @type authmodule() = ejabberd_auth_anonymous | ejabberd_auth_external |
-%%                      ejabberd_auth_ldap | ejabberd_auth_pam |
-%%                      ejabberd_auth_storage | atom().
-
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
-
-%% @spec () -> term()
-
 start() ->
-    ?DEBUG("About to start auth modules. Hosts: ~p", [?MYHOSTS]),
-    lists:foreach(fun start/1, ?MYHOSTS).
-
-start(Host) ->
-    ejabberd_hooks:add(remove_host, list_to_binary(Host), ?MODULE, remove_host, 150),
-    start_modules(Host, auth_modules(Host)).
-
-stop(Host) ->
-    ejabberd_hooks:delete(remove_host, list_to_binary(Host), ?MODULE, remove_host, 150),
-    stop_modules(Host, auth_modules(Host)).
-
-remove_host(HostB) when is_binary(HostB) ->
     lists:foreach(
-        fun({Username, Host}) ->
-            ejabberd_auth:remove_user(Username, Host)
-        end,
-        ejabberd_auth:get_vh_registered_users(binary_to_list(HostB))).
-
-start_modules(Host, Modules) when is_list(Modules) ->
-    lists:foreach(fun (M) -> start_modules(Host, M) end, Modules);
-start_modules(Host, Module) when is_atom(Module) ->
-    Module:start(Host).
-
-stop_modules(Host, Modules) when is_list(Modules) ->
-    lists:foreach(fun (M) -> stop_modules(Host, M) end, Modules);
-stop_modules(Host, Module) when is_atom(Module) ->
-    Module:stop(Host).
-
-%% @spec (Server) -> bool()
-%%     Server = string()
+      fun(Host) ->
+	      lists:foreach(
+		fun(M) ->
+			M:start(Host)
+		end, auth_modules(Host))
+      end, ?MYHOSTS).
 
 %% This is only executed by ejabberd_c2s for non-SASL auth client
-plain_password_required(Server) when is_list(Server) ->
+plain_password_required(Server) ->
     lists:any(
       fun(M) ->
 	      M:plain_password_required()
       end, auth_modules(Server)).
-
-%% @spec (Server) -> bool()
-%%     Server = string()
 
 store_type(Server) ->
     lists:foldl(
@@ -132,92 +92,61 @@ store_type(Server) ->
 	      M:store_type()
       end, plain, auth_modules(Server)).
 
-%% @spec (User, Server, Password) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 %% @doc Check if the user and password can login in server.
-
-check_password(User, Server, Password)
-  when is_list(User), is_list(Server), is_list(Password) ->
+%% @spec (User::string(), Server::string(), Password::string()) ->
+%%     true | false
+check_password(User, Server, Password) ->
     case check_password_with_authmodule(User, Server, Password) of
 	{true, _AuthModule} -> true;
-	{false, _Reason} -> false
+	false -> false
     end.
 
-%% @spec (User, Server, Password, Digest, DigestGen) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%%     Digest = string()
-%%     DigestGen = function()
 %% @doc Check if the user and password can login in server.
-
-check_password(User, Server, Password, Digest, DigestGen)
-  when is_list(User), is_list(Server), is_list(Password),
-  is_list(Digest), is_function(DigestGen) ->
+%% @spec (User::string(), Server::string(), Password::string(),
+%%        Digest::string(), DigestGen::function()) ->
+%%     true | false
+check_password(User, Server, Password, Digest, DigestGen) ->
     case check_password_with_authmodule(User, Server, Password,
 					Digest, DigestGen) of
 	{true, _AuthModule} -> true;
-	{false, _Reason} -> false
+	false -> false
     end.
 
-%% @spec (User::string(), Server::string(), Password::string()) ->
-%%     {true, AuthModule} | {false, Reason::string()}
-%% where
-%%   AuthModule = ejabberd_auth_anonymous | ejabberd_auth_external
-%%                 | ejabberd_auth_internal | ejabberd_auth_ldap
-%%                 | ejabberd_auth_odbc | ejabberd_auth_pam
 %% @doc Check if the user and password can login in server.
 %% The user can login if at least an authentication method accepts the user
 %% and the password.
 %% The first authentication method that accepts the credentials is returned.
-check_password_with_authmodule(User, Server, Password)
-  when is_list(User), is_list(Server), is_list(Password) ->
-    check_password_loop(auth_modules(Server), [User, Server, Password], "").
+%% @spec (User::string(), Server::string(), Password::string()) ->
+%%     {true, AuthModule} | false
+%% where
+%%   AuthModule = ejabberd_auth_anonymous | ejabberd_auth_external
+%%                 | ejabberd_auth_internal | ejabberd_auth_ldap
+%%                 | ejabberd_auth_odbc | ejabberd_auth_pam
+check_password_with_authmodule(User, Server, Password) ->
+    check_password_loop(auth_modules(Server), [User, Server, Password]).
 
-%% @spec (User, Server, Password, Digest, DigestGen) -> {true, AuthModule} | false
-%%     User = string()
-%%     Server = string()
-%%     Password = string() | undefined
-%%     Digest = string() | undefined
-%%     DigestGen = function()
-%%     AuthModule = authmodule()
-%% @doc Check the password is valid and also return the authentication module that accepts it.
-%% The password is 'undefined' if the client
-%% authenticates using the digest method as defined in
-%% XEP-0078: Non-SASL Authentication
-
-check_password_with_authmodule(User, Server, Password, Digest, DigestGen)
-  when is_list(User), is_list(Server), (is_list(Password) orelse Password == 'undefined'),
-  is_function(DigestGen), (is_list(Digest) orelse Digest == 'undefined')->
+check_password_with_authmodule(User, Server, Password, Digest, DigestGen) ->
     check_password_loop(auth_modules(Server), [User, Server, Password,
-					       Digest, DigestGen], "").
+					       Digest, DigestGen]).
 
-check_password_loop([], _Args, LastReason) ->
-    {false, LastReason};
-check_password_loop([AuthModule | AuthModules], Args, PreviousReason) ->
+check_password_loop([], _Args) ->
+    false;
+check_password_loop([AuthModule | AuthModules], Args) ->
     case apply(AuthModule, check_password, Args) of
 	true ->
 	    {true, AuthModule};
-	{false, Reason} when Reason /= "" ->
-	    check_password_loop(AuthModules, Args, Reason);
-	{false, ""} ->
-	    check_password_loop(AuthModules, Args, PreviousReason);
 	false ->
-	    check_password_loop(AuthModules, Args, PreviousReason)
+	    check_password_loop(AuthModules, Args)
     end.
 
-%% @spec (User, Server, Password) -> ok | {error, ErrorType}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%%     ErrorType = empty_password | not_allowed | invalid_jid
+
+%% @spec (User::string(), Server::string(), Password::string()) ->
+%%       ok | {error, ErrorType}
+%% where ErrorType = empty_password | not_allowed | invalid_jid
 set_password(_User, _Server, "") ->
     %% We do not allow empty password
     {error, empty_password};
-set_password(User, Server, Password)
-  when is_list(User), is_list(Server), is_list(Password) ->
+set_password(User, Server, Password) ->
     lists:foldl(
       fun(M, {error, _}) ->
 	      M:set_password(User, Server, Password);
@@ -226,71 +155,49 @@ set_password(User, Server, Password)
       end, {error, not_allowed}, auth_modules(Server)).
 
 %% @spec (User, Server, Password) -> {atomic, ok} | {atomic, exists} | {error, not_allowed}
-%%     User = string()
-%%     Server = string()
-%%     Password = string() | nil()
 try_register(_User, _Server, "") ->
     %% We do not allow empty password
-    {error, not_allowed};
-try_register(User, Server, Password)
-  when is_list(User), is_list(Server), is_list(Password) ->
-    case is_user_exists(User, Server) of
+    {error, not_allowed};    
+try_register(User, Server, Password) ->
+    case is_user_exists(User,Server) of
 	true ->
 	    {atomic, exists};
 	false ->
-	    case ?IS_MY_HOST(exmpp_stringprep:nameprep(Server)) of
+	    case lists:member(jlib:nameprep(Server), ?MYHOSTS) of
 		true ->
 		    Res = lists:foldl(
-			    fun (_M, {atomic, ok} = Res) ->
-				    Res;
-				(M, _) ->
-				    M:try_register(User, Server, Password)
-			    end, {error, not_allowed}, auth_modules(Server)),
-		    trigger_register_hooks(Res, User, Server);
+		      fun(_M, {atomic, ok} = Res) ->
+			      Res;
+			 (M, _) ->
+			      M:try_register(User, Server, Password)
+		      end, {error, not_allowed}, auth_modules(Server)),
+		    case Res of
+			{atomic, ok} ->
+			    ejabberd_hooks:run(register_user, Server,
+					       [User, Server]),
+			    {atomic, ok};
+			_ -> Res
+		    end;
 		false ->
 		    {error, not_allowed}
 	    end
     end.
 
-trigger_register_hooks({atomic, ok} = Res, User, Server) ->
-    ejabberd_hooks:run(register_user, list_to_binary(Server),
-		       [User, Server]),
-    Res;
-trigger_register_hooks(Res, _User, _Server) ->
-    Res.
-
-%% @spec () -> [{LUser, LServer}]
-%%     LUser = string()
-%%     LServer = string()
-%% @doc Registered users list do not include anonymous users logged.
-
+%% Registered users list do not include anonymous users logged
 dirty_get_registered_users() ->
     lists:flatmap(
       fun(M) ->
 	      M:dirty_get_registered_users()
       end, auth_modules()).
 
-%% @spec (Server) -> [{LUser, LServer}]
-%%     Server = string()
-%%     LUser = string()
-%%     LServer = string()
-%% @doc Registered users list do not include anonymous users logged.
-
-get_vh_registered_users(Server) when is_list(Server) ->
+%% Registered users list do not include anonymous users logged
+get_vh_registered_users(Server) ->
     lists:flatmap(
       fun(M) ->
 	      M:get_vh_registered_users(Server)
       end, auth_modules(Server)).
 
-%% @spec (Server, Opts) -> [{LUser, LServer}]
-%%     Server = string()
-%%     Opts = [{Opt, Val}]
-%%         Opt = atom()
-%%         Val = term()
-%%     LUser = string()
-%%     LServer = string()
-
-get_vh_registered_users(Server, Opts) when is_list(Server) ->
+get_vh_registered_users(Server, Opts) ->
     lists:flatmap(
       fun(M) ->
 		case erlang:function_exported(
@@ -302,11 +209,7 @@ get_vh_registered_users(Server, Opts) when is_list(Server) ->
 		end
       end, auth_modules(Server)).
 
-%% @spec (Server) -> Users_Number
-%%     Server = string()
-%%     Users_Number = integer()
-
-get_vh_registered_users_number(Server) when is_list(Server) ->
+get_vh_registered_users_number(Server) ->
     lists:sum(
       lists:map(
 	fun(M) ->
@@ -319,14 +222,7 @@ get_vh_registered_users_number(Server) when is_list(Server) ->
 		end
 	end, auth_modules(Server))).
 
-%% @spec (Server, Opts) -> Users_Number
-%%     Server = string()
-%%     Opts = [{Opt, Val}]
-%%         Opt = atom()
-%%         Val = term()
-%%     Users_Number = integer()
-
-get_vh_registered_users_number(Server, Opts) when is_list(Server) ->
+get_vh_registered_users_number(Server, Opts) ->
     lists:sum(
       lists:map(
 	fun(M) ->
@@ -339,13 +235,9 @@ get_vh_registered_users_number(Server, Opts) when is_list(Server) ->
 		end
 	end, auth_modules(Server))).
 
-%% @spec (User, Server) -> Password | false
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 %% @doc Get the password of the user.
-
-get_password(User, Server) when is_list(User), is_list(Server) ->
+%% @spec (User::string(), Server::string()) -> Password::string()
+get_password(User, Server) ->
     lists:foldl(
       fun(M, false) ->
 	      M:get_password(User, Server);
@@ -353,13 +245,7 @@ get_password(User, Server) when is_list(User), is_list(Server) ->
 	      Password
       end, false, auth_modules(Server)).
 
-%% @spec (User, Server) -> Password | nil()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%% @doc Get the password of the user.
-
-get_password_s(User, Server) when is_list(User), is_list(Server) ->
+get_password_s(User, Server) ->
     case get_password(User, Server) of
 	false ->
 	    "";
@@ -369,15 +255,10 @@ get_password_s(User, Server) when is_list(User), is_list(Server) ->
 	    ""
     end.
 
-%% @spec (User, Server) -> {Password, AuthModule} | {false, none}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%%     AuthModule = authmodule()
 %% @doc Get the password of the user and the auth module.
-
-get_password_with_authmodule(User, Server)
-  when is_list(User), is_list(Server) ->
+%% @spec (User::string(), Server::string()) ->
+%%     {Password::string(), AuthModule::atom()} | {false, none}
+get_password_with_authmodule(User, Server) ->
     lists:foldl(
       fun(M, {false, _}) ->
 	      {M:get_password(User, Server), M};
@@ -385,13 +266,9 @@ get_password_with_authmodule(User, Server)
 	      {Password, AuthModule}
       end, {false, none}, auth_modules(Server)).
 
-%% @spec (User, Server) -> bool()
-%%     User = string()
-%%     Server = string()
-%% @doc Returns true if the user exists in the DB or if an anonymous
-%% user is logged under the given name.
-
-is_user_exists(User, Server) when is_list(User), is_list(Server) ->
+%% Returns true if the user exists in the DB or if an anonymous user is logged
+%% under the given name
+is_user_exists(User, Server) ->
     lists:any(
       fun(M) ->
 	      case M:is_user_exists(User, Server) of
@@ -406,15 +283,10 @@ is_user_exists(User, Server) when is_list(User), is_list(Server) ->
 	      end
       end, auth_modules(Server)).
 
-%% @spec (Module, User, Server) -> true | false | maybe
-%%     Module = authmodule()
-%%     User = string()
-%%     Server = string()
-%% @doc Check if the user exists in all authentications module except
-%% the module passed as parameter.
-
-is_user_exists_in_other_modules(Module, User, Server)
-  when is_list(User), is_list(Server) ->
+%% Check if the user exists in all authentications module except the module
+%% passed as parameter
+%% @spec (Module::atom(), User, Server) -> true | false | maybe
+is_user_exists_in_other_modules(Module, User, Server) ->
     is_user_exists_in_other_modules_loop(
       auth_modules(Server)--[Module],
       User, Server).
@@ -434,34 +306,23 @@ is_user_exists_in_other_modules_loop([AuthModule|AuthModules], User, Server) ->
     end.
 
 
-%% @spec (User, Server) -> ok | error | {error, not_allowed}
-%%     User = string()
-%%     Server = string()
+%% @spec (User, Server) -> ok
 %% @doc Remove user.
-%% TODO: Fix me: It always return ok even if there was some problem removing the user.
-%% dialyzer warning
-%% ejabberd_auth.erl:388: The variable _ can never match since previous clauses completely covered the type 'ok'
-
-remove_user(User, Server) when is_list(User), is_list(Server) ->
-    R = lists:foreach(
-	  fun(M) ->
-		  M:remove_user(User, Server)
-	  end, auth_modules(Server)),
-    ejabberd_hooks:run(remove_user, list_to_binary(exmpp_stringprep:nameprep(Server)),
-				 [list_to_binary(User), list_to_binary(Server)]),
-    R.
+%% Note: it may return ok even if there was some problem removing the user.
+remove_user(User, Server) ->
+    lists:foreach(
+      fun(M) ->
+	      M:remove_user(User, Server)
+      end, auth_modules(Server)),
+    ejabberd_hooks:run(remove_user, jlib:nameprep(Server), [User, Server]),
+    ok.
 
 %% @spec (User, Server, Password) -> ok | not_exists | not_allowed | bad_request | error
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 %% @doc Try to remove user if the provided password is correct.
 %% The removal is attempted in each auth method provided:
 %% when one returns 'ok' the loop stops;
 %% if no method returns 'ok' then it returns the error message indicated by the last method attempted.
-
-remove_user(User, Server, Password)
-  when is_list(User), is_list(Server), is_list(Password) ->
+remove_user(User, Server, Password) ->
     R = lists:foldl(
       fun(_M, ok = Res) ->
 	      Res;
@@ -469,8 +330,7 @@ remove_user(User, Server, Password)
 	      M:remove_user(User, Server, Password)
       end, error, auth_modules(Server)),
     case R of
-		ok -> ejabberd_hooks:run(remove_user, list_to_binary(exmpp_stringprep:nameprep(Server)),
-                                    [list_to_binary(User), list_to_binary(Server)]);
+		ok -> ejabberd_hooks:run(remove_user, jlib:nameprep(Server), [User, Server]);
 		_ -> none
     end,
     R.
@@ -502,11 +362,8 @@ entropy(IOList) ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
-
-%% @spec () -> [authmodule()]
-%% @doc Return the lists of all the auth modules actually used in the
-%% configuration.
-
+%% Return the lists of all the auth modules actually used in the
+%% configuration
 auth_modules() ->
     lists:usort(
       lists:flatmap(
@@ -514,18 +371,13 @@ auth_modules() ->
 		auth_modules(Server)
 	end, ?MYHOSTS)).
 
-%% @spec (Server) -> [authmodule()]
-%%     Server = string()
-%% @doc Return the list of authenticated modules for a given host.
-
+%% Return the list of authenticated modules for a given host
 auth_modules(Server) ->
-    Method = ejabberd_config:get_local_option({auth_method, Server}),
+    LServer = jlib:nameprep(Server),
+    Method = ejabberd_config:get_local_option({auth_method, LServer}),
     Methods = if
 		  Method == undefined -> [];
 		  is_list(Method) -> Method;
 		  is_atom(Method) -> [Method]
 	      end,
-    [module_name(M) || M <- Methods].
-
-module_name(Method) when is_atom(Method) ->
-    list_to_atom("ejabberd_auth_" ++ atom_to_list(Method)).
+    [list_to_atom("ejabberd_auth_" ++ atom_to_list(M)) || M <- Methods].

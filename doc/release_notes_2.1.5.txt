@@ -6,7 +6,7 @@
   and includes several minor bugfixes and a few improvements.
 
   Read more details about the changes in:
-    http://redir.process-one.net/ejabberd-2.1.5
+    http://redir.process-one.net/ejabberd-2.1.4
 
   Download the source code and installers from:
     http://www.process-one.net/en/ejabberd/

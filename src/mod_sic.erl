@@ -32,58 +32,59 @@
 -export([start/2,
 	 stop/1,
 	 process_local_iq/3,
-	 process_sm_iq/3]).
+	 process_sm_iq/3
+	]).
 
--include_lib("exmpp/include/exmpp.hrl").
--include_lib("exmpp/include/exmpp_jid.hrl").
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, Opts) ->
+-define(NS_SIC, "urn:xmpp:sic:0").
+
+start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
-    mod_disco:register_feature(HostB, ?NS_SIC_0_s),
-    gen_iq_handler:add_iq_handler(ejabberd_local, HostB, ?NS_SIC_0_s,
-				  ?MODULE, process_local_iq, IQDisc),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, HostB, ?NS_SIC_0_s,
-				  ?MODULE, process_sm_iq, IQDisc).
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
+				  ?NS_SIC, ?MODULE, process_local_iq, IQDisc),
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
+				  ?NS_SIC, ?MODULE, process_sm_iq, IQDisc).
 
 stop(Host) ->
-    HostB = list_to_binary(Host),
-    mod_disco:unregister_feature(HostB, ?NS_SIC_0_s),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, HostB, ?NS_SIC_0_s),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, HostB, ?NS_SIC_0_s).
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_SIC),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_SIC).
 
 
-process_local_iq(From, _To, #iq{type = 'get'} = IQ) ->
-    get_ip(From, IQ);
+process_local_iq(#jid{user = User, server = Server, resource = Resource}, _To,
+		 #iq{type = 'get', sub_el = _SubEl} = IQ) ->
+    get_ip({User, Server, Resource}, IQ);
 
-process_local_iq(_From, _To, #iq{type = 'set'} = IQ) ->
-    exmpp_iq:error(IQ, 'not-allowed').
+process_local_iq(_From, _To, #iq{type = 'set', sub_el = SubEl} = IQ) ->
+    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]}.
 
 
-process_sm_iq(
-  #jid{node = Node, domain = Domain} = From,
-  #jid{node = Node, domain = Domain} = _To,
-  #iq{type = 'get'} = IQ) ->
-    get_ip(From, IQ);
+process_sm_iq(#jid{user = User, server = Server, resource = Resource},
+	      #jid{user = User, server = Server},
+	      #iq{type = 'get', sub_el = _SubEl} = IQ) ->
+    get_ip({User, Server, Resource}, IQ);
 
-process_sm_iq(_From, _To, #iq{type = 'get'} = IQ) ->
-    exmpp_iq:error(IQ, 'forbidden');
+process_sm_iq(_From, _To, #iq{type = 'get', sub_el = SubEl} = IQ) ->
+    IQ#iq{type = error, sub_el = [SubEl, ?ERR_FORBIDDEN]};
 
-process_sm_iq(_From, _To, #iq{type = 'set'} = IQ) ->
-    exmpp_iq:error(IQ, 'not-allowed').
+process_sm_iq(_From, _To, #iq{type = 'set', sub_el = SubEl} = IQ) ->
+    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]}.
 
-get_ip(From, IQ) ->
-    case ejabberd_sm:get_user_ip(From) of
+get_ip({User, Server, Resource},
+       #iq{sub_el = {xmlelement, Name, Attrs, _} = SubEl} = IQ) ->
+    case ejabberd_sm:get_user_ip(User, Server, Resource) of
 	{IP, _} when is_tuple(IP) ->
-	    exmpp_iq:result(IQ,
-			    #xmlel{
-			      name = 'ip',
-			      ns = ?NS_SIC_0_s,
-			      children = [?XMLCDATA(list_to_binary(
-						      inet_parse:ntoa(IP)))]
-			     });
+	    IQ#iq{
+	      type = 'result',
+	      sub_el = [
+			{xmlelement, Name, Attrs,
+			 [{xmlcdata, list_to_binary(inet_parse:ntoa(IP))}]}
+		       ]
+	     };
 	_ ->
-	    exmpp_iq:error(IQ, 'internal-server-error')
+	    IQ#iq{
+	      type = 'error',
+	      sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]
+	     }
     end.

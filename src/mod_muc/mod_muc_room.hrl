@@ -45,8 +45,11 @@
 		 password_protected = false,
 		 password = "",
 		 anonymous = true,
+		 allow_voice_requests = true,
+		 voice_request_min_interval = 1800,
 		 max_users = ?MAX_USERS_DEFAULT,
-		 logging = false
+		 logging = false,
+                 captcha_whitelist = ?SETS:empty()
 		}).
 
 -record(user, {jid,
@@ -61,13 +64,15 @@
 		   message,
 		   presence}).
 
--record(state, {room, % binary()
-		host, % binary()
-		server_host, % string()
+-record(state, {room,
+		host,
+		server_host,
+                mod,
 		access,
-		jid, % jid()
+		jid,
 		config = #config{},
 		users = ?DICT:new(),
+		last_voice_request_time = treap:empty(),
 		robots = ?DICT:new(),
 		nicks = ?DICT:new(),
 		affiliations = ?DICT:new(),
@@ -83,6 +88,3 @@
 			   resource,
 			   room,
 			   host}).
-
-%% Copied from mod_muc.erl
--record(muc_room_opt, {name_host, opt, val}).

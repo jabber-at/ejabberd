@@ -80,24 +80,14 @@
 %%{watchdog_admins, ["bob@example.com"]}.
 
 
-%%%.   =====================
-%%%'   CLUSTER CONFIGURATION
-
-%% clusterid: the integer id of the cluster of nodes this node will
-%% belong to.
-{clusterid, 1}.
-
-
 %%%.   ================
 %%%'   SERVED HOSTNAMES
 
 %%
 %% hosts: Domains served by ejabberd.
 %% You can define one or several, for example:
-%% {hosts, ["localhost", "example.net", "example.com", "example.org"]}.
+%% {hosts, ["example.net", "example.com", "example.org"]}.
 %%
-%% Additional hosts will be discovered from the 'hosts' database table
-%% configured for the first host.
 {hosts, ["localhost"]}.
 
 %%
@@ -223,19 +213,18 @@
 
 %%
 %% auth_method: Method used to authenticate the users.
-%% The default method is the internal Mnesia database storage.
+%% The default method is the internal.
 %% If you want to use a different method,
-%% comment those lines and enable the desired lines later.
+%% comment this line and enable the correct ones.
 %%
-{auth_method, storage}.
-{auth_storage, mnesia}.
-
+{auth_method, internal}.
 %%
-%% Authentication using ODBC
-%% Remember to setup a database in the next section.
+%% Store the plain passwords or hashed for SCRAM:
+%%{auth_password_format, plain}.
+%%{auth_password_format, scram}.
 %%
-%%{auth_method, storage}.
-%%{auth_storage, odbc}.
+%% Define the FQDN if ejabberd doesn't detect it:
+%%{fqdn, "server3.example.com"}.
 
 %%
 %% Authentication using external script
@@ -243,6 +232,12 @@
 %%
 %%{auth_method, external}.
 %%{extauth_program, "/path/to/authentication/script"}.
+
+%%
+%% Authentication using ODBC
+%% Remember to setup a database in the next section.
+%%
+%%{auth_method, odbc}.
 
 %%
 %% Authentication using PAM
@@ -295,15 +290,6 @@
 %%
 %%{host_config, "public.example.org", [{auth_method, [internal, anonymous]}]}.
 
-%%
-%% auth_password_format: Format of storing users passwords
-%% The default format is plain text.
-%% If you change to hashed scram, you can never go back to plain.
-%% This option is only supported by the 'storage' auth_method.
-%% 
-{auth_password_format, plain}.
-%%{auth_password_format, scram}.
-
 
 %%%.   ==============
 %%%'   DATABASE SETUP
@@ -314,32 +300,22 @@
 %% you want to use other database backends.
 %% Please consult the ejabberd Guide for details on database creation.
 
-%% Template host ODBC configuration.
-%% The host specified here will be used by default for all discovered vhosts.
-%% The actual ODBC server configuration must be provided in a host_config directive.
-{odbc_server, {host, "localhost"}}.
-
-{host_config, "localhost",
- [
 %%
 %% MySQL server:
 %%
-%%{odbc_server, {mysql, "server", "database", "username", "password"}}
+%%{odbc_server, {mysql, "server", "database", "username", "password"}}.
 %%
 %% If you want to specify the port:
-%%{odbc_server, {mysql, "server", 1234, "database", "username", "password"}}
+%%{odbc_server, {mysql, "server", 1234, "database", "username", "password"}}.
 
 %%
 %% PostgreSQL server:
 %%
-%%{odbc_server, {pgsql, "server", "database", "username", "password"}}
+%%{odbc_server, {pgsql, "server", "database", "username", "password"}}.
 %%
 %% If you want to specify the port:
-%%{odbc_server, {pgsql, "server", 1234, "database", "username", "password"}}
+%%{odbc_server, {pgsql, "server", 1234, "database", "username", "password"}}.
 %%
- ]
-}.
-
 %% If you use PostgreSQL, have a large database, and need a
 %% faster but inexact replacement for "select count(*) from users"
 %%
@@ -481,19 +457,6 @@
 %%}.
 
 
-%%%.   =======
-%%%'   CAPTCHA
-
-%%
-%% Full path to a script that generates the image.
-%%
-%%{captcha_cmd, "/lib/ejabberd/priv/bin/captcha.sh"}.
-
-%% Host for the URL and port where ejabberd listens for CAPTCHA requests.
-%%
-%%{captcha_host, "example.org:5280"}.
-
-
 %%%.   ================
 %%%'   DEFAULT LANGUAGE
 
@@ -510,51 +473,67 @@
 %%}.
 
 
-%%%.   ================
-%%%'   INSTANCE MODULES
+%%%.   =======
+%%%'   CAPTCHA
 
 %%
-%% Modules to start for every virtual host.
+%% Full path to a script that generates the image.
 %%
-%% Note: One copy of each module will be started for each host.
+%%{captcha_cmd, "/lib/ejabberd/priv/bin/captcha.sh"}.
+
+%%
+%% Host for the URL and port where ejabberd listens for CAPTCHA requests.
+%%
+%%{captcha_host, "example.org:5280"}.
+
+%%
+%% Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
+%%
+%%{captcha_limit, 5}.
+
+%%%.   =======
+%%%'   MODULES
+
+%%
+%% Modules enabled in all ejabberd virtual hosts.
 %%
 {modules,
  [
   {mod_adhoc,    []},
   {mod_announce, [{access, announce}]}, % recommends mod_adhoc
   {mod_blocking,[]}, % requires mod_privacy
-  {mod_caps,     []}, % 1 proc/host
+  {mod_caps,     []},
   {mod_configure,[]}, % requires mod_adhoc
   {mod_disco,    []},
   %%{mod_echo,   [{host, "echo.localhost"}]},
+  {mod_irc,      []},
   {mod_http_bind, []},
   %%{mod_http_fileserver, [
   %%                       {docroot, "/var/www"},
   %%                       {accesslog, "/var/log/ejabberd/access.log"}
   %%                      ]},
   {mod_last,     []},
-  {mod_muc,      [ % 1 proc/host
-  		  {host, "conference.@HOST@"},
-  		  {access, muc},
-  		  {access_create, muc_create},
-  		  {access_persistent, muc_create},
-  		  {access_admin, muc_admin}
-  		 ]},
+  {mod_muc,      [
+		  %%{host, "conference.@HOST@"},
+		  {access, muc},
+		  {access_create, muc_create},
+		  {access_persistent, muc_create},
+		  {access_admin, muc_admin}
+		 ]},
   %%{mod_muc_log,[]},
-  %%{mod_multicast,[]},
   {mod_offline,  [{access_max_user_messages, max_user_offline_messages}]},
   {mod_ping,     []},
   %%{mod_pres_counter,[{count, 5}, {interval, 60}]},
   {mod_privacy,  []},
   {mod_private,  []},
   %%{mod_proxy65,[]},
-  %%{mod_pubsub, [ % 1 proc/host
-  %%		  {access_createnode, pubsub_createnode},
-  %%		  {ignore_pep_from_offline, true}, % reduces resource comsumption, but XEP incompliant
-  %%		  %%{ignore_pep_from_offline, false},  % XEP compliant, but increases resource comsumption
-  %%		  {last_item_cache, false},
-  %%		  {plugins, ["flat", "pep"]}  % pep requires mod_caps
-  %%		 ]},
+  {mod_pubsub,   [
+		  {access_createnode, pubsub_createnode},
+		  {ignore_pep_from_offline, true}, % reduces resource comsumption, but XEP incompliant
+		  %%{ignore_pep_from_offline, false},  % XEP compliant, but increases resource comsumption
+		  {last_item_cache, false},
+		  {plugins, ["flat", "hometree", "pep"]}  % pep requires mod_caps
+		 ]},
   {mod_register, [
 		  %%
 		  %% Protect In-Band account registrations with CAPTCHA.
@@ -604,33 +583,9 @@
   {mod_shared_roster,[]},
   {mod_stats,    []},
   {mod_time,     []},
-  {mod_vcard,    []}, % 1 proc/host
+  {mod_vcard,    []},
   {mod_version,  []}
  ]}.
-
-
-%%%.
-%%%'   STATIC MODULES
-
-%%
-%% Modules to start for the global virtual host ("localhost").
-%%
-%% The functionality of these modules will be enabled in all ejabberd
-%% virtual hosts without consuming more resources.
-%%
-{static_modules,
- [
-%%  {mod_adhoc,    []},
-%%  {mod_announce, []},
-%%  {mod_disco,    []},
-%%  {mod_echo,     [{prefix, "echo"}]},
-%%  {mod_last,     []},
-%%  {mod_offline,  []}
- ]}.
-
-
-%%%.
-%%%'   HOST SPECIFIC MODULES
 
 %%
 %% Enable modules with custom options in a specific virtual host
@@ -646,6 +601,8 @@
 
 %%%.
 %%%'
+
+%%% $Id$
 
 %%% Local Variables:
 %%% mode: erlang

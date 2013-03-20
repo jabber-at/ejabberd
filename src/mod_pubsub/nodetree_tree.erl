@@ -39,11 +39,11 @@
 -include_lib("stdlib/include/qlc.hrl").
 
 -include("pubsub.hrl").
+-include("jlib.hrl").
 
 -behaviour(gen_pubsub_nodetree).
 
--export([
-	 init/3,
+-export([init/3,
 	 terminate/2,
 	 options/0,
 	 set_node/1,
@@ -61,323 +61,211 @@
 	]).
 
 
-
 %% ================
 %% API definition
 %% ================
 
-%% @spec (Host, ServerHost, Opts) -> any()
-%%     Host = mod_pubsub:host()
-%%     ServerHost = host()
-%%     Opts = list()
+%% @spec (Host, ServerHost, Options) -> ok
+%%	   Host       = string()
+%%	   ServerHost = string()
+%%	   Options    = [{atom(), term()}]
 %% @doc <p>Called during pubsub modules initialisation. Any pubsub plugin must
 %% implement this function. It can return anything.</p>
 %% <p>This function is mainly used to trigger the setup task necessary for the
 %% plugin. It can be used for example by the developer to create the specific
 %% module database schema if it does not exists yet.</p>
--spec(init/3 ::
-      (
-	     Host       :: string(),
-	     ServerHost :: string(),
-	     Opts       :: [{Key::atom(), Value::term()}])
-      -> 'ok'
-	    ).
-
-init(_Host, _ServerHost, _Opts) ->
+init(_Host, _ServerHost, _Options) ->
     mnesia:create_table(pubsub_node,
 			[{disc_copies, [node()]},
 			 {attributes, record_info(fields, pubsub_node)}]),
-    mnesia:add_table_index(pubsub_node, idx),
+    mnesia:add_table_index(pubsub_node, id),
     NodesFields = record_info(fields, pubsub_node),
     case mnesia:table_info(pubsub_node, attributes) of
 	NodesFields -> ok;
-	_           -> ok  %% mnesia:transform_table(pubsub_state, ignore, StatesFields)
+	_ ->
+	    ok
+	    %% mnesia:transform_table(pubsub_state, ignore, StatesFields)
     end,
     ok.
-
-
--spec(terminate/2 ::
-      (
-		  Host       :: string(),
-		  ServerHost :: string())
-      -> 'ok'
-	    ).
-
+%% @spec (Host, ServerHost) -> ok
+%%	   Host       = string()
+%%	   ServerHost = string()
 terminate(_Host, _ServerHost) ->
     ok.
 
-%% @spec () -> [Option]
-%%     Option = mod_pubsub:nodetreeOption()
+%% @spec () -> Options
+%%	   Options = [mod_pubsub:nodeOption()]
 %% @doc Returns the default pubsub node tree options.
--spec(options/0 :: () -> Options::[{'virtual_tree', 'false'}]).
+options() ->
+    [{virtual_tree, false}].
 
-options() -> [{'virtual_tree', 'false'}].
+%% @spec (Node) -> ok | {error, Reason}
+%%     Node   = mod_pubsub:pubsubNode()
+%%  	 Reason = mod_pubsub:stanzaError()
+set_node(Node) when is_record(Node, pubsub_node) ->
+    mnesia:write(Node);
+set_node(_) ->
+    {error, ?ERR_INTERNAL_SERVER_ERROR}.
 
-%% @spec (NodeRecord) -> ok | {error, Reason}
-%%     Record = mod_pubsub:pubsub_node()
-						%(
-						%  Node :: pubsubNode() -> 'ok' | {'error', Reason::_};
-						%  Node :: any()        -> {'error', 'internal-server-error'}
-						%).
-%% -spec breaks compilation
+get_node(Host, Node, _From) ->
+    get_node(Host, Node).
 
-set_node(#pubsub_node{} = Node) -> mnesia:write(Node);
-set_node(_)                     -> {error, 'internal-server-error'}.
-
-%% @spec (Host, Node, From) -> pubsubNode() | {error, Reason}
-%%     Host = mod_pubsub:host()
-%%     Node = node()
--spec(get_node/3 ::
-      (
-		 Host   :: host(), % hostPubsub | hostPEP()
-		 NodeId :: nodeId(),
-		 JID    :: jidEntity())
-      -> pubsubNode() | {error, 'item-not-found'} | any()
-	    ).
-
-get_node(Host, NodeId, _JID) ->
-    get_node(Host, NodeId).
-
-
--spec(get_node/2 ::
-      (
-		 Host   :: host(), % hostPubsub | hostPEP()
-		 NodeId :: nodeId())
-      -> pubsubNode() | {error, 'item-not-found'} | any()
-	    ).
-
+%% @spec (Host, NodeId) -> Node | {error, Reason}
+%%     Host   = mod_pubsub:host()
+%%     NodeId = mod_pubsub:nodeId()
+%%     Node   = mod_pubsub:pubsubNode()
+%%  	 Reason = mod_pubsub:stanzaError()
 get_node(Host, NodeId) ->
     case catch mnesia:read({pubsub_node, {Host, NodeId}}) of
-	[#pubsub_node{} = Node] -> Node;
-	[]                      -> {error, 'item-not-found'};
-	Error                   -> Error
+	[Record] when is_record(Record, pubsub_node) -> Record;
+	[] -> {error, ?ERR_ITEM_NOT_FOUND};
+	Error -> Error
     end.
 
-
--spec(get_node/1 ::
-      (
-		 NodeIdx :: nodeIdx())
-      -> pubsubNode() | {'error', 'item-not-found'}
-	    ).
-
-get_node(NodeIdx) ->
-    case catch mnesia:index_read(pubsub_node, NodeIdx, #pubsub_node.idx) of
-	[#pubsub_node{} = Node] -> Node;
-	[]                      -> {error, 'item-not-found'};
-	Error                   -> Error
+get_node(NodeId) ->
+    case catch mnesia:index_read(pubsub_node, NodeId, #pubsub_node.id) of
+	[Record] when is_record(Record, pubsub_node) -> Record;
+	[] -> {error, ?ERR_ITEM_NOT_FOUND};
+	Error -> Error
     end.
 
-%% @spec (Host, From) -> [pubsubNode()] | {error, Reason}
-%%     Host = mod_pubsub:host() | ljid()
--spec(get_nodes/2 ::
-      (
-		  Host :: host(), % hostPubsub | hostPEP()
-		  JID  :: jidEntity())
-      -> Nodes :: [] | [Node::pubsubNode()]
-	    ).
-
-get_nodes(Host, _JID) ->
+get_nodes(Host, _From) ->
     get_nodes(Host).
 
-
--spec(get_nodes/1 ::
-      (
-		  Host :: host()) % hostPubsub | hostPEP()
-      -> Nodes :: [] | [Node::pubsubNode()]
-	    ).
-
+%% @spec (Host) -> Nodes | {error, Reason}
+%%     Host   = mod_pubsub:host()
+%%     Nodes  = [mod_pubsub:pubsubNode()]
+%%  	 Reason = {aborted, atom()}
 get_nodes(Host) ->
-    mnesia:match_object(#pubsub_node{id = {Host, '_'}, _ = '_'}).
+    mnesia:match_object(#pubsub_node{nodeid = {Host, '_'}, _ = '_'}).
 
-%% @spec (Host, Node, From) -> [{Depth, Record}] | {error, Reason}
-%%     Host   = mod_pubsub:host() | ljid()
-%%     Node   = node()
-%%     From   = ljid()
-%%     Depth  = integer()
-%%     Record = pubsubNode()
+%% @spec (Host, Node, From) -> []
+%%     Host   = mod_pubsub:host()
+%%     NodeId = mod_pubsub:nodeId()
+%%     From   = mod_pubsub:jid()
 %% @doc <p>Default node tree does not handle parents, return empty list.</p>
--spec(get_parentnodes/3 ::
-      (
-			Host   :: host(), % hostPubsub | hostPEP()
-			NodeId :: nodeId(),
-			JID    :: jidEntity())
-      -> ParentNodes :: []
-	    ).
-
-get_parentnodes(_Host, _NodeId, _JID) ->
+get_parentnodes(_Host, _NodeId, _From) ->
     [].
 
-%% @spec (Host, Node, From) -> [{Depth, Record}] | {error, Reason}
-%%     Host   = mod_pubsub:host() | ljid()
-%%     Node   = node()
-%%     From   = ljid()
+%% @spec (Host, NodeId, From) -> [{Depth, Node}] | []
+%%     Host   = mod_pubsub:host()
+%%     NodeId = mod_pubsub:nodeId()
+%%     From   = mod_pubsub:jid()
 %%     Depth  = integer()
-%%     Record = pubsubNode()
+%%     Node   = mod_pubsub:pubsubNode()
 %% @doc <p>Default node tree does not handle parents, return a list
 %% containing just this node.</p>
--spec(get_parentnodes_tree/3 ::
-      (
-			     Host   :: host(), % hostPubsub | hostPEP()
-			     NodeId :: nodeId(),
-			     JID    :: jidEntity())
-      -> ParentNodesTree :: [] | [{0, [ParentNode::pubsubNode()]}]
-	    ).
-
-get_parentnodes_tree(Host, NodeId, JID) ->
-    case get_node(Host, NodeId, JID) of
-	#pubsub_node{} = ParentNode -> [{0, [ParentNode]}];
-	_Error                      -> []
+get_parentnodes_tree(Host, NodeId, From) ->
+    case get_node(Host, NodeId, From) of
+	Node when is_record(Node, pubsub_node) -> [{0, [Node]}];
+	_Error -> []
     end.
 
-%% @spec (Host, Node, From) -> [pubsubNode()] | {error, Reason}
-%%     Host = mod_pubsub:host()
-%%     Node = node()
-%%     From = ljid()
--spec(get_subnodes/3 ::
-      (
-		     Host   :: host(), % hostPubsub | hostPEP()
-		     NodeId :: nodeId(),
-		     JID    :: jidEntity())
-      -> SubNodes :: [] | [Node::pubsubNode()]
-	    ).
-
-get_subnodes(Host, NodeId, _JID) ->
+%% @spec (Host, NodeId, From) -> Nodes
+%%     Host   = mod_pubsub:host()
+%%     NodeId = mod_pubsub:nodeId()
+%%     From   = mod_pubsub:jid()
+%%     Nodes  = [mod_pubsub:pubsubNode()]
+get_subnodes(Host, NodeId, _From) ->
     get_subnodes(Host, NodeId).
 
-
--spec(get_subnodes/2 ::
-      (
-		     ParentNodeHost :: host(), % hostPubsub | hostPEP()
-		     ParentNodeId   :: nodeId())
-      -> SubNodes :: [] | [Node::pubsubNode()]
-	    ).
-
-get_subnodes(ParentNodeHost, <<>>) ->
-    Q = qlc:q(
-	  [Node
-	   || #pubsub_node{id = {Host, _}, parents = ParentNodeIds} = Node
-		  <- mnesia:table(pubsub_node),
-	      ParentNodeHost == Host,
-	      ParentNodeIds == []]),
+get_subnodes(Host, <<>>) ->
+    Q = qlc:q([N || #pubsub_node{nodeid = {NHost, _},
+				 parents = Parents} = N <- mnesia:table(pubsub_node),
+		       Host == NHost,
+		       Parents == []]),
     qlc:e(Q);
-get_subnodes(ParentNodeHost, ParentNodeId) ->
-    Q = qlc:q(
-	  [Node
-	   || #pubsub_node{id = {Host, _}, parents = ParentNodeIds} = Node
-		  <- mnesia:table(pubsub_node),
-	      ParentNodeHost == Host,
-	      lists:member(ParentNodeId, ParentNodeIds)]),
+get_subnodes(Host, Node) ->
+    Q = qlc:q([N || #pubsub_node{nodeid = {NHost, _},
+				 parents = Parents} = N <- mnesia:table(pubsub_node),
+		       Host == NHost,
+		       lists:member(Node, Parents)]),
     qlc:e(Q).
 
-%% @spec (Host, Index, From) -> [nodeidx()] | {error, Reason}
-%%     Host = mod_pubsub:host()
-%%     Node = node()
-%%     From = ljid()
--spec(get_subnodes_tree/3 ::
-      (
-			  Host         :: host(), % hostPubsub | hostPEP()
-			  ParentNodeId :: nodeId(),
-			  JID          :: jidEntity())
-      -> SubNodes :: [] | [Node::pubsubNode()]
-	    ).
+get_subnodes_tree(Host, Node, _From) ->
+    get_subnodes_tree(Host, Node).
 
-get_subnodes_tree(Host, ParentNodeId, _JID) ->
-    get_subnodes_tree(Host, ParentNodeId).
-
-
--spec(get_subnodes_tree/2 ::
-      (
-			  Host         :: host(), % hostPubsub | hostPEP()
-			  ParentNodeId :: nodeId())
-      -> SubNodes :: [] | [Node::pubsubNode()]
-	    ).
-
-get_subnodes_tree(ParentNodeHost, ParentNodeId) ->
-    case get_node(ParentNodeHost, ParentNodeId) of
-	{error, _} -> [];
-	#pubsub_node{type = ParentNodeType} = _ParentNode ->
-	    BasePlugin = list_to_atom("node_"++ParentNodeType),
-	    BasePath = BasePlugin:node_to_path(ParentNodeId),
-	    mnesia:foldl(fun
-			 (#pubsub_node{id = {Host, NodeId}, type = Type} = Node, Acc) ->
-				Plugin = list_to_atom("node_"++Type),
-				Path = Plugin:node_to_path(NodeId),
-				case lists:prefix(BasePath, Path) and (Host == ParentNodeHost) of
-				    true  -> [Node | Acc];
-				    false -> Acc
-				end
-			end, [], pubsub_node)
+%% @spec (Host, NodeId) -> Nodes
+%%     Host   = mod_pubsub:host()
+%%     NodeId = mod_pubsub:nodeId()
+%%     Nodes  = [] | [mod_pubsub:pubsubNode()]
+get_subnodes_tree(Host, NodeId) ->
+    case get_node(Host, NodeId) of
+    {error, _} ->
+	[];
+    Rec ->
+	BasePlugin = list_to_atom("node_"++Rec#pubsub_node.type),
+	BasePath = BasePlugin:node_to_path(NodeId),
+	mnesia:foldl(fun(#pubsub_node{nodeid = {H, N}} = R, Acc) ->
+		Plugin = list_to_atom("node_"++R#pubsub_node.type),
+		Path = Plugin:node_to_path(N),
+		case lists:prefix(BasePath, Path) and (H == Host) of
+		    true -> [R | Acc];
+		    false -> Acc
+		end
+	    end, [], pubsub_node)
     end.
 
-%% @spec (Host, Node, Type, Owner, Options, Parents) -> ok | {error, Reason}
-%%     Host = mod_pubsub:host() | ljid()
-%%     Node = node()
-%%     NodeType = nodeType()
-%%     Owner = ljid()
-%%     Options = list()
--spec(create_node/6 ::
-      (
-		    Host          :: host(), % hostPubsub | hostPEP()
-		    NodeId        :: nodeId(),
-		    Type          :: nodeType(),
-		    JID           :: jidEntity(),
-		    Options       :: [nodeOption()],
-		    ParentNodeIds :: [] | [nodeId()])
-      -> {'ok', NodeIdx::nodeIdx()}
-	     | {'error', 'conflict' | 'forbidden'}
-	    ).
-
-create_node(Host, NodeId, Type, #jid{node = U, domain = S} = _JID, Options, ParentNodeIds) ->
-    Owner = {U,S,undefined},
-    case mnesia:read({pubsub_node, {Host, NodeId}}) of
+%% @spec (Host, NodeId, Type, Owner, Options, Parents) ->
+%%   {ok, NodeIdx} | {error, Reason}
+%%     Host     = mod_pubsub:host()
+%%     NodeId   = mod_pubsub:nodeId()
+%%     Type     = mod_pubsub:nodeType()
+%%     Owner    = mod_pubsub:jid()
+%%     Options  = [mod_pubsub:nodeOption()]
+%%     Parents  = [] | [mod_pubsub:nodeId()]
+%%     NodeIdx  = mod_pubsub:nodeIdx()
+%%     Reason   = mod_pubsub:stanzaError()
+create_node(Host, NodeId, Type, Owner, Options, Parents) ->
+    BJID = jlib:jid_tolower(jlib:jid_remove_resource(Owner)),
+    case catch mnesia:read({pubsub_node, {Host, NodeId}}) of
 	[] ->
-	    ParentExists = case Host of
-			       %% This is special case for PEP handling, PEP does not uses hierarchy
-			       {_, _, _} -> true;
-			       _ ->
-				   case ParentNodeIds of
-				       []           -> true;
-				       [ParentNodeId | _] ->
-					   case mnesia:read({pubsub_node, {Host, ParentNodeId}}) of
-					       [#pubsub_node{owners = [{undefined, Host, undefined}]}] -> true;
-					       [#pubsub_node{owners = Owners}] -> lists:member(Owner, Owners);
-					       _ -> false
-					   end;
-				       _ -> false
-				   end
-			   end,
+	    ParentExists =
+		case Host of
+		    {_U, _S, _R} ->
+			%% This is special case for PEP handling
+			%% PEP does not uses hierarchy
+			true;
+		    _ ->
+			case Parents of
+			[] -> true;
+			[Parent|_] ->
+			    case catch mnesia:read({pubsub_node, {Host, Parent}}) of
+				[#pubsub_node{owners = [{[], Host, []}]}] -> true;
+				[#pubsub_node{owners = Owners}] -> lists:member(BJID, Owners);
+				_ -> false
+			    end;
+			_ ->
+			    false
+			end
+		end,
 	    case ParentExists of
 		true ->
 		    NodeIdx = pubsub_index:new(node),
-		    mnesia:write(
-		      #pubsub_node{id = {Host, NodeId},
-                                   idx = NodeIdx,
-                                   parents = ParentNodeIds,
-                                   type = Type,
-                                   owners = [Owner],
-                                   options = Options}),
-                    {ok, NodeIdx};
-    false -> %% Requesting entity is prohibited from creating nodes
-        {error, 'forbidden'}
-      end;
-  _ -> %% Node already exists
-      {error, 'conflict'}
+		    mnesia:write(#pubsub_node{nodeid = {Host, NodeId},
+					      id = NodeIdx,
+					      parents = Parents,
+					      type = Type,
+					      owners = [BJID],
+					      options = Options}),
+		    {ok, NodeIdx};
+		false ->
+		    %% Requesting entity is prohibited from creating nodes
+		    {error, ?ERR_FORBIDDEN}
+	    end;
+	_ ->
+	    %% NodeID already exists
+	    {error, ?ERR_CONFLICT}
     end.
 
-%% @spec (Host, Node) -> [mod_pubsub:node()]
-%%     Host = mod_pubsub:host() | ljid()
-%%     Node = node()
--spec(delete_node/2 ::
-(
-  Host         :: host(), % hostPubsub | hostPEP()
-  ParentNodeId :: nodeId())
-    -> DeletedNodes :: [] | [Node::pubsubNode()]
-).
-
-delete_node(Host, ParentNodeId) ->
-    DeletedNodes = get_subnodes_tree(Host, ParentNodeId),
-    lists:foreach(fun(#pubsub_node{id = {_, NodeId}, idx = NodeIdx}) ->
-      pubsub_index:free(node, NodeIdx),
-      mnesia:delete({pubsub_node, {Host, NodeId}})
-    end, DeletedNodes),
-    DeletedNodes.
+%% @spec (Host, NodeId) -> Removed
+%%     Host    = mod_pubsub:host()
+%%     NodeId  = mod_pubsub:nodeId()
+%%     Removed = [mod_pubsub:pubsubNode()]
+delete_node(Host, NodeId) ->
+    Removed = get_subnodes_tree(Host, NodeId),
+    lists:foreach(fun(#pubsub_node{nodeid = {_, SubNodeId}, id = SubNodeIdx}) ->
+	    pubsub_index:free(node, SubNodeIdx),
+	    mnesia:delete({pubsub_node, {Host, SubNodeId}})
+	end, Removed),
+    Removed.

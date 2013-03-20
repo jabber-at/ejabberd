@@ -33,40 +33,40 @@
 	 stop/1,
 	 process_local_iq/3]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, Opts) ->
+
+start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
-    gen_iq_handler:add_iq_handler(ejabberd_local, HostB, ?NS_SOFT_VERSION,
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_VERSION,
 				  ?MODULE, process_local_iq, IQDisc).
 
 stop(Host) ->
-    gen_iq_handler:remove_iq_handler(ejabberd_local, list_to_binary(Host), ?NS_SOFT_VERSION).
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_VERSION).
 
 
-process_local_iq(_From, To, #iq{type = Type} = IQ_Rec) ->
+process_local_iq(_From, To, #iq{id = _ID, type = Type,
+			       xmlns = _XMLNS, sub_el = SubEl} = IQ) ->
     case Type of
 	set ->
-	    exmpp_iq:error(IQ_Rec, 'not-allowed');
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};
 	get ->
-	    Host = exmpp_jid:domain_as_list(To),
+	    Host = To#jid.lserver,
 	    OS = case gen_mod:get_module_opt(Host, ?MODULE, show_os, true) of
 		     true -> [get_os()];
 		     false -> []
 		 end,
-	    R = #xmlel{ns = ?NS_SOFT_VERSION, name = 'query',
-		       children = [ exmpp_xml:set_cdata(#xmlel{ns = ?NS_SOFT_VERSION,
-							       name = 'name'},
-							<<"ejabberd">>),
-				    exmpp_xml:set_cdata(#xmlel{ns = ?NS_SOFT_VERSION,
-							       name = 'version'},
-							?VERSION) | OS]},
-	    exmpp_iq:result(IQ_Rec, R)
+	    IQ#iq{type = result,
+		  sub_el = [{xmlelement, "query",
+			     [{"xmlns", ?NS_VERSION}],
+			     [{xmlelement, "name", [],
+			       [{xmlcdata, "ejabberd"}]},
+			      {xmlelement, "version", [],
+			       [{xmlcdata, ?VERSION}]}
+			     ] ++ OS
+			    }]}
     end.
 
 
@@ -87,4 +87,4 @@ get_os() ->
 			VersionString
 		end,
     OS = OSType ++ " " ++ OSVersion,
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_SOFT_VERSION, name = 'os'}, OS).
+    {xmlelement, "os", [], [{xmlcdata, OS}]}.

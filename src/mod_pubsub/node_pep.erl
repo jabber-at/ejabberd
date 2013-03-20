@@ -31,6 +31,7 @@
 
 -include("ejabberd.hrl").
 -include("pubsub.hrl").
+-include("jlib.hrl").
 
 -behaviour(gen_pubsub_node).
 
@@ -68,41 +69,20 @@
 	 path_to_node/1
 	]).
 
-
--spec(init/3 ::
-      (
-	     Host       :: string(),
-	     ServerHost :: string(),
-	     Opts       :: [{Key::atom(), Value::term()}])
-      -> 'ok'
-	    ).
-
 init(Host, ServerHost, Opts) ->
-    node_flat:init(Host, ServerHost, Opts),
+    node_hometree:init(Host, ServerHost, Opts),
     complain_if_modcaps_disabled(ServerHost),
     ok.
 
-
--spec(terminate/2 ::
-      (
-		  Host       :: string(),
-		  ServerHost :: string())
-      -> 'ok'
-	    ).
-
 terminate(Host, ServerHost) ->
-    node_flat:terminate(Host, ServerHost),
+    node_hometree:terminate(Host, ServerHost),
     ok.
-
-
--spec(options/0 :: () -> [nodeOption()]).
 
 options() ->
     [{deliver_payloads, true},
      {notify_config, false},
      {notify_delete, false},
      {notify_retract, false},
-     {notify_sub, false},
      {purge_offline, false},
      {persist_items, false},
      {max_items, ?MAXITEMS},
@@ -115,9 +95,6 @@ options() ->
      {send_last_published_item, on_sub_and_presence},
      {deliver_notifications, true},
      {presence_based_delivery, true}].
-
-
--spec(features/0 :: () -> [Feature::string()]).
 
 features() ->
     ["create-nodes", %*
@@ -138,427 +115,161 @@ features() ->
      "subscribe" %*
     ].
 
-
--spec(create_node_permission/6 ::
-      (
-			       Host         :: hostPEP(),
-			       ServerHost   :: string(),
-			       NodeId       :: nodeId(),
-			       ParentNodeId :: nodeId(),
-			       JID          :: jidEntity(),
-			       Access       :: atom())
-      -> {'result', IsAllowed::boolean()}
-	    ).
-
-create_node_permission(Host, ServerHost, _NodeId, _ParentNodeId, #jid{node = U, domain = S, resource = R} = JID, Access) ->
-    Owner = {U,S,R},
-    Allowed = case Owner of
-	{undefined, Host, undefined} ->
+create_node_permission(Host, ServerHost, _Node, _ParentNode, Owner, Access) ->
+    LOwner = jlib:jid_tolower(Owner),
+    {User, Server, _Resource} = LOwner,
+    Allowed = case LOwner of
+	{"", Host, ""} ->
 	    true; % pubsub service always allowed
 	_ ->
-	    case acl:match_rule(ServerHost, Access, JID) of
-		'allow' ->
+	    case acl:match_rule(ServerHost, Access, LOwner) of
+		allow ->
 		    case Host of 
-			{_, _, _} -> true;
+			{User, Server, _} -> true;
 			_ -> false
 		    end;
-		Error ->
-		    ?DEBUG("Create not allowed : ~p~n", [Error]),
+		E ->
+		    ?DEBUG("Create not allowed : ~p~n", [E]),
 		    false
 	    end
     end,
     {result, Allowed}.
 
+create_node(NodeId, Owner) ->
+    node_hometree:create_node(NodeId, Owner).
 
--spec(create_node/2 ::
-      (
-		    NodeIdx :: nodeIdx(),
-		    JID     :: jidEntity())
-      -> {'result', []}% | {'error', 'internal-server-error'}
-	    ).
+delete_node(Removed) ->
+    case node_hometree:delete_node(Removed) of
+	{result, {_, _, Removed}} -> {result, {[], Removed}};
+	Error -> Error
+    end.
 
-create_node(NodeIdx, JID) ->
-    node_flat:create_node(NodeIdx, JID).
-%    case node_flat:create_node(NodeIdx, JID) of
-%	{result, _} -> {result, []};
-%	Error -> Error
-%    end.
-
-
--spec(delete_node/1 ::
-      (
-		    Nodes :: [Node::pubsubNode()])
-      -> {result, {[],
-		   Removed :: [] | [{Node :: pubsubNode(),
-			      [{Owner         :: bareUsr(),
-				Subscriptions :: [{Subscription :: subscription(),
-						   SubId        :: subId()}]}]}]}}
-			 %| {'error', 'internal-server-error'}
-	    ).
-
-delete_node(Nodes) ->
-    {result, {_, _, Nodes}} = node_flat:delete_node(Nodes),
-    {result, {[], Nodes}}.
-%    case node_flat:delete_node(Nodes) of
-%	{result, {_, _, Nodes}} -> {result, {[], Nodes}};
-%	Error -> Error
-%    end.
-
-
--spec(subscribe_node/8 ::
-      (
-		       NodeIdx              :: nodeIdx(),
-		       JID                  :: jidEntity(),
-		       Subscriber           :: jidEntity(),
-		       AccessModel          :: accessModel(),
-		       SendLast             :: atom(),
-		       PresenceSubscription :: boolean(),
-		       RosterGroup          :: boolean(),
-		       Options              :: [nodeOption()])
-      -> {'result', {'default',
-		     Subscription :: 'subscribed',
-		     SubId        :: subId()}}
-	     | {'result', {'default',
-			   Subscription :: 'subscribed',
-			   SubId        :: subId(),
-			   SendLast     ::' send_last'}}
-	     | {'result', {'default',
-			   Subscription :: 'pending',
-			   SubId        :: subId()}}
-	     | {'error', _} %% TODO add all error cases
-	    ).
-
-subscribe_node(NodeIdx, JID, Subscriber, AccessModel,
+subscribe_node(NodeId, Sender, Subscriber, AccessModel,
 	       SendLast, PresenceSubscription, RosterGroup, Options) ->
-    node_flat:subscribe_node(
-      NodeIdx, JID, Subscriber, AccessModel, SendLast,
+    node_hometree:subscribe_node(
+      NodeId, Sender, Subscriber, AccessModel, SendLast,
       PresenceSubscription, RosterGroup, Options).
 
-
--spec(unsubscribe_node/4 ::
-      (
-			 NodeIdx    :: nodeIdx(),
-			 JID        :: jidEntity(),
-			 Subscriber :: jidEntity(),
-			 SubId      :: subId())
-      -> {'result', []} | {'error', _} %% TODO : add all error cases
-	    ).
-
-unsubscribe_node(NodeIdx, JID, Subscriber, SubId) ->
-    case node_flat:unsubscribe_node(NodeIdx, JID, Subscriber, SubId) of
+unsubscribe_node(NodeId, Sender, Subscriber, SubID) ->
+    case node_hometree:unsubscribe_node(NodeId, Sender, Subscriber, SubID) of
 	{error, Error} -> {error, Error};
 	{result, _} -> {result, []}
     end.
 
+publish_item(NodeId, Publisher, Model, MaxItems, ItemId, Payload) ->
+    node_hometree:publish_item(NodeId, Publisher, Model, MaxItems, ItemId, Payload).
 
--spec(publish_item/6 ::
-      (
-		     NodeIdx      :: nodeIdx(),
-		     JID          :: jidEntity(),
-		     PublishModel :: atom(), %% TODO : make a generic publishMod() type
-		     MaxItems     :: 'unlimited' | integer(),
-		     ItemId       :: itemId(),
-		     Payload      :: payload())
-      -> {'result', {'default', 'broadcast', ItemIds :: [] | [itemId()]}}
-	     | {'error', _}
-	    ).
+remove_extra_items(NodeId, MaxItems, ItemIds) ->
+    node_hometree:remove_extra_items(NodeId, MaxItems, ItemIds).
 
-publish_item(NodeIdx, JID, PublishModel, MaxItems, ItemId, Payload) ->
-    node_flat:publish_item(NodeIdx, JID, PublishModel, MaxItems, ItemId, Payload).
+delete_item(NodeId, Publisher, PublishModel, ItemId) ->
+    node_hometree:delete_item(NodeId, Publisher, PublishModel, ItemId).
 
+purge_node(NodeId, Owner) ->
+    node_hometree:purge_node(NodeId, Owner).
 
--spec(remove_extra_items/3 ::
-      (
-			   NodeIdx  :: nodeIdx(),
-			   MaxItems :: 'unlimited' | integer(),
-			   ItemsIds :: [ItemId::itemId()])
-      -> {'result',
-	  {OldItems :: [] | [ItemId::itemId()],
-	   NewItems :: [] | [ItemId::itemId()]}}
-	    ).
-
-remove_extra_items(NodeIdx, MaxItems, ItemIds) ->
-    node_flat:remove_extra_items(NodeIdx, MaxItems, ItemIds).
-
-
--spec(delete_item/4 ::
-      (
-		    NodeIdx      :: nodeIdx(),
-		    JID          :: jidEntity(),
-		    PublishModel :: atom(),
-		    ItemId       :: itemId())
-      -> {'result', {'default', 'broadcast'}} | {'error', _}
-	    ).
-
-delete_item(NodeIdx, JID, PublishModel, ItemId) ->
-    node_flat:delete_item(NodeIdx, JID, PublishModel, ItemId).
-
-
--spec(purge_node/2 ::
-      (
-		   NodeIdx :: nodeIdx(),
-		   JID     :: jidEntity())
-      -> {'result', {'default', 'broadcast'}} | {'error', 'forbidden'}
-	    ).
-
-purge_node(NodeIdx, JID) ->
-    node_flat:purge_node(NodeIdx, JID).
-
-
--spec(get_entity_affiliations/2 ::
-      (
-				Host :: binary(),
-				JID  :: jidEntity())
-      -> {'result', Reply :: [] | [{Node::pubsubNode(), Affiliation::affiliation()}]}
-	    ).
-
-get_entity_affiliations(_Host, #jid{node = U, domain = S} = _JID) ->
-    States = mnesia:match_object(#pubsub_state{id = {_GenKey = {U,S,undefined}, '_'}, _ = '_'}),
-    NodeTree = case catch ets:lookup(gen_mod:get_module_proc(S, 'config'), 'nodetree') of
-	    [{'nodetree', Tree}] -> Tree;
-	    _ -> 'nodetree_tree'
+get_entity_affiliations(_Host, Owner) ->
+    {_, D, _} = SubKey = jlib:jid_tolower(Owner),
+    SubKey = jlib:jid_tolower(Owner),
+    GenKey = jlib:jid_remove_resource(SubKey),
+    States = mnesia:match_object(#pubsub_state{stateid = {GenKey, '_'}, _ = '_'}),
+    NodeTree = case catch ets:lookup(gen_mod:get_module_proc(D, config), nodetree) of
+	    [{nodetree, N}] -> N;
+	    _ -> nodetree_tree
 	end,
-    Reply = lists:foldl(fun(#pubsub_state{id = {_, NodeIdx}, affiliation = Affiliation}, Acc) ->
-	case NodeTree:get_node(NodeIdx) of
-	    #pubsub_node{id = {{_, S, _}, _}} = Node -> [{Node, Affiliation}|Acc];
+    Reply = lists:foldl(fun(#pubsub_state{stateid = {_, N}, affiliation = A}, Acc) ->
+	case NodeTree:get_node(N) of
+	    #pubsub_node{nodeid = {{_, D, _}, _}} = Node -> [{Node, A}|Acc];
 	    _ -> Acc
 	end
     end, [], States),
     {result, Reply}.
 
+get_node_affiliations(NodeId) ->
+    node_hometree:get_node_affiliations(NodeId).
 
--spec(get_node_affiliations/1 ::
-      (
-			      NodeIdx :: nodeIdx())
-      -> {'result', [] | [{Entity::fullUsr(), Affiliation::affiliation()}]}
-	    ).
+get_affiliation(NodeId, Owner) ->
+    node_hometree:get_affiliation(NodeId, Owner).
 
-get_node_affiliations(NodeIdx) ->
-    node_flat:get_node_affiliations(NodeIdx).
+set_affiliation(NodeId, Owner, Affiliation) ->
+    node_hometree:set_affiliation(NodeId, Owner, Affiliation).
 
-
--spec(get_affiliation/2 ::
-      (
-			NodeIdx :: nodeIdx(),
-			JID     :: jidEntity())
-      -> {'result', Affiliation::affiliation()}
-	    ).
-
-get_affiliation(NodeIdx, JID) ->
-    node_flat:get_affiliation(NodeIdx, JID).
-
-
--spec(set_affiliation/3 ::
-      (
-			NodeIdx     :: nodeIdx(),
-			JID         :: jidEntity(),
-			Affiliation :: affiliation())
-      -> 'ok' | {error, 'internal-server-error'}
-	    ).
-
-set_affiliation(NodeIdx, JID, Affiliation) ->
-    node_flat:set_affiliation(NodeIdx, JID, Affiliation).
-
-
--spec(get_entity_subscriptions/2 ::
-      (
-				 Host :: hostPEP(),
-				 JID  :: jidEntity())
-      -> {'result', []
-	  | [{Node         :: pubsubNode(),
-	      Subscription :: subscription(),
-	      SubId        :: subId(),
-	      Entity       :: fullUsr()}]}
-	    ).
-
-get_entity_subscriptions(_Host, #jid{node = U, domain = S, resource = R} = _JID) ->
-    SubKey = {U,S,R},
-    GenKey = {U,S,undefined},
+get_entity_subscriptions(_Host, Owner) ->
+    {U, D, _} = SubKey = jlib:jid_tolower(Owner),
+    GenKey = jlib:jid_remove_resource(SubKey),
     States = case SubKey of
 	GenKey -> mnesia:match_object(
-	       #pubsub_state{id = {{U, S, '_'}, '_'}, _ = '_'});
+	       #pubsub_state{stateid = {{U, D, '_'}, '_'}, _ = '_'});
 	_ -> mnesia:match_object(
-	       #pubsub_state{id = {GenKey, '_'}, _ = '_'})
+	       #pubsub_state{stateid = {GenKey, '_'}, _ = '_'})
 	    ++ mnesia:match_object(
-	       #pubsub_state{id = {SubKey, '_'}, _ = '_'})
+	       #pubsub_state{stateid = {SubKey, '_'}, _ = '_'})
     end,
-    NodeTree = case catch ets:lookup(gen_mod:get_module_proc(S, 'config'), 'nodetree') of
-	    [{nodetree, Tree}] -> Tree;
-	    _ -> 'nodetree_tree'
+    NodeTree = case catch ets:lookup(gen_mod:get_module_proc(D, config), nodetree) of
+	    [{nodetree, N}] -> N;
+	    _ -> nodetree_tree
 	end,
-    Reply = lists:foldl(fun(#pubsub_state{id = {Entity, NodeIdx}, subscriptions = Subscriptions}, Acc) ->
-	case NodeTree:get_node(NodeIdx) of
-	    #pubsub_node{id = {{_, S, _}, _}} = Node ->
-			lists:foldl(fun({subscribed, SubId}, Acc2) ->
-					   [{Node, subscribed, SubId, Entity} | Acc2];
-					({pending, _SubId}, Acc2) ->
-					    [{Node, pending, Entity} | Acc2];
-					(Subscription, Acc2) ->
-					    [{Node, Subscription, Entity} | Acc2]
-				    end, Acc, Subscriptions);
+    Reply = lists:foldl(fun(#pubsub_state{stateid = {J, N}, subscriptions = Ss}, Acc) ->
+	case NodeTree:get_node(N) of
+	    #pubsub_node{nodeid = {{_, D, _}, _}} = Node ->
+			lists:foldl(fun({subscribed, SubID}, Acc2) ->
+					   [{Node, subscribed, SubID, J} | Acc2];
+					({pending, _SubID}, Acc2) ->
+					    [{Node, pending, J} | Acc2];
+					(S, Acc2) ->
+					    [{Node, S, J} | Acc2]
+				    end, Acc, Ss);
 	    _ -> Acc
 	end
     end, [], States),
     {result, Reply}.
 
-
--spec(get_node_subscriptions/1 ::
-      (
-			       NodeIdx :: nodeIdx())
-      -> {'result', []
-	  | [{Entity::fullUsr(), 'none'}]
-						%| [{Entity::fullUsr(), Subscription::subscription()}] %% still useful case ?
-	  | [{Entity::fullUsr(), Subscription::subscription(), SubId::subId()}]}
-	    ).
-
-get_node_subscriptions(NodeIdx) ->
+get_node_subscriptions(NodeId) ->
     %% note: get_node_subscriptions is used for broadcasting
     %% there should not have any subscriptions
     %% but that call returns also all subscription to none
     %% and this is required for broadcast to occurs
     %% DO NOT REMOVE
-    node_flat:get_node_subscriptions(NodeIdx).
+    node_hometree:get_node_subscriptions(NodeId).
 
+get_subscriptions(NodeId, Owner) ->
+    node_hometree:get_subscriptions(NodeId, Owner).
 
--spec(get_subscriptions/2 ::
-      (
-			  NodeIdx :: nodeIdx(),
-			  JID     :: jidEntity())
-      -> {'result', Subscriptions :: [] | [{Subscription::subscription(), SubId::subId()}]}
-	    ).
+set_subscriptions(NodeId, Owner, Subscription, SubId) ->
+    node_hometree:set_subscriptions(NodeId, Owner, Subscription, SubId).
 
-get_subscriptions(NodeIdx, JID) ->
-    node_flat:get_subscriptions(NodeIdx, JID).
+get_pending_nodes(Host, Owner) ->
+    node_hometree:get_pending_nodes(Host, Owner).
 
+get_states(NodeId) ->
+    node_hometree:get_states(NodeId).
 
--spec(set_subscriptions/4 ::
-      (
-			  NodeIdx      :: nodeIdx(),
-			  JID          :: jidEntity(),
-			  Subscription :: subscription(),
-			  SubId        :: subId())
-      -> 'ok'
-	     | {Subscription::subscription(), SubId::subId()}
-	     | {error, _}
-	    ).
-
-set_subscriptions(NodeIdx, JID, Subscription, SubId) ->
-    node_flat:set_subscriptions(NodeIdx, JID, Subscription, SubId).
-
-
--spec(get_pending_nodes/2 ::
-      (
-			  Host :: hostPEP(),
-			  JID  :: jidEntity())
-      -> 'false' | {'value', NodeId::nodeId()}
-	    ).
-
-get_pending_nodes(Host, JID) ->
-    node_flat:get_pending_nodes(Host, JID).
-
-
--spec(get_states/1 ::
-      (
-		   NodeIdx :: nodeIdx())
-      -> {'result', States :: [] | [State::pubsubState()]}
-	    ).
-
-get_states(NodeIdx) ->
-    node_flat:get_states(NodeIdx).
-
-
--spec(get_state/2 ::
-      (
-		  NodeIdx :: nodeIdx(),
-		  Entity  :: fullUsr())
-      -> State::pubsubState()
-	    ).
-
-get_state(NodeIdx, Entity) ->
-    node_flat:get_state(NodeIdx, Entity).
-
-
--spec(set_state/1 ::
-      (
-		  State :: pubsubState())
-      -> 'ok' | {'error', 'internal-server-error'}
-	    ).
+get_state(NodeId, JID) ->
+    node_hometree:get_state(NodeId, JID).
 
 set_state(State) ->
-    node_flat:set_state(State).
+    node_hometree:set_state(State).
 
+get_items(NodeId, From) ->
+    node_hometree:get_items(NodeId, From).
 
--spec(get_items/2 ::
-      (
-		  NodeIdx :: nodeIdx(),
-		  Entity  :: fullUsr())
-      -> {'result', Items :: [] | [Item::pubsubItem()]}
-	    ).
+get_items(NodeId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId) ->
+    node_hometree:get_items(NodeId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId).
 
-get_items(NodeIdx, Entity) ->
-    node_flat:get_items(NodeIdx, Entity).
+get_item(NodeId, ItemId) ->
+    node_hometree:get_item(NodeId, ItemId).
 
-
--spec(get_items/6 ::
-      (
-		  NodeIdx              :: nodeIdx(),
-		  JID                  :: jidEntity(),
-		  AccessModel          :: accessModel(),
-		  PresenceSubscription :: boolean(),
-		  RosterGroup          :: boolean(),
-		  SubId                :: subId())
-      -> {'result', Items :: [] | [Item::pubsubItem()]}
-	     | {'error', _}
-	    ).
-
-get_items(NodeIdx, JID, AccessModel, PresenceSubscription, RosterGroup, SubId) ->
-    node_flat:get_items(NodeIdx, JID, AccessModel, PresenceSubscription, RosterGroup, SubId).
-
-
--spec(get_item/2 ::
-      (
-		 NodeIdx :: nodeIdx(),
-		 ItemId  :: itemId())
-      -> {'result', Item::pubsubItem()} | {'error', 'item-not-found'}
-	    ).
-
-get_item(NodeIdx, ItemId) ->
-    node_flat:get_item(NodeIdx, ItemId).
-
-
--spec(get_item/7 ::
-      (
-		 NodeIdx              :: nodeIdx(),
-		 ItemId               :: itemId(),
-		 JID                  :: jidEntity(),
-		 AccessModel          :: accessModel(),
-		 PresenceSubscription :: boolean(),
-		 RosterGroup          :: boolean(),
-		 SubId                :: subId())
-      -> {'result', Item::pubsubItem()} | {'error', 'item-not-found'}
-	    ).
-
-get_item(NodeIdx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId) ->
-    node_flat:get_item(NodeIdx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId).
-
-
--spec(set_item/1 ::
-      (
-		 Item :: pubsubItem())
-      -> 'ok' | {error, 'internal-server-error'}
-	    ).
+get_item(NodeId, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId) ->
+    node_hometree:get_item(NodeId, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, SubId).
 
 set_item(Item) ->
-    node_flat:set_item(Item).
-
+    node_hometree:set_item(Item).
 
 get_item_name(Host, Node, Id) ->
-    node_flat:get_item_name(Host, Node, Id).
-
+    node_hometree:get_item_name(Host, Node, Id).
 
 node_to_path(Node) ->
     node_flat:node_to_path(Node).
-
 
 path_to_node(Path) ->
     node_flat:path_to_node(Path).
@@ -572,12 +283,6 @@ path_to_node(Path) ->
 %% The PEP plugin for mod_pubsub requires mod_caps to be enabled in the host.
 %% Check that the mod_caps module is enabled in that Jabber Host
 %% If not, show a warning message in the ejabberd log file.
--spec(complain_if_modcaps_disabled/1 ::
-      (
-		 ServerHost :: string())
-      -> 'ok' | true
-	    ).
-
 complain_if_modcaps_disabled(ServerHost) ->
     Modules = ejabberd_config:get_local_option({modules, ServerHost}),
     ModCaps = [mod_caps_enabled || {mod_caps, _Opts} <- Modules],

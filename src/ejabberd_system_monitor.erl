@@ -38,9 +38,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 -record(state, {}).
 
@@ -60,16 +59,16 @@ end,
     gen_server:start_link({local, ?MODULE}, ?MODULE, Opts, []).
 
 process_command(From, To, Packet) ->
-    case {exmpp_jid:prep_node(To), exmpp_jid:prep_resource(To) } of
-	  {undefined, <<"watchdog">>} ->
-	    case Packet#xmlel.name of
-		'message' ->
-		    case lists:any(fun(J) -> 
-                            exmpp_jid:compare(J,From) 
-                           end, get_admin_jids()) of
+    case To of
+	#jid{luser = "", lresource = "watchdog"} ->
+	    {xmlelement, Name, _Attrs, _Els} = Packet,
+	    case Name of
+		"message" ->
+		    LFrom = jlib:jid_tolower(jlib:jid_remove_resource(From)),
+		    case lists:member(LFrom, get_admin_jids()) of
 			true ->
-			    Body = exmpp_xml:get_path(
-				     Packet, [{element, 'body'}, cdata_as_list]),
+			    Body = xml:get_path_s(
+				     Packet, [{elem, "body"}, cdata]),
 			    spawn(fun() ->
 					  process_flag(priority, high),
 					  process_command1(From, To, Body)
@@ -102,8 +101,7 @@ init(Opts) ->
     erlang:system_monitor(self(), [{large_heap, LH}]),
     lists:foreach(
       fun(Host) ->
-	      ejabberd_hooks:add(local_send_to_resource_hook, 
-                  list_to_binary(Host),
+	      ejabberd_hooks:add(local_send_to_resource_hook, Host,
 				 ?MODULE, process_command, 50)
       end, ?MYHOSTS),
     {ok, #state{}}.
@@ -190,15 +188,13 @@ process_large_heap(Pid, Info) ->
 		     "(~w) The process ~w is consuming too much memory:~n~p~n"
 		     "~s",
 		     [node(), Pid, Info, DetailedInfo]),
-	    From = exmpp_jid:make(undefined, Host, <<"watchdog">>),
+	    From = jlib:make_jid("", Host, "watchdog"),
 	    lists:foreach(
 	      fun(S) ->
-		      try
-			  JID = exmpp_jid:parse(S),
-			  send_message(From, JID, Body)
-		      catch
-			  _ ->
-			      ok
+		      case jlib:string_to_jid(S) of
+			  error -> ok;
+			  JID ->
+			      send_message(From, JID, Body)
 		      end
 	      end, JIDs);
 	_ ->
@@ -208,21 +204,18 @@ process_large_heap(Pid, Info) ->
 send_message(From, To, Body) ->
     ejabberd_router:route(
       From, To,
-      exmpp_message:chat(lists:flatten(Body))).
+      {xmlelement, "message", [{"type", "chat"}],
+       [{xmlelement, "body", [],
+	 [{xmlcdata, lists:flatten(Body)}]}]}).
 
 get_admin_jids() ->
     case ejabberd_config:get_local_option(watchdog_admins) of
 	JIDs when is_list(JIDs) ->
 	    lists:flatmap(
 	      fun(S) ->
-		      try
-			  JID = exmpp_jid:parse(S),
-			  [{exmpp_jid:prep_node(JID), 
-                exmpp_jid:prep_domain(JID), 
-                exmpp_jid:prep_resource(JID)}]
-		      catch
-			  _ ->
-			      []
+		      case jlib:string_to_jid(S) of
+			  error -> [];
+			  JID -> [jlib:jid_tolower(JID)]
 		      end
 	      end, JIDs);
 	_ ->

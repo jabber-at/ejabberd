@@ -24,37 +24,6 @@
 %%%
 %%%----------------------------------------------------------------------
 
-%%% Database schema (version / storage / table)
-%%%
-%%% 2.1.x / mnesia / last_activity
-%%%  us = {Username::string(), Host::string()}
-%%%  timestamp = now()
-%%%  status = string()
-%%%
-%%% 2.1.x / odbc / last
-%%%  username = varchar250
-%%%  seconds = text
-%%%  state = text
-%%%
-%%% 3.0.0-prealpha / mnesia / last_activity
-%%%  us = {Username::binary(), Host::binary()}
-%%%  timestamp = now()
-%%%  status = binary()
-%%%
-%%% 3.0.0-prealpha / odbc / last
-%%%  Same as 2.1.x
-%%%
-%%% 3.0.0-alpha / mnesia / last_activity
-%%%  user_host = {Username::binary(), Host::binary()}
-%%%  timestamp = now()
-%%%  status = binary()
-%%%
-%%% 3.0.0-alpha / odbc / last_activity
-%%%  user = varchar150
-%%%  host = varchar150
-%%%  timestamp = bigint
-%%%  status = text
-
 -module(mod_last).
 -author('alexey@process-one.net').
 
@@ -69,66 +38,62 @@
 	 get_last_info/2,
 	 remove_user/2]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 -include("mod_privacy.hrl").
 
--record(last_activity, {user_host, timestamp, status}).
+-record(last_activity, {us, timestamp, status}).
 
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, Opts) ->
+start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
-    Backend = gen_mod:get_opt(backend, Opts, mnesia),
-    gen_storage:create_table(Backend, HostB, last_activity,
-			     [{disc_copies, [node()]},
-			      {odbc_host, HostB},
-			      {attributes, record_info(fields, last_activity)},
-			      {types, [{user_host, {text, text}},
-				       {timestamp, bigint}]}]),
-    update_table(HostB, Backend),
-    gen_iq_handler:add_iq_handler(ejabberd_local, HostB, ?NS_LAST_ACTIVITY,
+    mnesia:create_table(last_activity,
+			[{disc_copies, [node()]},
+			 {attributes, record_info(fields, last_activity)}]),
+    update_table(),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_LAST,
 				  ?MODULE, process_local_iq, IQDisc),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, HostB, ?NS_LAST_ACTIVITY,
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_LAST,
 				  ?MODULE, process_sm_iq, IQDisc),
-    ejabberd_hooks:add(remove_user, HostB,
+    ejabberd_hooks:add(remove_user, Host,
 		       ?MODULE, remove_user, 50),
-    ejabberd_hooks:add(unset_presence_hook, HostB,
+    ejabberd_hooks:add(unset_presence_hook, Host,
 		       ?MODULE, on_presence_update, 50).
 
-stop(Host) when is_list(Host) ->
-    stop(list_to_binary(Host));
-stop(HostB) ->
-    ejabberd_hooks:delete(remove_user, HostB,
+stop(Host) ->
+    ejabberd_hooks:delete(remove_user, Host,
 			  ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(unset_presence_hook, HostB,
+    ejabberd_hooks:delete(unset_presence_hook, Host,
 			  ?MODULE, on_presence_update, 50),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, HostB, ?NS_LAST_ACTIVITY),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, HostB, ?NS_LAST_ACTIVITY).
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_LAST),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_LAST).
 
 %%%
 %%% Uptime of ejabberd node
 %%%
 
-process_local_iq(_From, _To, #iq{type = get} = IQ_Rec) ->
-    Sec = get_node_uptime(),
-    Response = #xmlel{ns = ?NS_LAST_ACTIVITY, name = 'query', attrs =
-      [?XMLATTR(<<"seconds">>, Sec)]},
-    exmpp_iq:result(IQ_Rec, Response);
-process_local_iq(_From, _To, #iq{type = set} = IQ_Rec) ->
-    exmpp_iq:error(IQ_Rec, 'not-allowed').
+process_local_iq(_From, _To, #iq{type = Type, sub_el = SubEl} = IQ) ->
+    case Type of
+	set ->
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};
+	get ->
+	    Sec = get_node_uptime(),
+	    IQ#iq{type = result,
+		  sub_el =  [{xmlelement, "query",
+			      [{"xmlns", ?NS_LAST},
+			       {"seconds", integer_to_list(Sec)}],
+			      []}]}
+    end.
 
 %% @spec () -> integer()
 %% @doc Get the uptime of the ejabberd node, expressed in seconds.
 %% When ejabberd is starting, ejabberd_config:start/0 stores the datetime.
 get_node_uptime() ->
     case ejabberd_config:get_local_option(node_start) of
- {_, _, _} = StartNow ->
-     now_to_seconds(now()) - now_to_seconds(StartNow);
- _undefined ->
-     trunc(element(1, erlang:statistics(wall_clock))/1000)
+	{_, _, _} = StartNow ->
+	    now_to_seconds(now()) - now_to_seconds(StartNow);
+	_undefined ->
+	    trunc(element(1, erlang:statistics(wall_clock))/1000)
     end.
 
 now_to_seconds({MegaSecs, Secs, _MicroSecs}) ->
@@ -139,41 +104,48 @@ now_to_seconds({MegaSecs, Secs, _MicroSecs}) ->
 %%% Serve queries about user last online
 %%%
 
-process_sm_iq(From, To, #iq{type = get} = IQ_Rec) ->
-    {Subscription, _Groups} =
-	ejabberd_hooks:run_fold(
-	  roster_get_jid_info, exmpp_jid:prep_domain(To),
-	  {none, []}, [exmpp_jid:prep_node(To), exmpp_jid:prep_domain(To), From]),
-	SameUser = exmpp_jid:bare_compare(From, To),
-    if
-		(Subscription == both) or (Subscription == from) or SameUser ->
-	    UserListRecord = ejabberd_hooks:run_fold(
-			       privacy_get_user_list, exmpp_jid:prep_domain(To),
-			       #userlist{},
-			       [exmpp_jid:prep_node(To), exmpp_jid:prep_domain(To)]),
-	    case ejabberd_hooks:run_fold(
-		   privacy_check_packet, exmpp_jid:prep_domain(To),
-		   allow,
-		   [exmpp_jid:prep_node(To), exmpp_jid:prep_domain(To), UserListRecord,
-		    {To, From,
-		     exmpp_presence:available()},
-		    out]) of
-		allow ->
-		    get_last_iq(IQ_Rec, exmpp_jid:prep_node(To), exmpp_jid:prep_domain(To));
-		deny ->
-		    exmpp_iq:error(IQ_Rec, 'forbidden')
-	    end;
-	true ->
-	    exmpp_iq:error(IQ_Rec, 'forbidden')
-    end;
-process_sm_iq(_From, _To, #iq{type = set} = IQ_Rec) ->
-    exmpp_iq:error(IQ_Rec, 'not-allowed').
+process_sm_iq(From, To, #iq{type = Type, sub_el = SubEl} = IQ) ->
+    case Type of
+	set ->
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};
+	get ->
+	    User = To#jid.luser,
+	    Server = To#jid.lserver,
+	    {Subscription, _Groups} =
+		ejabberd_hooks:run_fold(
+		  roster_get_jid_info, Server,
+		  {none, []}, [User, Server, From]),
+	    if
+		(Subscription == both) or (Subscription == from)
+		or ((From#jid.luser == To#jid.luser)
+		    and (From#jid.lserver == To#jid.lserver)) ->
+		    UserListRecord = ejabberd_hooks:run_fold(
+				       privacy_get_user_list, Server,
+				       #userlist{},
+				       [User, Server]),
+		    case ejabberd_hooks:run_fold(
+			   privacy_check_packet, Server,
+			   allow,
+			   [User, Server, UserListRecord,
+			    {To, From,
+			     {xmlelement, "presence", [], []}},
+			    out]) of
+			allow ->
+			    get_last_iq(IQ, SubEl, User, Server);
+			deny ->
+			    IQ#iq{type = error,
+				  sub_el = [SubEl, ?ERR_FORBIDDEN]}
+		    end;
+		true ->
+		    IQ#iq{type = error,
+			  sub_el = [SubEl, ?ERR_FORBIDDEN]}
+	    end
+    end.
 
-%% TODO: This function could use get_last_info/2
 %% @spec (LUser::string(), LServer::string()) ->
 %%      {ok, TimeStamp::integer(), Status::string()} | not_found | {error, Reason}
 get_last(LUser, LServer) ->
-    case catch gen_storage:dirty_read(LServer, last_activity, {LUser, LServer}) of
+    case catch mnesia:dirty_read(last_activity, {LUser, LServer}) of
 	{'EXIT', Reason} ->
 	    {error, Reason};
 	[] ->
@@ -182,57 +154,49 @@ get_last(LUser, LServer) ->
 	    {ok, TimeStamp, Status}
     end.
 
-get_last_iq(IQ_Rec, LUser, LServer) ->
+get_last_iq(IQ, SubEl, LUser, LServer) ->
     case ejabberd_sm:get_user_resources(LUser, LServer) of
 	[] ->
-		get_last_iq_disconnected(IQ_Rec, LUser, LServer);
+	    case get_last(LUser, LServer) of
+		{error, _Reason} ->
+		    IQ#iq{type = error, sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]};
+		not_found ->
+		    IQ#iq{type = error, sub_el = [SubEl, ?ERR_SERVICE_UNAVAILABLE]};
+		{ok, TimeStamp, Status} ->
+		    TimeStamp2 = now_to_seconds(now()),
+		    Sec = TimeStamp2 - TimeStamp,
+		    IQ#iq{type = result,
+			  sub_el = [{xmlelement, "query",
+				     [{"xmlns", ?NS_LAST},
+				      {"seconds", integer_to_list(Sec)}],
+				     [{xmlcdata, Status}]}]}
+	    end;
 	_ ->
-		Sec = 0,
-	    #xmlel{ns = ?NS_LAST_ACTIVITY, name = 'query',
-	      attrs = [?XMLATTR(<<"seconds">>, Sec)]}
-    end.
-
-get_last_iq_disconnected(IQ_Rec, LUser, LServer) ->
-    case get_last(LUser, LServer) of
-	{error, _Reason} ->
-	    exmpp_iq:error(IQ_Rec, 'internal-server-error');
-	not_found ->
-	    exmpp_iq:error(IQ_Rec, 'service-unavailable');
-	{ok, TimeStamp, Status} ->
-	    TimeStamp2 = now_to_seconds(now()),
-	    Sec = TimeStamp2 - TimeStamp,
-	    Response = #xmlel{ns = ?NS_LAST_ACTIVITY, name = 'query',
-	      attrs = [?XMLATTR(<<"seconds">>, Sec)],
-	      children = [#xmlcdata{cdata = Status}]},
-	    exmpp_iq:result(IQ_Rec, Response)
+	    IQ#iq{type = result,
+		  sub_el = [{xmlelement, "query",
+			     [{"xmlns", ?NS_LAST},
+			      {"seconds", "0"}],
+			     []}]}
     end.
 
 on_presence_update(User, Server, _Resource, Status) ->
-    {MegaSecs, Secs, _MicroSecs} = now(),
-    TimeStamp = MegaSecs * 1000000 + Secs,
+    TimeStamp = now_to_seconds(now()),
     store_last_info(User, Server, TimeStamp, Status).
 
-store_last_info(User, Server, TimeStamp, Status) 
-        when is_binary(User), is_binary(Server) ->
-    try
-	US = {User, Server},
-	F = fun() ->
- 		gen_storage:write(Server,
- 				  #last_activity{user_host = US,
-						timestamp = TimeStamp,
-						status = Status})
-	    end,
-        gen_storage:transaction(Server, last_activity, F)
-    catch
-	_ ->
-	    ok
-    end.
+store_last_info(User, Server, TimeStamp, Status) ->
+    LUser = jlib:nodeprep(User),
+    LServer = jlib:nameprep(Server),
+    US = {LUser, LServer},
+    F = fun() ->
+		mnesia:write(#last_activity{us = US,
+					    timestamp = TimeStamp,
+					    status = Status})
+	end,
+    mnesia:transaction(F).
 
 %% @spec (LUser::string(), LServer::string()) ->
-%%      {ok, Timestamp::integer(), Status::string()} | not_found
-get_last_info(LUser, LServer) when is_list(LUser), is_list(LServer) ->
-    get_last_info(list_to_binary(LUser), list_to_binary(LServer));
-get_last_info(LUser, LServer) when is_binary(LUser), is_binary(LServer) ->
+%%      {ok, TimeStamp::integer(), Status::string()} | not_found
+get_last_info(LUser, LServer) ->
     case get_last(LUser, LServer) of
 	{error, _Reason} ->
 	    not_found;
@@ -240,50 +204,61 @@ get_last_info(LUser, LServer) when is_binary(LUser), is_binary(LServer) ->
 	    Res
     end.
 
-remove_user(User, Server) when is_binary(User), is_binary(Server) ->
-    try
-	LUser = exmpp_stringprep:nodeprep(User),
-	LServer = exmpp_stringprep:nameprep(Server),
-	US = {LUser, LServer},
-	F = fun() ->
-		gen_storage:delete(LServer, {last_activity, US})
-	    end,
-	gen_storage:transaction(LServer, last_activity, F)
-    catch
+remove_user(User, Server) ->
+    LUser = jlib:nodeprep(User),
+    LServer = jlib:nameprep(Server),
+    US = {LUser, LServer},
+    F = fun() ->
+		mnesia:delete({last_activity, US})
+	end,
+    mnesia:transaction(F).
+
+
+update_table() ->
+    Fields = record_info(fields, last_activity),
+    case mnesia:table_info(last_activity, attributes) of
+	Fields ->
+	    ok;
+	[user, timestamp, status] ->
+	    ?INFO_MSG("Converting last_activity table from {user, timestamp, status} format", []),
+	    Host = ?MYNAME,
+	    mnesia:transform_table(last_activity, ignore, Fields),
+	    F = fun() ->
+			mnesia:write_lock_table(last_activity),
+			mnesia:foldl(
+			  fun({_, U, T, S} = R, _) ->
+				  mnesia:delete_object(R),
+				  mnesia:write(
+				    #last_activity{us = {U, Host},
+						   timestamp = T,
+						   status = S})
+			  end, ok, last_activity)
+		end,
+	    mnesia:transaction(F);
+	[user, timestamp] ->
+	    ?INFO_MSG("Converting last_activity table from {user, timestamp} format", []),
+	    Host = ?MYNAME,
+	    mnesia:transform_table(
+	      last_activity,
+	      fun({_, U, T}) ->
+		      #last_activity{us = U,
+				     timestamp = T,
+				     status = ""}
+	      end, Fields),
+	    F = fun() ->
+			mnesia:write_lock_table(last_activity),
+			mnesia:foldl(
+			  fun({_, U, T, S} = R, _) ->
+				  mnesia:delete_object(R),
+				  mnesia:write(
+				    #last_activity{us = {U, Host},
+						   timestamp = T,
+						   status = S})
+			  end, ok, last_activity)
+		end,
+	    mnesia:transaction(F);
 	_ ->
-	    ok
+	    ?INFO_MSG("Recreating last_activity table", []),
+	    mnesia:transform_table(last_activity, ignore, Fields)
     end.
 
-update_table(global, Storage) ->
-    [update_table(HostB, Storage) || HostB <- ejabberd_hosts:get_hosts(ejabberd)];
-
-update_table(HostB, mnesia) ->
-    gen_storage_migration:migrate_mnesia(
-      HostB, last_activity,
-      [{last_activity, [us, timestamp, status],
-	fun({last_activity, {U, S}, Timestamp, Status}) ->
-		U1 = case U of
-			 "" -> undefined;
-			 V  -> V
-		     end,
-		#last_activity{user_host = {list_to_binary(U1),
-					    list_to_binary(S)},
-			       timestamp = Timestamp,
-			       status = list_to_binary(Status)}
-	end}]);
-update_table(HostB, odbc) ->
-    gen_storage_migration:migrate_odbc(
-      HostB, [last_activity],
-      [{"last", ["username", "seconds", "state"],
-	fun(_, Username, STimeStamp, Status) ->
-		case catch list_to_integer(STimeStamp) of
-		    TimeStamp when is_integer(TimeStamp) ->
-			[#last_activity{user_host = {Username, HostB},
-					timestamp = TimeStamp,
-					status = Status}];
-		    _ ->
-			?WARNING_MSG("Omitting last_activity migration item"
-				     " with timestamp=~p",
-				     [STimeStamp])
-		end
-	end}]).

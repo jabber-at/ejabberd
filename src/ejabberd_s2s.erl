@@ -42,7 +42,6 @@
 	 allow_host/2,
 	 incoming_s2s_number/0,
 	 outgoing_s2s_number/0,
-	 migrate/1,
 	 clean_temporarily_blocked_table/0,
 	 list_temporarily_blocked_hosts/0,
 	 external_host_overloaded/1,
@@ -55,19 +54,12 @@
 %% ejabberd API
 -export([get_info_s2s_connections/1]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 -include("ejabberd_commands.hrl").
 
 -define(DEFAULT_MAX_S2S_CONNECTIONS_NUMBER, 1).
 -define(DEFAULT_MAX_S2S_CONNECTIONS_NUMBER_PER_NODE, 1).
-
-% These are the namespace already declared by the stream opening. This is
-% used at serialization time.
--define(DEFAULT_NS, ?NS_JABBER_CLIENT).
--define(PREFIXED_NS,
-        [{?NS_XMPP, ?NS_XMPP_pfx}, {?NS_DIALBACK, ?NS_DIALBACK_pfx}]).
 
 -define(S2S_OVERLOAD_BLOCK_PERIOD, 60).
 %% once a server is temporarly blocked, it stay blocked for 60 seconds
@@ -87,17 +79,6 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-%% #xmlelement{} used for retro-compatibility
-route(FromOld, ToOld, #xmlelement{} = PacketOld) ->
-    catch throw(for_stacktrace), % To have a stacktrace.
-    io:format("~nS2S: old #xmlelement:~n~p~n~p~n~n",
-      [PacketOld, erlang:get_stacktrace()]),
-    % XXX OLD FORMAT: From, To, Packet.
-    From = jlib:from_old_jid(FromOld),
-    To = jlib:from_old_jid(ToOld),
-    Packet = exmpp_xml:xmlelement_to_xmlel(PacketOld, [?NS_JABBER_CLIENT],
-      [{?NS_XMPP, ?NS_XMPP_pfx}]),
-    route(From, To, Packet);
 route(From, To, Packet) ->
     case catch do_route(From, To, Packet) of
         {'EXIT', Reason} ->
@@ -113,7 +94,7 @@ list_temporarily_blocked_hosts() ->
 	ets:tab2list(temporarily_blocked).
 
 external_host_overloaded(Host) ->
-	?INFO_MSG("Disabling connections from ~s for ~s seconds", [Host, ?S2S_OVERLOAD_BLOCK_PERIOD]),
+	?INFO_MSG("Disabling connections from ~s for ~p seconds", [Host, ?S2S_OVERLOAD_BLOCK_PERIOD]),
 	mnesia:transaction( fun() ->
 		mnesia:write(#temporarily_blocked{host = Host, timestamp = now()})
 	end).
@@ -148,63 +129,30 @@ remove_connection(FromTo, Pid, Key) ->
     end.
 
 have_connection(FromTo) ->
-    case ejabberd_cluster:get_node(FromTo) of
-	Node when Node == node() ->
-	    case mnesia:dirty_read(s2s, FromTo) of
-		[_] ->
-		    true;
-		_ ->
-		    false
-	    end;
-	Node ->
-	    case catch rpc:call(Node, mnesia, dirty_read,
-				[s2s, FromTo], 5000) of
-		[_] ->
-		    true;
-		_ ->
-		    false
-	    end
+    case catch mnesia:dirty_read(s2s, FromTo) of
+        [_] ->
+            true;
+        _ ->
+            false
     end.
 
 has_key(FromTo, Key) ->
-    Query = [{#s2s{fromto = FromTo, key = Key, _ = '_'},
-	      [],
-	      ['$_']}],
-    case ejabberd_cluster:get_node(FromTo) of
-	Node when Node == node() ->
-	    case mnesia:dirty_select(s2s, Query) of
-		[] ->
-		    false;
-		_ ->
-		    true
-	    end;
-	Node ->
-	    case catch rpc:call(Node, mnesia, dirty_select,
-				[s2s, Query], 5000) of
-		[_|_] ->
-		    true;
-		_ ->
-		    false
-	    end
+    case mnesia:dirty_select(s2s,
+			     [{#s2s{fromto = FromTo, key = Key, _ = '_'},
+			       [],
+			       ['$_']}]) of
+	[] ->
+	    false;
+	_ ->
+	    true
     end.
 
 get_connections_pids(FromTo) ->
-    case ejabberd_cluster:get_node(FromTo) of
-	Node when Node == node() ->
-	    case catch mnesia:dirty_read(s2s, FromTo) of
-		L when is_list(L) ->
-		    [Connection#s2s.pid || Connection <- L];
-		_ ->
-		    []
-	    end;
-	Node ->
-	    case catch rpc:call(Node, mnesia, dirty_read,
-				[s2s, FromTo], 5000) of
-		L when is_list(L) ->
-		    [Connection#s2s.pid || Connection <- L];
-		_ ->
-		    []
-	    end
+    case catch mnesia:dirty_read(s2s, FromTo) of
+	L when is_list(L) ->
+	    [Connection#s2s.pid || Connection <- L];
+	_ ->
+	    []
     end.
 
 try_register(FromTo) ->
@@ -235,33 +183,7 @@ try_register(FromTo) ->
     end.
 
 dirty_get_connections() ->
-    lists:flatmap(
-      fun(Node) when Node == node() ->
-	      mnesia:dirty_all_keys(s2s);
-	 (Node) ->
-	      case catch rpc:call(Node, mnesia, dirty_all_keys, [s2s], 5000) of
-		  L when is_list(L) ->
-		      L;
-		  _ ->
-		      []
-	      end
-      end, ejabberd_cluster:get_nodes()).
-
-migrate(After) ->
-    Ss = mnesia:dirty_select(
-	   s2s,
-	   [{#s2s{fromto = '$1', pid = '$2', _ = '_'},
-	     [],
-	     ['$$']}]),
-    lists:foreach(
-      fun([FromTo, Pid]) ->
-	      case ejabberd_cluster:get_node_new(FromTo) of
-		  Node when Node /= node() ->
-		      ejabberd_s2s_out:stop_connection(Pid, After * 2);
-		  _ ->
-		      ok
-	      end
-      end, Ss).
+    mnesia:dirty_all_keys(s2s).
 
 %%====================================================================
 %% gen_server callbacks
@@ -276,11 +198,10 @@ migrate(After) ->
 %%--------------------------------------------------------------------
 init([]) ->
     update_tables(),
-    mnesia:create_table(s2s, [{ram_copies, [node()]},
-			      {type, bag}, {local_content, true},
+    mnesia:create_table(s2s, [{ram_copies, [node()]}, {type, bag},
 			      {attributes, record_info(fields, s2s)}]),
     mnesia:add_table_copy(s2s, node(), ram_copies),
-    ejabberd_hooks:add(node_hash_update, ?MODULE, migrate, 100),
+    mnesia:subscribe(system),
     ejabberd_commands:register_commands(commands()),
     mnesia:create_table(temporarily_blocked, [{ram_copies, [node()]}, {attributes, record_info(fields, temporarily_blocked)}]),
     {ok, #state{}}.
@@ -313,17 +234,9 @@ handle_cast(_Msg, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
-%% #xmlelement{} used for retro-compatibility
-handle_info({route, FromOld, ToOld, #xmlelement{} = PacketOld}, State) ->
-    catch throw(for_stacktrace), % To have a stacktrace.
-    io:format("~nS2S: old #xmlelement:~n~p~n~p~n~n",
-      [PacketOld, erlang:get_stacktrace()]),
-    % XXX OLD FORMAT: From, To, Packet.
-    From = jlib:from_old_jid(FromOld),
-    To = jlib:from_old_jid(ToOld),
-    Packet = exmpp_xml:xmlelement_to_xmlel(PacketOld, [?NS_JABBER_CLIENT],
-      [{?NS_XMPP, ?NS_XMPP_pfx}]),
-    handle_info({route, From, To, Packet}, State);
+handle_info({mnesia_system_event, {mnesia_down, Node}}, State) ->
+    clean_table_from_bad_node(Node),
+    {noreply, State};
 handle_info({route, From, To, Packet}, State) ->
     case catch do_route(From, To, Packet) of
         {'EXIT', Reason} ->
@@ -344,7 +257,6 @@ handle_info(_Info, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
-    ejabberd_hooks:delete(node_hash_update, ?MODULE, migrate, 100),
     ejabberd_commands:unregister_commands(commands()),
     ok.
 
@@ -358,46 +270,51 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+clean_table_from_bad_node(Node) ->
+    F = fun() ->
+		Es = mnesia:select(
+		       s2s,
+		       [{#s2s{pid = '$1', _ = '_'},
+			 [{'==', {node, '$1'}, Node}],
+			 ['$_']}]),
+		lists:foreach(fun(E) ->
+				      mnesia:delete_object(E)
+			      end, Es)
+	end,
+    mnesia:async_dirty(F).
+
 do_route(From, To, Packet) ->
     ?DEBUG("s2s manager~n\tfrom ~p~n\tto ~p~n\tpacket ~P~n",
            [From, To, Packet, 8]),
-    FromTo = {exmpp_jid:prep_domain_as_list(From),
-	      exmpp_jid:prep_domain_as_list(To)},
-    case ejabberd_cluster:get_node(FromTo) of
-	Node when Node == node() ->
-	    do_route1(From, To, Packet);
-	Node ->
-	    {?MODULE, Node} ! {route, From, To, Packet}
-    end.
-
-do_route1(From, To, Packet) ->
     case find_connection(From, To) of
 	{atomic, Pid} when is_pid(Pid) ->
 	    ?DEBUG("sending to process ~p~n", [Pid]),
-            NewPacket1 = exmpp_stanza:set_sender(Packet, From),
-            NewPacket = exmpp_stanza:set_recipient(NewPacket1, To),
-	    MyServer = exmpp_jid:prep_domain(From),
+	    {xmlelement, Name, Attrs, Els} = Packet,
+	    NewAttrs = jlib:replace_from_to_attrs(jlib:jid_to_string(From),
+						  jlib:jid_to_string(To),
+						  Attrs),
+	    #jid{lserver = MyServer} = From,
 	    ejabberd_hooks:run(
 	      s2s_send_packet,
 	      MyServer,
-	      [From, To, NewPacket]),
-	    send_element(Pid, NewPacket),
+	      [From, To, Packet]),
+	    send_element(Pid, {xmlelement, Name, NewAttrs, Els}),
 	    ok;
 	{aborted, _Reason} ->
-            case exmpp_stanza:get_type(Packet) of
-		<<"error">> -> ok;
-		<<"result">> -> ok;
+	    case xml:get_tag_attr_s("type", Packet) of
+		"error" -> ok;
+		"result" -> ok;
 		_ ->
-                    Err = exmpp_stanza:reply_with_error(Packet,
-                      'service-unavailable'),
+		    Err = jlib:make_error_reply(
+			    Packet, ?ERR_SERVICE_UNAVAILABLE),
 		    ejabberd_router:route(To, From, Err)
 	    end,
 	    false
     end.
 
 find_connection(From, To) ->
-    MyServer = exmpp_jid:prep_domain_as_list(From),
-    Server = exmpp_jid:prep_domain_as_list(To),
+    #jid{lserver = MyServer} = From,
+    #jid{lserver = Server} = To,
     FromTo = {MyServer, Server},
     MaxS2SConnectionsNumber = max_s2s_connections_number(FromTo),
     MaxS2SConnectionsNumberPerNode =
@@ -450,7 +367,7 @@ choose_pid(From, Pids) ->
     % Use sticky connections based on the JID of the sender (whithout
     % the resource to ensure that a muc room always uses the same
     % connection)
-    Pid = lists:nth(erlang:phash(exmpp_jid:bare(From), length(Pids1)),
+    Pid = lists:nth(erlang:phash(jlib:jid_remove_resource(From), length(Pids1)),
 		    Pids1),
     ?DEBUG("Using ejabberd_s2s_out ~p~n", [Pid]),
     Pid.
@@ -501,14 +418,14 @@ new_connection(MyServer, Server, From, FromTo,
 
 max_s2s_connections_number({From, To}) ->
     case acl:match_rule(
-	   From, max_s2s_connections, exmpp_jid:make(To)) of
+	   From, max_s2s_connections, jlib:make_jid("", To, "")) of
 	Max when is_integer(Max) -> Max;
 	_ -> ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER
     end.
 
 max_s2s_connections_number_per_node({From, To}) ->
     case acl:match_rule(
-	   From, max_s2s_connections_per_node, exmpp_jid:make(To)) of
+	   From, max_s2s_connections_per_node, jlib:make_jid("", To, "")) of
 	Max when is_integer(Max) -> Max;
 	_ -> ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER_PER_NODE
     end.
@@ -525,15 +442,14 @@ needed_connections_number(Ls, MaxS2SConnectionsNumber,
 %% service.
 %% --------------------------------------------------------------------
 is_service(From, To) ->
-    LFromDomain = exmpp_jid:prep_domain_as_list(From),
+    LFromDomain = From#jid.lserver,
     case ejabberd_config:get_local_option({route_subdomains, LFromDomain}) of
 	s2s -> % bypass RFC 3920 10.3
 	    false;
 	_ ->
-	    LDstDomain = exmpp_jid:prep_domain_as_list(To),
 	    Hosts = ?MYHOSTS,
 	    P = fun(ParentDomain) -> lists:member(ParentDomain, Hosts) end,
-	    lists:any(P, parent_domains(LDstDomain))
+	    lists:any(P, parent_domains(To#jid.lserver))
     end.
 
 parent_domains(Domain) ->
@@ -601,17 +517,12 @@ update_tables() ->
             mnesia:delete_table(local_s2s);
         false ->
             ok
-    end,
-    case catch mnesia:table_info(s2s, local_content) of
-	false ->
-	    mnesia:delete_table(s2s);
-	_ ->
-	    ok
     end.
 
 %% Check if host is in blacklist or white list
 allow_host(MyServer, S2SHost) ->
-	allow_host2(MyServer, S2SHost) andalso (not is_temporarly_blocked(S2SHost)).
+   allow_host2(MyServer, S2SHost) andalso (not is_temporarly_blocked(S2SHost)).
+
 allow_host2(MyServer, S2SHost) ->
     Hosts = ?MYHOSTS,
     case lists:dropwhile(
@@ -632,7 +543,7 @@ allow_host1(MyHost, S2SHost) ->
 	    case ejabberd_config:get_local_option({s2s_default_policy, MyHost}) of
 		deny -> false;
 		_ ->
-		    case ejabberd_hooks:run_fold(s2s_allow_host, list_to_binary(MyHost),
+		    case ejabberd_hooks:run_fold(s2s_allow_host, MyHost,
 						 allow, [MyHost, S2SHost]) of
 			deny -> false;
 			allow -> true;

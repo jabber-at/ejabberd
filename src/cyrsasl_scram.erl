@@ -29,11 +29,10 @@
 
 -export([start/1,
 	 stop/0,
-	 mech_new/1,
+	 mech_new/4,
 	 mech_step/2]).
 
 -include("ejabberd.hrl").
--include("cyrsasl.hrl").
 
 -behaviour(cyrsasl).
 
@@ -49,25 +48,25 @@ start(_Opts) ->
 stop() ->
     ok.
 
-mech_new(#sasl_params{get_password=GetPassword}) ->
+mech_new(_Host, GetPassword, _CheckPassword, _CheckPasswordDigest) ->
     {ok, #state{step = 2, get_password = GetPassword}}.
 
 mech_step(#state{step = 2} = State, ClientIn) ->
 	case string:tokens(ClientIn, ",") of
 	[CBind, UserNameAttribute, ClientNonceAttribute] when (CBind == "y") or (CBind == "n") ->
 		case parse_attribute(UserNameAttribute) of
-		{error, Reason} ->
+                {error, Reason} ->
 			{error, Reason};
 		{_, EscapedUserName} ->
 			case unescape_username(EscapedUserName) of
 			error ->
-				{error, 'malformed-request', "Error in username encoding", EscapedUserName};
+				{error, "protocol-error-bad-username"};
 			UserName ->
 				case parse_attribute(ClientNonceAttribute) of
 				{$r, ClientNonce} ->
 					case (State#state.get_password)(UserName) of
 					{false, _} ->
-						{error, 'not-authorized', "", UserName};
+						{error, "not-authorized", UserName};
 					{Ret, _AuthModule} ->
 						{StoredKey, ServerKey, Salt, IterationCount} = if
 						is_tuple(Ret) ->
@@ -90,12 +89,12 @@ mech_step(#state{step = 2} = State, ClientIn) ->
 									 client_nonce = ClientNonce, server_nonce = ServerNonce, username = UserName}}
 					end;
 				_Else ->
-					{error, 'malformed-request'}
+					{error, "not-supported"}
 				end
 			end
 		end;
 	_Else ->
-	    {error, 'malformed-request'}
+	    {error, "bad-protocol"}
 	end;
 mech_step(#state{step = 4} = State, ClientIn) ->
 	case string:tokens(ClientIn, ",") of
@@ -118,21 +117,21 @@ mech_step(#state{step = 4} = State, ClientIn) ->
 						ServerSignature = scram:server_signature(State#state.server_key, AuthMessage),
 						{ok, [{username, State#state.username}], "v=" ++ base64:encode_to_string(ServerSignature)};
 					true ->
-						{error, 'not-authorized', "", State#state.username}
+						{error, "bad-auth"}
 					end;
 				_Else ->
-					{error, 'malformed-request', "Bad protocol", State#state.username}
+					{error, "bad-protocol"}
 				end;
 			{$r, _} ->
-				{error, 'malformed-request', "Bad nonce", State#state.username};
+				{error, "bad-nonce"};
 			_Else ->
-				{error, 'malformed-request', "Bad protocol", State#state.username}
+				{error, "bad-protocol"}
 			end;
 		_Else ->
-	   		{error, 'malformed-request', "Bad protocol", State#state.username}
+	   		{error, "bad-protocol"}
 		end;
 	_Else ->
-		{error, 'malformed-request', "Bad protocol", State#state.username}
+		{error, "bad-protocol"}
 	end.
 
 parse_attribute(Attribute) ->
@@ -145,15 +144,15 @@ parse_attribute(Attribute) ->
 				if
 				SecondChar == $= ->
 					String = string:substr(Attribute, 3),
-					{lists:nth(1, Attribute), String};
+                                        {lists:nth(1, Attribute), String};
 				true ->
-					{error, 'malformed-request', "Second char not equal sign", ""}
+					{error, "bad-format second char not equal sign"}
 				end;
 			_Else ->
-				{error, 'malformed-request', "First char not a letter", ""}
+				{error, "bad-format first char not a letter"}
 		end;
 	true -> 
-		{error, 'malformed-request', "Attribute too short", ""}
+		{error, "bad-format attribute too short"}
 	end.
 
 unescape_username("") ->

@@ -29,7 +29,7 @@
 -behavior(gen_mod).
 
 -export([start/2,
-         stop/1,
+	 stop/1,
 	 check_packet/6]).
 
 -include("ejabberd.hrl").
@@ -37,45 +37,42 @@
 
 -record(pres_counter, {dir, start, count, logged = false}).
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, _Opts) ->
-    ejabberd_hooks:add(privacy_check_packet, HostB,
-                       ?MODULE, check_packet, 25),
+start(Host, _Opts) ->
+    ejabberd_hooks:add(privacy_check_packet, Host,
+		       ?MODULE, check_packet, 25),
     ok.
 
 stop(Host) ->
-    HostB = list_to_binary(Host),
-    ejabberd_hooks:delete(privacy_check_packet, HostB,
-                          ?MODULE, check_packet, 25),
+    ejabberd_hooks:delete(privacy_check_packet, Host,
+			  ?MODULE, check_packet, 25),
     ok.
 
 check_packet(_, _User, Server,
 	     _PrivacyList,
-	     {From, To, Stanza},
+	     {From, To, {xmlelement, Name, Attrs, _}},
 	     Dir) ->
-    case exmpp_presence:is_presence(Stanza) of
-        true ->
-            IsSubscription =
-                case exmpp_presence:get_type(Stanza) of
-		    subscribe -> true;
-		    subscribed -> true;
-		    unsubscribe -> true;
-		    unsubscribed -> true;
-                    _ -> false
-                end,
-            if
-                IsSubscription ->
-                    JID = case Dir of
-                              in -> To;
-                              out -> From
-                          end,
-                    update(Server, JID, Dir);
-                true ->
-                    allow
-            end;
-        false ->
-            allow
+    case Name of
+	"presence" ->
+	    IsSubscription =
+		case xml:get_attr_s("type", Attrs) of
+		    "subscribe" -> true;
+		    "subscribed" -> true;
+		    "unsubscribe" -> true;
+		    "unsubscribed" -> true;
+		    _ -> false
+		end,
+	    if
+		IsSubscription ->
+		    JID = case Dir of
+			      in -> To;
+			      out -> From
+			  end,
+		    update(Server, JID, Dir);
+		true ->
+		    allow
+	    end;
+	_ ->
+	    allow
     end.
 
 update(Server, JID, Dir) ->
@@ -85,46 +82,49 @@ update(Server, JID, Dir) ->
     {MegaSecs, Secs, _MicroSecs} = now(),
     TimeStamp = MegaSecs * 1000000 + Secs,
     case read(Dir) of
-        undefined ->
-            write(Dir, #pres_counter{dir = Dir,
-                                     start = TimeStamp,
-                                     count = 1}),
-            allow;
-        #pres_counter{start = TimeStart, count = Count, logged = Logged} = R ->
-            %% record for this key exists, check if we're
-            %% within TimeInterval seconds, and whether the StormCount is
-            %% high enough.  or else just increment the count.
-            if
-                TimeStamp - TimeStart > TimeInterval ->
-                    write(Dir, R#pres_counter{
-                                 start = TimeStamp,
-                                 count = 1}),
-                    allow;
-                (Count =:= StormCount) and Logged ->
-                    {stop, deny};
-                Count =:= StormCount ->
-                    write(Dir, R#pres_counter{logged = true}),
-                    case Dir of
-                        in ->
-                            ?WARNING_MSG(
-                               "User ~s is being flooded, "
-                               "ignoring received presence subscriptions",
-                               [exmpp_jid:to_list(JID)]);
-                        out ->
-                            {IP, _Port} = ejabberd_sm:get_user_ip(JID),
-                            ?WARNING_MSG(
-                               "Flooder detected: ~s, on IP: ~s "
-                               "ignoring sent presence subscriptions",
-                               [exmpp_jid:to_list(JID),
-                                inet_parse:ntoa(IP)])
-                    end,
-                    {stop, deny};
-                true ->
-                    write(Dir, R#pres_counter{
-                                 start = TimeStamp,
-                                 count = Count + 1}),
-                    allow
-            end
+	undefined ->
+	    write(Dir, #pres_counter{dir = Dir,
+				     start = TimeStamp,
+				     count = 1}),
+	    allow;
+	#pres_counter{start = TimeStart, count = Count, logged = Logged} = R ->
+	    %% record for this key exists, check if we're
+	    %% within TimeInterval seconds, and whether the StormCount is
+	    %% high enough.  or else just increment the count.
+	    if
+		TimeStamp - TimeStart > TimeInterval ->
+		    write(Dir, R#pres_counter{
+				 start = TimeStamp,
+				 count = 1}),
+		    allow;
+		(Count =:= StormCount) and Logged ->
+		    {stop, deny};
+		Count =:= StormCount ->
+		    write(Dir, R#pres_counter{logged = true}),
+		    case Dir of
+			in ->
+			    ?WARNING_MSG(
+			       "User ~s is being flooded, "
+			       "ignoring received presence subscriptions",
+			       [jlib:jid_to_string(JID)]);
+			out ->
+			    IP = ejabberd_sm:get_user_ip(
+				   JID#jid.luser,
+				   JID#jid.lserver,
+				   JID#jid.lresource),
+			    ?WARNING_MSG(
+			       "Flooder detected: ~s, on IP: ~s "
+			       "ignoring sent presence subscriptions~n",
+			       [jlib:jid_to_string(JID),
+				jlib:ip_to_list(IP)])
+		    end,
+		    {stop, deny};
+		true ->
+		    write(Dir, R#pres_counter{
+				 start = TimeStamp,
+				 count = Count + 1}),
+		    allow
+	    end
     end.
 
 read(K)->

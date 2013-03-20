@@ -33,17 +33,16 @@
 
 %% External exports
 -export([start/1, start_link/2,
-         running/1,
 	 sql_query/2,
 	 sql_query_t/1,
 	 sql_transaction/2,
 	 sql_bloc/2,
-	 db_type/1,
 	 escape/1,
 	 escape_like/1,
 	 to_bool/1,
-	 keep_alive/1,
-	 sql_query_on_all_connections/2]).
+         encode_term/1,
+         decode_term/1,
+	 keep_alive/1]).
 
 %% gen_fsm callbacks
 -export([init/1,
@@ -101,21 +100,6 @@ start_link(Host, StartInterval) ->
 sql_query(Host, Query) ->
     sql_call(Host, {sql_query, Query}).
 
-%% Issue an SQL query on all the connections
-sql_query_on_all_connections(Host, Query) ->
-    F = fun(Pid) -> ?GEN_FSM:sync_send_event(Pid, {sql_cmd,
-						   {sql_query, Query},
-						   erlang:now()}, ?TRANSACTION_TIMEOUT) end,
-    lists:map(F, ejabberd_odbc_sup:get_pids(Host)).
-
-%% Predicate returning true if there is an odbc process running for
-%% host Host, false otherwise.
-running(Host) ->
-    case catch ejabberd_odbc_sup:get_random_pid(Host) of
-        P when is_pid(P) -> true;
-        {'EXIT', {noproc, _}} -> false
-    end.
-
 %% SQL transaction based on a list of queries
 %% This function automatically
 sql_transaction(Host, Queries) when is_list(Queries) ->
@@ -165,15 +149,11 @@ sql_query_t(Query) ->
 	    QRes
     end.
 
-db_type(Host) ->
-    ejabberd_odbc_sup:get_dbtype(Host).
-
 %% Escape character that will confuse an SQL engine
 escape(S) when is_list(S) ->
     [odbc_queries:escape(C) || C <- S];
-
 escape(S) when is_binary(S) ->
-    [odbc_queries:escape(C) || <<C>> <= S].
+    escape(binary_to_list(S)).
 
 %% Escape character that will confuse an SQL engine
 %% Percent and underscore only need to be escaped for pattern matching like
@@ -191,6 +171,14 @@ to_bool(true) -> true;
 to_bool(1) -> true;
 to_bool(_) -> false.
 
+encode_term(Term) ->
+    escape(erl_prettypr:format(erl_syntax:abstract(Term))).
+
+decode_term(Str) ->
+    {ok, Tokens, _} = erl_scan:string(Str ++ "."),
+    {ok, Term} = erl_parse:parse_term(Tokens),
+    Term.
+
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_fsm
 %%%----------------------------------------------------------------------
@@ -207,7 +195,7 @@ init([Host, StartInterval]) ->
     end,
     [DBType | _] = db_opts(Host),
     ?GEN_FSM:send_event(self(), connect),
-    ejabberd_odbc_sup:add_pid(Host, self(), DBType),
+    ejabberd_odbc_sup:add_pid(Host, self()),
     {ok, connecting, #state{db_type = DBType,
 			    host = Host,
 			    max_pending_requests_len = max_fsm_queue(),
@@ -304,9 +292,8 @@ handle_info(Info, StateName, State) ->
     {next_state, StateName, State}.
 
 terminate(_Reason, _StateName, State) ->
-    DBType = State#state.db_type,
-    ejabberd_odbc_sup:remove_pid(State#state.host, self(), DBType),
-    case DBType of
+    ejabberd_odbc_sup:remove_pid(State#state.host, self()),
+    case State#state.db_type of
 	mysql ->
 	    %% old versions of mysql driver don't have the stop function
 	    %% so the catch
@@ -322,8 +309,7 @@ terminate(_Reason, _StateName, State) ->
 %% Returns: State to print
 %%----------------------------------------------------------------------
 print_state(State) ->
-   State.
-
+    State.
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
@@ -451,15 +437,13 @@ sql_query_internal(Query) ->
     State = get(?STATE_KEY),
     Res = case State#state.db_type of
               odbc ->
-                  odbc:sql_query(State#state.db_ref, Query, ?TRANSACTION_TIMEOUT - 1000);
+                  odbc:sql_query(State#state.db_ref, Query);
               pgsql ->
-                  %% TODO: We need to propagate the TRANSACTION_TIMEOUT to pgsql driver, but no yet supported in driver.
-                  %% See EJAB-1266
                   pgsql_to_odbc(pgsql:squery(State#state.db_ref, Query));
               mysql ->
                   ?DEBUG("MySQL, Send query~n~p~n", [Query]),
                   R = mysql_to_odbc(mysql_conn:fetch(State#state.db_ref,
-						     Query, self(), ?TRANSACTION_TIMEOUT - 1000)),
+						     Query, self())),
                   %% ?INFO_MSG("MySQL, Received result~n~p~n", [R]),
                   R
           end,
@@ -511,11 +495,7 @@ pgsql_to_odbc({ok, PGSQLResult}) ->
 
 pgsql_item_to_odbc({"SELECT" ++ _, Rows, Recs}) ->
     {selected,
-     [case Row of 
-          {desc, _, Col, _, _, _, _, _} -> Col; % Recent pgsql driver API change.
-          _ -> element(1, Row)
-      end
-      || Row <- Rows],
+     [element(1, Row) || Row <- Rows],
      [list_to_tuple(Rec) || Rec <- Recs]};
 pgsql_item_to_odbc("INSERT " ++ OIDN) ->
     [_OID, N] = string:tokens(OIDN, " "),
@@ -537,7 +517,6 @@ mysql_connect(Server, Port, DB, Username, Password) ->
     case mysql_conn:start(Server, Port, Username, Password, DB, fun log/3) of
 	{ok, Ref} ->
             mysql_conn:fetch(Ref, ["set names 'utf8';"], self()),
-            mysql_conn:fetch(Ref, ["SET SESSION query_cache_type=1;"], self()),
 	    {ok, Ref};
 	Err ->
 	    Err
@@ -573,7 +552,6 @@ log(Level, Format, Args) ->
 	    ?ERROR_MSG(Format, Args)
     end.
 
-%% TODO: update this function to handle the case clase {host, VhostName}
 db_opts(Host) ->
     case ejabberd_config:get_local_option({odbc_server, Host}) of
 	%% Default pgsql port

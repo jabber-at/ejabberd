@@ -33,12 +33,7 @@
 
 
 start() ->
-    case erlang:whereis(random_generator) of
-        Pid when is_pid(Pid) ->
-            true;
-        undefined ->
-            register(random_generator, spawn(randoms, init, []))
-    end.
+    register(random_generator, spawn(randoms, init, [])).
 
 init() ->
     {A1, A2, A3} = now(),

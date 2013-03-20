@@ -41,9 +41,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 -include("mod_muc_room.hrl").
 
 %% Copied from mod_muc/mod_muc.erl
@@ -63,7 +62,7 @@
 		access,
 		lang,
 		timezone,
-		link_nofollow,
+		spam_prevention,
 		top_link}).
 
 %%====================================================================
@@ -74,11 +73,11 @@
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link(Host, Opts) ->
-    Proc = get_proc_name(Host),
-    gen_server:start_link(Proc, ?MODULE, [Host, Opts], []).
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
+    gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
 
 start(Host, Opts) ->
-    Proc = get_proc_name(Host),
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     ChildSpec =
 	{Proc,
 	 {?MODULE, start_link, [Host, Opts]},
@@ -89,7 +88,7 @@ start(Host, Opts) ->
     supervisor:start_child(ejabberd_sup, ChildSpec).
 
 stop(Host) ->
-    Proc = get_proc_name(Host),
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     gen_server:call(Proc, stop),
     supervisor:delete_child(ejabberd_sup, Proc).
 
@@ -126,7 +125,7 @@ init([Host, Opts]) ->
     AccessLog = gen_mod:get_opt(access_log, Opts, muc_admin),
     Timezone = gen_mod:get_opt(timezone, Opts, local),
     Top_link = gen_mod:get_opt(top_link, Opts, {"/", "Home"}),
-    NoFollow = gen_mod:get_opt(link_nofollow, Opts, true),
+    NoFollow = gen_mod:get_opt(spam_prevention, Opts, true),
     Lang = case ejabberd_config:get_local_option({language, Host}) of
 	       undefined ->
 		   case ejabberd_config:get_global_option(language) of
@@ -142,9 +141,9 @@ init([Host, Opts]) ->
 		file_format = FileFormat,
 		css_file = CSSFile,
 		access = AccessLog,
-		lang = list_to_binary(Lang),
+		lang = Lang,
 		timezone = Timezone,
-		link_nofollow = NoFollow,
+		spam_prevention = NoFollow,
 		top_link = Top_link}}.
 
 %%--------------------------------------------------------------------
@@ -209,16 +208,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 add_to_log2(text, {Nick, Packet}, Room, Opts, State) ->
-    case {exmpp_xml:get_element(Packet, 'subject'), 
-          exmpp_xml:get_element(Packet, 'body')} of
-	{'undefined', 'undefined'} ->
+    case {xml:get_subtag(Packet, "subject"), xml:get_subtag(Packet, "body")} of
+	{false, false} ->
 	    ok;
-	{'undefined', SubEl} ->
-	    Message = {body, exmpp_xml:get_cdata_as_list(SubEl)},
-	    add_message_to_log(binary_to_list(Nick), Message, Room, Opts, State);
+	{false, SubEl} ->
+	    Message = {body, xml:get_tag_cdata(SubEl)},
+	    add_message_to_log(Nick, Message, Room, Opts, State);
 	{SubEl, _} ->
-	    Message = {subject, exmpp_xml:get_cdata_as_list(SubEl)},
-	    add_message_to_log(binary_to_list(Nick), Message, Room, Opts, State)
+	    Message = {subject, xml:get_tag_cdata(SubEl)},
+	    add_message_to_log(Nick, Message, Room, Opts, State)
     end;
 
 add_to_log2(roomconfig_change, _Occupants, Room, Opts, State) ->
@@ -231,19 +229,19 @@ add_to_log2(room_existence, NewStatus, Room, Opts, State) ->
     add_message_to_log("", {room_existence, NewStatus}, Room, Opts, State);
 
 add_to_log2(nickchange, {OldNick, NewNick}, Room, Opts, State) ->
-    add_message_to_log(binary_to_list(NewNick), {nickchange, binary_to_list(OldNick)}, Room, Opts, State);
+    add_message_to_log(NewNick, {nickchange, OldNick}, Room, Opts, State);
 
 add_to_log2(join, Nick, Room, Opts, State) ->
-    add_message_to_log(binary_to_list(Nick), join, Room, Opts, State);
+    add_message_to_log(Nick, join, Room, Opts, State);
 
 add_to_log2(leave, {Nick, Reason}, Room, Opts, State) ->
-    case binary_to_list(Reason) of
-	"" -> add_message_to_log(binary_to_list(Nick), leave, Room, Opts, State);
-	R -> add_message_to_log(binary_to_list(Nick), {leave, R}, Room, Opts, State)
+    case Reason of
+	"" -> add_message_to_log(Nick, leave, Room, Opts, State);
+	_ -> add_message_to_log(Nick, {leave, Reason}, Room, Opts, State)
     end;
 
 add_to_log2(kickban, {Nick, Reason, Code}, Room, Opts, State) ->
-    add_message_to_log(binary_to_list(Nick), {kickban, Code, binary_to_list(Reason)}, Room, Opts, State).
+    add_message_to_log(Nick, {kickban, Code, Reason}, Room, Opts, State).
 
 
 %%----------------------------------------------------------------------
@@ -281,8 +279,8 @@ build_filename_string(TimeStamp, OutDir, RoomJID, DirType, DirName, FileFormat) 
     {Fd, Fn, Fnrel}.
 
 get_room_name(RoomJID) ->
-    JID = exmpp_jid:parse(RoomJID),
-    exmpp_jid:node_as_list(JID).
+    JID = jlib:string_to_jid(RoomJID),
+    JID#jid.user.
 
 %% calculate day before
 get_timestamp_daydiff(TimeStamp, Daydiff) ->
@@ -321,7 +319,7 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 	   css_file = CSSFile,
 	   lang = Lang,
 	   timezone = Timezone,
-	   link_nofollow = NoFollow,
+	   spam_prevention = NoFollow,
 	   top_link = TopLink} = State,
     Room = get_room_info(RoomJID, Opts),
     Nick = htmlize(Nick1, FileFormat),
@@ -373,14 +371,14 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 		   RoomConfig = roomconfig_to_string(Room#room.config, Lang, FileFormat),
 		   put_room_config(F, RoomConfig, Lang, FileFormat),
 		   io_lib:format("<font class=\"mrcm\">~s</font><br/>", 
-				 [?T("Room configuration modified")]);
+				 [?T("Chatroom configuration modified")]);
 	       {roomconfig_change, Occupants} ->
 		   RoomConfig = roomconfig_to_string(Room#room.config, Lang, FileFormat),
 		   put_room_config(F, RoomConfig, Lang, FileFormat),
 		   RoomOccupants = roomoccupants_to_string(Occupants, FileFormat),
 		   put_room_occupants(F, RoomOccupants, Lang, FileFormat),
 		   io_lib:format("<font class=\"mrcm\">~s</font><br/>", 
-				 [?T("Room configuration modified")]);
+				 [?T("Chatroom configuration modified")]);
 	       join ->  
 		   io_lib:format("<font class=\"mj\">~s ~s</font><br/>", 
 				 [Nick, ?T("joins the room")]);
@@ -418,7 +416,7 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 		   io_lib:format("<font class=\"msc\">~s~s~s</font><br/>", 
 				 [Nick, ?T(" has set the subject to: "), htmlize(T,NoFollow,FileFormat)]);
 	       {body, T} ->  
-		   case {re:run(T, "^/me\s", [{capture, none}]), Nick} of
+		   case {ejabberd_regexp:run(T, "^/me\s"), Nick} of
 		       {_, ""} ->
 			   io_lib:format("<font class=\"msm\">~s</font><br/>",
 					 [htmlize(T,NoFollow,FileFormat)]);
@@ -451,10 +449,10 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 %%----------------------------------------------------------------------
 %% Utilities
 
-get_room_existence_string(created, Lang) -> ?T("Room is created");
-get_room_existence_string(destroyed, Lang) -> ?T("Room is destroyed");
-get_room_existence_string(started, Lang) -> ?T("Room is started");
-get_room_existence_string(stopped, Lang) -> ?T("Room is stopped").
+get_room_existence_string(created, Lang) -> ?T("Chatroom is created");
+get_room_existence_string(destroyed, Lang) -> ?T("Chatroom is destroyed");
+get_room_existence_string(started, Lang) -> ?T("Chatroom is started");
+get_room_existence_string(stopped, Lang) -> ?T("Chatroom is stopped").
 
 get_dateweek(Date, Lang) ->
     Weekday = case calendar:day_of_the_week(Date) of
@@ -482,32 +480,21 @@ get_dateweek(Date, Lang) ->
 		12 -> ?T("December")
 	    end,
     case Lang of
-	<<"en">> -> io_lib:format("~s, ~s ~w, ~w", [Weekday, Month, D, Y]);
-	<<"es">> -> io_lib:format("~s ~w de ~s de ~w", [Weekday, D, Month, Y]);
+	"en" -> io_lib:format("~s, ~s ~w, ~w", [Weekday, Month, D, Y]);
+	"es" -> io_lib:format("~s ~w de ~s de ~w", [Weekday, D, Month, Y]);
 	_    -> io_lib:format("~s, ~w ~s ~w", [Weekday, D, Month, Y])
     end.
 
 make_dir_rec(Dir) ->
-    Path = filename:split(Dir),
-    inc_foreach(Path,fun make_dir_if_not_exists/1).
-
-
-make_dir_if_not_exists(DirPath) ->
-    Dir = filename:join(DirPath),
     case file:read_file_info(Dir) of
 	{ok, _} ->
 	    ok;
 	{error, enoent} ->
+	    DirS = filename:split(Dir),
+	    DirR = lists:sublist(DirS, length(DirS)-1),
+	    make_dir_rec(filename:join(DirR)),
 	    file:make_dir(Dir)
     end.
-
-inc_foreach(Lists, F) ->
-    lists:foldl(fun(Item, Accum) ->
-                        New = Accum ++ [Item],
-                        F(New),
-                        New
-                end,[],Lists).
-
 
 
 %% {ok, F1}=file:open("valid-xhtml10.png", [read]).
@@ -675,7 +662,7 @@ fw(F, S, O, FileFormat) ->
 	     html ->
 		 S1;
 	     plaintext ->
-		 re:replace(S1, "<[^>]*>", "", [global,{return,list}])
+		 ejabberd_regexp:greplace(S1, "<[^>]*>", "")
 	 end,
     io:format(F, S2, []).
 
@@ -773,6 +760,9 @@ put_room_occupants(F, RoomOccupants, Lang, _FileFormat) ->
     fw(F,   "<div class=\"rcos\" id=\"o~p\" style=\"display: none;\" ><br/>~s</div>", [Now2, RoomOccupants]),
     fw(F, "</div>").
 
+%% htmlize
+%% The default behaviour is to ignore the nofollow spam prevention on links
+%% (NoFollow=false)
 htmlize(S1) ->
     htmlize(S1, html).
 
@@ -781,7 +771,7 @@ htmlize(S1, plaintext) ->
 htmlize(S1, FileFormat) ->
     htmlize(S1, false, FileFormat).
 
-%% The NoFollow parameter tell if the 'nofollow' attribute must be added to the link.
+%% The NoFollow parameter tell if the spam prevention should be applied to the link found
 %% true means 'apply nofollow on links'.
 htmlize(S1, _NoFollow, plaintext) ->
     S1;
@@ -799,20 +789,15 @@ htmlize(S1, NoFollow, _FileFormat) ->
       S2_list).
 
 htmlize2(S1, NoFollow) ->
-    ReplacementRules =
-	[{"\\&", "\\&amp;"},
-	{"<", "\\&lt;"},
-	{">", "\\&gt;"},
-	{"((http|https|ftp)://|(mailto|xmpp):)[^] )\'\"}]+", link_regexp(NoFollow)},
-	{"  ", "\\&nbsp;\\&nbsp;"},
-	{"\\t", "\\&nbsp;\\&nbsp;\\&nbsp;\\&nbsp;"},
-	{[226,128,174], "[RLO]"}], %% Remove 'right-to-left override' unicode character 0x202e
-    lists:foldl(
-        fun({RegExp, Replace}, Acc) ->
-	    re:replace(Acc, RegExp, Replace)
-	end,
-	S1,
-	ReplacementRules).
+    S2 = ejabberd_regexp:greplace(S1, "\\&", "\\&amp;"),
+    S3 = ejabberd_regexp:greplace(S2, "<", "\\&lt;"),
+    S4 = ejabberd_regexp:greplace(S3, ">", "\\&gt;"),
+    S5 = ejabberd_regexp:greplace(S4, "((http|https|ftp)://|(mailto|xmpp):)[^] )\'\"}]+",
+				link_regexp(NoFollow)),
+    %% Remove 'right-to-left override' unicode character 0x202e
+    S6 = ejabberd_regexp:greplace(S5, "  ", "\\&nbsp;\\&nbsp;"),
+    S7 = ejabberd_regexp:greplace(S6, "\\t", "\\&nbsp;\\&nbsp;\\&nbsp;\\&nbsp;"),
+    ejabberd_regexp:greplace(S7, [226,128,174], "[RLO]").
 
 %% Regexp link
 %% Add the nofollow rel attribute when required
@@ -837,7 +822,7 @@ get_room_info(RoomJID, Opts) ->
 	    {value, {_, SA}} -> SA;
 	    false -> ""
 	end,
-    #room{jid = exmpp_jid:to_list(RoomJID),
+    #room{jid = jlib:jid_to_string(RoomJID),
 	  title = Title,
 	  subject = Subject,
 	  subject_author = SubjectAuthor,
@@ -946,9 +931,9 @@ role_users_to_string(RoleS, Users) ->
     [RoleS, ": ", UsersString].
 
 get_room_occupants(RoomJIDString) ->
-    RoomJID = exmpp_jid:parse(RoomJIDString),
-    RoomName = exmpp_jid:node(RoomJID),
-    MucService = exmpp_jid:domain(RoomJID),
+    RoomJID = jlib:string_to_jid(RoomJIDString),
+    RoomName = RoomJID#jid.luser,
+    MucService = RoomJID#jid.lserver,
     StateData = get_room_state(RoomName, MucService),
     [{U#user.jid, U#user.nick, U#user.role}
      || {_, U} <- ?DICT:to_list(StateData#state.users)].
@@ -966,8 +951,7 @@ get_room_state(RoomPid) ->
     {ok, R} = gen_fsm:sync_send_all_state_event(RoomPid, get_state),
     R.
 
-get_proc_name(Host) ->
-    {global, gen_mod:get_module_proc(Host, ?PROCNAME)}.
+get_proc_name(Host) -> gen_mod:get_module_proc(Host, ?PROCNAME).
 
 calc_hour_offset(TimeHere) ->
     TimeZero = calendar:now_to_universal_time(now()),

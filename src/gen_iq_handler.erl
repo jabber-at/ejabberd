@@ -41,8 +41,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
 
 -record(state, {host,
@@ -98,34 +96,34 @@ stop_iq_handler(_Module, _Function, Opts) ->
 	    ok
     end.
 
-handle(Host, Module, Function, Opts, From, To, IQ_Rec) ->
+handle(Host, Module, Function, Opts, From, To, IQ) ->
     case Opts of
 	no_queue ->
-	    process_iq(Host, Module, Function, From, To, IQ_Rec);
+	    process_iq(Host, Module, Function, From, To, IQ);
 	{one_queue, Pid} ->
-	    Pid ! {process_iq, From, To, IQ_Rec};
+	    Pid ! {process_iq, From, To, IQ};
 	{queues, Pids} ->
 	    Pid = lists:nth(erlang:phash(now(), length(Pids)), Pids),
-	    Pid ! {process_iq, From, To, IQ_Rec};
+	    Pid ! {process_iq, From, To, IQ};
 	parallel ->
-	    spawn(?MODULE, process_iq,
-	      [Host, Module, Function, From, To, IQ_Rec]);
+	    spawn(?MODULE, process_iq, [Host, Module, Function, From, To, IQ]);
 	_ ->
 	    todo
     end.
 
 
-process_iq(_Host, Module, Function, From, To, IQ_Rec) ->
-    try Module:Function(From, To, IQ_Rec) of
-	ignore ->
-	    ok;
+process_iq(_Host, Module, Function, From, To, IQ) ->
+    case catch Module:Function(From, To, IQ) of
+	{'EXIT', Reason} ->
+	    ?ERROR_MSG("~p", [Reason]);
 	ResIQ ->
-	    Reply = exmpp_iq:iq_to_xmlel(ResIQ, To, From),
-	    ejabberd_router:route(To, From, Reply)
-    catch
-	_Class:Reason ->
-	    ?ERROR_MSG("~s:~s/3 crashed: ~p~n~p~n",
-              [Module, Function, Reason, erlang:get_stacktrace()])
+	    if
+		ResIQ /= ignore ->
+		    ejabberd_router:route(To, From,
+					  jlib:iq_to_xml(ResIQ));
+		true ->
+		    ok
+	    end
     end.
 
 %%====================================================================
@@ -172,11 +170,11 @@ handle_cast(_Msg, State) ->
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
-handle_info({process_iq, From, To, IQ_Rec},
+handle_info({process_iq, From, To, IQ},
 	    #state{host = Host,
 		   module = Module,
 		   function = Function} = State) ->
-    process_iq(Host, Module, Function, From, To, IQ_Rec),
+    process_iq(Host, Module, Function, From, To, IQ),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.

@@ -32,8 +32,6 @@
 	 load_file/2,
 	 translate/2]).
 
--export([tokens/2, ascii_tolower/1]).
-
 -include("ejabberd.hrl").
 
 start() ->
@@ -69,13 +67,13 @@ load_dir(Dir) ->
 			 end, Files),
 	    lists:foreach(
 	      fun(FN) ->
-		      LP = string:substr(FN, 1, string:len(FN) - 4),
-		      L1 = case string:tokens(LP, ".") of
-			       [Language] -> Language;
-			       [Language, _Project] -> Language
-			   end,
-		      L2 = ascii_tolower(list_to_binary(L1)),
-		      load_file(L2, Dir ++ "/" ++ FN)
+		      LP = ascii_tolower(
+			     string:substr(FN, 1, string:len(FN) - 4)),
+		      L = case string:tokens(LP, ".") of
+			      [Language] -> Language;
+			      [Language, _Project] -> Language
+			  end,
+		      load_file(L, Dir ++ "/" ++ FN)
 	      end, MsgFiles),
 	    ok;
 	{error, Reason} ->
@@ -113,14 +111,14 @@ translate(Lang, Msg) ->
 	[{_, Trans}] ->
 	    Trans;
 	_ ->
-	    ShortLang = case tokens(LLang, $-) of
+	    ShortLang = case string:tokens(LLang, "-") of
 			    [] ->
 				LLang;
 			    [SL | _] ->
 				SL
 			end,
 	    case ShortLang of
-		<<"en">> ->
+		"en" ->
 		    Msg;
 		LLang ->
 		    translate(Msg);
@@ -135,29 +133,27 @@ translate(Lang, Msg) ->
     end.
 
 translate(Msg) ->
-    %%TODO: ?MYLANG macro returns lang as a list(). Lang should be a binary.
     case ?MYLANG of
 	undefined ->
 	    Msg;
 	"en" ->
 	    Msg;
 	Lang ->
-        BLang = list_to_binary(Lang),
-	    LLang = ascii_tolower(BLang),
+	    LLang = ascii_tolower(Lang),
 	    case ets:lookup(translations, {LLang, Msg}) of
 		[{_, Trans}] ->
 		    Trans;
 		_ ->
-		    ShortLang = case tokens(LLang, $-) of
+		    ShortLang = case string:tokens(LLang, "-") of
 				    [] ->
 					LLang;
 				    [SL | _] ->
 					SL
 				end,
 		    case ShortLang of
-			<<"en">> ->
+			"en" ->
 			    Msg;
-			BLang ->
+			Lang ->
 			    Msg;
 			_ ->
 			    case ets:lookup(translations, {ShortLang, Msg}) of
@@ -170,25 +166,10 @@ translate(Msg) ->
 	    end
     end.
 
+ascii_tolower([C | Cs]) when C >= $A, C =< $Z ->
+    [C + ($a - $A) | ascii_tolower(Cs)];
+ascii_tolower([C | Cs]) ->
+    [C | ascii_tolower(Cs)];
+ascii_tolower([]) ->
+    [].
 
-ascii_tolower(undefined) ->
-    <<>>;
-ascii_tolower(Bin) ->
-    << <<(char_tolower(X))>> || <<X>> <= Bin >>.
-
-char_tolower(C) when C >= $A, C =< $Z ->
-    C + ($a -$A);
-char_tolower(C) ->
-    C.
-
-tokens(<<>>,_Sep) ->
-    [];
-tokens(Bin, Sep) ->
-    tokens(Bin, Sep, <<>>, []).
-
-tokens(<<>>, _Sep, T, Tokens) ->
-    lists:reverse([T|Tokens]);
-tokens(<<Sep, R/binary>>, Sep, T, Tokens) ->
-    tokens(R, Sep, <<>>, [T | Tokens]);
-tokens(<<C, R/binary>>, Sep, T, Tokens) ->
-    tokens(R, Sep, <<T/binary, C>>, Tokens).

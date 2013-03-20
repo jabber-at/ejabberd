@@ -41,9 +41,8 @@
 %% API.
 -export([start_link/2, add_listener/2, delete_listener/1]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 -define(PROCNAME, ejabberd_mod_proxy65_service).
 
@@ -75,15 +74,14 @@ terminate(_Reason, #state{myhost=MyHost}) ->
     ejabberd_router:unregister_route(MyHost),
     ok.
 
-handle_info({route, From, To, Packet}, State) when ?IS_IQ(Packet) ->
-    IQ_Rec = exmpp_iq:xmlel_to_iq(Packet),
-    case catch process_iq(From, IQ_Rec, State) of
-	Result when ?IS_IQ_RECORD(Result) ->
-	    ejabberd_router:route(To, From,
-	      exmpp_iq:iq_to_xmlel(Result, To, From));
+handle_info({route, From, To, {xmlelement, "iq", _, _} = Packet}, State) ->
+    IQ = jlib:iq_query_info(Packet),
+    case catch process_iq(From, IQ, State) of
+	Result when is_record(Result, iq) ->
+	    ejabberd_router:route(To, From, jlib:iq_to_xml(Result));
 	{'EXIT', Reason} ->
 	    ?ERROR_MSG("Error when processing IQ stanza: ~p", [Reason]),
-	    Err = exmpp_iq:error(Packet, 'internal-server-error'),
+	    Err = jlib:make_error_reply(Packet, ?ERR_INTERNAL_SERVER_ERROR),
 	    ejabberd_router:route(To, From, Err);
 	_ ->
 	    ok
@@ -122,76 +120,71 @@ delete_listener(Host) ->
 %%%------------------------
 
 %% disco#info request
-process_iq(_, #iq{type = get, ns = ?NS_DISCO_INFO, lang = Lang} = IQ_Rec,
-    #state{name=Name, serverhost = ServerHost}) ->
-    ServerHostB = list_to_binary(ServerHost),
+process_iq(_, #iq{type = get, xmlns = ?NS_DISCO_INFO, lang = Lang} = IQ,
+	   #state{name=Name, serverhost=ServerHost}) ->
     Info = ejabberd_hooks:run_fold(
-	     disco_info, ServerHostB, [], [ServerHost, ?MODULE, <<>>, ""]),
-    Result = #xmlel{ns = ?NS_DISCO_INFO, name = 'query',
-      children = iq_disco_info(Lang, Name)++Info},
-    exmpp_iq:result(IQ_Rec, Result);
+	     disco_info, ServerHost, [], [ServerHost, ?MODULE, "", ""]),
+    IQ#iq{type = result, sub_el =
+	  [{xmlelement, "query", [{"xmlns", ?NS_DISCO_INFO}],
+	    iq_disco_info(Lang, Name) ++ Info}]};
 
 %% disco#items request
-process_iq(_, #iq{type = get, ns = ?NS_DISCO_ITEMS} = IQ_Rec, _) ->
-    Result = #xmlel{ns = ?NS_DISCO_ITEMS, name = 'query',
-      children = []},
-    exmpp_iq:result(IQ_Rec, Result);
+process_iq(_, #iq{type = get, xmlns = ?NS_DISCO_ITEMS} = IQ, _) ->
+    IQ#iq{type = result, sub_el =
+	  [{xmlelement, "query", [{"xmlns", ?NS_DISCO_ITEMS}], []}]};
 
 %% vCard request
-process_iq(_, #iq{type = get, ns = ?NS_VCARD, lang = Lang} = IQ_Rec, _) ->
-    Result = #xmlel{ns = ?NS_VCARD, name = 'vCard',
-      children = iq_vcard(Lang)},
-    exmpp_iq:result(IQ_Rec, Result);
+process_iq(_, #iq{type = get, xmlns = ?NS_VCARD, lang = Lang} = IQ, _) ->
+    IQ#iq{type = result, sub_el =
+	  [{xmlelement, "vCard", [{"xmlns", ?NS_VCARD}], iq_vcard(Lang)}]};
 
 %% bytestreams info request
-process_iq(JID, #iq{type = get, ns = ?NS_BYTESTREAMS} = IQ_Rec,
+process_iq(JID, #iq{type = get, sub_el = SubEl, xmlns = ?NS_BYTESTREAMS} = IQ,
 	   #state{acl = ACL, stream_addr = StreamAddr, serverhost = ServerHost}) ->
     case acl:match_rule(ServerHost, ACL, JID) of
 	allow ->
-	    StreamHostEl = [#xmlel{ns = ?NS_BYTESTREAMS, name = 'streamhost',
-		attrs = StreamAddr}],
-	    Result = #xmlel{ns = ?NS_BYTESTREAMS, name = 'query',
-	      children = StreamHostEl},
-	    exmpp_iq:result(IQ_Rec, Result);
+	    StreamHostEl = [{xmlelement, "streamhost", StreamAddr, []}],
+	    IQ#iq{type = result, sub_el =
+		  [{xmlelement, "query", [{"xmlns", ?NS_BYTESTREAMS}], StreamHostEl}]};
 	deny ->
-	    exmpp_iq:error(IQ_Rec, 'forbidden')
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_FORBIDDEN]}
     end;
 
 %% bytestream activation request
-process_iq(InitiatorJID, #iq{type = set, payload = SubEl, ns = ?NS_BYTESTREAMS} = IQ_Rec,
+process_iq(InitiatorJID, #iq{type = set, sub_el = SubEl, xmlns = ?NS_BYTESTREAMS} = IQ,
 	   #state{acl = ACL, serverhost = ServerHost}) ->
     case acl:match_rule(ServerHost, ACL, InitiatorJID) of
 	allow ->
-	    ActivateEl = exmpp_xml:get_path(SubEl, [{element, 'activate'}]),
-	    SID = exmpp_xml:get_attribute_as_list(SubEl, <<"sid">>, ""),
-	    case catch exmpp_jid:parse(exmpp_xml:get_cdata_as_list(ActivateEl)) of
-		TargetJID when ?IS_JID(TargetJID), SID /= "",
+	    ActivateEl = xml:get_path_s(SubEl, [{elem, "activate"}]),
+	    SID = xml:get_tag_attr_s("sid", SubEl),
+	    case catch jlib:string_to_jid(xml:get_tag_cdata(ActivateEl)) of
+		TargetJID when is_record(TargetJID, jid), SID /= "",
 		               length(SID) =< 128, TargetJID /= InitiatorJID ->
-		    Target = exmpp_jid:prep_to_list(TargetJID),
-		    Initiator = exmpp_jid:prep_to_list(InitiatorJID),
+		    Target = jlib:jid_to_string(jlib:jid_tolower(TargetJID)),
+		    Initiator = jlib:jid_to_string(jlib:jid_tolower(InitiatorJID)),
 		    SHA1 = sha:sha(SID ++ Initiator ++ Target),
 		    case mod_proxy65_sm:activate_stream(SHA1, InitiatorJID, TargetJID, ServerHost) of
 			ok ->
-			    exmpp_iq:result(IQ_Rec);
+			    IQ#iq{type = result, sub_el = []};
 			false ->
-			    exmpp_iq:error(IQ_Rec, 'item-not-found');
+			    IQ#iq{type = error, sub_el = [SubEl, ?ERR_ITEM_NOT_FOUND]};
 			limit ->
-			    exmpp_iq:error(IQ_Rec, 'resource-constraint');
+			    IQ#iq{type = error, sub_el = [SubEl, ?ERR_RESOURCE_CONSTRAINT]};
 			conflict ->
-			    exmpp_iq:error(IQ_Rec, 'conflict');
+			    IQ#iq{type = error, sub_el = [SubEl, ?ERR_CONFLICT]};
 			_ ->
-			    exmpp_iq:error(IQ_Rec, 'internal-server-error')
+			    IQ#iq{type = error, sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]}
 		    end;
 		_ ->
-		    exmpp_iq:error(IQ_Rec, 'bad-request')
+		    IQ#iq{type = error, sub_el = [SubEl, ?ERR_BAD_REQUEST]}
 	    end;
 	deny ->
-	    exmpp_iq:error(IQ_Rec, 'forbidden')
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_FORBIDDEN]}
     end;
 
 %% Unknown "set" or "get" request
-process_iq(_, #iq{kind=request} = IQ_Rec, _) ->
-    exmpp_iq:error(IQ_Rec, 'service-unavailable');
+process_iq(_, #iq{type=Type, sub_el=SubEl} = IQ, _) when Type==get; Type==set ->
+    IQ#iq{type = error, sub_el = [SubEl, ?ERR_SERVICE_UNAVAILABLE]};
 
 %% IQ "result" or "error".
 process_iq(_, _, _) ->
@@ -200,26 +193,25 @@ process_iq(_, _, _) ->
 %%%-------------------------
 %%% Auxiliary functions.
 %%%-------------------------
--define(FEATURE(Feat), #xmlel{ns = ?NS_DISCO_INFO, name = 'feature',
-    attrs = [?XMLATTR(<<"var">>, Feat)]}).
+-define(FEATURE(Feat), {xmlelement,"feature",[{"var", Feat}],[]}).
 
 iq_disco_info(Lang, Name) ->
-    [#xmlel{ns = ?NS_DISCO_INFO, name = 'identity', attrs =
-      [?XMLATTR(<<"category">>, <<"proxy">>),
-       ?XMLATTR(<<"type">>, <<"bytestreams">>),
-       ?XMLATTR(<<"name">>, translate:translate(Lang, Name))]},
-     ?FEATURE(?NS_DISCO_INFO_s),
-     ?FEATURE(?NS_VCARD_s),
-     ?FEATURE(?NS_BYTESTREAMS_s)].
+    [{xmlelement, "identity",
+      [{"category", "proxy"},
+       {"type", "bytestreams"},
+       {"name", translate:translate(Lang, Name)}], []},
+     ?FEATURE(?NS_DISCO_INFO),
+     ?FEATURE(?NS_VCARD),
+     ?FEATURE(?NS_BYTESTREAMS)].
 
 iq_vcard(Lang) ->
-    [#xmlel{ns = ?NS_VCARD, name = 'FN', children =
-      [#xmlcdata{cdata = <<"ejabberd/mod_proxy65">>}]},
-     #xmlel{ns = ?NS_VCARD, name = 'URL', children =
-      [#xmlcdata{cdata = list_to_binary(?EJABBERD_URI)}]},
-     #xmlel{ns = ?NS_VCARD, name = 'DESC', children =
-      [#xmlcdata{cdata = list_to_binary(translate:translate(Lang, "ejabberd SOCKS5 Bytestreams module") ++
-       "\nCopyright (c) 2002-2012 ProcessOne")}]}].
+    [{xmlelement, "FN", [],
+      [{xmlcdata, "ejabberd/mod_proxy65"}]},
+     {xmlelement, "URL", [],
+      [{xmlcdata, ?EJABBERD_URI}]},
+     {xmlelement, "DESC", [],
+      [{xmlcdata, translate:translate(Lang, "ejabberd SOCKS5 Bytestreams module") ++
+       "\nCopyright (c) 2003-2012 ProcessOne"}]}].
 
 parse_options(ServerHost, Opts) ->
     MyHost = gen_mod:get_opt_host(ServerHost, Opts, "proxy.@HOST@"),
@@ -238,8 +230,8 @@ parse_options(ServerHost, Opts) ->
 		   HostNameStr ->
 		       HostNameStr
 	     end,
-    StreamAddr = [?XMLATTR(<<"jid">>, MyHost), ?XMLATTR(<<"host">>, HostName),
-		  ?XMLATTR(<<"port">>, Port)],
+    StreamAddr = [{"jid", MyHost}, {"host", HostName},
+		  {"port", integer_to_list(Port)}],
     #state{myhost      = MyHost,
 	   serverhost  = ServerHost,
 	   name        = Name,

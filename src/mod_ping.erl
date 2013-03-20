@@ -31,9 +31,10 @@
 -behavior(gen_server).
 
 -include("ejabberd.hrl").
--include_lib("exmpp/include/exmpp.hrl").
+-include("jlib.hrl").
 
 -define(SUPERVISOR, ejabberd_sup).
+-define(NS_PING, "urn:xmpp:ping").
 -define(DEFAULT_SEND_PINGS, false). % bool()
 -define(DEFAULT_PING_INTERVAL, 60). % seconds
 
@@ -52,7 +53,7 @@
 %% Hook callbacks
 -export([iq_ping/3, user_online/3, user_offline/3, user_send/3]).
 
--record(state, {host, % binary() | global
+-record(state, {host = "",
                 send_pings = ?DEFAULT_SEND_PINGS,
                 ping_interval = ?DEFAULT_PING_INTERVAL,
 		timeout_action = none,
@@ -66,18 +67,16 @@ start_link(Host, Opts) ->
     gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
 
 start_ping(Host, JID) ->
-    Proc = gen_mod:get_module_proc_existing(Host, ?MODULE),
+    Proc = gen_mod:get_module_proc(Host, ?MODULE),
     gen_server:cast(Proc, {start_ping, JID}).
 
 stop_ping(Host, JID) ->
-    Proc = gen_mod:get_module_proc_existing(Host, ?MODULE),
+    Proc = gen_mod:get_module_proc(Host, ?MODULE),
     gen_server:cast(Proc, {stop_ping, JID}).
 
 %%====================================================================
 %% gen_mod callbacks
 %%====================================================================
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
 start(Host, Opts) ->
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
     PingSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
@@ -92,45 +91,45 @@ stop(Host) ->
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
-init([HostB, Opts]) ->
+init([Host, Opts]) ->
     SendPings = gen_mod:get_opt(send_pings, Opts, ?DEFAULT_SEND_PINGS),
     PingInterval = gen_mod:get_opt(ping_interval, Opts, ?DEFAULT_PING_INTERVAL),
     TimeoutAction = gen_mod:get_opt(timeout_action, Opts, none),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, no_queue),
-    mod_disco:register_feature(HostB, ?NS_PING),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, HostB, ?NS_PING,
+    mod_disco:register_feature(Host, ?NS_PING),
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PING,
                                   ?MODULE, iq_ping, IQDisc),
-    gen_iq_handler:add_iq_handler(ejabberd_local, HostB, ?NS_PING,
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PING,
                                   ?MODULE, iq_ping, IQDisc),
     case SendPings of
         true ->
 	    %% Ping requests are sent to all entities, whether they
 	    %% announce 'urn:xmpp:ping' in their caps or not
-            ejabberd_hooks:add(sm_register_connection_hook, HostB,
+            ejabberd_hooks:add(sm_register_connection_hook, Host,
                                ?MODULE, user_online, 100),
-            ejabberd_hooks:add(sm_remove_connection_hook, HostB,
+            ejabberd_hooks:add(sm_remove_connection_hook, Host,
                                ?MODULE, user_offline, 100),
-	    ejabberd_hooks:add(user_send_packet, HostB,
+	    ejabberd_hooks:add(user_send_packet, Host,
 			       ?MODULE, user_send, 100);
         _ ->
             ok
     end,
-    {ok, #state{host = HostB,
+    {ok, #state{host = Host,
                 send_pings = SendPings,
                 ping_interval = PingInterval,
 		timeout_action = TimeoutAction,
                 timers = ?DICT:new()}}.
 
-terminate(_Reason, #state{host = HostB}) ->
-    ejabberd_hooks:delete(sm_remove_connection_hook, HostB,
+terminate(_Reason, #state{host = Host}) ->
+    ejabberd_hooks:delete(sm_remove_connection_hook, Host,
 			  ?MODULE, user_offline, 100),
-    ejabberd_hooks:delete(sm_register_connection_hook, HostB,
+    ejabberd_hooks:delete(sm_register_connection_hook, Host,
 			  ?MODULE, user_online, 100),
-    ejabberd_hooks:delete(user_send_packet, HostB,
+    ejabberd_hooks:delete(user_send_packet, Host,
 			  ?MODULE, user_send, 100),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, HostB, ?NS_PING),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, HostB, ?NS_PING),
-    mod_disco:unregister_feature(HostB, ?NS_PING).
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PING),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_PING),
+    mod_disco:unregister_feature(Host, ?NS_PING).
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -145,11 +144,11 @@ handle_cast({stop_ping, JID}, State) ->
     {noreply, State#state{timers = Timers}};
 handle_cast({iq_pong, JID, timeout}, State) ->
     Timers = del_timer(JID, State#state.timers),
-    Host = exmpp_jid:domain(JID),
-    ejabberd_hooks:run(user_ping_timeout, Host, [JID]),
+    ejabberd_hooks:run(user_ping_timeout, State#state.host, [JID]),
     case State#state.timeout_action of
 	kill ->
-	    case ejabberd_sm:get_session_pid(JID) of
+	    #jid{user = User, server = Server, resource = Resource} = JID,
+	    case ejabberd_sm:get_session_pid(User, Server, Resource) of
 		Pid when is_pid(Pid) ->
 		    ejabberd_c2s:stop(Pid);
 		_ ->
@@ -163,18 +162,13 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info({timeout, _TRef, {ping, JID}}, State) ->
-    %%IQ = #iq{type = get,
-    %%         sub_el = [{xmlelement, "ping", [{"xmlns", ?NS_PING}], []}]},
-
-    %% Build an iq:query request
-    %%IQ = exmpp_iq:get(?NS_PING, #xmlel{ns = ?NS_PING, name = 'ping'}),
-    IQ = #iq{type = get, payload = #xmlel{name = 'ping', ns = ?NS_PING}},
-
+    IQ = #iq{type = get,
+             sub_el = [{xmlelement, "ping", [{"xmlns", ?NS_PING}], []}]},
     Pid = self(),
     F = fun(Response) ->
 		gen_server:cast(Pid, {iq_pong, JID, Response})
 	end,
-    From = exmpp_jid:make(exmpp_jid:domain(JID)),
+    From = jlib:make_jid("", State#state.host, ""),
     ejabberd_local:route_iq(From, JID, IQ, F),
     Timers = add_timer(JID, State#state.ping_interval, State#state.timers),
     {noreply, State#state{timers = Timers}};
@@ -187,31 +181,28 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %% Hook callbacks
 %%====================================================================
-iq_ping(_From, _To, #iq{type = Type, payload = SubEl} = IQ) ->
+iq_ping(_From, _To, #iq{type = Type, sub_el = SubEl} = IQ) ->
     case {Type, SubEl} of
-        {get, #xmlel{name = ping, ns = ?NS_PING}} ->
-            exmpp_iq:result(IQ);
+        {get, {xmlelement, "ping", _, _}} ->
+            IQ#iq{type = result, sub_el = []};
         _ ->
-	    exmpp_iq:error(IQ, 'feature-not-implemented')
+            IQ#iq{type = error, sub_el = [SubEl, ?ERR_FEATURE_NOT_IMPLEMENTED]}
     end.
 
 user_online(_SID, JID, _Info) ->
-    Host = exmpp_jid:prep_domain_as_list(JID),
-    start_ping(Host, JID).
+    start_ping(JID#jid.lserver, JID).
 
 user_offline(_SID, JID, _Info) ->
-    Host = exmpp_jid:prep_domain_as_list(JID),
-    start_ping(Host, JID).
+    stop_ping(JID#jid.lserver, JID).
 
 user_send(JID, _From, _Packet) ->
-    Host = exmpp_jid:prep_domain_as_list(JID),
-    start_ping(Host, JID).
+    start_ping(JID#jid.lserver, JID).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 add_timer(JID, Interval, Timers) ->
-    LJID = exmpp_jid:prep_to_binary(JID),
+    LJID = jlib:jid_tolower(JID),
     NewTimers = case ?DICT:find(LJID, Timers) of
 		    {ok, OldTRef} ->
 			cancel_timer(OldTRef),
@@ -223,7 +214,7 @@ add_timer(JID, Interval, Timers) ->
     ?DICT:store(LJID, TRef, NewTimers).
 
 del_timer(JID, Timers) ->
-    LJID = exmpp_jid:prep_to_binary(JID),
+    LJID = jlib:jid_tolower(JID),
     case ?DICT:find(LJID, Timers) of
         {ok, TRef} ->
 	    cancel_timer(TRef),

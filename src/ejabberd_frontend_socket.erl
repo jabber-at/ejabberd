@@ -45,8 +45,6 @@
 	 get_peer_certificate/1,
 	 get_verify_result/1,
 	 close/1,
-	 setopts/2,
-	 change_controller/2,
 	 sockname/1, peername/1]).
 
 %% gen_server callbacks
@@ -96,15 +94,18 @@ start(Module, SockMod, Socket, Opts) ->
 	    todo
     end.
 
-starttls(FsmRef, TLSOpts) ->
-    starttls(FsmRef, TLSOpts, undefined).
+starttls(FsmRef, _TLSOpts) ->
+    %% TODO: Frontend improvements planned by Aleksey
+    %%gen_server:call(FsmRef, {starttls, TLSOpts}),
+    FsmRef.
 
 starttls(FsmRef, TLSOpts, Data) ->
     gen_server:call(FsmRef, {starttls, TLSOpts, Data}),
     FsmRef.
 
 compress(FsmRef) ->
-    compress(FsmRef, undefined).
+    gen_server:call(FsmRef, compress),
+    FsmRef.
 
 compress(FsmRef, Data) ->
     gen_server:call(FsmRef, {compress, Data}),
@@ -137,14 +138,11 @@ close(FsmRef) ->
 sockname(FsmRef) ->
     gen_server:call(FsmRef, sockname).
 
-setopts(FsmRef, Opts) ->
-    gen_server:call(FsmRef, {setopts, Opts}).
+peername(_FsmRef) ->
+    %% TODO: Frontend improvements planned by Aleksey
+    %%gen_server:call(FsmRef, peername).
+    {ok, {{0, 0, 0, 0}, 0}}.
 
-change_controller(FsmRef, C2SPid) ->
-    gen_server:call(FsmRef, {change_controller, C2SPid}).
-
-peername(FsmRef) ->
-    gen_server:call(FsmRef, peername).
 
 %%====================================================================
 %% gen_server callbacks
@@ -160,16 +158,9 @@ peername(FsmRef) ->
 init([Module, SockMod, Socket, Opts, Receiver]) ->
     %% TODO: monitor the receiver
     Node = ejabberd_node_groups:get_closest_node(backend),
-    IP = case peername(SockMod, Socket) of
-	     {ok, IP1} ->
-		 IP1;
-	     _ ->
-		 undefined
-	 end,
     {SockMod2, Socket2} = check_starttls(SockMod, Socket, Receiver, Opts),
     {ok, Pid} =
-	rpc:call(Node, Module, start,
-		 [{?MODULE, self()}, [{frontend_ip, IP} | Opts]]),
+	rpc:call(Node, Module, start, [{?MODULE, self()}, Opts]),
     ejabberd_receiver:become_controller(Receiver, Pid),
     {ok, #state{sockmod = SockMod2,
 		socket = Socket2,
@@ -184,16 +175,38 @@ init([Module, SockMod, Socket, Opts, Receiver]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({starttls, TLSOpts, Data}, _From, State) ->
-    {ok, TLSSocket} = ejabberd_receiver:starttls(
-			State#state.receiver, TLSOpts, Data),
+handle_call({starttls, TLSOpts}, _From, State) ->
+    {ok, TLSSocket} = tls:tcp_to_tls(State#state.socket, TLSOpts),
+    ejabberd_receiver:starttls(State#state.receiver, TLSSocket),
     Reply = ok,
     {reply, Reply, State#state{socket = TLSSocket, sockmod = tls},
      ?HIBERNATE_TIMEOUT};
 
+handle_call({starttls, TLSOpts, Data}, _From, State) ->
+    {ok, TLSSocket} = tls:tcp_to_tls(State#state.socket, TLSOpts),
+    ejabberd_receiver:starttls(State#state.receiver, TLSSocket),
+    catch (State#state.sockmod):send(
+	    State#state.socket, Data),
+    Reply = ok,
+    {reply, Reply, State#state{socket = TLSSocket, sockmod = tls},
+     ?HIBERNATE_TIMEOUT};
+
+handle_call(compress, _From, State) ->
+    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
+			 State#state.sockmod,
+			 State#state.socket),
+    ejabberd_receiver:compress(State#state.receiver, ZlibSocket),
+    Reply = ok,
+    {reply, Reply, State#state{socket = ZlibSocket, sockmod = ejabberd_zlib},
+     ?HIBERNATE_TIMEOUT};
+
 handle_call({compress, Data}, _From, State) ->
-    {ok, ZlibSocket} = ejabberd_receiver:compress(
-			 State#state.receiver, Data),
+    {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(
+			 State#state.sockmod,
+			 State#state.socket),
+    ejabberd_receiver:compress(State#state.receiver, ZlibSocket),
+    catch (State#state.sockmod):send(
+	    State#state.socket, Data),
     Reply = ok,
     {reply, Reply, State#state{socket = ZlibSocket, sockmod = ejabberd_zlib},
      ?HIBERNATE_TIMEOUT};
@@ -233,7 +246,13 @@ handle_call(close, _From, State) ->
 
 handle_call(sockname, _From, State) ->
     #state{sockmod = SockMod, socket = Socket} = State,
-    Reply = peername(SockMod, Socket),
+    Reply =
+	case SockMod of
+	    gen_tcp ->
+		inet:sockname(Socket);
+	    _ ->
+		SockMod:sockname(Socket)
+	end,
     {reply, Reply, State, ?HIBERNATE_TIMEOUT};
 
 handle_call(peername, _From, State) ->
@@ -246,14 +265,6 @@ handle_call(peername, _From, State) ->
 		SockMod:peername(Socket)
 	end,
     {reply, Reply, State, ?HIBERNATE_TIMEOUT};
-
-handle_call({setopts, Opts}, _From, State) ->
-    ejabberd_receiver:setopts(State#state.receiver, Opts),
-    {reply, ok, State, ?HIBERNATE_TIMEOUT};
-
-handle_call({change_controller, Pid}, _From, State) ->
-    ejabberd_receiver:change_controller(State#state.receiver, Pid),
-    {reply, ok, State, ?HIBERNATE_TIMEOUT};
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -307,16 +318,10 @@ check_starttls(SockMod, Socket, Receiver, Opts) ->
 			   end, Opts),
     if
 	TLSEnabled ->
-	    {ok, TLSSocket} = ejabberd_receiver:starttls(Receiver, TLSOpts),
+	    {ok, TLSSocket} = tls:tcp_to_tls(Socket, TLSOpts),
+	    ejabberd_receiver:starttls(Receiver, TLSSocket),
 	    {tls, TLSSocket};
 	true ->
 	    {SockMod, Socket}
     end.
 
-peername(SockMod, Socket) ->
-    case SockMod of
-	gen_tcp ->
-	    inet:peername(Socket);
-	_ ->
-	    SockMod:peername(Socket)
-    end.

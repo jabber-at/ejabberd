@@ -29,7 +29,6 @@
 
 %% External exports
 -export([start/1,
-	 stop/1,
 	 set_password/3,
 	 check_password/3,
 	 check_password/5,
@@ -53,25 +52,12 @@
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
-
-%% @spec (Host) -> ok
-%%     Host = string()
-
 start(Host) ->
     extauth:start(
       Host, ejabberd_config:get_local_option({extauth_program, Host})),
     case check_cache_last_options(Host) of
 	cache ->
-	    ok = ejabberd_auth_storage:start(Host);
-	no_cache ->
-	    ok
-    end.
-
-stop(Host) ->
-    extauth:stop(Host),
-    case check_cache_last_options(Host) of
-	cache ->
-	    ok = ejabberd_auth_storage:stop(Host);
+	    ok = ejabberd_auth_internal:start(Host);
 	no_cache ->
 	    ok
     end.
@@ -90,18 +76,11 @@ check_cache_last_options(Server) ->
 	    end
     end.
 
-%% @spec () -> bool()
-
 plain_password_required() ->
     true.
 
 store_type() ->
 	external.
-
-%% @spec (User, Server, Password) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 
 check_password(User, Server, Password) ->
     case get_cache_option(Server) of
@@ -109,32 +88,15 @@ check_password(User, Server, Password) ->
 	{true, CacheTime} -> check_password_cache(User, Server, Password, CacheTime)
     end.
 
-%% @spec (User, Server, Password, Digest, DigestGen) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%%     Digest = string()
-%%     DigestGen = function()
-
 check_password(User, Server, Password, _Digest, _DigestGen) ->
     check_password(User, Server, Password).
 
-%% @spec (User, Server, Password) -> ok | {error, unknown_problem}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-
 set_password(User, Server, Password) ->
     case extauth:set_password(User, Server, Password) of
-	true -> set_password_storage(User, Server, Password),
+	true -> set_password_internal(User, Server, Password),
 		ok;
 	_ -> {error, unknown_problem}
     end.
-
-%% @spec (User, Server, Password) -> {error, not_allowed}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 
 try_register(User, Server, Password) ->
     case get_cache_option(Server) of
@@ -142,63 +104,27 @@ try_register(User, Server, Password) ->
 	{true, _CacheTime} -> try_register_external_cache(User, Server, Password)
     end.
 
-%% @spec () -> nil()
-%% @todo Write it.
-%% @doc Return the list of all users handled by external.
-
 dirty_get_registered_users() ->
-    ejabberd_auth_storage:dirty_get_registered_users().
+    ejabberd_auth_internal:dirty_get_registered_users().
 
 get_vh_registered_users(Server) ->
-    case check_cache_last_options(Server) of
-	cache ->
-	    ejabberd_auth_storage:get_vh_registered_users(Server);
-	no_cache ->
-	    []
-    end.
+    ejabberd_auth_internal:get_vh_registered_users(Server).
 
 get_vh_registered_users(Server, Data)  ->
-    case check_cache_last_options(Server) of
-	cache ->
-	    ejabberd_auth_storage:get_vh_registered_users(Server, Data);
-	no_cache ->
-	    []
-    end.
-
-%% @spec (Server) -> nil()
-%%     Server = string()
+    ejabberd_auth_internal:get_vh_registered_users(Server, Data).
 
 get_vh_registered_users_number(Server) ->
-    case check_cache_last_options(Server) of
-	cache ->
-	    ejabberd_auth_storage:get_vh_registered_users_number(Server);
-	no_cache ->
-	    0
-    end.
+    ejabberd_auth_internal:get_vh_registered_users_number(Server).
 
 get_vh_registered_users_number(Server, Data) ->
-    case check_cache_last_options(Server) of
-	cache ->
-	    ejabberd_auth_storage:get_vh_registered_users_number(Server, Data);
-	no_cache ->
-	    0
-    end.
+    ejabberd_auth_internal:get_vh_registered_users_number(Server, Data).
 
-%% @spec (User, Server) -> bool()
-%%     User = string()
-%%     Server = string()
-%% @doc Get the user cached password, if possible.
 %% The password can only be returned if cache is enabled, cached info exists and is fresh enough.
-
 get_password(User, Server) ->
     case get_cache_option(Server) of
 	false -> false;
 	{true, CacheTime} -> get_password_cache(User, Server, CacheTime)
     end.
-
-%% @spec (User, Server) -> nil()
-%%     User = string()
-%%     Server = string()
 
 get_password_s(User, Server) ->
     case get_password(User, Server) of
@@ -207,19 +133,12 @@ get_password_s(User, Server) ->
     end.
 
 %% @spec (User, Server) -> true | false | {error, Error}
-%%     User = string()
-%%     Server = string()
-
 is_user_exists(User, Server) ->
     try extauth:is_user_exists(User, Server) of
 	Res -> Res
     catch
 	_:Error -> {error, Error}
     end.
-
-%% @spec (User, Server) -> {error, not_allowed}
-%%     User = string()
-%%     Server = string()
 
 remove_user(User, Server) ->
     case extauth:remove_user(User, Server) of
@@ -228,14 +147,9 @@ remove_user(User, Server) ->
 	    case get_cache_option(Server) of
 		false -> false;
 		{true, _CacheTime} ->
-		    ejabberd_auth_storage:remove_user(User, Server)
+		    ejabberd_auth_internal:remove_user(User, Server)
 	    end
     end.
-
-%% @spec (User, Server, Password) -> not_allowed
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 
 remove_user(User, Server, Password) ->
     case extauth:remove_user(User, Server, Password) of
@@ -244,7 +158,7 @@ remove_user(User, Server, Password) ->
 	    case get_cache_option(Server) of
 		false -> false;
 		{true, _CacheTime} ->
-		    ejabberd_auth_storage:remove_user(User, Server, Password)
+		    ejabberd_auth_internal:remove_user(User, Server, Password)
 	    end
     end.
 
@@ -270,7 +184,7 @@ try_register_extauth(User, Server, Password) ->
 check_password_cache(User, Server, Password, CacheTime) ->
     case get_last_access(User, Server) of
 	online ->
-	    check_password_storage(User, Server, Password);
+	    check_password_internal(User, Server, Password);
 	never ->
 	    check_password_external_cache(User, Server, Password);
 	mod_last_required ->
@@ -281,7 +195,7 @@ check_password_cache(User, Server, Password, CacheTime) ->
 	    case is_fresh_enough(TimeStamp, CacheTime) of
 		%% If no need to refresh, check password against Mnesia
 		true ->
-		    case check_password_storage(User, Server, Password) of
+		    case check_password_internal(User, Server, Password) of
 			%% If password valid in Mnesia, accept it
 			true ->
 			    true;
@@ -295,14 +209,14 @@ check_password_cache(User, Server, Password, CacheTime) ->
 	    end
     end.
 
-get_password_storage(User, Server) ->
-    ejabberd_auth_storage:get_password(User, Server).
+get_password_internal(User, Server) ->
+    ejabberd_auth_internal:get_password(User, Server).
 
-%% @spec (User, Server, CacheTime) -> Password::string() | false
+%% @spec (User, Server, CacheTime) -> false | Password::string()
 get_password_cache(User, Server, CacheTime) ->
     case get_last_access(User, Server) of
 	online ->
-	    get_password_storage(User, Server);
+	    get_password_internal(User, Server);
 	never ->
 	    false;
 	mod_last_required ->
@@ -311,7 +225,7 @@ get_password_cache(User, Server, CacheTime) ->
 	TimeStamp ->
 	    case is_fresh_enough(TimeStamp, CacheTime) of
 		true ->
-		    get_password_storage(User, Server);
+		    get_password_internal(User, Server);
 		false ->
 		    false
 	    end
@@ -322,7 +236,7 @@ get_password_cache(User, Server, CacheTime) ->
 check_password_external_cache(User, Server, Password) ->
     case check_password_extauth(User, Server, Password) of
 	true ->
-	    set_password_storage(User, Server, Password), true;
+	    set_password_internal(User, Server, Password), true;
 	false ->
 	    false
     end.
@@ -331,18 +245,18 @@ check_password_external_cache(User, Server, Password) ->
 try_register_external_cache(User, Server, Password) ->
     case try_register_extauth(User, Server, Password) of
 	{atomic, ok} = R ->
-	    set_password_storage(User, Server, Password),
+	    set_password_internal(User, Server, Password),
 	    R;
 	_ -> {error, not_allowed}
     end.
 
 %% @spec (User, Server, Password) -> true | false
-check_password_storage(User, Server, Password) ->
-    ejabberd_auth_storage:check_password(User, Server, Password).
+check_password_internal(User, Server, Password) ->
+    ejabberd_auth_internal:check_password(User, Server, Password).
 
 %% @spec (User, Server, Password) -> ok | {error, invalid_jid}
-set_password_storage(User, Server, Password) ->
-    ejabberd_auth_storage:set_password(User, Server, Password).
+set_password_internal(User, Server, Password) ->
+    ejabberd_auth_internal:set_password(User, Server, Password).
 
 %% @spec (TimeLast, CacheTime) -> true | false
 %%       TimeLast = online | never | integer()
@@ -356,13 +270,11 @@ is_fresh_enough(TimeStampLast, CacheTime) ->
     Now = MegaSecs * 1000000 + Secs,
     (TimeStampLast + CacheTime > Now).
 
-%% @spec (User, Server) -> TimeStamp::integer() | online | never | mod_last_required
-get_last_access(UserS, ServerS) ->
-    %% Code copied from mod_configure.erl
-    %% Code copied from web/ejabberd_web_admin.erl
-    %% TODO: Update time format to XEP-0202: Entity Time
-    User = list_to_binary(UserS),
-    Server = list_to_binary(ServerS),
+%% @spec (User, Server) -> online | never | mod_last_required | TimeStamp::integer()
+%% Code copied from mod_configure.erl
+%% Code copied from web/ejabberd_web_admin.erl
+%% TODO: Update time format to XEP-0202: Entity Time
+get_last_access(User, Server) ->
     case ejabberd_sm:get_user_resources(User, Server) of
 	[] ->
 	    _US = {User, Server},
@@ -381,23 +293,27 @@ get_last_access(UserS, ServerS) ->
 get_last_info(User, Server) ->
     case get_mod_last_enabled(Server) of
 	mod_last -> mod_last:get_last_info(User, Server);
+	mod_last_odbc -> mod_last_odbc:get_last_info(User, Server);
 	no_mod_last -> mod_last_required
     end.
 
-%% @spec (Server) -> mod_last | no_mod_last
-get_mod_last_enabled(ServerB) when is_binary(ServerB)->
-    Server = binary_to_list(ServerB),
-    get_mod_last_enabled(Server);
+%% @spec (Server) -> mod_last | mod_last_odbc | no_mod_last
 get_mod_last_enabled(Server) ->
-    case gen_mod:is_loaded(Server, mod_last) of
-	true -> mod_last;
-	false -> no_mod_last
+    ML = gen_mod:is_loaded(Server, mod_last),
+    MLO = gen_mod:is_loaded(Server, mod_last_odbc),
+    case {ML, MLO} of
+	{true, _} -> mod_last;
+	{false, true} -> mod_last_odbc;
+	{false, false} -> no_mod_last
     end.
 
 get_mod_last_configured(Server) ->
-    case is_configured(Server, mod_last) of
-	true -> mod_last;
-	false -> no_mod_last
+    ML = is_configured(Server, mod_last),
+    MLO = is_configured(Server, mod_last_odbc),
+    case {ML, MLO} of
+	{true, _} -> mod_last;
+	{false, true} -> mod_last_odbc;
+	{false, false} -> no_mod_last
     end.
 
 is_configured(Host, Module) ->

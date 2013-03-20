@@ -36,9 +36,6 @@
 	 %% Accounts
 	 register/3, unregister/2,
 	 registered_users/1,
-	 %% For debugging gen_storage 
-	 get_last_info/0,
-	 get_last_info/2,
 	 %% Migration jabberd1.4
 	 import_file/1, import_dir/1,
 	 %% Purge DB
@@ -88,6 +85,10 @@ commands() ->
 			args = [], result = {res, rescode}},
      #ejabberd_commands{name = stop_kindly, tags = [server],
 			desc = "Inform users and rooms, wait, and stop the server",
+			longdesc = "Provide the delay in seconds, and the "
+			    "announcement quoted, for example: \n"
+			    "ejabberdctl stop_kindly 60 "
+			    "\\\"The server will stop in one minute.\\\"",
 			module = ?MODULE, function = stop_kindly,
 			args = [{delay, integer}, {announcement, string}],
 			result = {res, rescode}},
@@ -127,21 +128,6 @@ commands() ->
 			args = [{host, string}],
 			result = {users, {list, {username, string}}}},
 
-     #ejabberd_commands{name = gli, tags = [accounts],
-			desc = "Get information about last access of an account",
-			module = ?MODULE, function = get_last_info,
-			args = [],
-                        result = {lastinfo, {tuple, [{timestamp, integer},
-                                                       {status, string}
-                                                      ]}}},
-     #ejabberd_commands{name = get_last_info, tags = [accounts],
-			desc = "Get information about last access of an account",
-			module = ?MODULE, function = get_last_info,
-			args = [{user, string}, {host, string}],
-                        result = {lastinfo, {tuple, [{timestamp, integer},
-                                                       {status, string}
-                                                      ]}}},
-
      #ejabberd_commands{name = import_file, tags = [mnesia],
 			desc = "Import user data from jabberd14 spool file",
 			module = ?MODULE, function = import_file,
@@ -173,6 +159,11 @@ commands() ->
 			desc = "Delete offline messages older than DAYS",
 			module = ?MODULE, function = delete_old_messages,
 			args = [{days, integer}], result = {res, rescode}},
+	 
+     #ejabberd_commands{name = rename_default_nodeplugin, tags = [mnesia],
+			desc = "Update PubSub table from old ejabberd trunk SVN to 2.1.0",
+			module = mod_pubsub, function = rename_default_nodeplugin,
+			args = [], result = {res, rescode}},
 
      #ejabberd_commands{name = set_master, tags = [mnesia],
 			desc = "Set master node of the clustered Mnesia tables",
@@ -261,7 +252,8 @@ get_sasl_error_logger_type () ->
 stop_kindly(DelaySeconds, AnnouncementText) ->
     Subject = io_lib:format("Server stop in ~p seconds!", [DelaySeconds]),
     WaitingDesc = io_lib:format("Waiting ~p seconds", [DelaySeconds]),
-    Steps = [{"Stopping ejabberd port listeners",
+    Steps = [
+	     {"Stopping ejabberd port listeners",
 	      ejabberd_listener, stop_listeners, []},
 	     {"Sending announcement to connected users",
 	      mod_announce, send_announcement_to_all,
@@ -283,7 +275,7 @@ stop_kindly(DelaySeconds, AnnouncementText) ->
 		  - TimestampStart,
 	      io:format("[~p/~p ~ps] ~s... ",
 			[NumberThis, NumberLast, SecondsDiff, Desc]),
-	      Result = apply(Mod, Func, Args),
+	      Result = (catch apply(Mod, Func, Args)),
 	      io:format("~p~n", [Result]),
 	      NumberThis+1
       end,
@@ -297,8 +289,7 @@ send_service_message_all_mucs(Subject, AnnouncementText) ->
       fun(ServerHost) ->
 	      MUCHost = gen_mod:get_module_opt_host(
 			  ServerHost, mod_muc, "conference.@HOST@"),
-	      MUCHostB = list_to_binary(MUCHost),
-	      mod_muc:broadcast_service_message(MUCHostB, Message)
+	      mod_muc:broadcast_service_message(MUCHost, Message)
       end,
       ?MYHOSTS).
 
@@ -351,12 +342,6 @@ registered_users(Host) ->
     SUsers = lists:sort(Users),
     lists:map(fun({U, _S}) -> U end, SUsers).
 
-get_last_info() -> get_last_info("badlop", "localhost").
-get_last_info(User, Server) ->
-    case mod_last:get_last_info(User, Server) of
-	{ok, TimeStamp, Status} -> {TimeStamp, Status};
-	not_found -> {"never", ""}
-    end.
 
 %%%
 %%% Migration management
@@ -388,11 +373,11 @@ import_dir(Path) ->
 %%%
 
 delete_expired_messages() ->
-    mod_offline:remove_expired_messages(),
+    {atomic, ok} = mod_offline:remove_expired_messages(),
     ok.
 
 delete_old_messages(Days) ->
-    mod_offline:remove_old_messages(Days),
+    {atomic, _} = mod_offline:remove_old_messages(Days),
     ok.
 
 

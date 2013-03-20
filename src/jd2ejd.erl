@@ -31,9 +31,8 @@
 -export([import_file/1,
 	 import_dir/1]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 
 
@@ -44,28 +43,26 @@
 import_file(File) ->
     User = filename:rootname(filename:basename(File)),
     Server = filename:basename(filename:dirname(File)),
-    case exmpp_stringprep:is_node(User) andalso
-	exmpp_stringprep:is_name(Server) of
+    case (jlib:nodeprep(User) /= error) andalso
+	(jlib:nameprep(Server) /= error) of
 	true ->
 	    case file:read_file(File) of
 		{ok, Text} ->
-		    try
-			[El] = exmpp_xml:parse_document(Text,
-			  [names_as_atom]),
-			case catch process_xdb(User, Server, El) of
-			    {'EXIT', Reason} ->
-				?ERROR_MSG(
-				   "Error while processing file \"~s\": ~p~n",
-				   [File, Reason]),
-				{error, Reason};
-			    _ ->
-				ok
-			end
-		    catch
-			_:Reason1 ->
+		    case xml_stream:parse_element(Text) of
+			El when element(1, El) == xmlelement ->
+			    case catch process_xdb(User, Server, El) of
+				{'EXIT', Reason} ->
+				    ?ERROR_MSG(
+				       "Error while processing file \"~s\": ~p~n",
+				       [File, Reason]),
+				    {error, Reason};
+				_ ->
+				    ok
+			    end;
+			{error, Reason} ->
 			    ?ERROR_MSG("Can't parse file \"~s\": ~p~n",
-				       [File, Reason1]),
-			    {error, Reason1}
+				       [File, Reason]),
+			    {error, Reason}
 		    end;
 		{error, Reason} ->
 		    ?ERROR_MSG("Can't read file \"~s\": ~p~n", [File, Reason]),
@@ -103,58 +100,85 @@ import_dir(Dir) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-process_xdb(User, Server, #xmlel{name = "xdb", children = Els}) ->
-    lists:foreach(
-      fun(El) ->
-	      xdb_data(User, Server, El)
-      end, Els);
-process_xdb(_User, _Server, _El) ->
-    ok.
+process_xdb(User, Server, {xmlelement, Name, _Attrs, Els}) ->
+    case Name of
+	"xdb" ->
+	    lists:foreach(
+	      fun(El) ->
+		      xdb_data(User, Server, El)
+	      end, Els);
+	_ ->
+	    ok
+    end.
 
 
-xdb_data(_User, _Server, #xmlcdata{}) ->
+xdb_data(_User, _Server, {xmlcdata, _CData}) ->
     ok;
-xdb_data(User, Server, #xmlel{ns = NS} = El) ->
-    From = exmpp_jid:make(User, Server),
-    UserB = list_to_binary(User),
-    ServerB = list_to_binary(Server),
-    case NS of
-	?NS_LEGACY_AUTH ->
-	    Password = exmpp_xml:get_cdata_as_list(El),
-	    ejabberd_auth:set_password(UserB, ServerB, Password),
+xdb_data(User, Server, {xmlelement, _Name, Attrs, _Els} = El) ->
+    From = jlib:make_jid(User, Server, ""),
+    LServer = jlib:nameprep(Server),
+    case xml:get_attr_s("xmlns", Attrs) of
+	?NS_AUTH ->
+	    Password = xml:get_tag_cdata(El),
+	    ejabberd_auth:set_password(User, Server, Password),
 	    ok;
 	?NS_ROSTER ->
-	    catch mod_roster:set_items(UserB, ServerB, El),
+	    case lists:member(mod_roster_odbc,
+			      gen_mod:loaded_modules(LServer)) of
+		true ->
+		    catch mod_roster_odbc:set_items(User, Server, El);
+		false ->
+		    catch mod_roster:set_items(User, Server, El)
+	    end,
 	    ok;
-	?NS_LAST_ACTIVITY ->
-	    TimeStamp = exmpp_xml:get_attribute_as_list(El, <<"last">>, ""),
-	    Status = exmpp_xml:get_cdata(El),
-		    catch mod_last:store_last_info(
-			    UserB,
-			    ServerB,
+	?NS_LAST ->
+	    TimeStamp = xml:get_attr_s("last", Attrs),
+	    Status = xml:get_tag_cdata(El),
+	    case lists:member(mod_last_odbc,
+			      gen_mod:loaded_modules(LServer)) of
+		true ->
+		    catch mod_last_odbc:store_last_info(
+			    User,
+			    Server,
 			    list_to_integer(TimeStamp),
-			    Status),
+			    Status);
+		false ->
+		    catch mod_last:store_last_info(
+			    User,
+			    Server,
+			    list_to_integer(TimeStamp),
+			    Status)
+	    end,
 	    ok;
 	?NS_VCARD ->
+	    case lists:member(mod_vcard_odbc,
+			      gen_mod:loaded_modules(LServer)) of
+		true ->
+		    catch mod_vcard_odbc:process_sm_iq(
+			    From,
+			    jlib:make_jid("", Server, ""),
+			    #iq{type = set, xmlns = ?NS_VCARD, sub_el = El});
+		false ->
 		    catch mod_vcard:process_sm_iq(
 			    From,
-			    exmpp_jid:make(Server),
-			    #iq{kind = request, type = set, ns = ?NS_VCARD, payload = El, iq_ns = ?NS_JABBER_CLIENT}),
+			    jlib:make_jid("", Server, ""),
+			    #iq{type = set, xmlns = ?NS_VCARD, sub_el = El})
+	    end,
 	    ok;
 	"jabber:x:offline" ->
 	    process_offline(Server, From, El),
 	    ok;
 	XMLNS ->
-	    case exmpp_xml:get_attribute_as_list(El, <<"j_private_flag">>, "") of
+	    case xml:get_attr_s("j_private_flag", Attrs) of
 		"1" ->
 		    catch mod_private:process_sm_iq(
 			    From,
-			    exmpp_jid:make(Server),
-			    #iq{kind = request, type = set, ns = ?NS_PRIVATE,
-				iq_ns = ?NS_JABBER_CLIENT,
-				payload = #xmlel{name = 'query', children =
-					  [exmpp_xml:remove_attribute(
-					     exmpp_xml:remove_attribute(El, <<"xdbns">>), <<"j_private_flag">>)]}});
+			    jlib:make_jid("", Server, ""),
+			    #iq{type = set, xmlns = ?NS_PRIVATE,
+				sub_el = {xmlelement, "query", [],
+					  [jlib:remove_attr(
+					     "j_private_flag",
+					     jlib:remove_attr("xdbns", El))]}});
 		_ ->
 		    ?DEBUG("jd2ejd: Unknown namespace \"~s\"~n", [XMLNS])
 	    end,
@@ -162,27 +186,22 @@ xdb_data(User, Server, #xmlel{ns = NS} = El) ->
     end.
 
 
-process_offline(Server, To, #xmlel{children = Els}) ->
-    LServer = exmpp_stringprep:nameprep(Server),
-    lists:foreach(fun(#xmlel{} = El) ->
-			  FromS = exmpp_stanza:get_sender(El),
+process_offline(Server, To, {xmlelement, _, _, Els}) ->
+    LServer = jlib:nameprep(Server),
+    lists:foreach(fun({xmlelement, _, Attrs, _} = El) ->
+			  FromS = xml:get_attr_s("from", Attrs),
 			  From = case FromS of
-				     undefined ->
-					 exmpp_jid:make(Server);
+				     "" ->
+					 jlib:make_jid("", Server, "");
 				     _ ->
-					 try
-					     exmpp_jid:parse(FromS)
-					 catch
-					     _ ->
-						 error
-					 end
+					 jlib:string_to_jid(FromS)
 				 end,
 			  case From of
 			      error ->
 				  ok;
 			      _ ->
 				  ejabberd_hooks:run(offline_message_hook,
-						     list_to_binary(LServer),
+						     LServer,
 						     [From, To, El])
 			  end
 		  end, Els).

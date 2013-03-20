@@ -1,3 +1,5 @@
+# $Id$
+
 SHELL = /bin/bash
 
 CONTRIBUTED_MODULES = ""
@@ -35,7 +37,6 @@ clean:
 	rm -f *.out
 	rm -f *.pdf
 	rm -f *.toc
-	rm -f version.tex
 	[ ! -f contributed_modules.tex ] || rm contributed_modules.tex
 
 distclean: clean

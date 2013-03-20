@@ -18,11 +18,6 @@
  *
  */
 
-/*   WARNING !!!
- * ejabberd creates the tables automatically.
- * This file is obsolete.
- * Read the ejabberd modules source code for up-to-date table schema. */
-
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON

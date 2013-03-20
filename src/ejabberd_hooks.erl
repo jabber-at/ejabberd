@@ -81,8 +81,7 @@ add(Hook, Host, Function, Seq) when is_function(Function) ->
 add(Hook, Module, Function, Seq) ->
     add(Hook, global, Module, Function, Seq).
 
-add(Hook, Host, Module, Function, Seq) 
-     when is_binary(Host) orelse is_atom(Host) ->
+add(Hook, Host, Module, Function, Seq) ->
     gen_server:call(ejabberd_hooks, {add, Hook, Host, Module, Function, Seq}).
 
 add_dist(Hook, Node, Module, Function, Seq) ->
@@ -105,8 +104,7 @@ delete(Hook, Host, Function, Seq) when is_function(Function) ->
 delete(Hook, Module, Function, Seq) ->
     delete(Hook, global, Module, Function, Seq).
 
-delete(Hook, Host, Module, Function, Seq) 
-     when is_binary(Host) orelse is_atom(Host) ->
+delete(Hook, Host, Module, Function, Seq) ->
     gen_server:call(ejabberd_hooks, {delete, Hook, Host, Module, Function, Seq}).
 
 delete_dist(Hook, Node, Module, Function, Seq) ->
@@ -122,11 +120,11 @@ run(Hook, Args) ->
     run(Hook, global, Args).
 
 run(Hook, Host, Args) ->
-    case get_registered_hooks_for(Hook, Host) of
-    [] ->
-        ok;
-    Ls ->
-        run1(Ls, Hook, Args)
+    case ets:lookup(hooks, {Hook, Host}) of
+	[{_, Ls}] ->
+	    run1(Ls, Hook, Args);
+	[] ->
+	    ok
     end.
 
 %% @spec (Hook::atom(), Val, Args) -> Val | stopped | NewVal
@@ -138,14 +136,12 @@ run(Hook, Host, Args) ->
 run_fold(Hook, Val, Args) ->
     run_fold(Hook, global, Val, Args).
 
-%% @spec (Hook::atom(), Host, Val, Args) -> Val | stopped | NewVal
-%% Host = global | binary()
 run_fold(Hook, Host, Val, Args) ->
-    case get_registered_hooks_for(Hook, Host) of
-    [] ->
-        Val;
-    Ls ->
-        run_fold1(Ls, Hook, Val, Args)
+    case ets:lookup(hooks, {Hook, Host}) of
+	[{_, Ls}] ->
+	    run_fold1(Ls, Hook, Val, Args);
+	[] ->
+	    Val
     end.
 
 %%%----------------------------------------------------------------------
@@ -173,8 +169,7 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
 handle_call({add, Hook, Host, Module, Function, Seq}, _From, State) ->
-    NHost = ejabberd:normalize_host(Host),
-    Reply = case ets:lookup(hooks, {Hook, NHost}) of
+    Reply = case ets:lookup(hooks, {Hook, Host}) of
 		[{_, Ls}] ->
 		    El = {Seq, Module, Function},
 		    case lists:member(El, Ls) of
@@ -182,12 +177,12 @@ handle_call({add, Hook, Host, Module, Function, Seq}, _From, State) ->
 			    ok;
 			false ->
 			    NewLs = lists:merge(Ls, [El]),
-			    ets:insert(hooks, {{Hook, NHost}, NewLs}),
+			    ets:insert(hooks, {{Hook, Host}, NewLs}),
 			    ok
 		    end;
 		[] ->
 		    NewLs = [{Seq, Module, Function}],
-		    ets:insert(hooks, {{Hook, NHost}, NewLs}),
+		    ets:insert(hooks, {{Hook, Host}, NewLs}),
 		    ok
 	    end,
     {reply, Reply, State};
@@ -210,14 +205,10 @@ handle_call({add, Hook, Host, Node, Module, Function, Seq}, _From, State) ->
 	    end,
     {reply, Reply, State};
 handle_call({delete, Hook, Host, Module, Function, Seq}, _From, State) ->
-    NHost = ejabberd:normalize_host(Host),
-    Reply = case ets:lookup(hooks, {Hook, NHost}) of
+    Reply = case ets:lookup(hooks, {Hook, Host}) of
 		[{_, Ls}] ->
 		    NewLs = lists:delete({Seq, Module, Function}, Ls),
-		    case NewLs of
-			[] -> ets:delete(hooks, {Hook, NHost});
-			_ -> ets:insert(hooks, {{Hook, NHost}, NewLs})
-		    end,
+		    ets:insert(hooks, {{Hook, Host}, NewLs}),
 		    ok;
 		[] ->
 		    ok
@@ -227,10 +218,7 @@ handle_call({delete, Hook, Host, Node, Module, Function, Seq}, _From, State) ->
     Reply = case ets:lookup(hooks, {Hook, Host}) of
 		[{_, Ls}] ->
 		    NewLs = lists:delete({Seq, Node, Module, Function}, Ls),
-		    case NewLs of
-			[] -> ets:delete(hooks, {Hook, Host});
-			_ -> ets:insert(hooks, {{Hook, Host}, NewLs})
-		    end,
+		    ets:insert(hooks, {{Hook, Host}, NewLs}),
 		    ok;
 		[] ->
 		    ok
@@ -307,7 +295,7 @@ run1([{_Seq, Module, Function} | Ls], Hook, Args) ->
 		       [Reason, {Hook, Args}]),
 	    run1(Ls, Hook, Args);
 	stop ->
-	    stop;
+	    ok;
 	_ ->
 	    run1(Ls, Hook, Args)
     end.
@@ -354,21 +342,3 @@ run_fold1([{_Seq, Module, Function} | Ls], Hook, Val, Args) ->
 	NewVal ->
 	    run_fold1(Ls, Hook, NewVal, Args)
     end.
-
-get_registered_hooks_for(Hook, global) ->
-    case ets:lookup(hooks, {Hook, global}) of
-	[{_, Ls}] ->
-	    Ls;
-	[] ->
-	    []
-    end;
-
-get_registered_hooks_for(Hook, Host) ->
-    GlobalHooks = get_registered_hooks_for(Hook, global),
-    HostHooks =	case ets:lookup(hooks, {Hook, ejabberd:normalize_host(Host)}) of
-		    [{_, Ls}] ->
-			Ls;
-		    [] ->
-			[]
-		end,
-    lists:umerge(GlobalHooks, HostHooks).

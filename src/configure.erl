@@ -42,9 +42,17 @@ start() ->
 	     end,
     case Static of
 	true ->
+	    ExpatLib  = "EXPAT_LIB = $(EXPAT_DIR)\\StaticLibs\\libexpatMT.lib\n",
+	    ExpatFlag = "EXPAT_FLAG = -DXML_STATIC\n",
+	    IconvDir  = "ICONV_DIR = c:\\sdk\\GnuWin32\n",
+	    IconvLib  = "ICONV_LIB = $(ICONV_DIR)\\lib\\libiconv.lib\n",
 	    ZlibDir   = "ZLIB_DIR = c:\\sdk\\GnuWin32\n",
 	    ZlibLib   = "ZLIB_LIB = $(ZLIB_DIR)\\lib\\zlib.lib\n";
 	false ->
+	    ExpatLib  = "EXPAT_LIB = $(EXPAT_DIR)\\Libs\\libexpat.lib\n",
+	    ExpatFlag = "",
+	    IconvDir  = "ICONV_DIR = c:\\sdk\\GnuWin32\n",
+	    IconvLib  = "ICONV_LIB = $(ICONV_DIR)\\lib\\libiconv.lib\n",
 	    ZlibDir   = "ZLIB_DIR = c:\\sdk\\GnuWin32\n",
 	    ZlibLib   = "ZLIB_LIB = $(ZLIB_DIR)\\lib\\zlib.lib\n"
     end,
@@ -55,6 +63,7 @@ start() ->
     %% Load the ejabberd application description so that ?VERSION can read the vsn key
     application:load(ejabberd),
     Version  = "EJABBERD_VERSION = " ++ ?VERSION ++ "\n",
+    ExpatDir = "EXPAT_DIR = c:\\sdk\\Expat-2.0.0\n",
     OpenSSLDir = "OPENSSL_DIR = c:\\sdk\\OpenSSL\n",
     DBType = "DBTYPE = generic\n",    %% 'generic' or 'mssql'
 
@@ -70,6 +79,11 @@ start() ->
 				   StdLibDir ++
 				   OpenSSLDir ++
 				   DBType ++
+				   ExpatDir ++
+				   ExpatLib ++
+				   ExpatFlag ++
+				   IconvDir ++
+				   IconvLib ++
 				   ZlibDir ++
 				   ZlibLib)),
     halt().

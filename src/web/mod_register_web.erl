@@ -60,7 +60,6 @@
 	 process/2
 	]).
 
--include_lib("exmpp/include/exmpp.hrl").
 -include("ejabberd.hrl").
 -include("jlib.hrl").
 -include("ejabberd_http.hrl").
@@ -87,8 +86,9 @@ process([], #request{method = 'GET', lang = Lang}) ->
 process(["register.css"], #request{method = 'GET'}) ->
     serve_css();
 
-process(["new"], #request{method = 'GET', lang = Lang, host = Host}) ->
-    form_new_get(Host, Lang);
+process(["new"], #request{method = 'GET', lang = Lang, host = Host, ip = IP}) ->
+    {Addr, _Port} = IP,
+    form_new_get(Host, Lang, Addr);
 
 process(["delete"], #request{method = 'GET', lang = Lang, host = Host}) ->
     form_del_get(Host, Lang);
@@ -99,9 +99,9 @@ process(["change_password"], #request{method = 'GET', lang = Lang, host = Host})
 process(["new"], #request{method = 'POST', q = Q, ip = {Ip,_Port}, lang = Lang, host = Host}) ->
     case form_new_post(Q, Host) of
     	{success, ok, {Username, Host, _Password}} ->
-	    Jid = exmpp_jid:make(Username, Host, ""),
+	    Jid = jlib:make_jid(Username, Host, ""),
 	    send_registration_notifications(Jid, Ip),
-	    Text = ?T("Your Jabber account was succesfully created."),
+	    Text = ?T("Your Jabber account was successfully created."),
 	    {200, [], Text};
 	Error ->
 	    ErrorText = ?T("There was an error creating the account: ") ++
@@ -112,7 +112,7 @@ process(["new"], #request{method = 'POST', q = Q, ip = {Ip,_Port}, lang = Lang, 
 process(["delete"], #request{method = 'POST', q = Q, lang = Lang, host = Host}) ->
     case form_del_post(Q, Host) of
     	{atomic, ok} ->
-	    Text = ?T("Your Jabber account was succesfully deleted."),
+	    Text = ?T("Your Jabber account was successfully deleted."),
 	    {200, [], Text};
 	Error ->
 	    ErrorText = ?T("There was an error deleting the account: ") ++
@@ -125,7 +125,7 @@ process(["delete"], #request{method = 'POST', q = Q, lang = Lang, host = Host}) 
 process(["change_password"], #request{method = 'POST', q = Q, lang = Lang, host = Host}) ->
     case form_changepass_post(Q, Host) of
     	{atomic, ok} ->
-	    Text = ?T("The password of your Jabber account was succesfully changed."),
+	    Text = ?T("The password of your Jabber account was successfully changed."),
 	    {200, [], Text};
 	Error ->
 	    ErrorText = ?T("There was an error changing the password: ") ++
@@ -147,38 +147,33 @@ cache_control_public() ->
     {"Cache-Control", "public"}.
 
 css() ->
-    "html,body {"
-	"background: white;"
-	"margin: 0;"
-	"padding: 0;"
-	"height: 100%;"
-	"}".
+    "html,body {
+background: white;
+margin: 0;
+padding: 0;
+height: 100%;
+}".
 
 %%%----------------------------------------------------------------------
 %%% Index page
 %%%----------------------------------------------------------------------
 
-make_xa_link_css() ->
-    ?XA('link', [?XMLATTR(<<"href">>, <<"/register/register.css">>),
-		 ?XMLATTR(<<"type">>, <<"text/css">>),
-		 ?XMLATTR(<<"rel">>, <<"stylesheet">>)]).
-
-make_h1_title(TextString, Lang) ->
-    ?XACT('h1',
-	  [?XMLATTR(<<"class">>, <<"title">>), ?XMLATTR(<<"style">>, <<"text-align:center;">>)],
-	  TextString).
-
 index_page(Lang) ->
     HeadEls = [
-	       ?XCT('title', "Jabber Account Registration"),
-	       make_xa_link_css()
+	       ?XCT("title", "Jabber Account Registration"),
+	       ?XA("link",
+		   [{"href", "/register/register.css"},
+		    {"type", "text/css"},
+		    {"rel", "stylesheet"}])
 	      ],
     Els=[
-	 make_h1_title("Jabber Account Registration", Lang),
-	 ?XE('ul', [
-		    ?XE('li', [?ACT("new", "Register a Jabber account")]),
-		    ?XE('li', [?ACT("change_password", "Change Password")]),
-		    ?XE('li', [?ACT("delete", "Unregister a Jabber account")])
+	 ?XACT("h1",
+	       [{"class", "title"}, {"style", "text-align:center;"}],
+	       "Jabber Account Registration"),
+	 ?XE("ul", [
+		    ?XE("li", [?ACT("new", "Register a Jabber account")]),
+		    ?XE("li", [?ACT("change_password", "Change Password")]),
+		    ?XE("li", [?ACT("delete", "Unregister a Jabber account")])
 		   ]
 	    )
 	],
@@ -191,65 +186,70 @@ index_page(Lang) ->
 %%% Formulary new account GET
 %%%----------------------------------------------------------------------
 
-form_new_get(Host, Lang) ->
-    CaptchaEls = build_captcha_li_list(Lang),
+form_new_get(Host, Lang, IP) ->
+    CaptchaEls = build_captcha_li_list(Lang, IP),
     HeadEls = [
-	       ?XCT('title', "Register a Jabber account"),
-	       make_xa_link_css()
+	       ?XCT("title", "Register a Jabber account"),
+	       ?XA("link",
+		   [{"href", "/register/register.css"},
+		    {"type", "text/css"},
+		    {"rel", "stylesheet"}])
 	      ],
     Els=[
-	 make_h1_title("Register a Jabber account", Lang),
-	 ?XCT('p',
+	 ?XACT("h1",
+	       [{"class", "title"}, {"style", "text-align:center;"}],
+	       "Register a Jabber account"),
+	 ?XCT("p",
 	      "This page allows to create a Jabber account in this Jabber server. "
 	      "Your JID (Jabber IDentifier) will be of the form: username@server. "
 	      "Please read carefully the instructions to fill correctly the fields."),
 	 %% <!-- JID's take the form of 'username@server.com'. For example, my JID is 'kirjava@jabber.org'.
 	 %% The maximum length for a JID is 255 characters. -->
-	 ?XAE('form', [?XMLATTR(<<"action">>, <<"">>), ?XMLATTR(<<"method">>, <<"post">>)],
+	 ?XAE("form", [{"action", ""}, {"method", "post"}],
 	      [
-	       ?XE('ol', [
-			  ?XE('li', [
+	       ?XE("ol", [
+			  ?XE("li", [
 				     ?CT("Username:"),
 				     ?C(" "),
 				     ?INPUTS("text", "username", "", "20"),
 				     ?BR,
-				     ?XE('ul', [
-						?XCT('li', "This is case insensitive: macbeth is the same that MacBeth and Macbeth."),
-						?XC('li', ?T("Characters not allowed:") ++ " \" & ' / : < > @ ")
+				     ?XE("ul", [
+						?XCT("li", "This is case insensitive: macbeth is the same that MacBeth and Macbeth."),
+						?XC("li", ?T("Characters not allowed:") ++ " \" & ' / : < > @ ")
 					       ])
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Server:"),
 				     ?C(" "),
 				     ?C(Host)
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Password:"),
 				     ?C(" "),
 				     ?INPUTS("password", "password", "", "20"),
 				     ?BR,
-				     ?XE('ul', [
-						?XCT('li', "Don't tell your password to anybody, "
-						     "not even the administrators of the Jabber server."),
-						?XCT('li', "You can later change your password using a Jabber client."),
-						?XCT('li', "Some Jabber clients can store your password in your computer. "
-						     "Use that feature only if you trust your computer is safe."),
-						?XCT('li', "Memorize your password, or write it in a paper placed in a safe place. "
-						     "In Jabber there isn't an automated way to recover your password if you forget it.")
+				     ?XE("ul", [
+						?XCT("li", "Don't tell your password to anybody, "
+						    "not even the administrators of the Jabber server."),
+						?XCT("li", "You can later change your password using a Jabber client."),
+						?XCT("li", "Some Jabber clients can store your password in your computer. "
+						    "Use that feature only if you trust your computer is safe."),
+						?XCT("li", "Memorize your password, or write it in a paper placed in a safe place. "
+						    "In Jabber there isn't an automated way to recover your password if you forget it.")
 					       ])
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Password Verification:"),
 				     ?C(" "),
 				     ?INPUTS("password", "password2", "", "20")
 				    ])] ++ CaptchaEls ++ [
-							  %% Nombre</b> (opcional)<b>:</b> <input type="text" size="20" name="name" maxlength="255"> <br /> <br /> -->
-							  %%
-							  %% Direcci&oacute;n de correo</b> (opcional)<b>:</b> <input type="text" size="20" name="email" maxlength="255"> <br /> <br /> -->
-							  ?XE('li', [
-								     ?INPUTT("submit", "register", "Register")
-								    ])
-							 ])
+			  %% Nombre</b> (opcional)<b>:</b> <input type="text" size="20" name="name" maxlength="255"> <br /> <br /> -->
+			  %%
+			  %% Direcci&oacute;n de correo</b> (opcional)<b>:</b> <input type="text" size="20" name="email" maxlength="255"> <br /> <br /> -->
+			  ?XE("li", [
+				     ?INPUTT("submit", "register", "Register")
+				    ])
+			 ])
 	      ])
 	],
     {200,
@@ -259,7 +259,7 @@ form_new_get(Host, Lang) ->
 
 %% Copied from mod_register.erl
 send_registration_notifications(UJID, Source) ->
-    Host = exmpp_jid:prep_domain_as_list(UJID),
+    Host = UJID#jid.lserver,
     case gen_mod:get_module_opt(Host, ?MODULE, registration_watchers, []) of
         [] -> ok;
         JIDs when is_list(JIDs) ->
@@ -267,15 +267,20 @@ send_registration_notifications(UJID, Source) ->
                      io_lib:format(
                        "[~s] The account ~s was registered from IP address ~s "
                        "on node ~w using ~p.",
-                       [get_time_string(), exmpp_jid:to_list(UJID),
+                       [get_time_string(), jlib:jid_to_string(UJID),
                         ip_to_string(Source), node(), ?MODULE])),
             lists:foreach(
               fun(S) ->
-                      JID = exmpp_jid:parse(S),
-		      ejabberd_router:route(
-			exmpp_jid:make("", Host, ""),
-			JID,
-			exmpp_message:chat(Body))
+                      case jlib:string_to_jid(S) of
+                          error -> ok;
+                          JID ->
+                              ejabberd_router:route(
+                                jlib:make_jid("", Host, ""),
+                                JID,
+                                {xmlelement, "message", [{"type", "chat"}],
+                                 [{xmlelement, "body", [],
+                                   [{xmlcdata, Body}]}]})
+                      end
               end, JIDs);
         _ ->
             ok
@@ -295,12 +300,12 @@ write_time({{Y,Mo,D},{H,Mi,S}}) ->
 
 form_new_post(Q, Host) ->
     case catch get_register_parameters(Q) of
-	[Username, Password, Password, IdS, KeyS] ->
-	    form_new_post(Username, Host, Password, {IdS, KeyS});
+	[Username, Password, Password, Id, Key] ->
+	    form_new_post(Username, Host, Password, {Id, Key});
 	[_Username, _Password, _Password2, false, false] ->
 	    {error, passwords_not_identical};
-	[_Username, _Password, _Password2, IdS, KeyS] ->
-	    ejabberd_captcha:check_captcha(IdS, KeyS), %% This deletes the captcha
+	[_Username, _Password, _Password2, Id, Key] ->
+	    ejabberd_captcha:check_captcha(Id, Key), %% This deletes the captcha
 	    {error, passwords_not_identical};
 	_ ->
 	    {error, wrong_parameters}
@@ -332,26 +337,31 @@ form_new_post(Username, Host, Password, {Id, Key}) ->
 %%% Formulary Captcha support for new GET/POST
 %%%----------------------------------------------------------------------
 
-build_captcha_li_list(Lang) ->
+build_captcha_li_list(Lang, IP) ->
     case ejabberd_captcha:is_feature_available() of
-	true -> build_captcha_li_list2(Lang);
+	true -> build_captcha_li_list2(Lang, IP);
 	false -> []
     end.
 
-build_captcha_li_list2(Lang) ->
-    SID = <<"">>,
-    From = exmpp_jid:make("", "test", ""),
-    To = exmpp_jid:make("", "test", ""),
+build_captcha_li_list2(Lang, IP) ->
+    SID = "",
+    From = #jid{user = "", server = "test", resource = ""},
+    To = #jid{user = "", server = "test", resource = ""},
     Args = [],
-    {ok, Id, [_Body, _OOB, _Captcha, _Data]} = ejabberd_captcha:create_captcha(SID, From, To, Lang, Args),
-    {_, {CImg,CText,CId,CKey}} = ejabberd_captcha:build_captcha_html(Id, Lang),
-    [?XE('li', [CText,
-		?C(" "),
-		CId,
-		CKey,
-		?BR,
-		CImg]
-	)].
+    case ejabberd_captcha:create_captcha(SID, From, To, Lang, IP, Args) of
+        {ok, Id, _} ->
+            {_, {CImg,CText,CId,CKey}} =
+                ejabberd_captcha:build_captcha_html(Id, Lang),
+            [?XE("li", [CText,
+                        ?C(" "),
+                        CId,
+                        CKey,
+                        ?BR,
+                        CImg]
+                )];
+        _ ->
+            []
+    end.
 
 %%%----------------------------------------------------------------------
 %%% Formulary change password GET
@@ -359,40 +369,45 @@ build_captcha_li_list2(Lang) ->
 
 form_changepass_get(Host, Lang) ->
     HeadEls = [
-	       ?XCT('title', "Change Password"),
-	       make_xa_link_css()
+	       ?XCT("title", "Change Password"),
+	       ?XA("link",
+		   [{"href", "/register/register.css"},
+		    {"type", "text/css"},
+		    {"rel", "stylesheet"}])
 	      ],
     Els=[
-	 make_h1_title("Change Password", Lang),
-	 ?XAE('form', [?XMLATTR(<<"action">>, <<"">>), ?XMLATTR(<<"method">>, <<"post">>)],
+	 ?XACT("h1",
+	       [{"class", "title"}, {"style", "text-align:center;"}],
+	       "Change Password"),
+	 ?XAE("form", [{"action", ""}, {"method", "post"}],
 	      [
-	       ?XE('ol', [
-			  ?XE('li', [
+	       ?XE("ol", [
+			  ?XE("li", [
 				     ?CT("Username:"),
 				     ?C(" "),
 				     ?INPUTS("text", "username", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Server:"),
 				     ?C(" "),
 				     ?C(Host)
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Old Password:"),
 				     ?C(" "),
 				     ?INPUTS("password", "passwordold", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("New Password:"),
 				     ?C(" "),
 				     ?INPUTS("password", "password", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Password Verification:"),
 				     ?C(" "),
 				     ?INPUTS("password", "password2", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?INPUTT("submit", "changepass", "Change Password")
 				    ])
 			 ])
@@ -475,32 +490,37 @@ check_password(Username, Host, Password) ->
 
 form_del_get(Host, Lang) ->
     HeadEls = [
-	       ?XCT('title', "Unregister a Jabber account"),
-	       make_xa_link_css()
+	       ?XCT("title", "Unregister a Jabber account"),
+	       ?XA("link",
+		   [{"href", "/register/register.css"},
+		    {"type", "text/css"},
+		    {"rel", "stylesheet"}])
 	      ],
     Els=[
-	 make_h1_title("Unregister a Jabber account", Lang),
-	 ?XCT('p',
+	 ?XACT("h1",
+	       [{"class", "title"}, {"style", "text-align:center;"}],
+	       "Unregister a Jabber account"),
+	 ?XCT("p",
 	      "This page allows to unregister a Jabber account in this Jabber server."),
-	 ?XAE('form', [?XMLATTR(<<"action">>, <<"">>), ?XMLATTR(<<"method">>, <<"post">>)],
+	 ?XAE("form", [{"action", ""}, {"method", "post"}],
 	      [
-	       ?XE('ol', [
-			  ?XE('li', [
+	       ?XE("ol", [
+			  ?XE("li", [
 				     ?CT("Username:"),
 				     ?C(" "),
 				     ?INPUTS("text", "username", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Server:"),
 				     ?C(" "),
 				     ?C(Host)
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?CT("Password:"),
 				     ?C(" "),
 				     ?INPUTS("password", "password", "", "20")
 				    ]),
-			  ?XE('li', [
+			  ?XE("li", [
 				     ?INPUTT("submit", "unregister", "Unregister")
 				    ])
 			 ])
@@ -516,10 +536,9 @@ form_del_get(Host, Lang) ->
 %%                                    {error, not_allowed} |
 %%                                    {error, invalid_jid}
 register_account(Username, Host, Password) ->
-    try exmpp_jid:make(Username, Host) of
+    case jlib:make_jid(Username, Host, "") of
+	error -> {error, invalid_jid};
 	_ -> register_account2(Username, Host, Password)
-    catch
-	_ -> {error, invalid_jid}
     end.
 register_account2(Username, Host, Password) ->
     case ejabberd_auth:try_register(Username, Host, Password) of

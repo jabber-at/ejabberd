@@ -1,3 +1,73 @@
+AC_DEFUN([AM_WITH_EXPAT],
+[ AC_ARG_WITH(expat,
+	      [AC_HELP_STRING([--with-expat=PREFIX], [prefix where EXPAT is installed])])
+
+  EXPAT_CFLAGS=
+  EXPAT_LIBS=
+	if test x"$with_expat" != x; then
+		EXPAT_CFLAGS="-I$with_expat/include"
+		EXPAT_LIBS="-L$with_expat/lib"
+	fi
+
+	AC_CHECK_LIB(expat, XML_ParserCreate,
+		     [ EXPAT_LIBS="$EXPAT_LIBS -lexpat"
+		       expat_found=yes ],
+		     [ expat_found=no ],
+		     "$EXPAT_LIBS")
+	if test $expat_found = no; then
+		AC_MSG_ERROR([Could not find development files of Expat library])
+	fi
+	expat_save_CFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS $EXPAT_CFLAGS"
+       expat_save_CPPFLAGS="$CPPFLAGS"
+       CPPFLAGS="$CPPFLAGS $EXPAT_CFLAGS"
+	AC_CHECK_HEADERS(expat.h, , expat_found=no)
+	if test $expat_found = no; then
+		AC_MSG_ERROR([Could not find expat.h])
+	fi
+	CFLAGS="$expat_save_CFLAGS"
+       CPPFLAGS="$expat_save_CPPFLAGS"
+
+  AC_SUBST(EXPAT_CFLAGS)
+  AC_SUBST(EXPAT_LIBS)
+])
+
+AC_DEFUN([AM_WITH_ZLIB],
+[ AC_ARG_WITH(zlib,
+	      [AC_HELP_STRING([--with-zlib=PREFIX], [prefix where zlib is installed])])
+
+if test x"$ejabberd_zlib" != x; then
+  ZLIB_CFLAGS=
+  ZLIB_LIBS=
+	if test x"$with_zlib" != x; then
+		ZLIB_CFLAGS="-I$with_zlib/include"
+		ZLIB_LIBS="-L$with_zlib/lib"
+	fi
+
+	AC_CHECK_LIB(z, gzgets,
+		     [ ZLIB_LIBS="$ZLIB_LIBS -lz"
+		       zlib_found=yes ],
+		     [ zlib_found=no ],
+		     "$ZLIB_LIBS")
+	if test $zlib_found = no; then
+		AC_MSG_ERROR([Could not find development files of zlib library. Install them or disable `ejabberd_zlib' with: --disable-ejabberd_zlib])
+	fi
+	zlib_save_CFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS $ZLIB_CFLAGS"
+       zlib_save_CPPFLAGS="$CFLAGS"
+       CPPFLAGS="$CPPFLAGS $ZLIB_CFLAGS"
+	AC_CHECK_HEADERS(zlib.h, , zlib_found=no)
+	if test $zlib_found = no; then
+		AC_MSG_ERROR([Could not find zlib.h. Install it or disable `ejabberd_zlib' with: --disable-ejabberd_zlib])
+	fi
+	CFLAGS="$zlib_save_CFLAGS"
+       CPPFLAGS="$zlib_save_CPPFLAGS"
+
+  AC_SUBST(ZLIB_CFLAGS)
+  AC_SUBST(ZLIB_LIBS)
+fi
+])
+
 AC_DEFUN([AM_WITH_PAM],
 [ AC_ARG_WITH(pam,
 	      [AC_HELP_STRING([--with-pam=PREFIX], [prefix where PAM is installed])])
@@ -55,14 +125,8 @@ AC_DEFUN([AM_WITH_ERLANG],
 start() ->
     EIDirS = code:lib_dir("erl_interface") ++ "\n",
     EILibS =  libpath("erl_interface") ++ "\n",
-    EXMPPDir = code:lib_dir("exmpp"),
-    case EXMPPDir of
-        {error, bad_name} -> exit("exmpp not found");
-        _                 -> ok
-    end,
-    EXMPPDirS = EXMPPDir ++ "\n",
     RootDirS = code:root_dir() ++ "\n",
-    file:write_file("conftest.out", list_to_binary(EIDirS ++ EILibS ++ ssldef() ++ EXMPPDirS ++ RootDirS)),
+    file:write_file("conftest.out", list_to_binary(EIDirS ++ EILibS ++ ssldef() ++ RootDirS)),
     halt().
 
 ssldef() -> 
@@ -122,8 +186,6 @@ _EOF
    ERLANG_EI_LIB=`cat conftest.out | head -n 2 | tail -n 1`
    # Third line
    ERLANG_SSLVER=`cat conftest.out | head -n 3 | tail -n 1`
-   # Fourth line
-   ERLANG_EXMPP=`cat conftest.out | head -n 4 | tail -n 1`
    # End line
    ERLANG_DIR=`cat conftest.out | tail -n 1`
 
@@ -133,7 +195,6 @@ _EOF
    AC_SUBST(ERLANG_CFLAGS)
    AC_SUBST(ERLANG_LIBS)
    AC_SUBST(ERLANG_SSLVER)
-   AC_SUBST(ERLANG_EXMPP)
    AC_SUBST(ERLC)
    AC_SUBST(ERL)
 ])
@@ -155,6 +216,96 @@ AC_MSG_RESULT($mr_enable_$1)
 AC_SUBST($1)
 AC_SUBST(make_$1)
 
+])
+
+
+dnl From Bruno Haible.
+
+AC_DEFUN([AM_ICONV],
+[
+  dnl Some systems have iconv in libc, some have it in libiconv (OSF/1 and
+  dnl those with the standalone portable GNU libiconv installed).
+  AC_ARG_WITH([libiconv-prefix],
+   [AC_HELP_STRING([--with-libiconv-prefix=PREFIX], [prefix where libiconv is installed])], [
+    for dir in `echo "$withval" | tr : ' '`; do
+      if test -d $dir/include; then CPPFLAGS="$CPPFLAGS -I$dir/include"; fi
+      if test -d $dir/include; then CFLAGS="$CFLAGS -I$dir/include"; fi
+      if test -d $dir/lib; then LDFLAGS="$LDFLAGS -L$dir/lib"; fi
+    done
+   ])
+
+  AC_CACHE_CHECK(for iconv, am_cv_func_iconv, [
+    am_cv_func_iconv="no, consider installing GNU libiconv"
+    am_cv_lib_iconv=no
+    AC_TRY_LINK([#include <stdlib.h>
+#include <iconv.h>],
+     [iconv_t cd = iconv_open("","");
+       iconv(cd,NULL,NULL,NULL,NULL);
+       iconv_close(cd);],
+       am_cv_func_iconv=yes)
+    if test "$am_cv_func_iconv" != yes; then
+      am_save_LIBS="$LIBS"
+      LIBS="$LIBS -liconv"
+      AC_TRY_LINK([#include <stdlib.h>
+#include <iconv.h>],
+        [iconv_t cd = iconv_open("","");
+         iconv(cd,NULL,NULL,NULL,NULL);
+         iconv_close(cd);],
+        am_cv_lib_iconv=yes
+        am_cv_func_iconv=yes)
+      LIBS="$am_save_LIBS"
+    fi
+	dnl trying /usr/local
+    if test "$am_cv_func_iconv" != yes; then
+      am_save_LIBS="$LIBS"
+	  am_save_CFLAGS="$CFLAGS"
+	  am_save_LDFLAGS="$LDFLAGS"
+      LIBS="$LIBS -liconv"
+	  LDFLAGS="$LDFLAGS -L/usr/local/lib"
+	  CFLAGS="$CFLAGS -I/usr/local/include"
+      AC_TRY_LINK([#include <stdlib.h>
+#include <iconv.h>],
+        [iconv_t cd = iconv_open("","");
+         iconv(cd,NULL,NULL,NULL,NULL);
+         iconv_close(cd);],
+        am_cv_lib_iconv=yes
+        am_cv_func_iconv=yes
+		CPPFLAGS="$CPPFLAGS -I/usr/local/include",
+		LDFLAGS="$am_save_LDFLAGS"
+		CFLAGS="$am_save_CFLAGS")
+      LIBS="$am_save_LIBS"
+    fi
+
+  ])
+  if test "$am_cv_func_iconv" = yes; then
+    AC_DEFINE(HAVE_ICONV, 1, [Define if you have the iconv() function.])
+    AC_MSG_CHECKING([for iconv declaration])
+    AC_CACHE_VAL(am_cv_proto_iconv, [
+      AC_TRY_COMPILE([
+#include <stdlib.h>
+#include <iconv.h>
+extern
+#ifdef __cplusplus
+"C"
+#endif
+#if defined(__STDC__) || defined(__cplusplus)
+size_t iconv (iconv_t cd, char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);
+#else
+size_t iconv();
+#endif
+], [], am_cv_proto_iconv_arg1="", am_cv_proto_iconv_arg1="const")
+      am_cv_proto_iconv="extern size_t iconv (iconv_t cd, $am_cv_proto_iconv_arg1 char * *inbuf, size_t *inbytesleft, char * *outbuf, size_t *outbytesleft);"])
+    am_cv_proto_iconv=`echo "[$]am_cv_proto_iconv" | tr -s ' ' | sed -e 's/( /(/'`
+    AC_MSG_RESULT([$]{ac_t:-
+         }[$]am_cv_proto_iconv)
+    AC_DEFINE_UNQUOTED(ICONV_CONST, $am_cv_proto_iconv_arg1,
+      [Define as const if the declaration of iconv() needs const.])
+  fi
+  LIBICONV=
+  if test "$am_cv_lib_iconv" = yes; then
+    LIBICONV="-liconv"
+  fi
+  AC_SUBST(LIBICONV)
 ])
 
 dnl <openssl>

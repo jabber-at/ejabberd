@@ -28,14 +28,8 @@
 -author('alexey@process-one.net').
 
 -export([start/0, stop/0,
-	 get_so_path/0,
-         get_bin_path/0,
-         get_pid_file/0,
-	 is_my_host/1,
-	 normalize_host/1
-	]).
-
--include("ejabberd.hrl").
+	 get_pid_file/0,
+	 get_so_path/0, get_bin_path/0]).
 
 start() ->
     %%ejabberd_cover:start(),
@@ -69,33 +63,6 @@ get_bin_path() ->
 	    end;
 	Path ->
 	    Path
-    end.
-
-is_my_host([$* | _]) ->
-    false;
-is_my_host(Host) ->
-    case ejabberd_config:get_local_option({Host, host}) of
-	undefined ->
-	    WCHost = re:replace(Host, "^[^.]*\.", "*.", [{return, list}]),
-	    case ejabberd_config:get_local_option({WCHost, host}) of
-		undefined ->
-		    false;
-		_ ->
-		    true
-	    end;
-	_ ->
-	    true
-    end.
-
-normalize_host(global) ->
-    global;
-normalize_host(Host) ->
-    WCHost = re:replace(Host, "^[^.]*\.", "*.", [{return, list}]),
-    case ejabberd_config:get_local_option({WCHost, host}) of
-	undefined ->
-	    Host;
-	_ ->
-	    WCHost
     end.
 
 %% @spec () -> false | string()

@@ -28,7 +28,6 @@
 
 %% External exports
 -export([start/1,
-	 stop/1,
 	 set_password/3,
 	 check_password/3,
 	 check_password/5,
@@ -47,10 +46,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-%% @spec (Host) -> ok | term()
-%%     Host = string()
-
 start(_Host) ->
     case epam:start() of
 	{ok, _} -> ok;
@@ -58,116 +53,56 @@ start(_Host) ->
 	Err -> Err
     end.
 
-%% TODO: Stop epam if no other auth_pam are running.
-stop(_Host) ->
-    ok.
-
-%% @spec (User, Server, Password) -> {error, not_allowed}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-
 set_password(_User, _Server, _Password) ->
     {error, not_allowed}.
 
-%% @spec (User, Server, Password, Digest, DigestGen) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-%%     Digest = string()
-%%     DigestGen = function()
-
-check_password(User, Server, Password, _StreamID, _Digest) ->
+check_password(User, Server, Password, _Digest, _DigestGen) ->
     check_password(User, Server, Password).
 
-%% @spec (User, Server, Password) -> bool()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-
-check_password(User, Server, Password) ->
-    Service = get_pam_service(Server),
-    UserInfo = case get_pam_userinfotype(Server) of
+check_password(User, Host, Password) ->
+    Service = get_pam_service(Host),
+    UserInfo = case get_pam_userinfotype(Host) of
 	username -> User;
-	jid -> User++"@"++Server
+	jid -> User++"@"++Host
     end,
     case catch epam:authenticate(Service, UserInfo, Password) of
 	true -> true;
 	_    -> false
     end.
 
-%% @spec (User, Server, Password) -> {error, not_allowed}
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-
 try_register(_User, _Server, _Password) ->
     {error, not_allowed}.
-
-%% @spec () -> [{LUser, LServer}]
-%%     LUser = string()
-%%     LServer = string()
 
 dirty_get_registered_users() ->
     [].
 
-%% @spec (Server) -> [{LUser, LServer}]
-%%     Server = string()
-%%     LUser = string()
-%%     LServer = string()
-
-get_vh_registered_users(_Server) ->
+get_vh_registered_users(_Host) ->
     [].
-
-%% @spec (User, Server) -> Password | false
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 
 get_password(_User, _Server) ->
     false.
-
-%% @spec (User, Server) -> Password | nil()
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
 
 get_password_s(_User, _Server) ->
     "".
 
 %% @spec (User, Server) -> true | false | {error, Error}
-%%     User = string()
-%%     Server = string()
-%% TODO: Improve this function to return an error instead of 'false' when
-%% connection to PAM failed
-
-is_user_exists(User, Server) ->
-    Service = get_pam_service(Server),
-    UserInfo = case get_pam_userinfotype(Server) of
+%% TODO: Improve this function to return an error instead of 'false' when connection to PAM failed
+is_user_exists(User, Host) ->
+    Service = get_pam_service(Host),
+    UserInfo = case get_pam_userinfotype(Host) of
 	username -> User;
-	jid -> User++"@"++Server
+	jid -> User++"@"++Host
     end,
     case catch epam:acct_mgmt(Service, UserInfo) of
 	true -> true;
 	_    -> false
     end.
 
-%% @spec (User, Server) -> {error, not_allowed}
-%%     User = string()
-%%     Server = string()
-
 remove_user(_User, _Server) ->
     {error, not_allowed}.
 
-%% @spec (User, Server, Password) -> not_allowed
-%%     User = string()
-%%     Server = string()
-%%     Password = string()
-
 remove_user(_User, _Server, _Password) ->
     not_allowed.
-
-%% @spec () -> bool()
 
 plain_password_required() ->
     true.
@@ -178,12 +113,8 @@ store_type() ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-%% @spec (Server) -> string()
-%%     Server = string()
-
-get_pam_service(Server) ->
-    case ejabberd_config:get_local_option({pam_service, Server}) of
+get_pam_service(Host) ->
+    case ejabberd_config:get_local_option({pam_service, Host}) of
 	undefined -> "ejabberd";
 	Service   -> Service
     end.

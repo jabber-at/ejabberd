@@ -38,6 +38,7 @@
 
 -include("ejabberd.hrl").
 -include("pubsub.hrl").
+-include("jlib.hrl").
 
 -behaviour(gen_pubsub_node).
 
@@ -71,8 +72,8 @@
 	 get_item/2,
 	 set_item/1,
 	 get_item_name/3,
-     node_to_path/1,
-     path_to_node/1
+	 node_to_path/1,
+	 path_to_node/1
 	]).
 
 init(Host, ServerHost, Opts) ->
@@ -87,7 +88,6 @@ options() ->
      {notify_config, false},
      {notify_delete, false},
      {notify_retract, false},
-     {notify_sub, false},
      {purge_offline, false},
      {persist_items, true},
      {max_items, ?MAXITEMS},
@@ -135,8 +135,8 @@ subscribe_node(NodeId, Sender, Subscriber, AccessModel,
       NodeId, Sender, Subscriber, AccessModel, SendLast,
       PresenceSubscription, RosterGroup, Options).
 
-unsubscribe_node(NodeId, Sender, Subscriber, SubId) ->
-    node_pep:unsubscribe_node(NodeId, Sender, Subscriber, SubId).
+unsubscribe_node(NodeId, Sender, Subscriber, SubID) ->
+    node_pep:unsubscribe_node(NodeId, Sender, Subscriber, SubID).
 
 publish_item(NodeId, Publisher, Model, MaxItems, ItemId, Payload) ->
     node_pep:publish_item(NodeId, Publisher, Model, MaxItems, ItemId, Payload).
@@ -175,7 +175,7 @@ set_subscriptions(NodeId, Owner, Subscription, SubId) ->
     node_pep:set_subscriptions(NodeId, Owner, Subscription, SubId).
 
 get_pending_nodes(Host, Owner) ->
-    node_flat:get_pending_nodes(Host, Owner).
+    node_hometree:get_pending_nodes(Host, Owner).
 
 get_states(NodeId) ->
     node_pep:get_states(NodeId).
@@ -209,3 +209,4 @@ node_to_path(Node) ->
 
 path_to_node(Path) ->
     node_pep:path_to_node(Path).
+

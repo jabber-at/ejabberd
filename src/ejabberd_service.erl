@@ -50,9 +50,8 @@
 	 terminate/3,
      print_state/1]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 -record(state, {socket, sockmod, streamid,
 		hosts, password, access,
@@ -66,10 +65,36 @@
 -define(FSMOPTS, []).
 -endif.
 
-% These are the namespace already declared by the stream opening. This is
-% used at serialization time.
--define(DEFAULT_NS, ?NS_COMPONENT_ACCEPT).
--define(PREFIXED_NS, [{?NS_XMPP, ?NS_XMPP_pfx}]).
+-define(STREAM_HEADER,
+	"<?xml version='1.0'?>"
+	"<stream:stream "
+	"xmlns:stream='http://etherx.jabber.org/streams' "
+	"xmlns='jabber:component:accept' "
+	"id='~s' from='~s'>"
+       ).
+
+-define(STREAM_TRAILER, "</stream:stream>").
+
+-define(INVALID_HEADER_ERR,
+	"<stream:stream "
+	"xmlns:stream='http://etherx.jabber.org/streams'>"
+	"<stream:error>Invalid Stream Header</stream:error>"
+	"</stream:stream>"
+       ).
+
+-define(INVALID_HANDSHAKE_ERR,
+	"<stream:error>"
+	"<not-authorized xmlns='urn:ietf:params:xml:ns:xmpp-streams'/>"
+	"<text xmlns='urn:ietf:params:xml:ns:xmpp-streams' xml:lang='en'>"
+	"Invalid Handshake</text>"
+	"</stream:error>"
+	"</stream:stream>"
+       ).
+
+-define(INVALID_XML_ERR,
+	xml:element_to_string(?SERR_XML_NOT_WELL_FORMED)).
+-define(INVALID_NS_ERR,
+	xml:element_to_string(?SERR_INVALID_NAMESPACE)).
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -138,7 +163,7 @@ init([{SockMod, Socket}, Opts]) ->
     {ok, wait_for_stream, #state{socket = Socket,
 				 sockmod = SockMod,
 				 streamid = new_id(),
-				 hosts = [list_to_binary(H) || H <- Hosts],
+				 hosts = Hosts,
 				 password = Password,
 				 access = Access,
 				 check_from = CheckFrom
@@ -151,36 +176,28 @@ init([{SockMod, Socket}, Opts]) ->
 %%          {stop, Reason, NewStateData}
 %%----------------------------------------------------------------------
 
-wait_for_stream({xmlstreamstart, El = #xmlel{ns = _NS, attrs = Attrs}}, StateData) ->
-    case exmpp_xml:is_ns_declared_here(El, ?NS_COMPONENT_ACCEPT) of
-	true ->
+wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+    case xml:get_attr_s("xmlns", Attrs) of
+	"jabber:component:accept" ->
 	    %% Note: XEP-0114 requires to check that destination is a Jabber
 	    %% component served by this Jabber server.
 	    %% However several transports don't respect that,
 	    %% so ejabberd doesn't check 'to' attribute (EJAB-717)
-	    To = exmpp_stanza:get_recipient_from_attrs(Attrs),
-	    Opening_Reply = exmpp_stream:opening_reply(To,
-	      ?NS_COMPONENT_ACCEPT,
-	      {0, 0}, StateData#state.streamid),
-	    send_element(StateData, Opening_Reply),
+	    To = xml:get_attr_s("to", Attrs),
+	    Header = io_lib:format(?STREAM_HEADER,
+				   [StateData#state.streamid, xml:crypt(To)]),
+	    send_text(StateData, Header),
 	    {next_state, wait_for_handshake, StateData};
-	false ->
-	    Error = #xmlel{ns = ?NS_XMPP, name = 'stream', children = [
-		#xmlel{ns = ?NS_XMPP, name = 'error', children = [
-		    #xmlcdata{cdata = <<"Invalid Stream Header">>}
-		  ]}
-	      ]},
-	    send_element(StateData, Error),
+	_ ->
+	    send_text(StateData, ?INVALID_HEADER_ERR),
 	    {stop, normal, StateData}
     end;
 
 wait_for_stream({xmlstreamerror, _}, StateData) ->
-    Opening_Reply = exmpp_stream:opening_reply(?MYNAME,
-      ?NS_COMPONENT_ACCEPT,
-      {0, 0}, "none"),
-    send_element(StateData, Opening_Reply),
-    send_element(StateData, exmpp_stream:error('xml-not-well-formed')),
-    send_element(StateData, exmpp_stream:closing()),
+    Header = io_lib:format(?STREAM_HEADER,
+			   ["none", ?MYNAME]),
+    send_text(StateData,
+	      Header ++ ?INVALID_XML_ERR ++ ?STREAM_TRAILER),
     {stop, normal, StateData};
 
 wait_for_stream(closed, StateData) ->
@@ -188,38 +205,21 @@ wait_for_stream(closed, StateData) ->
 
 
 wait_for_handshake({xmlstreamelement, El}, StateData) ->
-    case {El#xmlel.name, exmpp_xml:get_cdata_as_list(El)} of
-	{'handshake', Digest} ->
+    {xmlelement, Name, _Attrs, Els} = El,
+    case {Name, xml:get_cdata(Els)} of
+	{"handshake", Digest} ->
 	    case sha:sha(StateData#state.streamid ++
 			 StateData#state.password) of
 		Digest ->
-		    send_element(StateData,
-		      #xmlel{ns = ?NS_COMPONENT_ACCEPT, name = 'handshake'}),
+		    send_text(StateData, "<handshake/>"),
 		    lists:foreach(
 		      fun(H) ->
-			      ejabberd_router:register_route(binary_to_list(H)),
+			      ejabberd_router:register_route(H),
 			      ?INFO_MSG("Route registered for service ~p~n", [H])
 		      end, StateData#state.hosts),
 		    {next_state, stream_established, StateData};
-		 _ ->
-		    TextEl =
-			#xmlel{ns = ?NS_STANZA_ERRORS,
-			       name = 'text',
-			       children =
-			       [#xmlcdata{cdata = <<"Invalid Handshake">>}]
-			      },
-		    NotAuthorizedEl =
-			#xmlel{ns = ?NS_STANZA_ERRORS,
-			       name = 'not-authorized',
-			       children = [TextEl]
-			      },
-		    InvalidHandshakeEl =
-			#xmlel{ns = ?NS_XMPP,
-			       name = 'error',
-			       children = [NotAuthorizedEl]
-			      },
-		    send_element(StateData, InvalidHandshakeEl),
-		    send_element(StateData, exmpp_stream:closing()),
+		_ ->
+		    send_text(StateData, ?INVALID_HANDSHAKE_ERR),
 		    {stop, normal, StateData}
 	    end;
 	_ ->
@@ -230,8 +230,7 @@ wait_for_handshake({xmlstreamend, _Name}, StateData) ->
     {stop, normal, StateData};
 
 wait_for_handshake({xmlstreamerror, _}, StateData) ->
-    send_element(StateData, exmpp_stream:error('xml-not-well-formed')),
-    send_element(StateData, exmpp_stream:closing()),
+    send_text(StateData, ?INVALID_XML_ERR ++ ?STREAM_TRAILER),
     {stop, normal, StateData};
 
 wait_for_handshake(closed, StateData) ->
@@ -239,34 +238,39 @@ wait_for_handshake(closed, StateData) ->
 
 
 stream_established({xmlstreamelement, El}, StateData) ->
-    From = exmpp_stanza:get_sender(El),
+    NewEl = jlib:remove_attr("xmlns", El),
+    {xmlelement, Name, Attrs, _Els} = NewEl,
+    From = xml:get_attr_s("from", Attrs),
     FromJID = case StateData#state.check_from of
 		  %% If the admin does not want to check the from field
 		  %% when accept packets from any address.
 		  %% In this case, the component can send packet of
 		  %% behalf of the server users.
-		  false -> exmpp_jid:parse(From);
+		  false -> jlib:string_to_jid(From);
 		  %% The default is the standard behaviour in XEP-0114
 		  _ ->
-		      FromJID1 = exmpp_jid:parse(From),
-		      Server =  exmpp_jid:prep_domain(FromJID1),
-			  case lists:member(Server, StateData#state.hosts) of
+		      FromJID1 = jlib:string_to_jid(From),
+		      case FromJID1 of
+			  #jid{lserver = Server} ->
+			      case lists:member(Server, StateData#state.hosts) of
 				  true -> FromJID1;
 				  false -> error
-			  end
+			      end;
+			  _ -> error
+		      end
 	      end,
-    To = exmpp_stanza:get_recipient(El),
+    To = xml:get_attr_s("to", Attrs),
     ToJID = case To of
-		undefined -> error;
-		_ -> exmpp_jid:parse(To)
+		"" -> error;
+		_ -> jlib:string_to_jid(To)
 	    end,
-    if ((El#xmlel.name == 'iq') or
-	(El#xmlel.name == 'message') or
-	(El#xmlel.name == 'presence')) and
+    if ((Name == "iq") or
+	(Name == "message") or
+	(Name == "presence")) and
        (ToJID /= error) and (FromJID /= error) ->
-	    ejabberd_router:route(FromJID, ToJID, El);
+	    ejabberd_router:route(FromJID, ToJID, NewEl);
        true ->
-	    Err = exmpp_stanza:reply_with_error(El, 'bad-request'),
+	    Err = jlib:make_error_reply(NewEl, ?ERR_BAD_REQUEST),
 	    send_element(StateData, Err),
 	    error
     end,
@@ -277,8 +281,7 @@ stream_established({xmlstreamend, _Name}, StateData) ->
     {stop, normal, StateData};
 
 stream_established({xmlstreamerror, _}, StateData) ->
-    send_element(StateData, exmpp_stream:error('xml-not-well-formed')),
-    send_element(StateData, exmpp_stream:closing()),
+    send_text(StateData, ?INVALID_XML_ERR ++ ?STREAM_TRAILER),
     {stop, normal, StateData};
 
 stream_established(closed, StateData) ->
@@ -332,21 +335,22 @@ code_change(_OldVsn, StateName, StateData, _Extra) ->
 %%          {stop, Reason, NewStateData}
 %%----------------------------------------------------------------------
 handle_info({send_text, Text}, StateName, StateData) ->
-    % XXX OLD FORMAT: This clause should be removed.
     send_text(StateData, Text),
     {next_state, StateName, StateData};
 handle_info({send_element, El}, StateName, StateData) ->
-    io:format("ejabberd_service send_element ~p~n",[ El]),
     send_element(StateData, El),
     {next_state, StateName, StateData};
 handle_info({route, From, To, Packet}, StateName, StateData) ->
     case acl:match_rule(global, StateData#state.access, From) of
 	allow ->
-	    El1 = exmpp_stanza:set_sender(Packet, From),
-	    El2 = exmpp_stanza:set_recipient(El1, To),
-	    send_element(StateData, El2);
+	    {xmlelement, Name, Attrs, Els} = Packet,
+	    Attrs2 = jlib:replace_from_to_attrs(jlib:jid_to_string(From),
+						jlib:jid_to_string(To),
+						Attrs),
+	    Text = xml:element_to_binary({xmlelement, Name, Attrs2, Els}),
+	    send_text(StateData, Text);
 	deny ->
-	    Err = exmpp_stanza:reply_with_error(Packet, 'not-allowed'),
+	    Err = jlib:make_error_reply(Packet, ?ERR_NOT_ALLOWED),
 	    ejabberd_router:route_error(To, From, Err, Packet)
     end,
     {next_state, StateName, StateData};
@@ -366,7 +370,7 @@ terminate(Reason, StateName, StateData) ->
 	stream_established ->
 	    lists:foreach(
 	      fun(H) ->
-		      ejabberd_router:unregister_route(binary_to_list(H))
+		      ejabberd_router:unregister_route(H)
 	      end, StateData#state.hosts);
 	_ ->
 	    ok
@@ -380,20 +384,17 @@ terminate(Reason, StateName, StateData) ->
 %% Returns: State to print
 %%----------------------------------------------------------------------
 print_state(State) ->
-   State.
+    State.
 
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
 send_text(StateData, Text) ->
-    io:format(">>~n ~s ~n", [Text]),
     (StateData#state.sockmod):send(StateData#state.socket, Text).
 
-send_element(StateData, #xmlel{ns = ?NS_XMPP, name = 'stream'} = El) ->
-    send_text(StateData, exmpp_stream:to_iolist(El));
 send_element(StateData, El) ->
-    send_text(StateData, exmpp_stanza:to_iolist(El)).
+    send_text(StateData, xml:element_to_binary(El)).
 
 new_id() ->
     randoms:get_string().

@@ -40,7 +40,6 @@
 	 loaded_modules_with_opts/1,
 	 get_hosts/2,
 	 get_module_proc/2,
-	 get_module_proc_existing/2,
 	 is_loaded/2]).
 
 -export([behaviour_info/1]).
@@ -48,7 +47,6 @@
 -include("ejabberd.hrl").
 
 -record(ejabberd_module, {module_host, opts}).
-%% module_host = {Module::atom(), Host::string()}
 
 behaviour_info(callbacks) ->
     [{start, 2},
@@ -64,19 +62,6 @@ start() ->
 
 
 start_module(Host, Module, Opts) ->
-    MTokens = string:tokens(atom_to_list(Module), "_"),
-    case lists:split(length(MTokens) - 1, MTokens) of
-	{ModulePlainList, ["odbc"]} ->
-	    Module2 = list_to_atom(string:join(ModulePlainList, "_")),
-	    ?WARNING_MSG("The module ~p is obsolete. Replace it with ~p and "
-			 "add the option {backend, odbc}",
-			 [Module, Module2]),
-	    start_module2(Host, Module2, [{backend, odbc} | Opts]);
-	_ ->
-	    start_module2(Host, Module, Opts)
-    end.
-
-start_module2(Host, Module, Opts) ->
     set_module_opts_mnesia(Host, Module, Opts),
     ets:insert(ejabberd_modules,
 	       #ejabberd_module{module_host = {Module, Host},
@@ -85,8 +70,8 @@ start_module2(Host, Module, Opts) ->
     catch Class:Reason ->
 	    del_module_mnesia(Host, Module),
 	    ets:delete(ejabberd_modules, {Module, Host}),
-	    ErrorText = io_lib:format("Problem starting the module ~p for host ~p ~n options: ~p~n ~p: ~p~n stacktarce: ~p",
-		    [Module, Host, Opts, Class, Reason, erlang:get_stacktrace()]),
+	    ErrorText = io_lib:format("Problem starting the module ~p for host ~p ~n options: ~p~n ~p: ~p",
+		    [Module, Host, Opts, Class, Reason]),
 	    ?CRITICAL_MSG(ErrorText, []),
 	    case is_app_running(ejabberd) of
 		true ->
@@ -194,30 +179,18 @@ get_module_opt(Host, Module, Opt, Default) ->
     OptsList = ets:lookup(ejabberd_modules, {Module, Host}),
     case OptsList of
 	[] ->
-	    OptsList2 = ets:lookup(ejabberd_modules, {Module, global}),
-	    case OptsList2 of
-		[] ->
-		    Default;
-		[#ejabberd_module{opts = Opts} | _] ->
-		    get_opt(Opt, Opts, Default)
-	    end;
+	    Default;
 	[#ejabberd_module{opts = Opts} | _] ->
 	    get_opt(Opt, Opts, Default)
     end.
 
 get_module_opt_host(Host, Module, Default) ->
     Val = get_module_opt(Host, Module, host, Default),
-    re:replace(Val, "@HOST@", Host, [global,{return,list}]).
+    ejabberd_regexp:greplace(Val, "@HOST@", Host).
 
 get_opt_host(Host, Opts, Default) ->
-    case Host of
-	global ->
-	    Val = get_opt(host, Opts, Default),
-	    {global, re:replace(Val, ".@HOST@", "", [global,{return,list}])};
-	Host ->
-	    Val = get_opt(host, Opts, Default),
-	    re:replace(Val, "@HOST@", Host, [global,{return,list}])
-    end.
+    Val = get_opt(host, Opts, Default),
+    ejabberd_regexp:greplace(Val, "@HOST@", Host).
 
 loaded_modules(Host) ->
     ets:select(ejabberd_modules,
@@ -232,9 +205,6 @@ loaded_modules_with_opts(Host) ->
 		 [],
 		 [{{'$1', '$2'}}]}]).
 
-set_module_opts_mnesia(global, _Module, _Opts) ->
-    %% Modules on the global host are usually static, so we shouldn't manipulate them.
-    ok;
 set_module_opts_mnesia(Host, Module, Opts) ->
     Modules = case ejabberd_config:get_local_option({modules, Host}) of
 		  undefined ->
@@ -246,9 +216,6 @@ set_module_opts_mnesia(Host, Module, Opts) ->
     Modules2 = [{Module, Opts} | Modules1],
     ejabberd_config:add_local_option({modules, Host}, Modules2).
 
-del_module_mnesia(global, _Module) ->
-    %% Modules on the global host are usually static, so we shouldn't manipulate them.
-    ok;
 del_module_mnesia(Host, Module) ->
     Modules = case ejabberd_config:get_local_option({modules, Host}) of
 		  undefined ->
@@ -272,26 +239,11 @@ get_hosts(Opts, Prefix) ->
 	    Hosts
     end.
 
-get_module_proc_existing(Host, Base) ->
-    Proc = get_module_proc(Host, Base),
-    %% If the process doesn't exist for Host, it may exist for global
-    case {whereis(Proc), Host == global} of
-	{undefined, false} -> get_module_proc(global, Base);
-	{undefined, true} -> not_existing;
-	{_, _} -> Proc
-    end.
-
-get_module_proc(Host, Base) when is_binary(Host) ->
-    get_module_proc(binary_to_list(Host), Base);
-get_module_proc(global, Base) ->
-    list_to_atom(atom_to_list(Base) ++ "__global");
 get_module_proc(Host, {frontend, Base}) ->
     get_module_proc("frontend_" ++ Host, Base);
 get_module_proc(Host, Base) ->
     list_to_atom(atom_to_list(Base) ++ "_" ++ Host).
 
-%% @spec(Host::string() | global, Module::atom()) -> true | false
-%% @doc Check if the module is loaded in this host (or global), or not.
 is_loaded(Host, Module) ->
-    ets:member(ejabberd_modules, {Module, Host})
-    orelse ets:member(ejabberd_modules, {Module, global}).
+    ets:member(ejabberd_modules, {Module, Host}).
+

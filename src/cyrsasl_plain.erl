@@ -27,42 +27,21 @@
 -module(cyrsasl_plain).
 -author('alexey@process-one.net').
 
--export([start/1, stop/0, mech_new/1, mech_step/2, parse/1]).
-
--include("cyrsasl.hrl").
+-export([start/1, stop/0, mech_new/4, mech_step/2, parse/1]).
 
 -behaviour(cyrsasl).
 
-%% @type mechstate() = {state, CheckPassword}
-%%     CheckPassword = function().
-
 -record(state, {check_password}).
-
-%% @spec (Opts) -> true
-%%     Opts = term()
 
 start(_Opts) ->
     cyrsasl:register_mechanism("PLAIN", ?MODULE, plain),
     ok.
 
-%% @spec () -> ok
-
 stop() ->
     ok.
 
-mech_new(#sasl_params{check_password = CheckPassword}) ->
+mech_new(_Host, _GetPassword, CheckPassword, _CheckPasswordDigest) ->
     {ok, #state{check_password = CheckPassword}}.
-
-%% @spec (State, ClientIn) -> Ok | Error
-%%     State = mechstate()
-%%     ClientIn = string()
-%%     Ok = {ok, Props}
-%%         Props = [Prop]
-%%         Prop = {username, Username} | {authzid, AuthzId} | {auth_module, AuthModule}
-%%         Username = string()
-%%         AuthzId = string()
-%%         AuthModule = atom()
-%%     Error = {error, Reason} | {error, Reason, Text, Username}
 
 mech_step(State, ClientIn) ->
     case prepare(ClientIn) of
@@ -71,13 +50,11 @@ mech_step(State, ClientIn) ->
 		{true, AuthModule} ->
 		    {ok, [{username, User}, {authzid, AuthzId},
 			  {auth_module, AuthModule}]};
-		{false, ReasonAuthFail} when is_list(ReasonAuthFail) ->
-		    {error, 'not-authorized', ReasonAuthFail, User};
 		_ ->
-		    {error, 'not-authorized', "", User}
+		    {error, "not-authorized", User}
 	    end;
 	_ ->
-	    {error, 'malformed-request'}
+	    {error, "bad-protocol"}
     end.
 
 prepare(ClientIn) ->
@@ -99,12 +76,8 @@ prepare(ClientIn) ->
     end.
 
 
-%% @hidden
-
 parse(S) ->
     parse1(S, "", []).
-
-%% @hidden
 
 parse1([0 | Cs], S, T) ->
     parse1(Cs, "", [lists:reverse(S) | T]);

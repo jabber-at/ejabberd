@@ -46,8 +46,6 @@ config() ->
 check_database_modules() ->
      [check_database_module(M)||M<-get_db_used()].
 
-check_database_module(host) ->
-    ok;
 check_database_module(odbc) ->
     check_modules(odbc, [odbc, odbc_app, odbc_sup, ejabberd_odbc, ejabberd_odbc_sup, odbc_queries]);
 check_database_module(mysql) ->
@@ -88,8 +86,8 @@ get_db_used() ->
     DBs = lists:foldr(
 	    fun([Domain, DB], Acc) ->
 		    case check_odbc_option(
-			   ejabberd_config:get_local_option
-                             ({auth_method, Domain})) of
+			   ejabberd_config:get_local_option(
+			     {auth_method, Domain})) of
 			true -> [get_db_type(DB)|Acc];
 			_ -> Acc
 		    end

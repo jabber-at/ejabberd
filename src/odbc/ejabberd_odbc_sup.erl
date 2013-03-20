@@ -30,9 +30,8 @@
 %% API
 -export([start_link/1,
 	 init/1,
-	 add_pid/3,
-	 remove_pid/3,
-	 get_dbtype/1,
+	 add_pid/2,
+	 remove_pid/2,
 	 get_pids/1,
 	 get_random_pid/1
 	]).
@@ -47,7 +46,7 @@
 -define(CONNECT_TIMEOUT, 500). % milliseconds
 
 
--record(sql_pool, {host, pid, dbtype}).
+-record(sql_pool, {host, pid}).
 
 start_link(Host) ->
     mnesia:create_table(sql_pool,
@@ -100,51 +99,26 @@ init([Host]) ->
 		     [?MODULE]}
 	    end, lists:seq(1, PoolSize))}}.
 
-%% @spec (Host::string()) -> [pid()]
 get_pids(Host) ->
-    case ejabberd_config:get_local_option({odbc_server, Host}) of
-	{host, Host1} ->
-	    get_pids(Host1);
-	_ ->
-	    Rs = mnesia:dirty_read(sql_pool, Host),
-	    [R#sql_pool.pid || R <- Rs]
-    end.
+    Rs = mnesia:dirty_read(sql_pool, Host),
+    [R#sql_pool.pid || R <- Rs].
 
-get_random_pid(HostB) when is_binary(HostB) ->
-    get_random_pid(binary_to_list(HostB));
-get_random_pid(global) ->
-    get_random_pid("localhost");
 get_random_pid(Host) ->
-    Pids = get_pids(ejabberd:normalize_host(Host)),
+    Pids = get_pids(Host),
     lists:nth(erlang:phash(now(), length(Pids)), Pids).
 
-get_dbtype(HostB) when is_binary(HostB) ->
-    get_dbtype(binary_to_list(HostB));
-get_dbtype(global) ->
-    get_dbtype("localhost");
-get_dbtype(Host) ->
-    case ejabberd_config:get_local_option({odbc_server, Host}) of
-       {host, Host1} ->
-           get_dbtype(Host1);
-       _ ->
-           [#sql_pool{dbtype = Dbtype}|_] = mnesia:dirty_read(sql_pool, Host),
-           Dbtype
-    end.
-
-add_pid(Host, Pid, Dbtype) ->
+add_pid(Host, Pid) ->
     F = fun() ->
 		mnesia:write(
 		  #sql_pool{host = Host,
-			    pid = Pid,
-			    dbtype = Dbtype})
+			    pid = Pid})
 	end,
     mnesia:ets(F).
 
-remove_pid(Host, Pid, Dbtype) ->
+remove_pid(Host, Pid) ->
     F = fun() ->
 		mnesia:delete_object(
 		  #sql_pool{host = Host,
-			    pid = Pid,
-			    dbtype = Dbtype})
+			    pid = Pid})
 	end,
     mnesia:ets(F).

@@ -42,10 +42,11 @@ start(normal, _Args) ->
     ejabberd_loglevel:set(4),
     write_pid_file(),
     application:start(sasl),
-    application:start(exmpp),
     randoms:start(),
     db_init(),
     sha:start(),
+    stringprep_sup:start_link(),
+    xml:start(),
     start(),
     translate:start(),
     acl:start(),
@@ -66,10 +67,7 @@ start(normal, _Args) ->
     %ejabberd_debug:eprof_start(),
     %ejabberd_debug:fprof_start(),
     maybe_add_nameservers(),
-    print_start_debug_info(),
     start_modules(),
-    ejabberd_cluster:announce(),
-    ejabberd_node_groups:start(),
     ejabberd_listener:start_listeners(),
     ?INFO_MSG("ejabberd ~s is started in the node ~p", [?VERSION, node()]),
     Sup;
@@ -108,7 +106,19 @@ init() ->
     LogPath = get_log_path(),
     error_logger:add_report_handler(ejabberd_logger_h, LogPath),
     erl_ddll:load_driver(ejabberd:get_so_path(), tls_drv),
-    ok.
+    case erl_ddll:load_driver(ejabberd:get_so_path(), expat_erl) of
+	ok -> ok;
+	{error, already_loaded} -> ok
+    end,
+    Port = open_port({spawn, "expat_erl"}, [binary]),
+    loop(Port).
+
+
+loop(Port) ->
+    receive
+	_ ->
+	    loop(Port)
+    end.
 
 db_init() ->
     case mnesia:system_info(extra_db_nodes) of
@@ -122,15 +132,6 @@ db_init() ->
 
 %% Start all the modules in all the hosts
 start_modules() ->
-    case ejabberd_config:get_local_option({static_modules, global}) of
-	undefined ->
-	    ok;
-	StaticModules ->
-	    lists:foreach(
-	      fun({Module, Args}) ->
-		      gen_mod:start_module(global, Module, Args)
-	      end, StaticModules)
-    end,
     lists:foreach(
       fun(Host) ->
 	      case ejabberd_config:get_local_option({modules, Host}) of
@@ -238,11 +239,3 @@ delete_pid_file() ->
 	PidFilename ->
 	    file:delete(PidFilename)
     end.
-
-print_start_debug_info() ->
-    ?DEBUG("Inet DB RC:~n~p", [inet_db:get_rc()]),
-    ?DEBUG("Mnesia database:~n~p", [mnesia:system_info(all)]),
-    ?DEBUG("Mnesia tables:~n~p",
-	   [ [{Table, mnesia:table_info(Table, all)} ||
-		 Table <- lists:sort(mnesia:system_info(tables))] ]),
-    ok.

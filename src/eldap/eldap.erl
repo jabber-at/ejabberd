@@ -53,6 +53,7 @@
 %%% NOTICE: STARTTLS is not supported.
 
 %%% --------------------------------------------------------------------
+-vc('$Id$ ').
 
 
 %%%----------------------------------------------------------------------
@@ -111,7 +112,7 @@
 		host = null,   % Connected Host LDAP server
 		port = 389,    % The LDAP server port
 		sockmod,       % SockMod (gen_tcp|tls)
-		tls = none,    % LDAP/LDAPS (none|starttls|tls)
+		tls = none,    % LDAP/LDAPS (none|tls)
 		tls_options = [],
 		fd = null,     % Socket filedescriptor.
 		rootdn = "",   % Name of the entry to bind as
@@ -438,6 +439,7 @@ init([]) ->
     end;
 init({Hosts, Port, Rootdn, Passwd, Opts}) ->
     catch ssl:start(),
+    %% ssl:seed was removed in OTP R14B04, newer Dialyzer will complain
     catch ssl:seed(randoms:get_string()),
     Encrypt = case proplists:get_value(encrypt, Opts) of
 		  tls -> tls;

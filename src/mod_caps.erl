@@ -58,30 +58,14 @@
 	 c2s_presence_in/2,
 	 c2s_broadcast_recipients/5]).
 
-
--include_lib("exmpp/include/exmpp.hrl").
--include_lib("exmpp/include/exmpp_jid.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 
 -define(PROCNAME, ejabberd_mod_caps).
 -define(BAD_HASH_LIFETIME, 600). %% in seconds
 
-%% TODO : -type and -spec
-
--record(caps,
-{
-    node    :: binary(),
-    version :: binary(),
-    hash    :: binary(),
-    exts    :: [] | [binary(),...]
-}).
-
--record(caps_features,
-{
-    node_pair     :: binary(),
-    features = [] :: [] | [binary(),...]
-}).
+-record(caps, {node, version, hash, exts}).
+-record(caps_features, {node_pair, features = []}).
 
 -record(state, {host}).
 
@@ -92,13 +76,11 @@ start_link(Host, Opts) ->
     Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, Opts) ->
-    Proc = gen_mod:get_module_proc(HostB, ?PROCNAME),
+start(Host, Opts) ->
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     ChildSpec =
 	{Proc,
-	 {?MODULE, start_link, [HostB, Opts]},
+	 {?MODULE, start_link, [Host, Opts]},
 	 transient,
 	 1000,
 	 worker,
@@ -120,14 +102,13 @@ get_features(#caps{node = Node, version = Version, exts = Exts}) ->
     SubNodes = [Version | Exts],
     lists:foldl(
       fun(SubNode, Acc) ->
-	      case cache_tab:lookup(caps_features, {Node, SubNode},
-				    caps_read_fun({Node, SubNode})) of
-		  error ->
-			Acc;
+	      BinaryNode = node_to_binary(Node, SubNode),
+	      case cache_tab:lookup(caps_features, BinaryNode,
+				    caps_read_fun(BinaryNode)) of
 		  {ok, Features} when is_list(Features) ->
-			Features ++ Acc;
+		      binary_to_features(Features) ++ Acc;
 		  _ ->
-			Acc
+		      Acc
 	      end
       end, [], SubNodes).
 
@@ -138,15 +119,25 @@ get_features(#caps{node = Node, version = Version, exts = Exts}) ->
 read_caps(Els) ->
     read_caps(Els, nothing).
 
-read_caps([#xmlel{ns = ?NS_CAPS, name = 'c'} = El | Tail], _Result) ->
-    Node = exmpp_xml:get_attribute(El, <<"node">>, <<>>),
-    Version = exmpp_xml:get_attribute(El, <<"ver">>, <<>>),
-    Hash = exmpp_xml:get_attribute(El, <<"hash">>, <<>>),
-    Exts = [list_to_binary(Feature)
-	    || Feature <- string:tokens(exmpp_xml:get_attribute_as_list(El, <<"ext">>, ""), " ")],
-    read_caps(Tail, #caps{node = Node, hash = Hash, version = Version, exts = Exts});
-read_caps([#xmlel{ns = ?NS_MUC_USER, name = 'x'} | _Tail], _Result) ->
-    nothing;
+read_caps([{xmlelement, "c", Attrs, _Els} | Tail], Result) ->
+    case xml:get_attr_s("xmlns", Attrs) of
+	?NS_CAPS ->
+	    Node = xml:get_attr_s("node", Attrs),
+	    Version = xml:get_attr_s("ver", Attrs),
+	    Hash = xml:get_attr_s("hash", Attrs),
+	    Exts = string:tokens(xml:get_attr_s("ext", Attrs), " "),
+	    read_caps(Tail, #caps{node = Node, hash = Hash,
+				  version = Version, exts = Exts});
+	_ ->
+	    read_caps(Tail, Result)
+    end;
+read_caps([{xmlelement, "x", Attrs, _Els} | Tail], Result) ->
+    case xml:get_attr_s("xmlns", Attrs) of
+	?NS_MUC_USER ->
+	    nothing;
+	_ ->
+	    read_caps(Tail, Result)
+    end;
 read_caps([_ | Tail], Result) ->
     read_caps(Tail, Result);
 read_caps([], Result) ->
@@ -155,87 +146,88 @@ read_caps([], Result) ->
 %%====================================================================
 %% Hooks
 %%====================================================================
-user_send_packet(#jid{node = U, domain = S} = From, #jid{node = U, domain = S} = _To,
-		 #xmlel{name = 'presence', attrs = Attrs, children = Els}) ->
-    Type = exmpp_xml:get_attribute_from_list(Attrs, <<"type">>, <<>>),
-    if Type == <<>> ; Type == <<"available">> ->
-	    case read_caps(exmpp_xml:remove_cdata_from_list(Els)) of
-		nothing ->
-		    ok;
-		#caps{version = Version, exts = Exts} = Caps ->
-		    feature_request(_Server = binary_to_list(S), From, Caps, [Version | Exts])
-		    end;
-	true ->
-	    ok
-    end;
-user_send_packet(_From, _To, _Packet) ->
-    ok.
-
-user_receive_packet(#jid{domain = Server}, From, _To,
-		    #xmlel{name = 'presence', attrs = Attrs, children = Els}) ->
-    Type = exmpp_xml:get_attribute_from_list(Attrs, <<"type">>, <<>>),
-    if Type == <<>> ; Type == <<"available">> ->
-	    case read_caps(exmpp_xml:remove_cdata_from_list(Els)) of
+user_send_packet(#jid{luser = User, lserver = Server} = From,
+		 #jid{luser = User, lserver = Server, lresource = ""},
+		 {xmlelement, "presence", Attrs, Els}) ->
+    Type = xml:get_attr_s("type", Attrs),
+    if Type == ""; Type == "available" ->
+	    case read_caps(Els) of
 		nothing ->
 		    ok;
 		#caps{version = Version, exts = Exts} = Caps ->
 		    feature_request(Server, From, Caps, [Version | Exts])
 	    end;
-	true -> ok
+       true ->
+	    ok
+    end;
+user_send_packet(_From, _To, _Packet) ->
+    ok.
+
+user_receive_packet(#jid{lserver = Server}, From, _To,
+		    {xmlelement, "presence", Attrs, Els}) ->
+    Type = xml:get_attr_s("type", Attrs),
+    if Type == ""; Type == "available" ->
+	    case read_caps(Els) of
+		nothing ->
+		    ok;
+		#caps{version = Version, exts = Exts} = Caps ->
+		    feature_request(Server, From, Caps, [Version | Exts])
+	    end;
+       true ->
+	    ok
     end;
 user_receive_packet(_JID, _From, _To, _Packet) ->
     ok.
 
 caps_stream_features(Acc, MyHost) ->
     case make_my_disco_hash(MyHost) of
-	<<"">> ->
+	"" ->
 	    Acc;
 	Hash ->
-	    [#xmlel{name = c,
-		    ns = ?NS_CAPS,
-		    attrs = [?XMLATTR(<<"hash">>, "sha-1"),
-			     ?XMLATTR(<<"node">>, ?EJABBERD_URI),
-			     ?XMLATTR(<<"ver">>, Hash)]} | Acc]
+	    [{xmlelement, "c", [{"xmlns", ?NS_CAPS},
+				{"hash", "sha-1"},
+				{"node", ?EJABBERD_URI},
+				{"ver", Hash}], []} | Acc]
     end.
 
-disco_features(_Acc, From, To, <<?EJABBERD_URI, $#, _/binary>>, Lang) ->
+disco_features(_Acc, From, To, ?EJABBERD_URI ++ "#" ++ [_|_], Lang) ->
     ejabberd_hooks:run_fold(disco_local_features,
-			    To#jid.domain,
+			    To#jid.lserver,
 			    empty,
-			    [From, To, <<>>, Lang]);
+			    [From, To, "", Lang]);
 disco_features(Acc, _From, _To, _Node, _Lang) ->
     Acc.
 
-disco_identity(_Acc, From, To, <<?EJABBERD_URI, $#, _/binary>>, Lang) ->
+disco_identity(_Acc, From, To, ?EJABBERD_URI ++ "#" ++ [_|_], Lang) ->
     ejabberd_hooks:run_fold(disco_local_identity,
-			    To#jid.domain,
+			    To#jid.lserver,
 			    [],
-			    [From, To, <<>>, Lang]);
+			    [From, To, "", Lang]);
 disco_identity(Acc, _From, _To, _Node, _Lang) ->
     Acc.
 
-disco_info(_Acc, Host, Module, <<?EJABBERD_URI, $#, _/binary>>, Lang) ->
+disco_info(_Acc, Host, Module, ?EJABBERD_URI ++ "#" ++ [_|_], Lang) ->
     ejabberd_hooks:run_fold(disco_info,
-			    list_to_binary(Host),
+			    Host,
 			    [],
-			    [Host, Module, <<>>, Lang]);
+			    [Host, Module, "", Lang]);
 disco_info(Acc, _Host, _Module, _Node, _Lang) ->
     Acc.
 
-c2s_presence_in(C2SState, {From, To, #xmlel{attrs = Attrs, children = Els}}) ->
-    Type = exmpp_xml:get_attribute_from_list(Attrs, <<"type">>, <<>>),
+c2s_presence_in(C2SState, {From, To, {_, _, Attrs, Els}}) ->
+    Type = xml:get_attr_s("type", Attrs),
     Subscription = ejabberd_c2s:get_subscription(From, C2SState),
-    Insert = ((Type == <<>>) or (Type == <<"available">>))
+    Insert = ((Type == "") or (Type == "available"))
 	and ((Subscription == both) or (Subscription == to)),
-    Delete = (Type == <<"unavailable">>) or (Type == <<"error">>),
+    Delete = (Type == "unavailable") or (Type == "error") or (Type == "invisible"),
     if Insert or Delete ->
-	    LFrom = exmpp_jid:to_lower(From),
+	    LFrom = jlib:jid_tolower(From),
 	    Rs = case ejabberd_c2s:get_aux_field(caps_resources, C2SState) of
-		    {ok, Rs1} ->
-			Rs1;
-		    error ->
-			gb_trees:empty()
-	    end,
+		     {ok, Rs1} ->
+			 Rs1;
+		     error ->
+			 gb_trees:empty()
+		 end,
 	    Caps = read_caps(Els),
 	    {CapsUpdated, NewRs} =
 		case Caps of
@@ -254,13 +246,13 @@ c2s_presence_in(C2SState, {From, To, #xmlel{attrs = Attrs, children = Els}}) ->
 			{false, gb_trees:delete_any(LFrom, Rs)}
 		end,
 	    if CapsUpdated ->
-		    ejabberd_hooks:run(caps_update, To#jid.domain,
+		    ejabberd_hooks:run(caps_update, To#jid.lserver,
 				       [From, To, get_features(Caps)]);
-		true ->
+	       true ->
 		    ok
 	    end,
 	    ejabberd_c2s:set_aux_field(caps_resources, NewRs, C2SState);
-	true ->
+       true ->
 	    C2SState
     end.
 
@@ -269,14 +261,14 @@ c2s_broadcast_recipients(InAcc, C2SState, {pep_message, Feature},
     case ejabberd_c2s:get_aux_field(caps_resources, C2SState) of
 	{ok, Rs} ->
 	    gb_trees_fold(
-		fun(USR, Caps, Acc) ->
-		    case lists:member(Feature, get_features(Caps)) of
-			true ->
-			    [USR|Acc];
-			false ->
-			    Acc
-		    end
-	    end, InAcc, Rs);
+	      fun(USR, Caps, Acc) ->
+		      case lists:member(Feature, get_features(Caps)) of
+			  true ->
+			      [USR|Acc];
+			  false ->
+			      Acc
+		      end
+	      end, InAcc, Rs);
 	_ ->
 	    InAcc
     end;
@@ -286,7 +278,7 @@ c2s_broadcast_recipients(Acc, _, _, _, _) ->
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
-init([HostB, Opts]) ->
+init([Host, Opts]) ->
     case catch mnesia:table_info(caps_features, storage_type) of
 	{'EXIT', _} ->
 	    ok;
@@ -303,25 +295,25 @@ init([HostB, Opts]) ->
     MaxSize = gen_mod:get_opt(cache_size, Opts, 1000),
     LifeTime = gen_mod:get_opt(cache_life_time, Opts, timer:hours(24) div 1000),
     cache_tab:new(caps_features, [{max_size, MaxSize}, {life_time, LifeTime}]),
-    ejabberd_hooks:add(c2s_presence_in, HostB,
+    ejabberd_hooks:add(c2s_presence_in, Host,
 		       ?MODULE, c2s_presence_in, 75),
-    ejabberd_hooks:add(c2s_broadcast_recipients, HostB,
+    ejabberd_hooks:add(c2s_broadcast_recipients, Host,
 		       ?MODULE, c2s_broadcast_recipients, 75),
-    ejabberd_hooks:add(user_send_packet, HostB,
+    ejabberd_hooks:add(user_send_packet, Host,
 		       ?MODULE, user_send_packet, 75),
-    ejabberd_hooks:add(user_receive_packet, HostB,
+    ejabberd_hooks:add(user_receive_packet, Host,
 		       ?MODULE, user_receive_packet, 75),
-    ejabberd_hooks:add(c2s_stream_features, HostB,
+    ejabberd_hooks:add(c2s_stream_features, Host,
 		       ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:add(s2s_stream_features, HostB,
+    ejabberd_hooks:add(s2s_stream_features, Host,
 		       ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:add(disco_local_features, HostB,
+    ejabberd_hooks:add(disco_local_features, Host,
 		       ?MODULE, disco_features, 75),
-    ejabberd_hooks:add(disco_local_identity, HostB,
+    ejabberd_hooks:add(disco_local_identity, Host,
 		       ?MODULE, disco_identity, 75),
-    ejabberd_hooks:add(disco_info, HostB,
+    ejabberd_hooks:add(disco_info, Host,
 		       ?MODULE, disco_info, 75),
-    {ok, #state{host = HostB}}.
+    {ok, #state{host = Host}}.
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -335,24 +327,24 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, State) ->
-    HostB = State#state.host,
-    ejabberd_hooks:delete(c2s_presence_in, HostB,
+    Host = State#state.host,
+    ejabberd_hooks:delete(c2s_presence_in, Host,
 			  ?MODULE, c2s_presence_in, 75),
-    ejabberd_hooks:delete(c2s_broadcast_recipients, HostB,
+    ejabberd_hooks:delete(c2s_broadcast_recipients, Host,
 			  ?MODULE, c2s_broadcast_recipients, 75),
-    ejabberd_hooks:delete(user_send_packet, HostB,
+    ejabberd_hooks:delete(user_send_packet, Host,
 			  ?MODULE, user_send_packet, 75),
-    ejabberd_hooks:delete(user_receive_packet, HostB,
+    ejabberd_hooks:delete(user_receive_packet, Host,
 			  ?MODULE, user_receive_packet, 75),
-    ejabberd_hooks:delete(c2s_stream_features, HostB,
+    ejabberd_hooks:delete(c2s_stream_features, Host,
 			  ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:delete(s2s_stream_features, HostB,
+    ejabberd_hooks:delete(s2s_stream_features, Host,
 			  ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:delete(disco_local_features, HostB,
+    ejabberd_hooks:delete(disco_local_features, Host,
 			  ?MODULE, disco_features, 75),
-    ejabberd_hooks:delete(disco_local_identity, HostB,
+    ejabberd_hooks:delete(disco_local_identity, Host,
 			  ?MODULE, disco_identity, 75),
-    ejabberd_hooks:delete(disco_info, HostB,
+    ejabberd_hooks:delete(disco_info, Host,
 			  ?MODULE, disco_info, 75),
     ok.
 
@@ -364,33 +356,36 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 feature_request(Host, From, Caps, [SubNode | Tail] = SubNodes) ->
     Node = Caps#caps.node,
-    case cache_tab:lookup(caps_features, {Node, SubNode},
-			  caps_read_fun({Node, SubNode})) of
+    BinaryNode = node_to_binary(Node, SubNode),
+    case cache_tab:lookup(caps_features, BinaryNode,
+			  caps_read_fun(BinaryNode)) of
 	{ok, Fs} when is_list(Fs) ->
 	    feature_request(Host, From, Caps, Tail);
 	Other ->
 	    NeedRequest = case Other of
-			    {ok, TS} ->
-				now_ts() >= TS + ?BAD_HASH_LIFETIME;
-			    _ ->
-				true
+			      {ok, TS} ->
+				  now_ts() >= TS + ?BAD_HASH_LIFETIME;
+			      _ ->
+				  true
 			  end,
 	    if NeedRequest ->
-		    IQ = #iq{type = 'get',
-                             iq_ns = ?NS_JABBER_CLIENT,
-			     ns = ?NS_DISCO_INFO,
-			     payload = #xmlel{ns = ?NS_DISCO_INFO,
-					      name = 'query',
-					      attrs = [
-						#xmlattr{name = <<"node">>,
-							 value = <<Node/binary, <<"#">>/binary, SubNode/binary>>}]}},
+		    IQ = #iq{type = get,
+			     xmlns = ?NS_DISCO_INFO,
+			     sub_el = [{xmlelement, "query",
+					[{"xmlns", ?NS_DISCO_INFO},
+					 {"node", Node ++ "#" ++ SubNode}],
+					[]}]},
+                    %% We cache current timestamp in order to avoid
+                    %% caps requests flood
+                    cache_tab:insert(caps_features, BinaryNode, now_ts(),
+                                     caps_write_fun(BinaryNode, now_ts())),
 		    F = fun(IQReply) ->
 				feature_response(
 				  IQReply, Host, From, Caps, SubNodes)
 			end,
 		    ejabberd_local:route_iq(
-			exmpp_jid:make(Host), From, IQ, F);
-		true ->
+		      jlib:make_jid("", Host, ""), From, IQ, F);
+	       true ->
 		    feature_request(Host, From, Caps, Tail)
 	    end
     end;
@@ -398,36 +393,34 @@ feature_request(_Host, _From, _Caps, []) ->
     ok.
 
 feature_response(#iq{type = result,
-		     payload = #xmlel{children = Els}},
+		     sub_el = [{xmlelement, _, _, Els}]},
 		 Host, From, Caps, [SubNode | SubNodes]) ->
+    BinaryNode = node_to_binary(Caps#caps.node, SubNode),
     case check_hash(Caps, Els) of
 	true ->
 	    Features = lists:flatmap(
-		fun(#xmlel{name = 'feature', attrs = FAttrs}) ->
-		    case exmpp_xml:get_attribute_from_list(FAttrs, <<"var">>, <<>>) of
-			<<>>    -> [];
-			Feature -> [Feature]
-		    end;
-		   (_) ->
-			[]
-		end, Els),
+			 fun({xmlelement, "feature", FAttrs, _}) ->
+				 [xml:get_attr_s("var", FAttrs)];
+			    (_) ->
+				 []
+			 end, Els),
+	    BinaryFeatures = features_to_binary(Features),
 	    cache_tab:insert(
-		caps_features, {Caps#caps.node, SubNode}, Features,
-		caps_write_fun({Caps#caps.node, SubNode}, Features));
+	      caps_features, BinaryNode, BinaryFeatures,
+	      caps_write_fun(BinaryNode, BinaryFeatures));
 	false ->
-	    %% We cache current timestamp and will probe the client
-	    %% after BAD_HASH_LIFETIME seconds.
-	    cache_tab:insert(caps_features, {Caps#caps.node, SubNode}, now_ts(),
-			     caps_write_fun({Caps#caps.node, SubNode}, now_ts()))
+            ok
     end,
     feature_request(Host, From, Caps, SubNodes);
-feature_response(_IQResult, Host, From, Caps, [SubNode | SubNodes]) ->
-    %% We got type=error or invalid type=result stanza or timeout,
-    %% so we cache current timestamp and will probe the client
-    %% after BAD_HASH_LIFETIME seconds.
-    cache_tab:insert(caps_features, {Caps#caps.node, SubNode}, now_ts(),
-		     caps_write_fun({Caps#caps.node, SubNode}, now_ts())),
+feature_response(_IQResult, Host, From, Caps, [_SubNode | SubNodes]) ->
+    %% We got type=error or invalid type=result stanza or timeout.
     feature_request(Host, From, Caps, SubNodes).
+
+node_to_binary(Node, SubNode) ->
+    {list_to_binary(Node), list_to_binary(SubNode)}.
+
+features_to_binary(L) -> [list_to_binary(I) || I <- L].
+binary_to_features(L) -> [binary_to_list(I) || I <- L].
 
 caps_read_fun(Node) ->
     fun() ->
@@ -447,31 +440,29 @@ caps_write_fun(Node, Features) ->
     end.
 
 make_my_disco_hash(Host) ->
-    JID = exmpp_jid:make(Host),
+    JID = jlib:make_jid("", Host, ""),
     case {ejabberd_hooks:run_fold(disco_local_features,
 				  Host,
 				  empty,
-				  [JID, JID, <<>>, <<>>]),
+				  [JID, JID, "", ""]),
 	  ejabberd_hooks:run_fold(disco_local_identity,
 				  Host,
 				  [],
-				  [JID, JID, <<>>, <<>>]),
+				  [JID, JID, "", ""]),
 	  ejabberd_hooks:run_fold(disco_info,
 				  Host,
 				  [],
-				  [Host, undefined, <<>>, <<>>])} of
+				  [Host, undefined, "", ""])} of
 	{{result, Features}, Identities, Info} ->
 	    Feats = lists:map(
 		      fun({{Feat, _Host}}) ->
-			      #xmlel{name = feature,
-				     attrs = [?XMLATTR(<<"var">>, Feat)]};
+			      {xmlelement, "feature", [{"var", Feat}], []};
 			 (Feat) ->
-			      #xmlel{name = feature,
-				     attrs = [?XMLATTR(<<"var">>, Feat)]}
+			      {xmlelement, "feature", [{"var", Feat}], []}
 		      end, Features),
 	    make_disco_hash(Identities ++ Info ++ Feats, sha1);
 	_Err ->
-	    <<"">>
+	    ""
     end.
 
 -ifdef(HAVE_MD2).
@@ -479,7 +470,7 @@ make_disco_hash(DiscoEls, Algo) ->
     Concat = [concat_identities(DiscoEls),
 	      concat_features(DiscoEls),
 	      concat_info(DiscoEls)],
-    base64:encode(
+    base64:encode_to_string(
       if Algo == md2 ->
 	      sha:md2(Concat);
 	 Algo == md5 ->
@@ -498,19 +489,19 @@ make_disco_hash(DiscoEls, Algo) ->
 
 check_hash(Caps, Els) ->
     case Caps#caps.hash of
-	<<"md2">> ->
+	"md2" ->
 	    Caps#caps.version == make_disco_hash(Els, md2);
-	<<"md5">> ->
+	"md5" ->
 	    Caps#caps.version == make_disco_hash(Els, md5);
-	<<"sha-1">> ->
+	"sha-1" ->
 	    Caps#caps.version == make_disco_hash(Els, sha1);
-	<<"sha-224">> ->
+	"sha-224" ->
 	    Caps#caps.version == make_disco_hash(Els, sha224);
-	<<"sha-256">> ->
+	"sha-256" ->
 	    Caps#caps.version == make_disco_hash(Els, sha256);
-	<<"sha-384">> ->
+	"sha-384" ->
 	    Caps#caps.version == make_disco_hash(Els, sha384);
-	<<"sha-512">> ->
+	"sha-512" ->
 	    Caps#caps.version == make_disco_hash(Els, sha512);
 	_ ->
 	    true
@@ -520,7 +511,7 @@ make_disco_hash(DiscoEls, Algo) ->
     Concat = [concat_identities(DiscoEls),
 	      concat_features(DiscoEls),
 	      concat_info(DiscoEls)],
-    base64:encode(
+    base64:encode_to_string(
       if Algo == md5 ->
 	      crypto:md5(Concat);
 	 Algo == sha1 ->
@@ -537,17 +528,17 @@ make_disco_hash(DiscoEls, Algo) ->
 
 check_hash(Caps, Els) ->
     case Caps#caps.hash of
-	<<"md5">> ->
+	"md5" ->
 	    Caps#caps.version == make_disco_hash(Els, md5);
-	<<"sha-1">> ->
+	"sha-1" ->
 	    Caps#caps.version == make_disco_hash(Els, sha1);
-	<<"sha-224">> ->
+	"sha-224" ->
 	    Caps#caps.version == make_disco_hash(Els, sha224);
-	<<"sha-256">> ->
+	"sha-256" ->
 	    Caps#caps.version == make_disco_hash(Els, sha256);
-	<<"sha-384">> ->
+	"sha-384" ->
 	    Caps#caps.version == make_disco_hash(Els, sha384);
-	<<"sha-512">> ->
+	"sha-512" ->
 	    Caps#caps.version == make_disco_hash(Els, sha512);
 	_ ->
 	    true
@@ -557,8 +548,8 @@ check_hash(Caps, Els) ->
 concat_features(Els) ->
     lists:usort(
       lists:flatmap(
-	fun(#xmlel{name = feature} = El) ->
-		[[exmpp_xml:get_attribute(El, <<"var">>, <<>>), $<]];
+	fun({xmlelement, "feature", Attrs, _}) ->
+		[[xml:get_attr_s("var", Attrs), $<]];
 	   (_) ->
 		[]
 	end, Els)).
@@ -566,11 +557,11 @@ concat_features(Els) ->
 concat_identities(Els) ->
     lists:sort(
       lists:flatmap(
-	fun(#xmlel{name = identity} = El) ->
-		[[exmpp_xml:get_attribute_as_binary(El, <<"category">>, <<>>), $/,
-		  exmpp_xml:get_attribute_as_binary(El, <<"type">>, <<>>), $/,
-		  exmpp_xml:get_attribute_as_binary(El, <<"lang">>, <<>>), $/,
-		  exmpp_xml:get_attribute_as_binary(El, <<"name">>, <<>>), $<]];
+	fun({xmlelement, "identity", Attrs, _}) ->
+		[[xml:get_attr_s("category", Attrs), $/,
+		  xml:get_attr_s("type", Attrs), $/,
+		  xml:get_attr_s("xml:lang", Attrs), $/,
+		  xml:get_attr_s("name", Attrs), $<]];
 	   (_) ->
 		[]
 	end, Els)).
@@ -578,9 +569,10 @@ concat_identities(Els) ->
 concat_info(Els) ->
     lists:sort(
       lists:flatmap(
-	fun(#xmlel{name = x, ns = ?NS_DATA_FORMS, children = Fields} = El) ->
-		case exmpp_xml:get_attribute(El, <<"type">>, <<>>) of
-		    <<"result">> ->
+	fun({xmlelement, "x", Attrs, Fields}) ->
+		case {xml:get_attr_s("xmlns", Attrs),
+		      xml:get_attr_s("type", Attrs)} of
+		    {?NS_XDATA, "result"} ->
 			[concat_xdata_fields(Fields)];
 		    _ ->
 			[]
@@ -592,28 +584,27 @@ concat_info(Els) ->
 concat_xdata_fields(Fields) ->
     [Form, Res] =
 	lists:foldl(
-	  fun(#xmlel{name = field, children = Els} = El,
+	  fun({xmlelement, "field", Attrs, Els} = El,
 	      [FormType, VarFields] = Acc) ->
-		  case exmpp_xml:get_attribute_as_binary(El, <<"var">>, <<>>) of
-		      <<>> ->
+		  case xml:get_attr_s("var", Attrs) of
+		      "" ->
 			  Acc;
-		      <<"FORM_TYPE">> ->
-			  [exmpp_xml:get_path(
-			     El, [{element, value}, cdata]), VarFields];
+		      "FORM_TYPE" ->
+			  [xml:get_subtag_cdata(El, "value"), VarFields];
 		      Var ->
 			  [FormType,
 			   [[[Var, $<],
 			     lists:sort(
 			       lists:flatmap(
-				 fun(#xmlel{name = value} = VEl) ->
-					 [[exmpp_xml:get_cdata(VEl), $<]];
+				 fun({xmlelement, "value", _, VEls}) ->
+					 [[xml:get_cdata(VEls), $<]];
 				    (_) ->
 					 []
 				 end, Els))] | VarFields]]
 		  end;
 	     (_, Acc) ->
 		  Acc
-	  end, [<<>>, []], Fields),
+	  end, ["", []], Fields),
     [Form, $<, lists:sort(Res)].
 
 gb_trees_fold(F, Acc, Tree) ->

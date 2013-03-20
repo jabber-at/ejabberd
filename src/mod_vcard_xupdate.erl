@@ -18,7 +18,7 @@
 	 vcard_set/3]).
 
 -include("ejabberd.hrl").
--include_lib("exmpp/include/exmpp.hrl").
+-include("jlib.hrl").
 
 -record(vcard_xupdate, {us, hash}).
 
@@ -26,23 +26,20 @@
 %% gen_mod callbacks
 %%====================================================================
 
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, _Opts) ->
+start(Host, _Opts) ->
     mnesia:create_table(vcard_xupdate,
                         [{disc_copies, [node()]},
                          {attributes, record_info(fields, vcard_xupdate)}]),
-    ejabberd_hooks:add(c2s_update_presence, HostB,
+    ejabberd_hooks:add(c2s_update_presence, Host,
 		       ?MODULE, update_presence, 100),
-    ejabberd_hooks:add(vcard_set, HostB,
+    ejabberd_hooks:add(vcard_set, Host,
 		       ?MODULE, vcard_set, 100),
     ok.
 
 stop(Host) ->
-    HostB = list_to_binary(Host),
-    ejabberd_hooks:delete(c2s_update_presence, HostB,
+    ejabberd_hooks:delete(c2s_update_presence, Host,
 			  ?MODULE, update_presence, 100),
-    ejabberd_hooks:delete(vcard_set, HostB,
+    ejabberd_hooks:delete(vcard_set, Host,
 			  ?MODULE, vcard_set, 100),
     ok.
 
@@ -50,23 +47,23 @@ stop(Host) ->
 %% Hooks
 %%====================================================================
 
-update_presence(Packet, User, Host) ->
-    case exmpp_presence:is_presence(Packet) andalso
-	exmpp_xml:get_attribute_as_binary(Packet, <<"type">>, undefined)
-	== undefined of
-        true ->
+update_presence({xmlelement, "presence", Attrs, _Els} = Packet, User, Host) ->
+    case xml:get_attr_s("type", Attrs) of
+        [] ->
 	    presence_with_xupdate(Packet, User, Host);
-        false ->
+        _ ->
             Packet
-    end.
+    end;
+update_presence(Packet, _User, _Host) ->
+    Packet.
 
-vcard_set(User, Server, VCARD) ->
-    US = {User, Server},
-    case exmpp_xml:get_path(VCARD, [{element, "PHOTO"}, {element, "BINVAL"}, cdata_as_list]) of
+vcard_set(LUser, LServer, VCARD) ->
+    US = {LUser, LServer},
+    case xml:get_path_s(VCARD, [{elem, "PHOTO"}, {elem, "BINVAL"}, cdata]) of
 	[] ->
-	    remove_xupdate(User, Server);
+	    remove_xupdate(LUser, LServer);
 	BinVal ->
-	    add_xupdate(User, Server, list_to_binary(sha:sha(jlib:decode_base64(BinVal))))
+	    add_xupdate(LUser, LServer, sha:sha(jlib:decode_base64(BinVal)))
     end,
     ejabberd_sm:force_update_presence(US).
 
@@ -98,18 +95,27 @@ remove_xupdate(LUser, LServer) ->
 %%% Presence stanza rebuilding
 %%%----------------------------------------------------------------------
 
-presence_with_xupdate(Stanza, User, Host) ->
+presence_with_xupdate({xmlelement, "presence", Attrs, Els}, User, Host) ->
     XPhotoEl = build_xphotoel(User, Host),
-    StanzaReduced = exmpp_xml:remove_element(Stanza, ?NS_VCARD_UPDATE, x),
-    exmpp_xml:append_child(StanzaReduced, XPhotoEl).
+    Els2 = presence_with_xupdate2(Els, [], XPhotoEl),
+    {xmlelement, "presence", Attrs, Els2}.
+
+presence_with_xupdate2([], Els2, XPhotoEl) ->
+    lists:reverse([XPhotoEl | Els2]);
+%% This clause assumes that the x element contains only the XMLNS attribute:
+presence_with_xupdate2([{xmlelement, "x", [{"xmlns", ?NS_VCARD_UPDATE}], _}
+			| Els], Els2, XPhotoEl) ->
+    presence_with_xupdate2(Els, Els2, XPhotoEl);
+presence_with_xupdate2([El | Els], Els2, XPhotoEl) ->
+    presence_with_xupdate2(Els, [El | Els2], XPhotoEl).
 
 build_xphotoel(User, Host) ->
     Hash = get_xupdate(User, Host),
     PhotoSubEls = case Hash of
-		      Hash when is_binary(Hash) ->
-			  [exmpp_xml:cdata(Hash)];
+		      Hash when is_list(Hash) ->
+			  [{xmlcdata, Hash}];
 		      _ ->
 			  []
 		  end,
-    PhotoEl = [exmpp_xml:element(?NS_VCARD_UPDATE, photo, [], PhotoSubEls)],
-    exmpp_xml:element(?NS_VCARD_UPDATE, x, [], PhotoEl).
+    PhotoEl = [{xmlelement, "photo", [], PhotoSubEls}],
+    {xmlelement, "x", [{"xmlns", ?NS_VCARD_UPDATE}], PhotoEl}.

@@ -43,7 +43,6 @@
          process/2
 	]).
 
--include_lib("exmpp/include/exmpp.hrl").
 -include("ejabberd.hrl").
 -include("jlib.hrl").
 -include("ejabberd_http.hrl").
@@ -62,8 +61,8 @@
 process([], #request{method = 'POST',
                      data = []}) ->
     ?DEBUG("Bad Request: no data", []),
-    {400, ?HEADER, #xmlel{name = h1, children =
-			  [#xmlcdata{cdata = <<"400 Bad Request">>}]}};
+    {400, ?HEADER, {xmlelement, "h1", [],
+                    [{xmlcdata, "400 Bad Request"}]}};
 process([], #request{method = 'POST',
                      data = Data,
                      ip = IP}) ->
@@ -75,39 +74,37 @@ process([], #request{method = 'GET',
 process([], #request{method = 'OPTIONS',
                      data = []}) ->
     {200, ?OPTIONS_HEADER, []};
+process([], #request{method = 'HEAD'}) ->
+    {200, ?HEADER, []};
 process(_Path, _Request) ->
     ?DEBUG("Bad Request: ~p", [_Request]),
-    {400, ?HEADER, #xmlel{name = h1, children =
-			  [#xmlcdata{cdata = <<"400 Bad Request">>}]}}.
+    {400, ?HEADER, {xmlelement, "h1", [],
+                    [{xmlcdata, "400 Bad Request"}]}}.
 
 get_human_html_xmlel() ->
-    Heading = list_to_binary("ejabberd " ++ atom_to_list(?MODULE)),
-    H = #xmlel{name = h1, children = [#xmlcdata{cdata = Heading}]},
-    Par1 = #xmlel{name = p, children =
-		  [#xmlcdata{cdata = <<"An implementation of ">>},
-		   #xmlel{name = a,
-			  attrs = [#xmlattr{name = <<"href">>, value = <<"http://xmpp.org/extensions/xep-0206.html">>}],
-			  children = [#xmlcdata{cdata = <<"XMPP over BOSH (XEP-0206)">>}]
-			 }
-		  ]},
-    Par2 = #xmlel{name = p, children =
-		  [#xmlcdata{cdata = <<"This web page is only informative. "
-				      "To use HTTP-Bind you need a Jabber/XMPP client that supports it.">>}
-		  ]},
-    #xmlel{name = html,
-	   attrs = [#xmlattr{name = <<"xmlns">>, value= <<"http://www.w3.org/1999/xhtml">>}],
-	   children =
-	   [#xmlel{name = head, children = [#xmlel{name = title, children = [#xmlcdata{cdata = Heading}]}]},
-	    #xmlel{name = body, children = [H, Par1, Par2]}]}.
+    Heading = "ejabberd " ++ atom_to_list(?MODULE),
+    {xmlelement, "html", [{"xmlns", "http://www.w3.org/1999/xhtml"}],
+     [{xmlelement, "head", [],
+       [{xmlelement, "title", [], [{xmlcdata, Heading}]}]},
+      {xmlelement, "body", [],
+       [{xmlelement, "h1", [], [{xmlcdata, Heading}]},
+        {xmlelement, "p", [],
+         [{xmlcdata, "An implementation of "},
+          {xmlelement, "a",
+	   [{"href", "http://xmpp.org/extensions/xep-0206.html"}],
+           [{xmlcdata, "XMPP over BOSH (XEP-0206)"}]}]},
+        {xmlelement, "p", [],
+         [{xmlcdata, "This web page is only informative. "
+	   "To use HTTP-Bind you need a Jabber/XMPP client that supports it."}
+	 ]}
+       ]}]}.
 
 %%%----------------------------------------------------------------------
 %%% BEHAVIOUR CALLBACKS
 %%%----------------------------------------------------------------------
-start(Host, Opts) when is_list(Host) ->
-    start(list_to_binary(Host), Opts);
-start(HostB, _Opts) ->
+start(Host, _Opts) ->
     setup_database(),
-    Proc = gen_mod:get_module_proc(HostB, ?PROCNAME_MHB),
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME_MHB),
     ChildSpec =
         {Proc,
          {ejabberd_tmp_sup, start_link,
@@ -127,9 +124,7 @@ setup_database() ->
     migrate_database(),
     mnesia:create_table(http_bind,
 			[{ram_copies, [node()]},
-			 {local_content, true},
-			 {attributes, record_info(fields, http_bind)}]),
-    mnesia:add_table_copy(http_bind, node(), ram_copies).
+			 {attributes, record_info(fields, http_bind)}]).
 
 migrate_database() ->
     case catch mnesia:table_info(http_bind, attributes) of
@@ -139,10 +134,4 @@ migrate_database() ->
 	    %% Since the stored information is not important, instead
 	    %% of actually migrating data, let's just destroy the table
 	    mnesia:delete_table(http_bind)
-    end,
-    case catch mnesia:table_info(http_bind, local_content) of
-	false ->
-	    mnesia:delete_table(http_bind);
-	_ ->
-	    ok
     end.

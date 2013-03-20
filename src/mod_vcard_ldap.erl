@@ -49,10 +49,9 @@
 	 route/4
 	]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
 -include("eldap/eldap.hrl").
+-include("jlib.hrl").
 
 -define(PROCNAME, ejabberd_mod_vcard_ldap).
 
@@ -155,10 +154,9 @@ stop(Host) ->
 
 terminate(_Reason, State) ->
     Host = State#state.serverhost,
-    HostB = list_to_binary(Host),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, HostB, ?NS_VCARD),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, HostB, ?NS_VCARD),
-    ejabberd_hooks:delete(disco_sm_features, HostB, ?MODULE, get_sm_features, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_VCARD),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_VCARD),
+    ejabberd_hooks:delete(disco_sm_features, Host, ?MODULE, get_sm_features, 50),
     case State#state.search of
 	true ->
 	    ejabberd_router:unregister_route(State#state.myhost);
@@ -171,15 +169,13 @@ start_link(Host, Opts) ->
     gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
 
 init([Host, Opts]) ->
-    HostB = list_to_binary(Host),
     State = parse_options(Host, Opts),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
-    gen_iq_handler:add_iq_handler(ejabberd_local, HostB, ?NS_VCARD,
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_VCARD,
 				  ?MODULE, process_local_iq, IQDisc),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, HostB, ?NS_VCARD,
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_VCARD,
 				  ?MODULE, process_sm_iq, IQDisc),
-    ejabberd_hooks:add(disco_sm_features, 
-            list_to_binary(Host), ?MODULE, get_sm_features, 50),
+    ejabberd_hooks:add(disco_sm_features, Host, ?MODULE, get_sm_features, 50),
     eldap_pool:start_link(State#state.eldap_id,
 		     State#state.servers,
 		     State#state.backups,
@@ -200,8 +196,7 @@ handle_info({route, From, To, Packet}, State) ->
 	Pid when is_pid(Pid) ->
 	    ok;
 	_ ->
-	    Err = exmpp_stanza:reply_with_error(Packet,
-              'internal-server-error'),
+	    Err = jlib:make_error_reply(Packet, ?ERR_INTERNAL_SERVER_ERROR),
 	    ejabberd_router:route(To, From, Err)
     end,
     {noreply, State};
@@ -216,59 +211,66 @@ get_sm_features(Acc, _From, _To, Node, _Lang) ->
 	[] ->
 	    case Acc of
 		{result, Features} ->
-		    {result, [?NS_VCARD_s | Features]};
+		    {result, [?NS_VCARD | Features]};
 		empty ->
-		    {result, [?NS_VCARD_s]}
+		    {result, [?NS_VCARD]}
 	    end;
 	_ ->
 	    Acc
     end.
 
-process_local_iq(_From, _To, #iq{type = get, lang = Lang} = IQ_Rec) ->
-    Result = #xmlel{ns = ?NS_VCARD, name = 'vCard', children = [
-	exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'FN'},
-	  "ejabberd"),
-	exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'URL'},
-	  ?EJABBERD_URI),
-	exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'DESC'},
-	  translate:translate(Lang, "Erlang Jabber Server") ++
-	  "\nCopyright (c) 2002-2012 ProcessOne"),
-	exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'BDAY'},
-	  "2002-11-16")
-      ]},
-    exmpp_iq:result(IQ_Rec, Result);
-process_local_iq(_From, _To, #iq{type = set} = IQ_Rec) ->
-    exmpp_iq:error(IQ_Rec, 'not-allowed').
+process_local_iq(_From, _To, #iq{type = Type, lang = Lang, sub_el = SubEl} = IQ) ->
+    case Type of
+	set ->
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};
+	get ->
+	    IQ#iq{type = result,
+		  sub_el = [{xmlelement, "vCard",
+			     [{"xmlns", ?NS_VCARD}],
+			     [{xmlelement, "FN", [],
+			       [{xmlcdata, "ejabberd"}]},
+			      {xmlelement, "URL", [],
+			       [{xmlcdata, ?EJABBERD_URI}]},
+			      {xmlelement, "DESC", [],
+			       [{xmlcdata,
+				 translate:translate(
+				   Lang,
+				   "Erlang Jabber Server") ++
+				   "\nCopyright (c) 2002-2012 ProcessOne"}]},
+			      {xmlelement, "BDAY", [],
+			       [{xmlcdata, "2002-11-16"}]}
+			     ]}]}
+    end.
 
-process_sm_iq(_From, To, #iq{} = IQ_Rec) ->
-    LServer = exmpp_jid:prep_domain_as_list(To),
-    case catch process_vcard_ldap(To, IQ_Rec, LServer) of
+process_sm_iq(_From, #jid{lserver=LServer} = To, #iq{sub_el = SubEl} = IQ) ->
+    case catch process_vcard_ldap(To, IQ, LServer) of
 	{'EXIT', _} ->
-            exmpp_iq:error(IQ_Rec, 'internal-server-error');
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]};
 	Other ->
 	    Other
     end.
 
-process_vcard_ldap(To, IQ_Rec, Server) ->
+process_vcard_ldap(To, IQ, Server) ->
     {ok, State} = eldap_utils:get_state(Server, ?PROCNAME),
-    case IQ_Rec#iq.type of
+    #iq{type = Type, sub_el = SubEl} = IQ,
+    case Type of
 	set ->
-            exmpp_iq:error(IQ_Rec, 'not-allowed');
+	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};
 	get ->
-        LUser = exmpp_jid:prep_node_as_list(To),
+	    #jid{luser = LUser} = To,
 	    LServer = State#state.serverhost,
 	    case ejabberd_auth:is_user_exists(LUser, LServer) of
 		true ->
 		    VCardMap = State#state.vcard_map,
 		    case find_ldap_user(LUser, State) of
 			#eldap_entry{attributes = Attributes} ->
-			    VcardEl = ldap_attributes_to_vcard(Attributes, VCardMap, {LUser, LServer}),
-                            exmpp_iq:result(IQ_Rec, VcardEl);
+			    Vcard = ldap_attributes_to_vcard(Attributes, VCardMap, {LUser, LServer}),
+			    IQ#iq{type = result, sub_el = Vcard};
 			_ ->
-                            exmpp_iq:result(IQ_Rec)
+			    IQ#iq{type = result, sub_el = []}
 		    end;
 		_ ->
-                    exmpp_iq:result(IQ_Rec)
+		    IQ#iq{type = result, sub_el = []}
 	    end
 	end.
 
@@ -303,240 +305,255 @@ find_ldap_user(User, State) ->
 ldap_attributes_to_vcard(Attributes, VCardMap, UD) ->
     Attrs = lists:map(
 	      fun({VCardName, _, _}) ->
-		      {exmpp_stringprep:to_lower(VCardName),
+		      {stringprep:tolower(VCardName),
 		       map_vcard_attr(VCardName, Attributes, VCardMap, UD)}
 	      end, VCardMap),
     Elts = [ldap_attribute_to_vcard(vCard, Attr) || Attr <- Attrs],
     NElts = [ldap_attribute_to_vcard(vCardN, Attr) || Attr <- Attrs],
     OElts = [ldap_attribute_to_vcard(vCardO, Attr) || Attr <- Attrs],
     AElts = [ldap_attribute_to_vcard(vCardA, Attr) || Attr <- Attrs],
-    #xmlel{ns = ?NS_VCARD, name = 'vCard', children =
+    [{xmlelement, "vCard", [{"xmlns", ?NS_VCARD}],
       lists:append([X || X <- Elts, X /= none],
-		   [#xmlel{ns = ?NS_VCARD, name = 'N', children = [X || X <- NElts, X /= none]},
-                    #xmlel{ns = ?NS_VCARD, name = 'ORG', children = [X || X <- OElts, X /= none]},
-		    #xmlel{ns = ?NS_VCARD, name = 'ADR', children = [X || X <- AElts, X /= none]}])
-     }.
+		   [{xmlelement,"N",[],   [X || X <- NElts, X /= none]},
+		    {xmlelement,"ORG",[], [X || X <- OElts, X /= none]},
+		    {xmlelement,"ADR",[], [X || X <- AElts, X /= none]}])
+     }].
 
 ldap_attribute_to_vcard(vCard, {"fn", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'FN'}, Value);
+    {xmlelement,"FN",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"nickname", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'NICKNAME'}, Value);
+    {xmlelement,"NICKNAME",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"title", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'TITLE'}, Value);
+    {xmlelement,"TITLE",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"bday", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'BDAY'}, Value);
+    {xmlelement,"BDAY",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"url", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'URL'}, Value);
+    {xmlelement,"URL",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"desc", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'DESC'}, Value);
+    {xmlelement,"DESC",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"role", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'ROLE'}, Value);
+    {xmlelement,"ROLE",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCard, {"tel", Value}) ->
-    #xmlel{ns = ?NS_VCARD, name = 'TEL', children = [
-        #xmlel{ns = ?NS_VCARD, name = 'VOICE'},
-        #xmlel{ns = ?NS_VCARD, name = 'WORK'},
-        exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'NUMBER'}, Value)]};
+    {xmlelement,"TEL",[],[{xmlelement,"VOICE",[],[]},
+			  {xmlelement,"WORK",[],[]},
+			  {xmlelement,"NUMBER",[],[{xmlcdata,Value}]}]};
 
 ldap_attribute_to_vcard(vCard, {"email", Value}) ->
-    #xmlel{ns = ?NS_VCARD, name = 'EMAIL', children = [
-        #xmlel{ns = ?NS_VCARD, name = 'INTERNET'},
-        #xmlel{ns = ?NS_VCARD, name = 'PREF'},
-        exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'USERID'}, Value)]};
+    {xmlelement,"EMAIL",[],[{xmlelement,"INTERNET",[],[]},
+			    {xmlelement,"PREF",[],[]},
+			    {xmlelement,"USERID",[],[{xmlcdata,Value}]}]};
 
 ldap_attribute_to_vcard(vCard, {"photo", Value}) ->
-    #xmlel{ns = ?NS_VCARD, name = 'PHOTO', children = [
-        exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'BINVAL'},
-          jlib:encode_base64(Value))]};
+    {xmlelement,"PHOTO",[],[
+			    {xmlelement,"TYPE",[],[{xmlcdata,"image/jpeg"}]},
+			    {xmlelement,"BINVAL",[],[{xmlcdata, jlib:encode_base64(Value)}]}]};
 
 ldap_attribute_to_vcard(vCardN, {"family", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'FAMILY'}, Value);
+    {xmlelement,"FAMILY",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardN, {"given", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'GIVEN'}, Value);
+    {xmlelement,"GIVEN",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardN, {"middle", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'MIDDLE'}, Value);
+    {xmlelement,"MIDDLE",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardO, {"orgname", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'ORGNAME'}, Value);
+    {xmlelement,"ORGNAME",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardO, {"orgunit", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'ORGUNIT'}, Value);
+    {xmlelement,"ORGUNIT",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardA, {"locality", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'LOCALITY'}, Value);
+    {xmlelement,"LOCALITY",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardA, {"street", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'STREET'}, Value);
+    {xmlelement,"STREET",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardA, {"ctry", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'CTRY'}, Value);
+    {xmlelement,"CTRY",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardA, {"region", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'REGION'}, Value);
+    {xmlelement,"REGION",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(vCardA, {"pcode", Value}) ->
-    exmpp_xml:set_cdata(#xmlel{ns = ?NS_VCARD, name = 'PCODE'}, Value);
+    {xmlelement,"PCODE",[],[{xmlcdata,Value}]};
 
 ldap_attribute_to_vcard(_, _) ->
     none.
 
 -define(TLFIELD(Type, Label, Var),
-	#xmlel{ns = ?NS_VCARD, name = 'field', attrs = [
-	    ?XMLATTR(<<"type">>, Type),
-	    ?XMLATTR(<<"label">>, translate:translate(Lang, Label)),
-	    ?XMLATTR(<<"var">>, Var)]}).
+	{xmlelement, "field", [{"type", Type},
+			       {"label", translate:translate(Lang, Label)},
+			       {"var", Var}], []}).
 
 -define(FORM(JID, SearchFields),
-	[#xmlel{ns = ?NS_SEARCH, name = 'instructions', children =
-	  [#xmlcdata{cdata = list_to_binary(translate:translate(Lang, "You need an x:data capable client to search"))}]},
-	 #xmlel{ns = ?NS_DATA_FORMS, name = 'x', attrs =
-           [?XMLATTR(<<"type">>, <<"form">>)], children =
-	  [#xmlel{ns = ?NS_DATA_FORMS, name = 'title', children =
-	    [#xmlcdata{cdata = list_to_binary(translate:translate(Lang, "Search users in ") ++
-	      exmpp_jid:to_list(JID))}]},
-	   #xmlel{ns = ?NS_SEARCH, name = 'instructions', children =
-	    [#xmlcdata{cdata = list_to_binary(translate:translate(Lang, "Fill in fields to search "
-					    "for any matching Jabber User"))}]}
-	  ] ++ lists:map(fun({X,Y}) -> ?TLFIELD(<<"text-single">>, X, list_to_binary(Y)) end, SearchFields)}]).
+	[{xmlelement, "instructions", [],
+	  [{xmlcdata, translate:translate(Lang, "You need an x:data capable client to search")}]},
+	 {xmlelement, "x", [{"xmlns", ?NS_XDATA}, {"type", "form"}],
+	  [{xmlelement, "title", [],
+	    [{xmlcdata, translate:translate(Lang, "Search users in ") ++
+	      jlib:jid_to_string(JID)}]},
+	   {xmlelement, "instructions", [],
+	    [{xmlcdata, translate:translate(Lang, "Fill in fields to search "
+					    "for any matching Jabber User")}]}
+	  ] ++ lists:map(fun({X,Y}) -> ?TLFIELD("text-single", X, Y) end, SearchFields)}]).
 
 do_route(State, From, To, Packet) ->
     spawn(?MODULE, route, [State, From, To, Packet]).
 
 route(State, From, To, Packet) ->
-    User = exmpp_jid:node(To),
-    Resource = exmpp_jid:resource(To),
+    #jid{user = User, resource = Resource} = To,
     ServerHost = State#state.serverhost,
     if
-	(User /= undefined) or (Resource /= undefined) ->
-	    Err = exmpp_stanza:reply_with_error(Packet, 'service-unavailable'),
+	(User /= "") or (Resource /= "") ->
+	    Err = jlib:make_error_reply(Packet, ?ERR_SERVICE_UNAVAILABLE),
 	    ejabberd_router:route(To, From, Err);
 	true ->
-	    try
-		Request = exmpp_iq:get_request(Packet),
-		Type = exmpp_iq:get_type(Packet),
-		Lang = exmpp_stanza:get_lang(Packet),
-		case {Type, Request#xmlel.ns} of
-		    {set, ?NS_SEARCH} ->
-                        XDataEl = find_xdata_el(Request),
-                        case XDataEl of
-                            false ->
-				Err = exmpp_iq:error(Packet, 'bad-request'),
-                                ejabberd_router:route(To, From, Err);
-                            _ ->
-                                XData = jlib:parse_xdata_submit(XDataEl),
-                                case XData of
-                                    invalid ->
-					Err = exmpp_iq:error(Packet,
-					  'bad-request'),
-                                        ejabberd_router:route(To, From,
-                                                              Err);
-                                    _ ->
-					Result = #xmlel{
-					  ns = ?NS_SEARCH,
-					  name = 'query',
-					  children =
-                                             [#xmlel{ns = ?NS_DATA_FORMS,
-					      name = 'x',
-					      attrs = [?XMLATTR(<<"type">>,
-						  <<"result">>)],
-					      children = search_result(Lang, To, State, XData)}]},
-					ResIQ = exmpp_iq:result(Packet,
-					  Result),
-                                        ejabberd_router:route(
-                                          To, From, ResIQ)
-                                end
-                        end;
-		    {get, ?NS_SEARCH} ->
-                        SearchFields = State#state.search_fields,
-			Result = #xmlel{ns = ?NS_SEARCH, name = 'query',
-			  children = ?FORM(To, SearchFields)},
-			ResIQ = exmpp_iq:result(Packet, Result),
-			ejabberd_router:route(To,
-					      From,
-					      ResIQ);
-		    {set, ?NS_DISCO_INFO} ->
-			Err = exmpp_iq:error(Packet, 'not-allowed'),
-			ejabberd_router:route(To, From, Err);
-		    {get, ?NS_DISCO_INFO} ->
-			ServerHostB = list_to_binary(ServerHost),
-			Info = ejabberd_hooks:run_fold(
-				 disco_info, ServerHostB, [],
-				 [ServerHost, ?MODULE, <<>>, ""]),
-			Result = #xmlel{ns = ?NS_DISCO_INFO, name = 'query',
-			  children = Info ++ [
-			    #xmlel{ns = ?NS_DISCO_INFO, name = 'identity',
-			      attrs = [
-				?XMLATTR(<<"category">>, <<"directory">>),
-				?XMLATTR(<<"type">>, <<"user">>),
-				?XMLATTR(<<"name">>, translate:translate(Lang,
-				    "vCard User Search"))]},
-			    #xmlel{ns = ?NS_DISCO_INFO, name = 'feature',
-			      attrs = [
-				?XMLATTR(<<"var">>, ?NS_SEARCH_s)]},
-			    #xmlel{ns = ?NS_DISCO_INFO, name = 'feature',
-			      attrs = [
-				?XMLATTR(<<"var">>, ?NS_VCARD_s)]}
-			  ]},
-			ResIQ = exmpp_iq:result(Packet, Result),
-                        ejabberd_router:route(To,
-                                              From,
-                                              ResIQ);
-		    {set, ?NS_DISCO_ITEMS} ->
-			Err = exmpp_iq:error(Packet, 'not-allowed'),
-			ejabberd_router:route(To, From, Err);
-		    {get, ?NS_DISCO_ITEMS} ->
-			Result = #xmlel{ns = ?NS_DISCO_ITEMS, name = 'query'},
-			ResIQ = exmpp_iq:result(Packet, Result),
-			ejabberd_router:route(To,
-					      From,
-					      ResIQ);
-		    {get, ?NS_VCARD} ->
-			Result = #xmlel{ns = ?NS_VCARD, name = 'vCard',
-			  children = iq_get_vcard(Lang)},
-			ResIQ = exmpp_iq:result(Packet, Result),
-			ejabberd_router:route(To,
-					      From,
-					      ResIQ);
-		    _ ->
-			Err = exmpp_iq:error(Packet, 'service-unavailable'),
-			ejabberd_router:route(To, From, Err)
-		end
-	    catch
+	    IQ = jlib:iq_query_info(Packet),
+	    case IQ of
+		#iq{type = Type, xmlns = ?NS_SEARCH, lang = Lang, sub_el = SubEl} ->
+		    case Type of
+			set ->
+			    XDataEl = find_xdata_el(SubEl),
+			    case XDataEl of
+				false ->
+				    Err = jlib:make_error_reply(
+					    Packet, ?ERR_BAD_REQUEST),
+				    ejabberd_router:route(To, From, Err);
+				_ ->
+				    XData = jlib:parse_xdata_submit(XDataEl),
+				    case XData of
+					invalid ->
+					    Err = jlib:make_error_reply(
+						    Packet,
+						    ?ERR_BAD_REQUEST),
+					    ejabberd_router:route(To, From,
+								  Err);
+					_ ->
+					    ResIQ =
+						IQ#iq{
+						  type = result,
+						  sub_el =
+						  [{xmlelement,
+						    "query",
+						    [{"xmlns", ?NS_SEARCH}],
+						    [{xmlelement, "x",
+						      [{"xmlns", ?NS_XDATA},
+						       {"type", "result"}],
+						      search_result(Lang, To, State, XData)
+						     }]}]},
+					    ejabberd_router:route(
+					      To, From, jlib:iq_to_xml(ResIQ))
+				    end
+			    end;
+			get ->
+			    SearchFields = State#state.search_fields,
+			    ResIQ = IQ#iq{type = result,
+					  sub_el = [{xmlelement,
+						     "query",
+						     [{"xmlns", ?NS_SEARCH}],
+						     ?FORM(To, SearchFields)
+						    }]},
+			    ejabberd_router:route(To,
+						  From,
+						  jlib:iq_to_xml(ResIQ))
+		    end;
+		#iq{type = Type, xmlns = ?NS_DISCO_INFO, lang = Lang} ->
+		    case Type of
+			set ->
+			    Err = jlib:make_error_reply(
+				    Packet, ?ERR_NOT_ALLOWED),
+			    ejabberd_router:route(To, From, Err);
+			get ->
+			    Info = ejabberd_hooks:run_fold(
+				     disco_info, ServerHost, [],
+				     [ServerHost, ?MODULE, "", ""]),
+			    ResIQ =
+				IQ#iq{type = result,
+				      sub_el = [{xmlelement,
+						 "query",
+						 [{"xmlns", ?NS_DISCO_INFO}],
+						 [{xmlelement, "identity",
+						   [{"category", "directory"},
+						    {"type", "user"},
+						    {"name",
+						     translate:translate(Lang, "vCard User Search")}],
+						   []},
+						  {xmlelement, "feature",
+						   [{"var", ?NS_SEARCH}], []},
+						  {xmlelement, "feature",
+						   [{"var", ?NS_VCARD}], []}
+						 ] ++ Info
+						}]},
+			    ejabberd_router:route(To,
+						  From,
+						  jlib:iq_to_xml(ResIQ))
+		    end;
+		#iq{type = Type, xmlns = ?NS_DISCO_ITEMS} ->
+		    case Type of
+			set ->
+			    Err = jlib:make_error_reply(
+				    Packet, ?ERR_NOT_ALLOWED),
+			    ejabberd_router:route(To, From, Err);
+			get ->
+			    ResIQ = 
+				IQ#iq{type = result,
+				      sub_el = [{xmlelement,
+						 "query",
+						 [{"xmlns", ?NS_DISCO_ITEMS}],
+						 []}]},
+			    ejabberd_router:route(To,
+						  From,
+						  jlib:iq_to_xml(ResIQ))
+		    end;
+		#iq{type = get, xmlns = ?NS_VCARD, lang = Lang} ->
+		    ResIQ = 
+			IQ#iq{type = result,
+			      sub_el = [{xmlelement,
+					 "vCard",
+					 [{"xmlns", ?NS_VCARD}],
+					 iq_get_vcard(Lang)}]},
+		    ejabberd_router:route(To,
+					  From,
+					  jlib:iq_to_xml(ResIQ));
 		_ ->
-		    Err1 = exmpp_iq:error(Packet, 'service-unavailable'),
-		    ejabberd_router:route(To, From, Err1)
+		    Err = jlib:make_error_reply(Packet,
+						?ERR_SERVICE_UNAVAILABLE),
+		    ejabberd_router:route(To, From, Err)
 	    end
     end.
 
 iq_get_vcard(Lang) ->
-    [
-      #xmlel{ns = ?NS_SEARCH, name = 'FN', children = [
-	  #xmlcdata{cdata = <<"ejabberd/mod_vcard">>}]},
-      #xmlel{ns = ?NS_SEARCH, name = 'URL', children = [
-	  #xmlcdata{cdata = list_to_binary(?EJABBERD_URI)}]},
-      #xmlel{ns = ?NS_SEARCH, name ='DESC', children = [
-	  #xmlcdata{cdata = list_to_binary(
-	      translate:translate(Lang, "ejabberd vCard module") ++
-	      "\nCopyright (c) 2002-2012 ProcessOne")}]}
-    ].
+    [{xmlelement, "FN", [],
+      [{xmlcdata, "ejabberd/mod_vcard"}]},
+     {xmlelement, "URL", [],
+      [{xmlcdata, ?EJABBERD_URI}]},
+     {xmlelement, "DESC", [],
+      [{xmlcdata, translate:translate(
+		    Lang,
+		    "ejabberd vCard module") ++
+		    "\nCopyright (c) 2003-2012 ProcessOne"}]}].
+
+-define(LFIELD(Label, Var),
+	{xmlelement, "field", [{"label", translate:translate(Lang, Label)},
+			       {"var", Var}], []}).
 
 search_result(Lang, JID, State, Data) ->
     SearchReported = State#state.search_reported,
-    Header = [#xmlel{ns = ?NS_DATA_FORMS, name = 'title', children =
-	       [#xmlcdata{cdata = list_to_binary(translate:translate(Lang, "Search Results for ") ++
-		 exmpp_jid:to_list(JID))}]},
-	      #xmlel{ns = ?NS_DATA_FORMS, name = 'reported', children =
-	       [?TLFIELD(<<"text-single">>, "Jabber ID", <<"jid">>)] ++
+    Header = [{xmlelement, "title", [],
+	       [{xmlcdata, translate:translate(Lang, "Search Results for ") ++
+		 jlib:jid_to_string(JID)}]},
+	      {xmlelement, "reported", [],
+	       [?TLFIELD("text-single", "Jabber ID", "jid")] ++
 	       lists:map(
-		 fun({Name, Value}) -> ?TLFIELD(<<"text-single">>, Name, list_to_binary(Value)) end,
+		 fun({Name, Value}) -> ?TLFIELD("text-single", Name, Value) end,
 		 SearchReported)
 	      }],
     case search(State, Data) of
@@ -547,10 +564,9 @@ search_result(Lang, JID, State, Data) ->
     end.
 
 -define(FIELD(Var, Val),
-	#xmlel{ns = ?NS_DATA_FORMS, name = 'field', attrs =
-	  [?XMLATTR(<<"var">>, Var)], children =
-	  [#xmlel{ns = ?NS_DATA_FORMS, name = 'value', children =
-	      [#xmlcdata{cdata = Val}]}]}).
+	{xmlelement, "field", [{"var", Var}],
+	 [{xmlelement, "value", [],
+	   [{xmlcdata, Val}]}]}).
 
 search(State, Data) ->
     Base = State#state.base,
@@ -599,9 +615,9 @@ search_items(Entries, State) ->
 						     VCardMap,
 						     {Username, ?MYNAME})}
 					  end, SearchReported),
-			        Result = [?FIELD(<<"jid">>, list_to_binary(Username ++ "@" ++ LServer))] ++
-				    [?FIELD(list_to_binary(Name), list_to_binary(Value)) || {Name, Value} <- RFields],
-			        [#xmlel{ns = ?NS_DATA_FORMS, name = 'item', children = Result}];
+			        Result = [?FIELD("jid", Username ++ "@" ++ LServer)] ++
+				    [?FIELD(Name, Value) || {Name, Value} <- RFields],
+			        [{xmlelement, "item", [], Result}];
 			      _ ->
 			          []
 		          end;
@@ -638,14 +654,18 @@ process_pattern(Str, {User, Domain}, AttrValues) ->
       [{"%u", User},{"%d", Domain}] ++
       [{"%s", V, 1} || V <- AttrValues]).
 
-find_xdata_el(#xmlel{children = SubEls}) ->
-%find_xdata_el({xmlelement, _Name, _Attrs, SubEls}) ->
+find_xdata_el({xmlelement, _Name, _Attrs, SubEls}) ->
     find_xdata_el1(SubEls).
 
 find_xdata_el1([]) ->
     false;
-find_xdata_el1([#xmlel{ns = ?NS_DATA_FORMS} = El | _Els]) ->
-    El;
+find_xdata_el1([{xmlelement, Name, Attrs, SubEls} | Els]) ->
+    case xml:get_attr_s("xmlns", Attrs) of
+	?NS_XDATA ->
+	    {xmlelement, Name, Attrs, SubEls};
+	_ ->
+	    find_xdata_el1(Els)
+    end;
 find_xdata_el1([_ | Els]) ->
     find_xdata_el1(Els).
 

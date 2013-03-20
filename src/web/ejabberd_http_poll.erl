@@ -44,9 +44,8 @@
 	 close/1,
 	 process/2]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 -include("ejabberd_http.hrl").
 
 -record(http_poll, {id, pid}).
@@ -73,18 +72,14 @@
 -define(CT, {"Content-Type", "text/xml; charset=utf-8"}).
 -define(BAD_REQUEST, [?CT, {"Set-Cookie", "ID=-3:0; expires=-1"}]).
 
--define(PARSER_OPTIONS, [{names_as_atom, true}]).
 
 %%%----------------------------------------------------------------------
 %%% API
 %%%----------------------------------------------------------------------
 start(ID, Key, IP) ->
-    update_tables(),
     mnesia:create_table(http_poll,
         		[{ram_copies, [node()]},
-			 {local_content, true},
         		 {attributes, record_info(fields, http_poll)}]),
-    mnesia:add_table_copy(http_poll, node(), ram_copies),
     supervisor:start_child(ejabberd_http_poll_sup, [ID, Key, IP]).
 
 start_link(ID, Key, IP) ->
@@ -120,9 +115,9 @@ process([], #request{data = Data,
 	{ok, ID1, Key, NewKey, Packet} ->
 	    ID = if
 		     (ID1 == "0") or (ID1 == "mobile") ->
-			 NewID = make_sid(),
+			 NewID = sha:sha(term_to_binary({now(), make_ref()})),
 			 {ok, Pid} = start(NewID, "", IP),
-			 mnesia:async_dirty(
+			 mnesia:transaction(
 			   fun() ->
 				   mnesia:write(#http_poll{id = NewID,
 							   pid = Pid})
@@ -163,29 +158,27 @@ process([], #request{data = Data,
 	    {200, [?CT, {"Set-Cookie", "ID=-2:0; expires=-1"}], HumanHTMLxmlel}
     end;
 process(_, _Request) ->
-    {400, [], #xmlel{ns = ?NS_XHTML, name = 'h1', children =
-	       [#xmlcdata{cdata = <<"400 Bad Request">>}]}}.
+    {400, [], {xmlelement, "h1", [],
+	       [{xmlcdata, "400 Bad Request"}]}}.
 
 %% Code copied from mod_http_bind.erl and customized
 get_human_html_xmlel() ->
-    Heading = list_to_binary("ejabberd " ++ atom_to_list(?MODULE)),
-    H = #xmlel{name = h1, children = [#xmlcdata{cdata = Heading}]},
-    Par1 = #xmlel{name = p, children =
-		  [#xmlcdata{cdata = <<"An implementation of ">>},
-		   #xmlel{name = a,
-			  attrs = [#xmlattr{name = <<"href">>, value = <<"http://xmpp.org/extensions/xep-0025.html">>}],
-			  children = [#xmlcdata{cdata = <<"Jabber HTTP Polling (XEP-0025)">>}]
-			 }
-		  ]},
-    Par2 = #xmlel{name = p, children =
-		  [#xmlcdata{cdata = <<"This web page is only informative. "
-				      "To use HTTP-Poll you need a Jabber/XMPP client that supports it.">>}
-		  ]},
-    #xmlel{name = html,
-	   attrs = [#xmlattr{name = <<"xmlns">>, value= <<"http://www.w3.org/1999/xhtml">>}],
-	   children =
-	   [#xmlel{name = head, children = [#xmlel{name = title, children = [#xmlcdata{cdata = Heading}]}]},
-	    #xmlel{name = body, children = [H, Par1, Par2]}]}.
+    Heading = "ejabberd " ++ atom_to_list(?MODULE),
+    {xmlelement, "html", [{"xmlns", "http://www.w3.org/1999/xhtml"}],
+     [{xmlelement, "head", [],
+       [{xmlelement, "title", [], [{xmlcdata, Heading}]}]},
+      {xmlelement, "body", [],
+       [{xmlelement, "h1", [], [{xmlcdata, Heading}]},
+        {xmlelement, "p", [],
+         [{xmlcdata, "An implementation of "},
+          {xmlelement, "a",
+	   [{"href", "http://xmpp.org/extensions/xep-0025.html"}],
+           [{xmlcdata, "Jabber HTTP Polling (XEP-0025)"}]}]},
+        {xmlelement, "p", [],
+         [{xmlcdata, "This web page is only informative. "
+	   "To use HTTP-Poll you need a Jabber/XMPP client that supports it."}
+	 ]}
+       ]}]}.
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_fsm
@@ -279,7 +272,13 @@ handle_event(_Event, StateName, StateData) ->
 %%          {stop, Reason, Reply, NewStateData}                    
 %%----------------------------------------------------------------------
 handle_sync_event({send, Packet}, _From, StateName, StateData) ->
-    Output = StateData#state.output ++ [lists:flatten(Packet)],
+    Packet2 = if
+		  is_binary(Packet) ->
+		      binary_to_list(Packet);
+		  true ->
+		      Packet
+	      end,
+    Output = StateData#state.output ++ [lists:flatten(Packet2)],
     Reply = ok,
     {reply, Reply, StateName, StateData#state{output = Output}};
 
@@ -357,7 +356,7 @@ handle_info(_, StateName, StateData) ->
 %% Returns: any
 %%----------------------------------------------------------------------
 terminate(_Reason, _StateName, StateData) ->
-    mnesia:async_dirty(
+    mnesia:transaction(
       fun() ->
 	      mnesia:delete({http_poll, StateData#state.id})
       end),
@@ -382,19 +381,19 @@ terminate(_Reason, _StateName, StateData) ->
 %%%----------------------------------------------------------------------
 
 http_put(ID, Key, NewKey, Packet) ->
-    case get_session(ID) of
-	{error, _} ->
+    case mnesia:dirty_read({http_poll, ID}) of
+	[] ->
 	    {error, not_exists};
-	{ok, #http_poll{pid = FsmRef}} ->
+	[#http_poll{pid = FsmRef}] ->
 	    gen_fsm:sync_send_all_state_event(
 	      FsmRef, {http_put, Key, NewKey, Packet})
     end.
 
 http_get(ID) ->
-    case get_session(ID) of
-	{error, _} ->
+    case mnesia:dirty_read({http_poll, ID}) of
+	[] ->
 	    {error, not_exists};
-	{ok, #http_poll{pid = FsmRef}} ->
+	[#http_poll{pid = FsmRef}] ->
 	    gen_fsm:sync_send_all_state_event(FsmRef, http_get)
     end.
 
@@ -433,9 +432,9 @@ resend_messages(Messages) ->
 %% This function is used to resend messages that have been polled but not
 %% delivered.
 resend_message(Packet) ->
-    [#xmlel{name = Name} = ParsedPacket] =
-	exmpp_xml:parse_document(Packet, ?PARSER_OPTIONS),
-    if Name == iq; Name == message; Name == presence ->
+    {xmlelement, Name, _, _} = ParsedPacket = xml_stream:parse_element(Packet),
+    %% Avoid sending <stream:error>
+    if Name == "iq"; Name == "message"; Name == "presence" ->
 	    From = get_jid("from", ParsedPacket),
 	    To = get_jid("to", ParsedPacket),
 	    ?DEBUG("Resend ~p ~p ~p~n",[From,To, ParsedPacket]),
@@ -446,53 +445,10 @@ resend_message(Packet) ->
 
 %% Type can be "from" or "to"
 %% Parsed packet is a parsed Jabber packet.
-get_jid("from", ParsedPacket) ->
-    case exmpp_stanza:get_sender(ParsedPacket) of
-	undefined ->
-            exmpp_jid:make();
-	From ->
-	    exmpp_jid:parse(From)
-    end;
-get_jid("to", ParsedPacket) ->
-    case exmpp_stanza:get_recipient(ParsedPacket) of
-	undefined ->
-            exmpp_jid:make();
-	From ->
-	    exmpp_jid:parse(From)
-    end.
-
-update_tables() ->
-    case catch mnesia:table_info(http_poll, local_content) of
+get_jid(Type, ParsedPacket) ->
+    case xml:get_tag_attr(Type, ParsedPacket) of
+	{value, StringJid} ->
+	    jlib:string_to_jid(StringJid);
 	false ->
-	    mnesia:delete_table(http_poll);
-	_ ->
-	    ok
-    end.
-
-make_sid() ->
-    sha:sha(term_to_binary({now(), make_ref()}))
-	++ "-" ++ ejabberd_cluster:node_id().
-
-get_session(SID) ->
-    case string:tokens(SID, "-") of
-	[_, NodeID] ->
-	    case ejabberd_cluster:get_node_by_id(NodeID) of
-		Node when Node == node() ->
-		    case mnesia:dirty_read({http_poll, SID}) of
-			[] ->
-			    {error, enoent};
-			[Session] ->
-			    {ok, Session}
-		    end;
-		Node ->
-		    case catch rpc:call(Node, mnesia, dirty_read,
-					[{http_poll, SID}], 5000) of
-			[Session] ->
-			    {ok, Session};
-			_ ->
-			    {error, enoent}
-		    end
-	    end;
-	_ ->
-	    {error, enoent}
+	    jlib:make_jid("","","")
     end.

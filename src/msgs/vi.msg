@@ -2,6 +2,7 @@
 {"Access Control List Configuration","Cấu Hình Danh Sách Kiểm Soát Truy Cập"}.
 {"Access control lists","Danh sách kiểm soát truy cập"}.
 {"Access Control Lists","Danh Sách Kiểm Soát Truy Cập"}.
+{"Access denied by service policy","Sự truy cập bị chặn theo chính sách phục vụ"}.
 {"Access rules","Quy tắc Truy Cập"}.
 {"Access Rules","Quy Tắc Truy Cập"}.
 {"Action on user","Hành động đối với người sử dụng"}.
@@ -29,12 +30,15 @@
 {"Birthday","Ngày sinh"}.
 {"Change Password","Thay Đổi Mật Khẩu"}.
 {"Change User Password","Thay Đổi Mật Khẩu Người Sử Dụng"}.
+{"Chatroom configuration modified","Cấu hình phòng trò chuyện được chỉnh sửa"}.
+{"Chatrooms","Phòng trò chuyện"}.
 {"Choose a username and password to register with this server","Chọn một tên truy cập và mật khẩu để đăng ký với máy chủ này"}.
 {"Choose modules to stop","Chọn môđun để dừng"}.
 {"Choose storage type of tables","Chọn loại bảng lưu trữ"}.
 {"Choose whether to approve this entity's subscription.","Chọn có nên chấp nhận sự đăng ký của đối tượng này không"}.
 {"City","Thành phố"}.
 {"Commands","Lệnh"}.
+{"Conference room does not exist","Phòng họp không tồn tại"}.
 {"Configuration","Cấu hình"}.
 {"Connected Resources:","Tài Nguyên Được Kết Nối:"}.
 {"Country","Quốc gia"}.
@@ -53,9 +57,11 @@
 {"Deliver payloads with event notifications","Đưa ra thông tin dung lượng với các thông báo sự kiện"}.
 {"Description:","Miêu tả:"}.
 {"Disc only copy","Chỉ sao chép vào đĩa"}.
+{"Displayed Groups:","Nhóm được hiển thị:"}.
 {"Dump Backup to Text File at ","Kết Xuất Sao Lưu ra Tập Tin Văn Bản tại"}.
 {"Dump to Text File","Kết xuất ra Tập Tin Văn Bản"}.
 {"Edit Properties","Chỉnh Sửa Thuộc Tính"}.
+{"ejabberd IRC module","Môdun ejabberd IRC Bản quyền"}.
 {"ejabberd MUC module","Môdun ejabberd MUC Bản quyền"}.
 {"ejabberd Publish-Subscribe module","Môdun ejabberd Xuất Bản-Đăng Ký Bản quyền"}.
 {"ejabberd SOCKS5 Bytestreams module","Môdun SOCKS5 Bytestreams Bản quyền"}.
@@ -99,8 +105,11 @@
 {"Invalid affiliation: ~s","Tư cách không hợp lệ: ~s"}.
 {"Invalid role: ~s","Vai trò không hợp lệ: ~s"}.
 {"IP addresses","Địa chỉ IP"}.
+{"IRC Transport","Truyền tải IRC"}.
+{"IRC Username","Tên truy cập IRC"}.
 {"is now known as","bây giờ được biết như"}.
 {"It is not allowed to send private messages of type \"groupchat\"","Không được phép gửi những thư riêng loại \"groupchat\""}.
+{"It is not allowed to send private messages to the conference","Không được phép gửi những thư riêng đến phòng họp"}.
 {"Jabber ID","Jabber ID"}.
 {"Jabber ID ~s is invalid","Jabber ID ~s không hợp lệ"}.
 {"January","Tháng Một"}.
@@ -142,6 +151,7 @@
 {"Nickname","Bí danh"}.
 {"Nickname Registration at ","Đăng Ký Bí Danh tại"}.
 {"Nickname ~s does not exist in the room","Bí danh ~s không tồn tại trong phòng này"}.
+{"No body provided for announce message","Không có nội dung trong thư thông báo"}.
 {"No Data","Không Dữ Liệu"}.
 {"Node ID","ID Nút"}.
 {"Node not found","Nút không tìm thấy"}.
@@ -149,6 +159,7 @@
 {"Nodes","Nút"}.
 {"No limit","Không giới hạn"}.
 {"None","Không có"}.
+{"No resource provided","Không có nguồn lực cung cấp"}.
 {"Notify subscribers when items are removed from the node","Thông báo cho người đăng ký khi nào các mục chọn bị gỡ bỏ khỏi nút"}.
 {"Notify subscribers when the node configuration changes","Thông báo cho người đăng ký khi nào cấu hình nút thay đổi"}.
 {"Notify subscribers when the node is deleted","Thông báo cho người đăng ký khi nào nút bị xóa bỏ"}.
@@ -164,6 +175,9 @@
 {"Online Users:","Người Sử Dụng Trực Tuyến:"}.
 {"Online Users","Người Sử Dụng Trực Tuyến"}.
 {"Only deliver notifications to available users","Chỉ gửi thông báo đến những người sử dụng hiện có"}.
+{"Only occupants are allowed to send messages to the conference","Chỉ có những đối tượng tham gia mới được phép gửi thư đến phòng họp"}.
+{"Only occupants are allowed to send queries to the conference","Chỉ có những đối tượng tham gia mới được phép gửi yêu cầu đến phòng họp"}.
+{"Only service administrators are allowed to send service messages","Chỉ có người quản trị dịch vụ mới được phép gửi những thư dịch vụ"}.
 {"Options","Tùy chọn"}.
 {"Organization Name","Tên Tổ Chức"}.
 {"Organization Unit","Bộ Phận"}.
@@ -187,15 +201,19 @@
 {"private, ","riêng,"}.
 {"Publish-Subscribe","Xuất Bản-Đăng Ký"}.
 {"PubSub subscriber request","Yêu cầu người đăng ký môđun Xuất Bản Đăng Ký"}.
+{"Queries to the conference members are not allowed in this room","Không được phép gửi các yêu cầu gửi đến các thành viên trong phòng họp này"}.
 {"RAM and disc copy","Sao chép vào RAM và đĩa"}.
 {"RAM copy","Sao chép vào RAM"}.
 {"Raw","Thô"}.
 {"Really delete message of the day?","Có thực sự xóa thư trong ngày này không?"}.
+{"Recipient is not in the conference room","Người nhận không có trong phòng họp"}.
 {"Registered Users:","Người Sử Dụng Đã Đăng Ký:"}.
 {"Registered Users","Người Sử Dụng Đã Đăng Ký"}.
+{"Registration in mod_irc for ","Đăng ký trong mod_irc cho "}.
 {"Remote copy","Sao chép từ xa"}.
 {"Remove","Gỡ bỏ"}.
 {"Remove User","Gỡ Bỏ Người Sử Dụng"}.
+{"Replaced by new connection","Được thay thế bởi kết nối mới"}.
 {"Resources","Nguồn tài nguyên"}.
 {"Restart","Khởi động lại"}.
 {"Restart Service","Khởi Động Lại Dịch Vụ"}.
@@ -205,6 +223,7 @@
 {"Restore","Khôi phục"}.
 {"Restore plain text backup immediately:","Khôi phục bản sao lưu dự phòng thuần văn bản ngay lập tức:"}.
 {"Room Configuration","Cấu Hình Phòng"}.
+{"Room creation is denied by service policy","Việc tạo phòng bị ngăn lại theo chính sách dịch vụ"}.
 {"Room title","Tên phòng"}.
 {"Roster","Bảng phân công"}.
 {"Roster of ","Bảng phân công của "}.
@@ -269,6 +288,7 @@
 {"Update plan","Kế hoạch cập nhật"}.
 {"Update script","Cập nhận lệnh"}.
 {"Uptime:","Thời gian tải lên:"}.
+{"Use of STARTTLS required","Yêu cầu sử dụng STARTTLS"}.
 {"User Management","Quản Lý Người Sử Dụng"}.
 {"User ","Người sử dụng "}.
 {"User","Người sử dụng"}.
@@ -283,6 +303,7 @@
 {"Whether to allow subscriptions","Xác định nên cho phép đăng ký không"}.
 {"You have been banned from this room","Bạn bị cấm tham gia phòng này"}.
 {"You must fill in field \"Nickname\" in the form","Bạn phải điền thông tin vào ô \"Nickname\" trong biểu mẫu này"}.
+{"You need an x:data capable client to configure mod_irc settings","Bạn cần có một trình ứng dụng khách hỗ trợ định dạng dữ liệu x: để xác định các thiết lập mod_irc"}.
 {"You need an x:data capable client to configure room","Bạn cần có một trình ứng dụng khách hỗ trợ định dạng dữ liệu x: để xác định cấu hình phòng họp"}.
-{"You need an x:data capable client to register nickname","Bạn cần có một trình ứng dụng khách hỗ trợ định dạng dữ liệu x: để đăng ký bí danh"}.
 {"You need an x:data capable client to search","Bạn cần có một trình ứng dụng khách hỗ trợ định dạng dữ liệu x: để tìm kiếm"}.
+{"Your contact offline message queue is full. The message has been discarded.","Danh sách chờ thư liên lạc ngoại tuyến của bạn đã đầy. Thư này đã bị loại bỏ."}.

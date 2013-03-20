@@ -31,52 +31,48 @@
 	 produce_response/2,
 	 produce_response/1]).
 
--include_lib("exmpp/include/exmpp.hrl").
-
 -include("ejabberd.hrl").
+-include("jlib.hrl").
 -include("adhoc.hrl").
 
 %% Parse an ad-hoc request.  Return either an adhoc_request record or
 %% an {error, ErrorType} tuple.
-parse_request(#iq{type = Type, ns = NS, payload = SubEl, lang = Lang}) ->
-    try
-	case {Type, NS} of
-	    {set, ?NS_ADHOC} ->
-		?DEBUG("entering parse_request...", []),
-		Node = exmpp_xml:get_attribute_as_list(SubEl, <<"node">>, ""),
-		SessionID = exmpp_xml:get_attribute_as_list(SubEl, <<"sessionid">>, ""),
-		Action = exmpp_xml:get_attribute_as_list(SubEl, <<"action">>, ""),
-		XData = find_xdata_el(SubEl),
-		AllEls = exmpp_xml:get_child_elements(SubEl),
-		Others = case XData of
-		    false ->
-			AllEls;
-		    _ ->
-			lists:delete(XData, AllEls)
-		end,
-
-		#adhoc_request{lang = Lang,
-			       node = Node,
-			       sessionid = SessionID,
-			       action = Action,
-			       xdata = XData,
-			       others = Others};
-	    _ ->
-		{error, 'bad-request'}
-	end
-    catch
+parse_request(#iq{type = set, lang = Lang, sub_el = SubEl, xmlns = ?NS_COMMANDS}) ->
+    ?DEBUG("entering parse_request...", []),
+    Node = xml:get_tag_attr_s("node", SubEl),
+    SessionID = xml:get_tag_attr_s("sessionid", SubEl),
+    Action = xml:get_tag_attr_s("action", SubEl),
+    XData = find_xdata_el(SubEl),
+    {xmlelement, _, _, AllEls} = SubEl,
+    Others = case XData of
+	false ->
+	    AllEls;
 	_ ->
-	    {error, 'bad-request'}
-    end.
+	    lists:delete(XData, AllEls)
+    end,
+
+    #adhoc_request{lang = Lang,
+		   node = Node,
+		   sessionid = SessionID,
+		   action = Action,
+		   xdata = XData,
+		   others = Others};
+parse_request(_) ->
+    {error, ?ERR_BAD_REQUEST}.
 
 %% Borrowed from mod_vcard.erl
-find_xdata_el(#xmlel{children = SubEls}) ->
+find_xdata_el({xmlelement, _Name, _Attrs, SubEls}) ->
     find_xdata_el1(SubEls).
 
 find_xdata_el1([]) ->
     false;
-find_xdata_el1([#xmlel{ns = ?NS_DATA_FORMS} = El | _Els]) ->
-    El;
+find_xdata_el1([{xmlelement, Name, Attrs, SubEls} | Els]) ->
+    case xml:get_attr_s("xmlns", Attrs) of
+	?NS_XDATA ->
+	    {xmlelement, Name, Attrs, SubEls};
+	_ ->
+	    find_xdata_el1(Els)
+    end;
 find_xdata_el1([_ | Els]) ->
     find_xdata_el1(Els).
 
@@ -114,19 +110,20 @@ produce_response(#adhoc_response{lang = _Lang,
 		"" ->
 		    ActionsElAttrs = [];
 		_ ->
-		    ActionsElAttrs = [?XMLATTR(<<"execute">>, DefaultAction)]
+		    ActionsElAttrs = [{"execute", DefaultAction}]
 	    end,
-	    ActionsEls = [#xmlel{ns = ?NS_ADHOC, name = 'actions', attrs =
-			   ActionsElAttrs, children =
-			   [#xmlel{ns = ?NS_ADHOC, name = Action} || Action <- Actions]}]
+	    ActionsEls = [{xmlelement, "actions",
+			   ActionsElAttrs,
+			   [{xmlelement, Action, [], []} || Action <- Actions]}]
     end,
     NotesEls = lists:map(fun({Type, Text}) ->
-				 #xmlel{ns = ?NS_ADHOC, name = 'note', attrs =
-				  [?XMLATTR(<<"type">>, Type)],
-				  children = [#xmlcdata{cdata = list_to_binary(Text)}]}
+				 {xmlelement, "note",
+				  [{"type", Type}],
+				  [{xmlcdata, Text}]}
 			 end, Notes),
-    #xmlel{ns = ?NS_ADHOC, name = 'command', attrs =
-     [?XMLATTR(<<"sessionid">>, SessionID),
-      ?XMLATTR(<<"node">>, Node),
-      ?XMLATTR(<<"status">>, Status)], children =
+    {xmlelement, "command",
+     [{"xmlns", ?NS_COMMANDS},
+      {"sessionid", SessionID},
+      {"node", Node},
+      {"status", atom_to_list(Status)}],
      ActionsEls ++ NotesEls ++ Elements}.
