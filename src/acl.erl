@@ -5,7 +5,7 @@
 %%% Created : 18 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -241,9 +241,9 @@ is_glob_match(String, Glob) ->
     is_regexp_match(String, ejabberd_regexp:sh_to_awk(Glob)).
 
 loaded_shared_roster_module(Host) ->
-    case {gen_mod:is_loaded(Host, mod_shared_roster_odbc),
-          gen_mod:is_loaded(Host, mod_shared_roster_ldap)} of
-        {true, _} -> mod_shared_roster_odbc;
-        {_, true} -> mod_shared_roster_ldap;
-        _ -> mod_shared_roster
+    case gen_mod:is_loaded(Host, mod_shared_roster_ldap) of
+        true ->
+            mod_shared_roster_ldap;
+        false ->
+            mod_shared_roster
     end.

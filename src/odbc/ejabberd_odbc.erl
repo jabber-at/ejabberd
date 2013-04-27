@@ -5,7 +5,7 @@
 %%% Created :  8 Dec 2004 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -172,7 +172,7 @@ to_bool(1) -> true;
 to_bool(_) -> false.
 
 encode_term(Term) ->
-    escape(erl_prettypr:format(erl_syntax:abstract(Term))).
+    escape(lists:flatten(io_lib:print(Term))).
 
 decode_term(Str) ->
     {ok, Tokens, _} = erl_scan:string(Str ++ "."),
