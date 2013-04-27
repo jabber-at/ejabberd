@@ -5,7 +5,7 @@
 %%% Created : 31 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -78,6 +78,7 @@ start(_, _) ->
 %% This function is called when an application is about to be stopped,
 %% before shutting down the processes of the application.
 prep_stop(State) ->
+    ejabberd_listener:stop_listeners(),
     stop_modules(),
     ejabberd_admin:stop(),
     broadcast_c2s_shutdown(),

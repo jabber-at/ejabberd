@@ -5,7 +5,7 @@
 %%% Created : 22 Aug 2005 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -92,7 +92,13 @@
 export_passwd(Server, Output) ->
     export_common(
       Server, passwd, Output,
-      fun(Host, {passwd, {LUser, LServer}, Password} = _R)
+      fun(_Host, {passwd, {LUser, LServer}, {scram, _, _, _, _}} = _R) ->
+	      ?INFO_MSG("You are trying to export the authentication "
+	                "information of the account ~s@~s, but his password "
+	                "is stored as SCRAM, and ejabberd ODBC authentication "
+	                "doesn't support SCRAM.", [LUser, LServer]),
+	      [];
+         (Host, {passwd, {LUser, LServer}, Password} = _R)
 	 when LServer == Host ->
 	      Username = ejabberd_odbc:escape(LUser),
 	      Pass = ejabberd_odbc:escape(Password),
@@ -383,7 +389,7 @@ export_privacy(Server, Output) ->
                     fun({Name, List}) ->
                             SName = ejabberd_odbc:escape(Name),
                             RItems = lists:map(
-                                       fun mod_privacy_odbc:item_to_raw/1,
+                                       fun mod_privacy:item_to_raw/1,
                                        List),
                             ID = integer_to_list(get_id()),
                             ["delete from privacy_list "

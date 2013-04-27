@@ -5,7 +5,7 @@
 %%% Created :  7 May 2006 by Mickael Remond <mremond@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -31,6 +31,7 @@
 	 %% Server
 	 status/0, reopen_log/0,
 	 stop_kindly/2, send_service_message_all_mucs/2,
+	 registered_vhosts/0,
 	 %% Erlang
 	 update_list/0, update/1,
 	 %% Accounts
@@ -41,6 +42,7 @@
 	 %% Purge DB
 	 delete_expired_messages/0, delete_old_messages/1,
 	 %% Mnesia
+	 export2odbc/2,
 	 set_master/1,
 	 backup_mnesia/1, restore_mnesia/1,
 	 dump_mnesia/1, dump_table/2, load_mnesia/1,
@@ -127,6 +129,11 @@ commands() ->
 			module = ?MODULE, function = registered_users,
 			args = [{host, string}],
 			result = {users, {list, {username, string}}}},
+	 #ejabberd_commands{name = registered_vhosts, tags = [server],
+			desc = "List all registered vhosts in SERVER",
+			module = ?MODULE, function = registered_vhosts,
+			args = [],
+			result = {vhosts, {list, {vhost, string}}}},
 
      #ejabberd_commands{name = import_file, tags = [mnesia],
 			desc = "Import user data from jabberd14 spool file",
@@ -165,6 +172,11 @@ commands() ->
 			module = mod_pubsub, function = rename_default_nodeplugin,
 			args = [], result = {res, rescode}},
 
+     #ejabberd_commands{name = export2odbc, tags = [mnesia],
+			desc = "Export virtual host information from Mnesia tables to SQL files",
+			module = ?MODULE, function = export2odbc,
+			args = [{host, string}, {directory, string}],
+			result = {res, rescode}},
      #ejabberd_commands{name = set_master, tags = [mnesia],
 			desc = "Set master node of the clustered Mnesia tables",
 			longdesc = "If you provide as nodename \"self\", this "
@@ -342,6 +354,8 @@ registered_users(Host) ->
     SUsers = lists:sort(Users),
     lists:map(fun({U, _S}) -> U end, SUsers).
 
+registered_vhosts() ->
+	?MYHOSTS.
 
 %%%
 %%% Migration management
@@ -373,17 +387,37 @@ import_dir(Path) ->
 %%%
 
 delete_expired_messages() ->
-    {atomic, ok} = mod_offline:remove_expired_messages(),
-    ok.
+    lists:foreach(
+      fun(Host) ->
+              {atomic, ok} = mod_offline:remove_expired_messages(Host)
+      end, ?MYHOSTS).
 
 delete_old_messages(Days) ->
-    {atomic, _} = mod_offline:remove_old_messages(Days),
-    ok.
-
+    lists:foreach(
+      fun(Host) ->
+              {atomic, _} = mod_offline:remove_old_messages(Days, Host)
+      end, ?MYHOSTS).
 
 %%%
 %%% Mnesia management
 %%%
+
+export2odbc(Host, Directory) ->
+    Tables = [{export_last, last},
+              {export_offline, offline},
+              {export_private_storage, private_storage},
+              {export_roster, roster},
+              {export_vcard, vcard},
+              {export_vcard_search, vcard_search},
+              {export_passwd, passwd}],
+    Export = fun({TableFun, Table}) ->
+                     Filename = filename:join([Directory, atom_to_list(Table)++".txt"]),
+                     io:format("Trying to export Mnesia table '~p' on Host '~s' to file '~s'~n", [Table, Host, Filename]),
+                     Res = (catch ejd2odbc:TableFun(Host, Filename)),
+                     io:format("  Result: ~p~n", [Res])
+             end,
+    lists:foreach(Export, Tables),
+    ok.
 
 set_master("self") ->
     set_master(node());

@@ -5,7 +5,7 @@
 %%% Created : 12 Mar 2006 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -52,12 +52,15 @@
 -define(PROCNAME, ejabberd_mod_muc_log).
 -record(room, {jid, title, subject, subject_author, config}).
 
+-define(PLAINTEXT_IN, "ZZIZZ").
+-define(PLAINTEXT_OUT, "ZZOZZ").
 
 -record(logstate, {host,
 		out_dir,
 		dir_type,
 		dir_name,
 		file_format,
+		file_permissions,
 		css_file,
 		access,
 		lang,
@@ -121,6 +124,7 @@ init([Host, Opts]) ->
     DirType = gen_mod:get_opt(dirtype, Opts, subdirs),
     DirName = gen_mod:get_opt(dirname, Opts, room_jid),
     FileFormat = gen_mod:get_opt(file_format, Opts, html), % Allowed values: html|plaintext
+    FilePermissions = gen_mod:get_opt(file_permissions, Opts, {644, 33}),
     CSSFile = gen_mod:get_opt(cssfile, Opts, false),
     AccessLog = gen_mod:get_opt(access_log, Opts, muc_admin),
     Timezone = gen_mod:get_opt(timezone, Opts, local),
@@ -139,6 +143,7 @@ init([Host, Opts]) ->
 		dir_type = DirType,
 		dir_name = DirName,
 		file_format = FileFormat,
+		file_permissions = FilePermissions,
 		css_file = CSSFile,
 		access = AccessLog,
 		lang = Lang,
@@ -311,11 +316,21 @@ write_last_lines(F, Images_dir, _FileFormat) ->
     fw(F, "  <a href=\"http://jigsaw.w3.org/css-validator/\"><img style=\"border:0;width:88px;height:31px\" src=\"~s/vcss.png\" alt=\"Valid CSS!\"/></a>", [Images_dir]),
     fw(F, "</span></div></body></html>").
 
+htmlize_nick(Nick1, html) ->
+    htmlize("<"++Nick1++">", html);
+htmlize_nick(Nick1, plaintext) ->
+    htmlize(?PLAINTEXT_IN++Nick1++?PLAINTEXT_OUT, plaintext).
+
+set_filemode(Fn, {FileMode, FileGroup}) ->
+    ok = file:change_mode(Fn, list_to_integer(integer_to_list(FileMode), 8)),
+    ok = file:change_group(Fn, FileGroup).
+
 add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
     #logstate{out_dir = OutDir,
 	   dir_type = DirType,
 	   dir_name = DirName,
 	   file_format = FileFormat,
+	   file_permissions = FilePermissions,
 	   css_file = CSSFile,
 	   lang = Lang,
 	   timezone = Timezone,
@@ -323,7 +338,7 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 	   top_link = TopLink} = State,
     Room = get_room_info(RoomJID, Opts),
     Nick = htmlize(Nick1, FileFormat),
-    Nick2 = htmlize("<"++Nick1++">", FileFormat),
+    Nick2 = htmlize_nick(Nick1, FileFormat),
     Now = now(),
     TimeStamp = case Timezone of
 		    local -> calendar:now_to_local_time(Now);
@@ -339,6 +354,8 @@ add_message_to_log(Nick1, Message, RoomJID, Opts, State) ->
 	{error, enoent} ->
 	    make_dir_rec(Fd),
 	    {ok, F} = file:open(Fn, [append]),
+	    catch set_filemode(Fn, FilePermissions),
+
 	    Datestring = get_dateweek(Date, Lang),
 
 	    TimeStampYesterday = get_timestamp_daydiff(TimeStamp, -1),
@@ -492,8 +509,9 @@ make_dir_rec(Dir) ->
 	{error, enoent} ->
 	    DirS = filename:split(Dir),
 	    DirR = lists:sublist(DirS, length(DirS)-1),
-	    make_dir_rec(filename:join(DirR)),
-	    file:make_dir(Dir)
+	    ok = make_dir_rec(filename:join(DirR)),
+	    ok = file:make_dir(Dir),
+	    ok = file:change_mode(Dir, 8#00755) % -rwxr-xr-x
     end.
 
 
@@ -662,7 +680,9 @@ fw(F, S, O, FileFormat) ->
 	     html ->
 		 S1;
 	     plaintext ->
-		 ejabberd_regexp:greplace(S1, "<[^>]*>", "")
+		 S1x = ejabberd_regexp:greplace(S1, "<[^<^>]*>", ""),
+		 S1y = ejabberd_regexp:greplace(S1x, ?PLAINTEXT_IN, "<"),
+		 ejabberd_regexp:greplace(S1y, ?PLAINTEXT_OUT, ">")
 	 end,
     io:format(F, S2, []).
 
@@ -774,7 +794,8 @@ htmlize(S1, FileFormat) ->
 %% The NoFollow parameter tell if the spam prevention should be applied to the link found
 %% true means 'apply nofollow on links'.
 htmlize(S1, _NoFollow, plaintext) ->
-    S1;
+    S1x = ejabberd_regexp:replace(S1, "<", ?PLAINTEXT_IN),
+    ejabberd_regexp:replace(S1x, ">", ?PLAINTEXT_OUT);
 htmlize(S1, NoFollow, _FileFormat) ->
     S2_list = string:tokens(S1, "\n"),
     lists:foldl(

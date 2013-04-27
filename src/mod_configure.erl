@@ -5,7 +5,7 @@
 %%% Created : 19 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2012   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -1782,14 +1782,12 @@ stop_node(From, Host, ENode, Action, XData) ->
 
 
 get_last_info(User, Server) ->
-    ML = lists:member(mod_last, gen_mod:loaded_modules(Server)),
-    MLO = lists:member(mod_last_odbc, gen_mod:loaded_modules(Server)),
-    case {ML, MLO} of
-	{true, _} -> mod_last:get_last_info(User, Server);
-	{false, true} -> mod_last_odbc:get_last_info(User, Server);
-	{false, false} -> not_found
+    case gen_mod:is_loaded(Server, mod_last) of
+        true ->
+            mod_last:get_last_info(User, Server);
+        false ->
+            not_found
     end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
