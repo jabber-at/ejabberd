@@ -7,16 +7,6 @@
 include /usr/share/quilt/quilt.make
 
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-pam
-#ERLANG_VERSION = $(shell dpkg-query -f $$\{Version\} -W erlang-dev | sed 's/.*://')
-#
-#ifeq "$(shell dpkg --compare-versions ${ERLANG_VERSION} ge 13.b.4; echo $$?)" "0"
-#DEB_CONFIGURE_EXTRA_FLAGS += --enable-nif
-#endif
-# Not sure if we should enable workaround for gateway subscription
-# Adding it breaks XMPP compatibility
-# Not adding breaks roster import for some gateways (specifically JIT)
-#DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-roster-gateway-workaround
-
 
 AUTO_OPTS = --sourcedirectory=src
 
@@ -26,7 +16,7 @@ ifndef HOME
 	export HOME="$(CURDIR)"
 endif
 
-# For natty, oneiric, lucid
+# For oneiric
 DPKG_DEV_VERSION = $(shell dpkg-query -f $$\{Version\} -W dpkg-dev | sed 's/.*://')
 ifeq "$(shell dpkg --compare-versions ${DPKG_DEV_VERSION} ge 1.16.1; echo $$?)" "0"
 DPKG_BUILDFLAGS=$(shell dpkg-buildflags --export=configure)
