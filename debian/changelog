@@ -1,3 +1,9 @@
+ejabberd (2.1.13-1) unstable; urgency=low
+
+  * Version bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 05 Jul 2013 22:50:26 +0200
+
 ejabberd (2.1.12-1) unstable; urgency=low
 
   * Version bump from upstream
