@@ -1,3 +1,10 @@
+ejabberd (2.1.13-2) unstable; urgency=low
+
+  * Apply use_dpkg_buildflags.patch, allows you to block the creation of
+    MUCs by name.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 02 Aug 2013 19:38:28 +0200
+
 ejabberd (2.1.13-1) unstable; urgency=low
 
   * Version bump from upstream

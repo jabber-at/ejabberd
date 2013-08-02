@@ -1,0 +1,46 @@
+From d276f8a2b0f89fac018852663f326d0b0a1e3a60 Mon Sep 17 00:00:00 2001
+From: Badlop <badlop@process-one.net>
+Date: Sun, 14 Jul 2013 20:11:40 +0200
+Subject: [PATCH] Allow blocking of certain MUC names (EJAB-1647)
+
+Example configuration:
+{modules, [
+  {mod_muc,      [
+                  {room_id_forbidden_strings, ["love", "sex", "syria"]},
+                  {access_admin, muc_admin}
+                 ]},
+  ...
+]}.
+---
+ src/mod_muc/mod_muc.erl |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/mod_muc/mod_muc.erl b/src/mod_muc/mod_muc.erl
+index d6414a5..1545f82 100644
+--- a/src/mod_muc/mod_muc.erl
++++ b/src/mod_muc/mod_muc.erl
+@@ -585,11 +585,20 @@ check_user_can_create_room(ServerHost, AccessCreate, From, RoomID) ->
+     case acl:match_rule(ServerHost, AccessCreate, From) of
+ 	allow ->
+ 	    (length(RoomID) =< gen_mod:get_module_opt(ServerHost, ?MODULE,
+-						      max_room_id, infinite));
++						      max_room_id, infinite))
++	    andalso check_room_id(ServerHost, string:to_lower(RoomID));
+ 	_ ->
+ 	    false
+     end.
+ 
++check_room_id(ServerHost, RoomID) ->
++    BadStrings = gen_mod:get_module_opt(ServerHost, ?MODULE, room_id_forbidden_strings, []),
++    lists:all(
++	fun(BadString) ->
++	    (0 == string:str(RoomID, BadString))
++	end,
++	BadStrings).
++
+ get_rooms(ServerHost, Host) ->
+     LServer = jlib:nameprep(ServerHost),
+     get_rooms(LServer, Host, gen_mod:db_type(LServer, ?MODULE)).
+-- 
+1.7.10.4
+
