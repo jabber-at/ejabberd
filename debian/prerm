@@ -15,15 +15,23 @@ set -e
 #          <conflicting-package> <version>
 # for details, see /usr/doc/packaging-manual/
 
+ctl() {
+	local cmd='/usr/sbin/ejabberdctl'
+	for arg in "$@"; do
+		cmd="$cmd '$arg'"
+	done
+	su ejabberd -c "$cmd"
+}
+
 case "$1" in
     remove|upgrade)
-	if ejabberdctl status >/dev/null ; then
+	if ctl status >/dev/null ; then
 	    # Use timestamp to make database restoring easier
 	    TIME=$(date +%Y-%m-%dT%H:%M:%S)
 	    BACKUPDIR=$(mktemp -d -p /var/backups/ ejabberd-$TIME.XXXXXX)
 	    chown ejabberd:ejabberd $BACKUPDIR
 	    BACKUP=$BACKUPDIR/ejabberd-database
-	    ejabberdctl backup $BACKUP
+	    ctl backup $BACKUP
 	    # Change ownership to root:root because ejabberd user might be
 	    # removed on package removal.
 	    chown -R root:root $BACKUPDIR

@@ -142,7 +142,8 @@ or database tables) you have to stop ejabberd completely and then start it again
 .TP
 .BI reopen\-log
 Force the ejabberd server to reopen its log
-file (\fI/var/log/ejabberd/ejabberd.log\fP by default).
+files (\fI/var/log/ejabberd/ejabberd.log\fP and
+\fI/var/log/erlang.log\fP by default).
 If module mod_http_fileserver is loaded then force the ejabberd server to reopen
 its weblog file.
 .TP
@@ -155,31 +156,52 @@ Unregister user \fIuser\fP at ejabberd virtual host \fIserver\fP.
 .TP
 .BI backup " filepath"
 Backup user database of the ejabberd server to file \fIfilepath\fP.
+.IP
+The directory in which \fIfilepath\fP is located must be writable
+by the user "ejabberd".
 .TP
 .BI restore " filepath"
 Restore user database of the ejabberd server from backup file \fIfilepath\fP.
+.IP
+The file \fIfilepath\fP must be readable by the user "ejabberd".
 .TP
 .BI install\-fallback " filepath"
 Install a backup to \fIfilepath\fP as fallback. The fallback will be
 used to restore the database at the next start-up.
+.IP
+The directory in which \fIfilepath\fP is located must be writable
+by the user "ejabberd".
 .TP
 .BI dump " filepath"
 Dump user database of the ejabberd server to text file \fIfilepath\fP.
+.IP
+The directory in which \fIfilepath\fP is located must be writable
+by the user "ejabberd".
 .TP
 .BI load " filepath"
 Restore user database of the ejabberd server from text file \fIfilepath\fP.
+.IP
+The file \fIfilepath\fP must be readable by the user "ejabberd".
 .TP
 .BI dump\-table " file table"
 Dump the specified database \fItable\fR to the specified text \fIfile\fR.
+.IP
+The directory in which \fIfile\fP is located must be writable
+by the user "ejabberd".
 .TP
 .BI import\-file " filepath"
 Import user data from jabberd 1.4 spool file \fIfilepath\fP. For example, if
 \fIfilepath\fP is \fI.../example.org/user.xml\fP then imported username will be
 \fIuser\fP and it will be imported to virtual server \fIexample.org\fP.
+.IP
+The file \fIfilepath\fP must be readable by the user "ejabberd".
 .TP
 .BI import\-dir " directorypath"
 Import user data from jabberd 1.4 spool directory \fIdirectorypath\fP. Directory
 name should be the name of virtual server to import users.
+.IP
+The directory \fIdirectorypath\fP and the files in it must be readable
+by the user "ejabberd".
 .TP
 .BI mnesia\-change\-nodename " oldnodename newnodename oldbackup newbackup"
 Reads the backup file \fIoldbackup\fR (which should have been created
@@ -216,7 +238,7 @@ Delete expired offline messages from ejabberd database.
 .BI delete\-old\-messages " n"
 Delete offline messages older than \fIn\fP days from ejabberd database.
 .TP
-.BI mnesia info
+.BI mnesia " info"
 Show some information about the Mnesia system (see \fBmnesia\fP(3), function
 \fIinfo\fP).
 .TP
@@ -268,37 +290,42 @@ Print the log level (an integer number) ejabberd is operating on.
 The commands described in this section require availability of the
 \fBexmpp\fR library which is not shipped with ejabberd.
 Your can download its source code from \fIhttp://exmpp.org\fP.
-
+.PP
+The \fBexmpp\fR library is also available as a Debian package with the same
+name in the custom repository you retrieved this package from.
 .TP
 .BI export\-piefxis " dir"
 Export data of all users registered on all virtual hosts of the server
 to a set of PIEFXIS files which will be stored
 in the directory \fIdir\fR.
+.IP
+The directory \fIdir\fR must be writable by the user "ejabberd".
 .TP
 .BI export\-piefxis\-host " dir host"
 Export data of all the users registered on the specified
 virtual host \fIhost\fR to a set of PIEFXIS files
 which will be stored in the directory \fIdir\fR.
+.IP
+The directory \fIdir\fR and the files in it must be readable
+by the user "ejabberd".
 .TP
 .BI import\-piefxis " file"
 Import users' data from a PIEFXIS file \fIfile\fR.
+.IP
+The file \fIfile\fR must be readable by the user "ejabberd".
 
-.SH EXTRA OPTIONS
+.SH ADDITIONAL MODULES
 .PP
-Several optional modules add a number of extra options. Most notable are
-mod_admin_extra and mod_muc_admin. You can install them by installing the
-\fBejabberd-mod-admin-extra\fR and \fBejabberd-mod-muc-admin\fR packages
-respectivly.
-.PP
-To enable these additional commands you need to modify ejabberd.cfg. Please
-refer to the documentation of the module package for more information.
-.PP
-Most of additional commands possess extended descriptions
-which can be printed using
-\fBejabberdctl help\fR \fIcommand\fP
+Many packages are available as additional modules. Some of these are also
+available as packages in the Debian repository you retrieved this package
+from, try \fBapt-cache search -n ejabberd\fR. The packages ship with the
+upstream documentation on how to enable these modules.
 
 .PP
-The new commands are:
+Especially try out the \fBmod_admin_extra\fR package, available as 
+\fBejabberd-mod-admin-extra\fR. The module is also included in the ejabberd
+package that ships in the official Debian/Ubuntu repositories. It provides
+dozens of new commands for \fBejabberdctl\fR.
 
 .SH NOTES
 
@@ -317,6 +344,15 @@ case of short names, but may fail in case of unusual networking settings. A
 known case of failure is using long names when \fI\(gahostname \-f\(ga\fP
 doesn't return FDQN. If \fRejabberdctl\fR cannot create Erlang node then it
 cannot control ejabberd server.
+
+.PP
+\fBejabberdctl\fR does not do anything by itself except for connecting
+to the running ejabberd instance and telling it about the action requested
+by the user. Hence all the \fBejabberdctl\fR's operations involving
+writing or reading files or directories are actually performed by the
+server process which runs with the uid and gid of the user and group
+"ejabberd", respectively. This must be taken into account when
+requesting such operations to be done.
 
 .SH OPTIONS FILE
 .PP 

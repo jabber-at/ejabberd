@@ -7,6 +7,11 @@
 include /usr/share/quilt/quilt.make
 
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-pam
+# Not sure if we should enable workaround for gateway subscription
+# Adding it breaks XMPP compatibility
+# Not adding breaks roster import for some gateways (specifically JIT)
+#DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-roster-gateway-workaround
+
 
 AUTO_OPTS = --sourcedirectory=src
 
@@ -16,18 +21,12 @@ ifndef HOME
 	export HOME="$(CURDIR)"
 endif
 
-# For oneiric
-DPKG_DEV_VERSION = $(shell dpkg-query -f $$\{Version\} -W dpkg-dev | sed 's/.*://')
-ifeq "$(shell dpkg --compare-versions ${DPKG_DEV_VERSION} ge 1.16.1; echo $$?)" "0"
-DPKG_BUILDFLAGS=$(shell dpkg-buildflags --export=configure)
-endif
-
 configure: configure-stamp
 configure-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 
 	dh_auto_configure $(AUTO_OPTS) -- $(DEB_CONFIGURE_EXTRA_FLAGS) \
-		$(DPKG_BUILDFLAGS)
+		$(shell dpkg-buildflags --export=configure)
 
 	touch configure-stamp
 
