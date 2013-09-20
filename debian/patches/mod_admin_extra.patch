@@ -4,7 +4,7 @@ by adding several new commands.
 
 The code is taken from the ProcessOne repository:
 https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
-(trunk, revision 1126).
+(trunk, revision 1123).
 
 --- a/src/ejabberd.app
 +++ b/src/ejabberd.app
@@ -18,7 +18,7 @@ https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
  	     node_default,
 --- /dev/null
 +++ b/src/mod_admin_extra.erl
-@@ -0,0 +1,1568 @@
+@@ -0,0 +1,1560 @@
 +%%%-------------------------------------------------------------------
 +%%% File    : mod_admin_extra.erl
 +%%% Author  : Badlop <badlop@process-one.net>
@@ -375,7 +375,7 @@ https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
 +			result = {res, rescode}},
 +
 +     #ejabberd_commands{name = add_rosteritem, tags = [roster],
-+			desc = "Add an item to a user's roster (supports ODBC)",
++			desc = "Add an item to a user's roster",
 +			module = ?MODULE, function = add_rosteritem,
 +			args = [{localuser, string}, {localserver, string},
 +				{user, string}, {server, string},
@@ -386,7 +386,7 @@ https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
 +     %%{"", "example: add-roster peter localhost mike server.com MiKe Employees both"},
 +     %%{"", "will add mike@server.com to peter@localhost roster"},
 +     #ejabberd_commands{name = delete_rosteritem, tags = [roster],
-+			desc = "Delete an item from a user's roster (supports ODBC)",
++			desc = "Delete an item from a user's roster",
 +			module = ?MODULE, function = delete_rosteritem,
 +			args = [{localuser, string}, {localserver, string},
 +				{user, string}, {server, string}],
@@ -1082,18 +1082,21 @@ https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
 +add_rosteritem(LU, LS, User, Server, Nick, Group, Subscription, Xattrs) ->
 +    subscribe(LU, LS, User, Server, Nick, Group, Subscription, Xattrs).
 +
-+subscribe(LU, LS, User, Server, Nick, Group, Subscription, _Xattrs) ->
-+    SubscriptionS = case is_atom(Subscription) of
-+	true -> atom_to_list(Subscription);
-+	false -> Subscription
-+    end,
-+    ItemEl = build_roster_item(User, Server, {add, Nick, SubscriptionS, Group}),
-+    {ok, M} = loaded_module(LS,[mod_roster_odbc,mod_roster]),
-+    M:set_items(
-+	LU, LS,
-+	{xmlelement,"query",
-+            [{"xmlns","jabber:iq:roster"}],
-+            [ItemEl]}).
++subscribe(LU, LS, User, Server, Nick, Group, Subscription, Xattrs) ->
++    mnesia:transaction(
++      fun() ->
++	      mnesia:write({roster,
++			    {LU,LS,{User,Server,[]}}, % uj
++			    {LU,LS},                  % user
++			    {User,Server,[]},      % jid
++			    Nick,                  % name: "Mom", []
++			    Subscription,  % subscription: none, to=you see him, from=he sees you, both
++			    none,          % ask: out=send request, in=somebody requests you, none
++			    [Group],       % groups: ["Family"]
++			    Xattrs,        % xattrs: [{"category","conference"}]
++			    []             % xs: []
++			   })
++      end).
 +
 +delete_rosteritem(LocalUser, LocalServer, User, Server) ->
 +    case unsubscribe(LocalUser, LocalServer, User, Server) of
@@ -1105,22 +1108,11 @@ https://forge.process-one.net/browse/ejabberd-modules/mod_admin_extra
 +    end.
 +
 +unsubscribe(LU, LS, User, Server) ->
-+    ItemEl = build_roster_item(User, Server, remove),
-+    {ok, M} = loaded_module(LS,[mod_roster_odbc,mod_roster]),
-+    M:set_items(
-+	LU, LS,
-+	{xmlelement,"query",
-+            [{"xmlns","jabber:iq:roster"}],
-+            [ItemEl]}).
++    mnesia:transaction(
++      fun() ->
++              mnesia:delete({roster, {LU, LS, {User, Server, []}}})
++      end).
 +
-+loaded_module(Domain,Options) ->
-+    LoadedModules = gen_mod:loaded_modules(Domain),
-+    case lists:filter(fun(Module) ->
-+                              lists:member(Module, LoadedModules)
-+                      end, Options) of
-+        [M|_] -> {ok, M};
-+        [] -> {error,not_found}
-+    end.
 +
 +%% -----------------------------
 +%% Get Roster
