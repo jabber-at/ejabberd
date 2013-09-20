@@ -30,6 +30,7 @@ if [ $# -ne 0 ] ; then
     case $1 in
 	--) shift; break ;;
 	--node) shift ; ERLANG_NODE=$1 ; shift ;;
+	--concurrent) shift; SUFFIX=$$ ;;
     esac
 fi
 

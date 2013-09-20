@@ -1,3 +1,9 @@
+ejabberd (2.1.13-5) unstable; urgency=low
+
+  * Reimport some patches to minimize changes to the upstream package.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 20 Sep 2013 11:31:27 +0200
+
 ejabberd (2.1.13-4) unstable; urgency=low
 
   * Emergency rollback of various changes from the last revision.
