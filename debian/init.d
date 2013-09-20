@@ -24,11 +24,6 @@ NAME=ejabberd
 test -f $EJABBERD || exit 0
 test -f $EJABBERDCTL || exit 0
 
-# Include lsb init functions:
-if [ -f /lib/lsb/init-functions ] ; then
-    . /lib/lsb/init-functions
-fi
-
 # Include ejabberd defaults if available
 if [ -f /etc/default/ejabberd ] ; then
     . /etc/default/ejabberd

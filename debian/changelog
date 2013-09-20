@@ -1,3 +1,9 @@
+ejabberd (2.1.13-4) unstable; urgency=low
+
+  * Emergency rollback of various changes from the last revision.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Fri, 20 Sep 2013 09:48:02 +0200
+
 ejabberd (2.1.13-3) unstable; urgency=low
 
   * Increase debhelper dependency to >= 9.
