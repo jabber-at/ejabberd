@@ -1,0 +1,16 @@
+Description: Fix fetching JPEG vCard photos via LDAP
+Origin: upstream, https://github.com/processone/ejabberd/commit/be33ab890e35ae5c41285dd5ed422db910534040
+Bug-ProcessOne: https://support.process-one.net/browse/EJAB-1526
+Applied-Upstream: 2.1.11
+Last-Update: 2013-02-17
+diff --git a/src/eldap/eldap_filter.erl b/src/eldap/eldap_filter.erl
+index f8f20be..e78ee7e 100644
+--- a/src/eldap/eldap_filter.erl
++++ b/src/eldap/eldap_filter.erl
+@@ -181,5 +181,6 @@ do_sub(S, {RegExp, New, Times}, Iter) ->
+ replace_amps(String) ->
+     lists:flatmap(
+       fun($&) -> "\\&";
++         ($\\) -> "\\\\";
+ 	 (Chr) -> [Chr]
+       end, String).
