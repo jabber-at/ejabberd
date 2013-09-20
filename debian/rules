@@ -21,18 +21,12 @@ ifndef HOME
 	export HOME="$(CURDIR)"
 endif
 
-# For oneiric
-DPKG_DEV_VERSION = $(shell dpkg-query -f $$\{Version\} -W dpkg-dev | sed 's/.*://')
-ifeq "$(shell dpkg --compare-versions ${DPKG_DEV_VERSION} ge 1.16.1; echo $$?)" "0"
-DPKG_BUILDFLAGS=$(shell dpkg-buildflags --export=configure)
-endif
-
 configure: configure-stamp
 configure-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 
 	dh_auto_configure $(AUTO_OPTS) -- $(DEB_CONFIGURE_EXTRA_FLAGS) \
-		$(DPKG_BUILDFLAGS)
+		$(shell dpkg-buildflags --export=configure)
 
 	touch configure-stamp
 
