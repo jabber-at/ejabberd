@@ -2,7 +2,7 @@ ejabberd (2.1.13-5) unstable; urgency=low
 
   * Reimport some patches to minimize changes to the upstream package.
   * Add scram-optional-parameter-parsing-bugfix.patch.
-  * Increase erlang-dev dependency to >= 14.b.
+  * Increase erlang-dev dependency to >= 13.1.b.
   * Merge changes in debian/rules from upstream package.
   * Force --libdir=/usr/lib in configure, defaults to /usr/lib/x86_64 on older
     systems.
