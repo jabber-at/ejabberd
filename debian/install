@@ -1,4 +1,5 @@
 debian/scripts/ejabberd usr/sbin/
 debian/scripts/ejabberdctl usr/sbin/
 debian/ejabberd.cfg usr/share/ejabberd/
+
 debian/limits.d/ejabberd.conf etc/security/limits.d/
