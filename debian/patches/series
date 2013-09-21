@@ -3,4 +3,5 @@ ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
 reopen-log.patch
+scram-optional-parameter-parsing-bugfix.patch
 block-mucs-by-name.patch
