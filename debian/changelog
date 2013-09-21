@@ -1,7 +1,7 @@
 ejabberd (2.1.13-5) unstable; urgency=low
 
   * Reimport some patches to minimize changes to the upstream package.
-  * Increase erlang-dev dependency to >= 14.b.4.
+  * Increase erlang-dev dependency to >= 14.b.
   * Merge changes in debian/rules from upstream package.
   * Force --libdir in configure, defaults to /var/lib/x86_64 on older systems.
   * Install custom limits file to avoid cryptic errors.
