@@ -8,7 +8,7 @@ include /usr/share/quilt/quilt.make
 
 # NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 # on Debian Stable and all Ubuntu distros up to at least Saucy.
-DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-pam --libdir=/var/lib
+DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-pam --libdir=/usr/lib
 # Not sure if we should enable workaround for gateway subscription
 # Adding it breaks XMPP compatibility
 # Not adding breaks roster import for some gateways (specifically JIT)

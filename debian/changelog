@@ -4,7 +4,8 @@ ejabberd (2.1.13-5) unstable; urgency=low
   * Add scram-optional-parameter-parsing-bugfix.patch.
   * Increase erlang-dev dependency to >= 14.b.
   * Merge changes in debian/rules from upstream package.
-  * Force --libdir in configure, defaults to /var/lib/x86_64 on older systems.
+  * Force --libdir=/usr/lib in configure, defaults to /usr/lib/x86_64 on older
+    systems.
   * Install custom limits file to avoid cryptic errors.
   * Update debian/ejabberd.cfg with mention of the ejabberd-mod-admin-extra
     package.
