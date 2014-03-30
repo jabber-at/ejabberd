@@ -62,6 +62,7 @@ install: build
 	dh_auto_install $(AUTO_OPTS)
 
 	# Remove unused upstream config files:
+	find $(DESTDIR)/etc/
 	rm $(DESTDIR)/etc/ejabberd/ejabberd.cfg
 	rm $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
 
