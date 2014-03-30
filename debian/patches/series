@@ -1,4 +1,4 @@
 #ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
-block-mucs-by-name.patch
+#block-mucs-by-name.patch
