@@ -4,6 +4,7 @@ ejabberd (1:13.12-1~trusty~trusty) trusty; urgency=low
   * Remove use_dpkg_buildflags.patch, it no longer applies.
   * Disable ejabberd_regexp.patch: Problem seems to persist, but patch no
     longer applies.
+  * Remove reopen-log.patch, it is applied upstream.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 30 Mar 2014 16:38:56 +0200
 
