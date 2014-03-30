@@ -1,4 +1,4 @@
-ejabberd_regexp.patch
+#ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
 reopen-log.patch
