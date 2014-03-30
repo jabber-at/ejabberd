@@ -122,5 +122,4 @@ get-orig-source:
 	dh $@ ${DH_ARGS}
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install configure get-orig-source
-
+.PHONY: binary-indep binary-arch binary install get-orig-source
