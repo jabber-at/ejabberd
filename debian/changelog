@@ -1,4 +1,4 @@
-ejabberd (1:13.12-1~trusty) trusty; urgency=low
+ejabberd (1:13.12-1~trusty~trusty) trusty; urgency=low
 
   * New version from upstream.
 
