@@ -8,7 +8,7 @@ ejabberd (1:13.12-1~trusty~trusty) trusty; urgency=low
     relevant.
   * Remove reopen-log.patch and scram-optional-parameter-parsing-bugfix.patch,
     they are applied upstream.
-  * Add erlang-crypto as build dependency.
+  * Add erlang-crypto, erlang-ssl as build dependency.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 30 Mar 2014 16:38:56 +0200
 
