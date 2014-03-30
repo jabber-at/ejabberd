@@ -113,6 +113,8 @@ binary-arch: install
 	dh_md5sums
 	dh_builddeb
 
+override_dh_auto_test:
+
 get-orig-source:
 	dh_testdir
 	wget -O ../ejabberd_$(DEB_UPSTREAM_VERSION).orig.tar.gz \
