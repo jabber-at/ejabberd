@@ -23,34 +23,35 @@ ifndef HOME
 	export HOME="$(CURDIR)"
 endif
 
-configure: configure-stamp
-configure-stamp: $(QUILT_STAMPFN)
-	dh_testdir
+#configure: configure-stamp
+#configure-stamp: $(QUILT_STAMPFN)
+#	dh_testdir
+#
+#	dh_auto_configure $(AUTO_OPTS) -- $(DEB_CONFIGURE_EXTRA_FLAGS) \
+#		$(shell dpkg-buildflags --export=configure)
+#
+#	touch configure-stamp
 
-	dh_auto_configure $(AUTO_OPTS) -- $(DEB_CONFIGURE_EXTRA_FLAGS) \
-		$(shell dpkg-buildflags --export=configure)
 
-	touch configure-stamp
+#build: build-arch build-indep
+#build-arch: build-stamp
+#build-indep: build-stamp
+#
+#build-stamp: configure-stamp  
+#	dh_testdir
+#
+#	dh_auto_build $(AUTO_OPTS)
+#
+#	touch $@
 
-
-build: build-arch build-indep
-build-arch: build-stamp
-build-indep: build-stamp
-
-build-stamp: configure-stamp  
-	dh_testdir
-
-	dh_auto_build $(AUTO_OPTS)
-
-	touch $@
-
-clean: unpatch
-	dh_testdir
-	dh_testroot
-	rm -f build-stamp configure-stamp
-
-	dh_auto_clean $(AUTO_OPTS)
-
+#clean: unpatch
+#	dh_testdir
+#	dh_testroot
+#	rm -f build-stamp configure-stamp
+#
+#	dh_auto_clean $(AUTO_OPTS)
+#
+override_dh_clean:
 	dh_clean -Xasn1/ELDAPv3.asn1~
 
 install: build
