@@ -57,6 +57,7 @@
 -include("ejabberd_ctl.hrl").
 -include("ejabberd_commands.hrl").
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 
 %%-----------------------------
@@ -72,10 +73,10 @@ start() ->
 			 _ ->
 			     case net_kernel:longnames() of
 				 true ->
-				     SNode ++ "@" ++ inet_db:gethostname() ++
-					 "." ++ inet_db:res_option(domain);
+				     lists:flatten([SNode, "@", inet_db:gethostname(),
+                                                    ".", inet_db:res_option(domain)]);
 				 false ->
-				     SNode ++ "@" ++ inet_db:gethostname();
+                                     lists:flatten([SNode, "@", inet_db:gethostname()]);
 				 _ ->
 				     SNode
 			     end
@@ -83,7 +84,7 @@ start() ->
 	    Node = list_to_atom(SNode1),
 	    Status = case rpc:call(Node, ?MODULE, process, [Args]) of
 			 {badrpc, Reason} ->
-			     ?PRINT("Failed RPC connection to the node ~p: ~p~n",
+			     print("Failed RPC connection to the node ~p: ~p~n",
 				    [Node, Reason]),
 			     %% TODO: show minimal start help
 			     ?STATUS_BADRPC;
@@ -124,21 +125,23 @@ unregister_commands(CmdDescs, Module, Function) ->
 %% Process
 %%-----------------------------
 
+-spec process([string()]) -> non_neg_integer().
+
 %% The commands status, stop and restart are defined here to ensure
 %% they are usable even if ejabberd is completely stopped.
 process(["status"]) ->
     {InternalStatus, ProvidedStatus} = init:get_status(),
-    ?PRINT("The node ~p is ~p with status: ~p~n",
+    print("The node ~p is ~p with status: ~p~n",
 	   [node(), InternalStatus, ProvidedStatus]),
     case lists:keysearch(ejabberd, 1, application:which_applications()) of
         false ->
-            EjabberdLogPath = ejabberd_app:get_log_path(),
-            ?PRINT("ejabberd is not running in that node~n"
+            EjabberdLogPath = ejabberd_logger:get_log_path(),
+            print("ejabberd is not running in that node~n"
 		   "Check for error messages: ~s~n"
 		   "or other files in that directory.~n", [EjabberdLogPath]),
             ?STATUS_ERROR;
         {value, {_, _, Version}} ->
-            ?PRINT("ejabberd ~s is running in that node~n", [Version]),
+            print("ejabberd ~s is running in that node~n", [Version]),
             ?STATUS_SUCCESS
     end;
 
@@ -152,17 +155,17 @@ process(["restart"]) ->
     ?STATUS_SUCCESS;
 
 process(["mnesia"]) ->
-    ?PRINT("~p~n", [mnesia:system_info(all)]),
+    print("~p~n", [mnesia:system_info(all)]),
     ?STATUS_SUCCESS;
 
 process(["mnesia", "info"]) ->
     mnesia:info(),
     ?STATUS_SUCCESS;
 
-process(["mnesia", Arg]) when is_list(Arg) ->
+process(["mnesia", Arg]) ->
     case catch mnesia:system_info(list_to_atom(Arg)) of
-	{'EXIT', Error} -> ?PRINT("Error: ~p~n", [Error]);
-	Return -> ?PRINT("~p~n", [Return])
+	{'EXIT', Error} -> print("Error: ~p~n", [Error]);
+	Return -> print("~p~n", [Return])
     end,
     ?STATUS_SUCCESS;
 
@@ -190,8 +193,9 @@ process(["help" | Mode]) ->
 	    print_usage_help(MaxC, ShCode),
 	    ?STATUS_SUCCESS;
 	[CmdString | _] ->
-	    CmdStringU = ejabberd_regexp:greplace(CmdString, "-", "_"),
-	    print_usage_commands(CmdStringU, MaxC, ShCode),
+	    CmdStringU = ejabberd_regexp:greplace(
+                           list_to_binary(CmdString), <<"-">>, <<"_">>),
+	    print_usage_commands(binary_to_list(CmdStringU), MaxC, ShCode),
 	    ?STATUS_SUCCESS
     end;
 
@@ -214,30 +218,27 @@ process2(Args, AccessCommands) ->
 process2(Args, Auth, AccessCommands) ->
     case try_run_ctp(Args, Auth, AccessCommands) of
 	{String, wrong_command_arguments}
-	when is_list(String) ->
+          when is_list(String) ->
 	    io:format(lists:flatten(["\n" | String]++["\n"])),
 	    [CommandString | _] = Args,
             process(["help" | [CommandString]]),
 	    {lists:flatten(String), ?STATUS_ERROR};
 	{String, Code}
-	when is_list(String) and is_integer(Code) ->
+          when is_list(String) and is_integer(Code) ->
 	    {lists:flatten(String), Code};
 	String
-	when is_list(String) ->
+          when is_list(String) ->
 	    {lists:flatten(String), ?STATUS_SUCCESS};
 	Code
-	when is_integer(Code) ->
+          when is_integer(Code) ->
 	    {"", Code};
 	Other ->
 	    {"Erroneous result: " ++ io_lib:format("~p", [Other]), ?STATUS_ERROR}
     end.
 
 get_accesscommands() ->
-    case ejabberd_config:get_local_option(ejabberdctl_access_commands) of
-	ACs when is_list(ACs) -> ACs;
-	_ -> []
-    end.
-
+    ejabberd_config:get_option(ejabberdctl_access_commands,
+                                     fun(V) when is_list(V) -> V end, []).
 
 %%-----------------------------
 %% Command calling
@@ -260,7 +261,7 @@ try_run_ctp(Args, Auth, AccessCommands) ->
 	Error:Why ->
             %% In this case probably ejabberd is not started, so let's show Status
             process(["status"]),
-            ?PRINT("~n", []),
+            print("~n", []),
 	    {io_lib:format("Error in ejabberd ctl process: '~p' ~p", [Error, Why]), ?STATUS_USAGE}
     end.
 
@@ -281,8 +282,9 @@ try_call_command(Args, Auth, AccessCommands) ->
 
 %% @spec (Args::[string()], Auth, AccessCommands) -> string() | integer() | {string(), integer()} | {error, ErrorType}
 call_command([CmdString | Args], Auth, AccessCommands) ->
-    CmdStringU = ejabberd_regexp:greplace(CmdString, "-", "_"),
-    Command = list_to_atom(CmdStringU),
+    CmdStringU = ejabberd_regexp:greplace(
+                   list_to_binary(CmdString), <<"-">>, <<"_">>),
+    Command = list_to_atom(binary_to_list(CmdStringU)),
     case ejabberd_commands:get_command_format(Command) of
 	{error, command_unknown} ->
 	    {error, command_unknown};
@@ -292,18 +294,7 @@ call_command([CmdString | Args], Auth, AccessCommands) ->
 		    Result = ejabberd_commands:execute_command(AccessCommands, Auth, Command,
 							       ArgsFormatted),
 		    format_result(Result, ResultFormat);
-		%% This case clause is for Erlang R14 and older
-		{'EXIT', {function_clause,[{lists,zip,[A1, A2]} | _]}} ->
-		    {NumCompa, TextCompa} =
-			case {length(A1), length(A2)} of
-			    {L1, L2} when L1 < L2 -> {L2-L1, "less argument"};
-			    {L1, L2} when L1 > L2 -> {L1-L2, "more argument"}
-			end,
-		    {io_lib:format("Error: the command ~p requires ~p ~s.",
-				   [CmdString, NumCompa, TextCompa]),
-		     wrong_command_arguments};
-		%% This case clause is for Erlang R15 and newer
-		{'EXIT', {function_clause,[{lists,zip,[A1, A2],_} | _]}} ->
+		{'EXIT', {function_clause,[{lists,zip,[A1, A2], _} | _]}} ->
 		    {NumCompa, TextCompa} =
 			case {length(A1), length(A2)} of
 			    {L1, L2} when L1 < L2 -> {L2-L1, "less argument"};
@@ -331,10 +322,12 @@ format_args(Args, ArgsFormat) ->
 
 format_arg(Arg, integer) ->
     format_arg2(Arg, "~d");
+format_arg(Arg, binary) ->
+    list_to_binary(format_arg(Arg, string));
 format_arg("", string) ->
     "";
 format_arg(Arg, string) ->
-    NumChars = integer_to_list(string:len(Arg)),
+    NumChars = integer_to_list(length(Arg)),
     Parse = "~" ++ NumChars ++ "c",
     format_arg2(Arg, Parse).
 
@@ -355,8 +348,11 @@ format_result(Atom, {_Name, atom}) ->
 format_result(Int, {_Name, integer}) ->
     io_lib:format("~p", [Int]);
 
-format_result(String, {_Name, string}) ->
+format_result(String, {_Name, string}) when is_list(String) ->
     io_lib:format("~s", [String]);
+
+format_result(Binary, {_Name, string}) when is_binary(Binary) ->
+    io_lib:format("~s", [binary_to_list(Binary)]);
 
 format_result(Code, {_Name, rescode}) ->
     make_status(Code);
@@ -461,14 +457,14 @@ print_usage(HelpMode, MaxC, ShCode) ->
 	get_list_commands() ++
 	get_list_ctls(),
 
-    ?PRINT(
+    print(
        ["Usage: ", ?B("ejabberdctl"), " [--node ", ?U("nodename"), "] [--auth ",
 	?U("user"), " ", ?U("host"), " ", ?U("password"), "] ",
 	?U("command"), " [", ?U("options"), "]\n"
 	"\n"
 	"Available commands in this ejabberd node:\n"], []),
     print_usage_commands(HelpMode, MaxC, ShCode, AllCommands),
-    ?PRINT(
+    print(
        ["\n"
 	"Examples:\n"
 	"  ejabberdctl restart\n"
@@ -502,7 +498,7 @@ print_usage_commands(HelpMode, MaxC, ShCode, Commands) ->
     %% Convert its definition to a line
     FmtCmdDescs = format_command_lines(CmdArgsLenDescsSorted, MaxCmdLen, MaxC, ShCode, HelpMode),
 
-    ?PRINT([FmtCmdDescs], []).
+    print([FmtCmdDescs], []).
 
 
 %% Get some info about the shell:
@@ -540,24 +536,25 @@ split_desc_segments(MaxL, Words) ->
 join(L, Words) ->
     join(L, Words, 0, [], []).
 
-join(_L, [], _LenLastSeg, LastSeg, ResSeg) ->
-    ResSeg2 = [lists:reverse(LastSeg) | ResSeg],
-    lists:reverse(ResSeg2);
-join(L, [Word | Words], LenLastSeg, LastSeg, ResSeg) ->
-    LWord = length(Word),
-    case LWord + LenLastSeg < L of
-	true ->
-	    %% This word fits in the last segment
-	    %% If this word ends with "\n", reset column counter
-	    case string:str(Word, "\n") of
-		0 ->
-		    join(L, Words, LenLastSeg+LWord+1, [" ", Word | LastSeg], ResSeg);
-		_ ->
-		    join(L, Words, LWord+1, [" ", Word | LastSeg], ResSeg)
-	    end;
-	false ->
-	    join(L, Words, LWord, [" ", Word], [lists:reverse(LastSeg) | ResSeg])
-    end.
+join(_Len, [], _CurSegLen, CurSeg, AllSegs) ->
+    lists:reverse([CurSeg | AllSegs]);
+join(Len, [Word | Tail], CurSegLen, CurSeg, AllSegs) ->
+    WordLen = length(Word),
+    SegSize = WordLen + CurSegLen + 1,
+    {NewCurSeg, NewAllSegs, NewCurSegLen} =
+        if SegSize < Len ->
+                {[CurSeg, " ", Word], AllSegs, SegSize};
+           true ->
+                {Word, [CurSeg | AllSegs], WordLen}
+        end,
+    NewLen = case string:str(Word, "\n") of
+                 0 ->
+                     NewCurSegLen;
+                 _ ->
+                     0
+             end,
+    join(Len, Tail, NewLen, NewCurSeg, NewAllSegs).
+
 
 format_command_lines(CALD, MaxCmdLen, MaxC, ShCode, dual)
   when MaxC - MaxCmdLen < 40 ->
@@ -568,7 +565,8 @@ format_command_lines(CALD, MaxCmdLen, MaxC, ShCode, dual) ->
     lists:map(
       fun({Cmd, Args, CmdArgsL, Desc}) ->
 	      DescFmt = prepare_description(MaxCmdLen+4, MaxC, Desc),
-	      ["  ", ?B(Cmd), " ", [[?U(Arg), " "] || Arg <- Args], string:chars($\s, MaxCmdLen - CmdArgsL + 1),
+	      ["  ", ?B(Cmd), " ", [[?U(Arg), " "] || Arg <- Args],
+               string:chars($\s, MaxCmdLen - CmdArgsL + 1),
 	       DescFmt, "\n"]
       end, CALD);
 
@@ -586,20 +584,20 @@ format_command_lines(CALD, _MaxCmdLen, MaxC, ShCode, long) ->
 %%-----------------------------
 
 print_usage_tags(MaxC, ShCode) ->
-    ?PRINT("Available tags and commands:", []),
+    print("Available tags and commands:", []),
     TagsCommands = ejabberd_commands:get_tags_commands(),
     lists:foreach(
       fun({Tag, Commands} = _TagCommands) ->
-	      ?PRINT(["\n\n  ", ?B(Tag), "\n     "], []),
+	      print(["\n\n  ", ?B(Tag), "\n     "], []),
 	      Words = lists:sort(Commands),
 	      Desc = prepare_long_line(5, MaxC, Words),
-	      ?PRINT(Desc, [])
+	      print(Desc, [])
       end,
       TagsCommands),
-    ?PRINT("\n\n", []).
+    print("\n\n", []).
 
 print_usage_tags(Tag, MaxC, ShCode) ->
-    ?PRINT(["Available commands with tag ", ?B(Tag), ":", "\n"], []),
+    print(["Available commands with tag ", ?B(Tag), ":", "\n"], []),
     HelpMode = long,
     TagsCommands = ejabberd_commands:get_tags_commands(),
     CommandsNames = case lists:keysearch(Tag, 1, TagsCommands) of
@@ -608,7 +606,8 @@ print_usage_tags(Tag, MaxC, ShCode) ->
 		    end,
     CommandsList = lists:map(
 		     fun(NameString) ->
-			     C = ejabberd_commands:get_command_definition(list_to_atom(NameString)),
+			     C = ejabberd_commands:get_command_definition(
+                                   list_to_atom(NameString)),
 			     #ejabberd_commands{name = Name,
 						args = Args,
 						desc = Desc} = C,
@@ -616,7 +615,7 @@ print_usage_tags(Tag, MaxC, ShCode) ->
 		     end,
 		     CommandsNames),
     print_usage_commands(HelpMode, MaxC, ShCode, CommandsList),
-    ?PRINT("\n", []).
+    print("\n", []).
 
 
 %%-----------------------------
@@ -674,7 +673,7 @@ print_usage_commands2(Cmds, MaxC, ShCode) ->
       fun(Cmd, Remaining) ->
 	      print_usage_command(Cmd, MaxC, ShCode),
 	      case Remaining > 1 of
-		  true -> ?PRINT([" ", lists:duplicate(MaxC, 126), " \n"], []);
+		  true -> print([" ", lists:duplicate(MaxC, 126), " \n"], []);
 		  false -> ok
 	      end,
 	      {ok, Remaining-1}
@@ -689,10 +688,10 @@ filter_commands(All, SubString) ->
     end.
 
 filter_commands_regexp(All, Glob) ->
-    RegExp = ejabberd_regexp:sh_to_awk(Glob),
+    RegExp = ejabberd_regexp:sh_to_awk(list_to_binary(Glob)),
     lists:filter(
       fun(Command) ->
-	      case ejabberd_regexp:run(Command, RegExp) of
+	      case ejabberd_regexp:run(list_to_binary(Command), RegExp) of
 		  match ->
 		      true;
 		  nomatch ->
@@ -750,14 +749,14 @@ print_usage_command(Cmd, C, MaxC, ShCode) ->
 			  false -> ["  ", ?B("Note:"), " This command cannot be executed using ejabberdctl. Try ejabberd_xmlrpc.\n\n"]
 		      end,
 
-    ?PRINT(["\n", NameFmt, "\n", ArgsFmt, "\n", ReturnsFmt, "\n\n", XmlrpcFmt, TagsFmt, "\n\n", DescFmt, "\n\n", LongDescFmt, NoteEjabberdctl], []).
+    print(["\n", NameFmt, "\n", ArgsFmt, "\n", ReturnsFmt, "\n\n", XmlrpcFmt, TagsFmt, "\n\n", DescFmt, "\n\n", LongDescFmt, NoteEjabberdctl], []).
 
 format_usage_ctype(Type, _Indentation)
-  when (Type==atom) or (Type==integer) or (Type==string) or (Type==rescode) or (Type==restuple)->
+  when (Type==atom) or (Type==integer) or (Type==string) or (Type==binary) or (Type==rescode) or (Type==restuple)->
     io_lib:format("~p", [Type]);
 
 format_usage_ctype({Name, Type}, _Indentation)
-  when (Type==atom) or (Type==integer) or (Type==string) or (Type==rescode) or (Type==restuple)->
+  when (Type==atom) or (Type==integer) or (Type==string) or (Type==binary) or (Type==rescode) or (Type==restuple)->
     io_lib:format("~p::~p", [Name, Type]);
 
 format_usage_ctype({Name, {list, ElementDef}}, Indentation) ->
@@ -781,6 +780,8 @@ format_usage_tuple([ElementDef | ElementsDef], Indentation) ->
     MarginString = lists:duplicate(Indentation, $\s), % Put spaces
     [ElementFmt, ",\n", MarginString, format_usage_tuple(ElementsDef, Indentation)].
 
+print(Format, Args) ->
+    io:format(lists:flatten(Format), Args).
 
 %%-----------------------------
 %% Command managment
