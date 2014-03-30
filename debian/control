@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
 Build-Depends: debhelper (>= 7.3~), quilt, libexpat1-dev, libssl-dev,
- zlib1g-dev, libpam0g-dev, po-debconf, git (>= 1.5),
+ zlib1g-dev, libpam0g-dev, po-debconf, git (>= 1.5), libyaml,
  erlang-base, erlang-asn1, erlang-parsetools, erlang-dev (>= 1:13.1),
  erlang-crypto, erlang-ssl, erlang-mnesia, erlang-inets
 Standards-Version: 3.9.5
