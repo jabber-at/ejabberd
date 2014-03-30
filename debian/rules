@@ -118,6 +118,9 @@ get-orig-source:
 	wget -O ../ejabberd_$(DEB_UPSTREAM_VERSION).orig.tar.gz \
 		http://www.process-one.net/en/projects/ejabberd/download/$(DEB_UPSTREAM_VERSION)/ejabberd-$(DEB_UPSTREAM_VERSION).tar.gz
 
+%:
+	dh $@ ${DH_ARGS}
+
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install configure get-orig-source
 
