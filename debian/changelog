@@ -1,3 +1,9 @@
+ejabberd (1:13.12-1) unstable; urgency=low
+
+  * New version from upstream.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 30 Mar 2014 16:38:56 +0200
+
 ejabberd (2.1.13-5) unstable; urgency=low
 
   * Reimport some patches to minimize changes to the upstream package.
