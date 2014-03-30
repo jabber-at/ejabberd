@@ -31,6 +31,7 @@
 -export([update/0, update/1, update_info/0]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
 %%====================================================================
 %% API
@@ -71,12 +72,7 @@ update(ModulesToUpdate) ->
 %% But OTP R14B04 and newer provide release_handler_1:eval_script/5
 %% Dialyzer reports a call to missing function; don't worry.
 eval_script(Script, Apps, LibDirs) ->
-    case lists:member({eval_script, 5}, release_handler_1:module_info(exports)) of
-	true ->
-	    release_handler_1:eval_script(Script, Apps, LibDirs, [], []);
-	false ->
-	    release_handler_1:eval_script(Script, Apps, LibDirs)
-    end.
+    release_handler_1:eval_script(Script, Apps, LibDirs, [], []).
 
 %% Get information about the modified modules
 update_info() ->

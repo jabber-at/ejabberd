@@ -25,54 +25,109 @@
 %%%----------------------------------------------------------------------
 
 -module(shaper).
+
 -author('alexey@process-one.net').
 
--export([new/1, new1/1, update/2]).
+-export([start/0, new/1, new1/1, update/2,
+         transform_options/1, load_from_config/0]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 
--record(maxrate, {maxrate, lastrate, lasttime}).
+-record(maxrate, {maxrate  = 0   :: integer(),
+                  lastrate = 0.0 :: float(),
+                  lasttime = 0   :: integer()}).
 
+-record(shaper, {name    :: {atom(), global},
+                 maxrate :: integer()}).
 
-new(Name) ->
-    Data = case ejabberd_config:get_global_option({shaper, Name, global}) of
-	       undefined ->
-		   none;
-	       D ->
-		   D
-	   end,
-    new1(Data).
+-type shaper() :: none | #maxrate{}.
 
+-export_type([shaper/0]).
 
-new1(none) ->
+-spec start() -> ok.
+
+start() ->
+    mnesia:create_table(shaper,
+                        [{ram_copies, [node()]},
+                         {local_content, true},
+			 {attributes, record_info(fields, shaper)}]),
+    mnesia:add_table_copy(shaper, node(), ram_copies),
+    load_from_config(),
+    ok.
+
+-spec load_from_config() -> ok | {error, any()}.
+
+load_from_config() ->
+    Shapers = ejabberd_config:get_option(
+                shaper, fun(V) -> V end, []),
+    case mnesia:transaction(
+           fun() ->
+                   lists:foreach(
+                     fun({Name, MaxRate}) ->
+                             mnesia:write(#shaper{name = {Name, global},
+                                                  maxrate = MaxRate})
+                     end, Shapers)
+           end) of
+        {atomic, ok} ->
+            ok;
+        Err ->
+            {error, Err}
+    end.
+
+-spec new(atom()) -> shaper().
+
+new(none) ->
     none;
-new1({maxrate, MaxRate}) ->
-    #maxrate{maxrate = MaxRate,
-	     lastrate = 0,
+new(Name) ->
+    MaxRate = case ets:lookup(shaper, {Name, global}) of
+                  [#shaper{maxrate = R}] ->
+                      R;
+                  [] ->
+                      ?WARNING_MSG("Attempt to initialize an "
+                                   "unspecified shaper '~s'", [Name]),
+                      none
+              end,
+    new1(MaxRate).
+
+-spec new1(none | integer()) -> shaper().
+
+new1(none) -> none;
+new1(MaxRate) ->
+    #maxrate{maxrate = MaxRate, lastrate = 0.0,
 	     lasttime = now_to_usec(now())}.
 
+-spec update(shaper(), integer()) -> {shaper(), integer()}.
 
-update(none, _Size) ->
-    {none, 0};
+update(none, _Size) -> {none, 0};
 update(#maxrate{} = State, Size) ->
     MinInterv = 1000 * Size /
-	(2 * State#maxrate.maxrate - State#maxrate.lastrate),
-    Interv = (now_to_usec(now()) - State#maxrate.lasttime) / 1000,
+		  (2 * State#maxrate.maxrate - State#maxrate.lastrate),
+    Interv = (now_to_usec(now()) - State#maxrate.lasttime) /
+	       1000,
     ?DEBUG("State: ~p, Size=~p~nM=~p, I=~p~n",
-              [State, Size, MinInterv, Interv]),
-    Pause = if
-		MinInterv > Interv ->
-		    1 + trunc(MinInterv - Interv);
-		true ->
-		    0
+	   [State, Size, MinInterv, Interv]),
+    Pause = if MinInterv > Interv ->
+		   1 + trunc(MinInterv - Interv);
+	       true -> 0
 	    end,
     NextNow = now_to_usec(now()) + Pause * 1000,
-    {State#maxrate{
-       lastrate = (State#maxrate.lastrate +
-		   1000000 * Size / (NextNow - State#maxrate.lasttime))/2,
-       lasttime = NextNow},
+    {State#maxrate{lastrate =
+		       (State#maxrate.lastrate +
+			  1000000 * Size / (NextNow - State#maxrate.lasttime))
+			 / 2,
+		   lasttime = NextNow},
      Pause}.
 
+transform_options(Opts) ->
+    lists:foldl(fun transform_options/2, [], Opts).
+
+transform_options({OptName, Name, {maxrate, N}}, Opts) when OptName == shaper ->
+    [{shaper, [{Name, N}]}|Opts];
+transform_options({OptName, Name, none}, Opts) when OptName == shaper ->
+    [{shaper, [{Name, none}]}|Opts];
+transform_options(Opt, Opts) ->
+    [Opt|Opts].
 
 now_to_usec({MSec, Sec, USec}) ->
-    (MSec*1000000 + Sec)*1000000 + USec.
+    (MSec * 1000000 + Sec) * 1000000 + USec.

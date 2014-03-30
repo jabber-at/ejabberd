@@ -29,36 +29,33 @@
 
 -behaviour(application).
 
--export([start_modules/0,start/2, get_log_path/0, prep_stop/1, stop/1, init/0]).
+-export([start_modules/0,start/2, prep_stop/1, stop/1, init/0]).
 
 -include("ejabberd.hrl").
-
+-include("logger.hrl").
 
 %%%
 %%% Application API
 %%%
 
 start(normal, _Args) ->
-    ejabberd_loglevel:set(4),
+    ejabberd_logger:start(),
     write_pid_file(),
-    application:start(sasl),
+    start_apps(),
+    ejabberd:check_app(ejabberd),
     randoms:start(),
     db_init(),
-    sha:start(),
-    stringprep_sup:start_link(),
-    xml:start(),
     start(),
     translate:start(),
-    acl:start(),
     ejabberd_ctl:init(),
     ejabberd_commands:init(),
     ejabberd_admin:start(),
     gen_mod:start(),
     ejabberd_config:start(),
-    ejabberd_check:config(),
+    set_loglevel_from_config(),
+    acl:start(),
+    shaper:start(),
     connect_nodes(),
-    %% Loading ASN.1 driver explicitly to avoid races in LDAP
-    catch asn1rt:load_driver(),
     Sup = ejabberd_sup:start_link(),
     ejabberd_rdbms:start(),
     ejabberd_auth:start(),
@@ -102,23 +99,12 @@ start() ->
 
 init() ->
     register(ejabberd, self()),
-    %erlang:system_flag(fullsweep_after, 0),
-    %error_logger:logfile({open, ?LOG_PATH}),
-    LogPath = get_log_path(),
-    error_logger:add_report_handler(ejabberd_logger_h, LogPath),
-    erl_ddll:load_driver(ejabberd:get_so_path(), tls_drv),
-    case erl_ddll:load_driver(ejabberd:get_so_path(), expat_erl) of
-	ok -> ok;
-	{error, already_loaded} -> ok
-    end,
-    Port = open_port({spawn, "expat_erl"}, [binary]),
-    loop(Port).
+    loop().
 
-
-loop(Port) ->
+loop() ->
     receive
 	_ ->
-	    loop(Port)
+	    loop()
     end.
 
 db_init() ->
@@ -128,68 +114,55 @@ db_init() ->
 	_ ->
 	    ok
     end,
-    application:start(mnesia, permanent),
+    ejabberd:start_app(mnesia, permanent),
     mnesia:wait_for_tables(mnesia:system_info(local_tables), infinity).
 
 %% Start all the modules in all the hosts
 start_modules() ->
     lists:foreach(
       fun(Host) ->
-	      case ejabberd_config:get_local_option({modules, Host}) of
-		  undefined ->
-		      ok;
-		  Modules ->
-		      lists:foreach(
-			fun({Module, Args}) ->
-				gen_mod:start_module(Host, Module, Args)
-			end, Modules)
-	      end
+              Modules = ejabberd_config:get_option(
+                          {modules, Host},
+                          fun(Mods) ->
+                                  lists:map(
+                                    fun({M, A}) when is_atom(M), is_list(A) ->
+                                            {M, A}
+                                    end, Mods)
+                          end, []),
+              lists:foreach(
+                fun({Module, Args}) ->
+                        gen_mod:start_module(Host, Module, Args)
+                end, Modules)
       end, ?MYHOSTS).
 
 %% Stop all the modules in all the hosts
 stop_modules() ->
     lists:foreach(
       fun(Host) ->
-	      case ejabberd_config:get_local_option({modules, Host}) of
-		  undefined ->
-		      ok;
-		  Modules ->
-		      lists:foreach(
-			fun({Module, _Args}) ->
-				gen_mod:stop_module_keep_config(Host, Module)
-			end, Modules)
-	      end
+              Modules = ejabberd_config:get_option(
+                          {modules, Host},
+                          fun(Mods) ->
+                                  lists:map(
+                                    fun({M, A}) when is_atom(M), is_list(A) ->
+                                            {M, A}
+                                    end, Mods)
+                          end, []),
+              lists:foreach(
+                fun({Module, _Args}) ->
+                        gen_mod:stop_module_keep_config(Host, Module)
+                end, Modules)
       end, ?MYHOSTS).
 
 connect_nodes() ->
-    case ejabberd_config:get_local_option(cluster_nodes) of
-	undefined ->
-	    ok;
-	Nodes when is_list(Nodes) ->
-	    lists:foreach(fun(Node) ->
-				  net_kernel:connect_node(Node)
-			  end, Nodes)
-    end.
-
-%% @spec () -> string()
-%% @doc Returns the full path to the ejabberd log file.
-%% It first checks for application configuration parameter 'log_path'.
-%% If not defined it checks the environment variable EJABBERD_LOG_PATH.
-%% And if that one is neither defined, returns the default value:
-%% "ejabberd.log" in current directory.
-get_log_path() ->
-    case application:get_env(log_path) of
-	{ok, Path} ->
-	    Path;
-	undefined ->
-	    case os:getenv("EJABBERD_LOG_PATH") of
-		false ->
-		    ?LOG_PATH;
-		Path ->
-		    Path
-	    end
-    end.
-
+    Nodes = ejabberd_config:get_option(
+              cluster_nodes,
+              fun(Ns) ->
+                      true = lists:all(fun is_atom/1, Ns),
+                      Ns
+              end, []),
+    lists:foreach(fun(Node) ->
+                          net_kernel:connect_node(Node)
+                  end, Nodes).
 
 %% If ejabberd is running on some Windows machine, get nameservers and add to Erlang
 maybe_add_nameservers() ->
@@ -240,3 +213,20 @@ delete_pid_file() ->
 	PidFilename ->
 	    file:delete(PidFilename)
     end.
+
+set_loglevel_from_config() ->
+    Level = ejabberd_config:get_option(
+              loglevel,
+              fun(P) when P>=0, P=<5 -> P end,
+              4),
+    ejabberd_logger:set(Level).
+
+start_apps() ->
+    ejabberd:start_app(sasl),
+    ejabberd:start_app(ssl),
+    ejabberd:start_app(p1_yaml),
+    ejabberd:start_app(p1_tls),
+    ejabberd:start_app(p1_xml),
+    ejabberd:start_app(p1_stringprep),
+    ejabberd:start_app(p1_zlib),
+    ejabberd:start_app(p1_cache_tab).

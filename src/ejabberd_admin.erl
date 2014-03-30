@@ -53,6 +53,7 @@
 	]).
 
 -include("ejabberd.hrl").
+-include("logger.hrl").
 -include("ejabberd_commands.hrl").
 
 start() ->
@@ -96,7 +97,7 @@ commands() ->
 			result = {res, rescode}},
      #ejabberd_commands{name = get_loglevel, tags = [logs, server],
 			desc = "Get the current loglevel",
-			module = ejabberd_loglevel, function = get,
+			module = ejabberd_logger, function = get,
 			args = [],
                         result = {leveltuple, {tuple, [{levelnumber, integer},
                                                        {levelatom, atom},
@@ -117,17 +118,17 @@ commands() ->
      #ejabberd_commands{name = register, tags = [accounts],
 			desc = "Register a user",
 			module = ?MODULE, function = register,
-			args = [{user, string}, {host, string}, {password, string}],
+			args = [{user, binary}, {host, binary}, {password, binary}],
 			result = {res, restuple}},
      #ejabberd_commands{name = unregister, tags = [accounts],
 			desc = "Unregister a user",
 			module = ?MODULE, function = unregister,
-			args = [{user, string}, {host, string}],
+			args = [{user, binary}, {host, binary}],
 			result = {res, restuple}},
      #ejabberd_commands{name = registered_users, tags = [accounts],
 			desc = "List all registered users in HOST",
 			module = ?MODULE, function = registered_users,
-			args = [{host, string}],
+			args = [{host, binary}],
 			result = {users, {list, {username, string}}}},
 	 #ejabberd_commands{name = registered_vhosts, tags = [server],
 			desc = "List all registered vhosts in SERVER",
@@ -157,6 +158,17 @@ commands() ->
 			desc = "Export data of users in a host to PIEFXIS files (XEP-0227)",
 			module = ejabberd_piefxis, function = export_host,
 			args = [{dir, string}, {host, string}], result = {res, rescode}},
+
+     #ejabberd_commands{name = export_odbc, tags = [mnesia, odbc],
+                        desc = "Export all tables as SQL queries to a file",
+                        module = ejd2odbc, function = export,
+                        args = [{host, string}, {file, string}], result = {res, rescode}},
+
+     #ejabberd_commands{name = convert_to_yaml, tags = [config],
+                        desc = "Convert the input file from Erlang to YAML format",
+                        module = ejabberd_config, function = convert_to_yaml,
+                        args = [{in, string}, {out, string}],
+                        result = {res, rescode}},
 
      #ejabberd_commands{name = delete_expired_messages, tags = [purge],
 			desc = "Delete expired offline messages from database",
@@ -235,27 +247,7 @@ status() ->
 
 reopen_log() ->
     ejabberd_hooks:run(reopen_log_hook, []),
-    %% TODO: Use the Reopen log API for logger_h ?
-    ejabberd_logger_h:reopen_log(),
-    case application:get_env(sasl,sasl_error_logger) of
-	{ok, {file, SASLfile}} ->
-	    error_logger:delete_report_handler(sasl_report_file_h),
-	    ejabberd_logger_h:rotate_log(SASLfile),
-	    error_logger:add_report_handler(sasl_report_file_h,
-	        {SASLfile, get_sasl_error_logger_type()});
-	_ -> false
-	end,
-    ok.
-
-%% Function copied from Erlang/OTP lib/sasl/src/sasl.erl which doesn't export it
-get_sasl_error_logger_type () ->
-    case application:get_env (sasl, errlog_type) of
-	{ok, error} -> error;
-	{ok, progress} -> progress;
-	{ok, all} -> all;
-	{ok, Bad} -> exit ({bad_config, {sasl, {errlog_type, Bad}}});
-	_ -> all
-    end.
+    ejabberd_logger:reopen_log().
 
 %%%
 %%% Stop Kindly
@@ -296,11 +288,12 @@ stop_kindly(DelaySeconds, AnnouncementText) ->
     ok.
 
 send_service_message_all_mucs(Subject, AnnouncementText) ->
-    Message = io_lib:format("~s~n~s", [Subject, AnnouncementText]),
+    Message = list_to_binary(
+                io_lib:format("~s~n~s", [Subject, AnnouncementText])),
     lists:foreach(
       fun(ServerHost) ->
 	      MUCHost = gen_mod:get_module_opt_host(
-			  ServerHost, mod_muc, "conference.@HOST@"),
+			  ServerHost, mod_muc, <<"conference.@HOST@">>),
 	      mod_muc:broadcast_service_message(MUCHost, Message)
       end,
       ?MYHOSTS).
@@ -320,6 +313,8 @@ update("all") ->
 update(ModStr) ->
     update_module(ModStr).
 
+update_module(ModuleNameBin) when is_binary(ModuleNameBin) ->
+    update_module(binary_to_list(ModuleNameBin));
 update_module(ModuleNameString) ->
     ModuleName = list_to_atom(ModuleNameString),
     case ejabberd_update:update([ModuleName]) of
