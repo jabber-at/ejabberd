@@ -15,10 +15,10 @@ Example configuration:
  src/mod_muc/mod_muc.erl |   11 ++++++++++-
  1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/src/mod_muc/mod_muc.erl b/src/mod_muc/mod_muc.erl
+diff --git a/src/mod_muc.erl b/src/mod_muc.erl
 index d6414a5..1545f82 100644
---- a/src/mod_muc/mod_muc.erl
-+++ b/src/mod_muc/mod_muc.erl
+--- a/src/mod_muc.erl
++++ b/src/mod_muc.erl
 @@ -585,11 +585,20 @@ check_user_can_create_room(ServerHost, AccessCreate, From, RoomID) ->
      case acl:match_rule(ServerHost, AccessCreate, From) of
  	allow ->
