@@ -51,7 +51,7 @@ clean: unpatch
 
 	dh_auto_clean $(AUTO_OPTS)
 
-	dh_clean 
+	dh_clean -Xasn1/ELDAPv3.asn1~
 
 install: build
 	dh_testdir
