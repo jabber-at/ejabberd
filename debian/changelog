@@ -1,4 +1,4 @@
-ejabberd (1:13.12-1~trusty~trusty) trusty; urgency=low
+ejabberd (1:13.12-1) unstable; urgency=low
 
   * New version from upstream.
   * Remove use_dpkg_buildflags.patch, it no longer applies.
