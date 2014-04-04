@@ -1,6 +1,7 @@
 ejabberd (1:13.12-1) unstable; urgency=low
 
   * New version from upstream.
+  * Depend on debhelper >= 9, remove quilt dependency.
   * Remove use_dpkg_buildflags.patch, it no longer applies.
   * Disable ejabberd_regexp.patch: Problem seems to persist, but patch no
     longer applies.
