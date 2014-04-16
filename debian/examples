@@ -1,3 +1,3 @@
-src/ejabberd.cfg.example
+ejabberd.yml.example
 examples/*
-src/odbc/*.sql
+sql/*.sql
