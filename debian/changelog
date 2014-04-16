@@ -10,7 +10,7 @@ ejabberd (1:13.12-1) unstable; urgency=low
   * Remove reopen-log.patch and scram-optional-parameter-parsing-bugfix.patch,
     they are applied upstream.
   * Add erlang-crypto, erlang-inets, erlang-mnesia, erlang-ssl, git, lib-yaml
-    as build dependency.
+    and erlang-syntax-tools as build dependency.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 30 Mar 2014 16:38:56 +0200
 
