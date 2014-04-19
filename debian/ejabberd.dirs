@@ -1,3 +1,4 @@
+etc/default
 etc/ejabberd
 usr/share/ejabberd
 var/lib/ejabberd
