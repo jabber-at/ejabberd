@@ -2,6 +2,7 @@ ejabberd 13.12 tasks
 ====================
 
 * Add a debconf variable to disable recreation of certificates.
+* configure flags are currently unused.
 
 ejabberd 2.1.3 tasks
 ====================
