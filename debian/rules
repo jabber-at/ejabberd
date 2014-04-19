@@ -22,6 +22,7 @@ override_dh_auto_install:
 	dh_auto_install
 
 	# Remove unused upstream config files/move to correct location
+	mkdir -p $(DESTDIR)/etc/default/
 	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
 
 	# Remove unused upstream directories:
