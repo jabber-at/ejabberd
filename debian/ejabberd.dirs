@@ -1,2 +1,4 @@
+etc/ejabberd
+usr/share/ejabberd
 var/lib/ejabberd
 var/log/ejabberd
