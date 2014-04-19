@@ -9,7 +9,59 @@
  
  ##
  ## route_subdomains: Delegate subdomains to other XMPP servers.
-@@ -600,7 +600,7 @@
+@@ -216,7 +216,7 @@
+ ##
+ ## List of LDAP servers:
+ ## ldap_servers:
+-##   - "localhost"
++##   - "ldap.__HOSTNAME__"
+ ##
+ ## Encryption of connection to LDAP servers:
+ ## ldap_encrypt: none
+@@ -346,8 +346,8 @@
+   ##
+   ## admin:
+   ##   user:
+-  ##     - "aleksey": "localhost"
+-  ##     - "ermine": "example.org"
++  ##     - "aleksey": "__HOSTNAME__"
++  ##     - "ermine": "xmpp.example.com"
+   ##
+   ## Blocked users
+   ##
+@@ -393,11 +393,11 @@
+ ## Define specific ACLs in a virtual host.
+ ##
+ ## host_config:
+-##   "localhost":
++##   "__HOSTNAME__":
+ ##     acl:
+ ##       admin:
+ ##         user:
+-##           - "bob-local": "localhost"
++##           - "bob-local": "__HOSTNAME__"
+ 
+ ###   ============
+ ###   ACCESS RULES
+@@ -461,7 +461,7 @@
+ ## Define specific Access Rules in a virtual host.
+ ##
+ ## host_config:
+-##   "localhost":
++##   "__HOSTNAME__":
+ ##     access:
+ ##       c2s:
+ ##         admin: allow
+@@ -481,7 +481,7 @@
+ ## Set a different default language in a virtual host.
+ ##
+ ## host_config:
+-##   "localhost":
++##   "__HOSTNAME__":
+ ##     language: "ru"
+ 
+ ###   =======
+@@ -600,11 +600,11 @@
  ## Enable modules with custom options in a specific virtual host
  ##
  ## host_config:
@@ -18,3 +70,8 @@
  ##     add:
  ##       modules:
  ##         mod_echo:
+-##           host: "mirror.localhost"
++##           host: "mirror.__HOSTNAME__"
+ 
+ ### Local Variables:
+ ### mode: yaml
