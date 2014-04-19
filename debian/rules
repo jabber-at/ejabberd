@@ -7,7 +7,7 @@
 # NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 # on Debian Stable and all Ubuntu distros up to at least Saucy.
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
-    --enable-odbs --enable-mssql --enable-mysql --enable-pgsql \
+    --enable-odbs --enable-mysql --enable-pgsql \
     --enable-stun --enable-json
 # Not sure if we should enable workaround for gateway subscription
 # Adding it breaks XMPP compatibility
