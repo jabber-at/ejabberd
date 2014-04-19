@@ -3,3 +3,4 @@ captcha.patch
 fix_examples.patch
 #block-mucs-by-name.patch
 ejabberdctl-defaults.patch
+ejabberd-config.patch

@@ -5,8 +5,8 @@
 
 set -e
 
-CONFIG_SOURCE=/usr/share/ejabberd/ejabberd.cfg
-CONFIG_TARGET=/etc/ejabberd/ejabberd.cfg
+CONFIG_SOURCE=/usr/share/ejabberd/ejabberd.yml
+CONFIG_TARGET=/etc/ejabberd/ejabberd.yml
 TEMPFILE=$(mktemp)
 
 . /usr/share/debconf/confmodule

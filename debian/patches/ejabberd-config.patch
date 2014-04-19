@@ -1,0 +1,20 @@
+--- a/ejabberd.yml.example
++++ b/ejabberd.yml.example
+@@ -59,7 +59,7 @@
+ ##   - "example.org"
+ ##
+ hosts:
+-  - "localhost"
++  - "__HOSTNAME__"
+ 
+ ##
+ ## route_subdomains: Delegate subdomains to other XMPP servers.
+@@ -600,7 +600,7 @@
+ ## Enable modules with custom options in a specific virtual host
+ ##
+ ## host_config:
+-##   "localhost":
++##   "__HOSTNAME__":
+ ##     add:
+ ##       modules:
+ ##         mod_echo:
