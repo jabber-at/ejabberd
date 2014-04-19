@@ -4,18 +4,15 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
+
+DESTDIR=$(CURDIR)/debian/ejabberd
 # NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 # on Debian Stable and all Ubuntu distros up to at least Saucy.
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
     --enable-odbs --enable-mysql --enable-pgsql \
     --enable-stun --enable-json
-# Not sure if we should enable workaround for gateway subscription
-# Adding it breaks XMPP compatibility
-# Not adding breaks roster import for some gateways (specifically JIT)
-#DEB_CONFIGURE_EXTRA_FLAGS := --enable-odbc --enable-roster-gateway-workaround
-
-
-DESTDIR=$(CURDIR)/debian/ejabberd
 
 override_dh_auto_configure:
 	dh_auto_configure -- ${DEB_CONFIGURE_EXTRA_FLAGS}
