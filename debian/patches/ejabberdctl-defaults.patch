@@ -17,7 +17,7 @@
 +fi
  if [ "$EJABBERDCTL_CONFIG_PATH" = "" ] ; then
 -    EJABBERDCTL_CONFIG_PATH=$ETCDIR/ejabberdctl.cfg
-+    EJABBERDCTL_CONFIG_PATH=$DEFAULTDIR/ejabberdctl.cfg
++    EJABBERDCTL_CONFIG_PATH=$DEFAULTDIR/ejabberd
  fi
  if [ -f "$EJABBERDCTL_CONFIG_PATH" ] ; then
      . "$EJABBERDCTL_CONFIG_PATH"
