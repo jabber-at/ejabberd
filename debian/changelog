@@ -12,6 +12,7 @@ ejabberd (1:13.12-1) unstable; urgency=low
   * Add erlang-crypto, erlang-inets, erlang-mnesia, erlang-ssl, git, lib-yaml
     and erlang-syntax-tools as build dependency.
   * Rename files used for dh_* commands to explicitly work for ejabberd.
+  * Add a patch to use the upstream ejabberdctl.cfg as default file.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 30 Mar 2014 16:38:56 +0200
 
