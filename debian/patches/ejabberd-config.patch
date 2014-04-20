@@ -107,7 +107,13 @@
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -515,10 +517,16 @@
+@@ -510,15 +512,22 @@
+ ##
+ modules: 
+   mod_adhoc: {}
++  mod_admin_extra: {} # enable extra admin commands
+   mod_announce: # recommends mod_adhoc
+     access: announce
    mod_blocking: {} # requires mod_privacy
    mod_caps: {}
    mod_configure: {} # requires mod_adhoc
@@ -127,7 +133,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -529,13 +537,15 @@
+@@ -529,13 +538,15 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
@@ -146,7 +152,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -554,7 +564,7 @@
+@@ -554,7 +565,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -155,7 +161,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -581,7 +591,7 @@
+@@ -581,7 +592,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -164,7 +170,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -590,6 +600,7 @@
+@@ -590,6 +601,7 @@
  
      access: register
    mod_roster: {}
@@ -172,7 +178,7 @@
    mod_shared_roster: {}
    mod_stats: {}
    mod_time: {}
-@@ -600,11 +611,11 @@
+@@ -600,11 +612,11 @@
  ## Enable modules with custom options in a specific virtual host
  ##
  ## host_config:
