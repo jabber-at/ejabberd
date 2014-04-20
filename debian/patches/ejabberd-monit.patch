@@ -1,9 +1,10 @@
 --- a/ejabberdctl.cfg.example
 +++ b/ejabberdctl.cfg.example
-@@ -148,6 +148,17 @@
+@@ -135,3 +135,14 @@
+ # Default: don't write PID file
  #
  #EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
- 
++
 +# EJABBERD_MONIT_INTEGRATION: ejabberd integration into monit
 +# 
 +# Set to yes to enable integration into Monit[1]. Monit will watch ejabberd,
@@ -14,10 +15,6 @@
 +# Default: no
 +#
 +#EJABBERD_MONIT_INTEGRATION=no
-+
- #.
- #'
- # vim: foldmarker=#',#. foldmethod=marker:
 --- a/ejabberd.init.template
 +++ b/ejabberd.init.template
 @@ -22,6 +22,7 @@
