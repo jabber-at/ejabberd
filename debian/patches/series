@@ -5,3 +5,4 @@ fix_examples.patch
 ejabberdctl-defaults.patch
 ejabberd-config.patch
 ejabberd-init.patch
+ejabberd-monit.patch
