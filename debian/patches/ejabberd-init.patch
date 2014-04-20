@@ -8,7 +8,12 @@
  
  ### BEGIN INIT INFO
  # Provides:          ejabberd
-@@ -20,14 +23,19 @@
+@@ -16,18 +19,23 @@
+ 
+ set -o errexit
+ 
+-DIR=@ctlscriptpath@
++DIR=/usr/sbin
  CTL="$DIR"/ejabberdctl
  USER=@installuser@
  
