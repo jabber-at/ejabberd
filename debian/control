@@ -13,7 +13,9 @@ Vcs-Browser: https://git.fsinf.at/apt/ejabberd
 
 Package: ejabberd
 Architecture: any
-Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}
+Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, 
+ openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
+ ejabberd-mod-admin-extra
 Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
  monit
 Conflicts: ejabberd-mod-shared-roster-ldap
