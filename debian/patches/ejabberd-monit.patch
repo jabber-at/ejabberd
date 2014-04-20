@@ -24,7 +24,7 @@
  DIR=@ctlscriptpath@
  CTL="$DIR"/ejabberdctl
  USER=@installuser@
-+MONIT_INTEGRATION=no
++EJABBERD_MONIT_INTEGRATION=no
  
  # Include ejabberd defaults if available
  if [ -f /etc/default/ejabberd ] ; then
@@ -32,13 +32,13 @@
      echo "Starting ejabberd..."
      su - $USER -c "$CTL start"
      su - $USER -c "$CTL started"
-+    [ "$MONIT_INTEGRATION" != 'yes' ] || monit monitor ejabberd
++    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit monitor ejabberd
      echo "done."
      ;;
    stop)
      test -x "$CTL" || exit 0
      echo "Stopping ejabberd..."
-+    [ "$MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
++    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
      su - $USER -c "$CTL stop"
      su - $USER -c "$CTL stopped"
      echo "done."
