@@ -14,7 +14,8 @@ Vcs-Browser: https://git.fsinf.at/apt/ejabberd
 Package: ejabberd
 Architecture: any
 Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}
-Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat
+Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
+ monit
 Conflicts: ejabberd-mod-shared-roster-ldap
 Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
  ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
