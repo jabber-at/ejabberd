@@ -1,2 +1,2 @@
 debian/ejabberd-files/* /
-ejabberd.init /etc/init.d
+ejabberd.init /etc/init.d/
