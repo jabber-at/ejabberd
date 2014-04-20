@@ -192,3 +192,124 @@
  
  ### Local Variables:
  ### mode: yaml
+--- a/ejabberdctl.cfg.example
++++ b/ejabberdctl.cfg.example
+@@ -3,7 +3,7 @@
+ # to the erlang runtime system when starting ejabberd
+ #
+ 
+-#' POLL: Kernel polling ([true|false])
++# POLL: Kernel polling ([true|false])
+ #
+ # The kernel polling option requires support in the kernel.
+ # Additionally, you need to enable this feature while compiling Erlang.
+@@ -12,8 +12,7 @@
+ #
+ #POLL=true
+ 
+-#.
+-#' SMP: SMP support ([enable|auto|disable])
++# SMP: SMP support ([enable|auto|disable])
+ #
+ # Explanation in Erlang/OTP documentation:
+ # enable: starts the Erlang runtime system with SMP support enabled.
+@@ -26,8 +25,7 @@
+ #
+ #SMP=auto
+ 
+-#.
+-#' ERL_MAX_PORTS: Maximum number of simultaneously open Erlang ports
++# ERL_MAX_PORTS: Maximum number of simultaneously open Erlang ports
+ #
+ # ejabberd consumes two or three ports for every connection, either
+ # from a client or from another Jabber server. So take this into
+@@ -38,8 +36,7 @@
+ #
+ #ERL_MAX_PORTS=32000
+ 
+-#.
+-#' FIREWALL_WINDOW: Range of allowed ports to pass through a firewall
++# FIREWALL_WINDOW: Range of allowed ports to pass through a firewall
+ #
+ # If Ejabberd is configured to run in cluster, and a firewall is blocking ports,
+ # it's possible to make Erlang use a defined range of port (instead of dynamic
+@@ -50,8 +47,7 @@
+ #
+ #FIREWALL_WINDOW=
+ 
+-#.
+-#' INET_DIST_INTERFACE: IP address where this Erlang node listens other nodes
++# INET_DIST_INTERFACE: IP address where this Erlang node listens other nodes
+ #
+ # This communication is used by ejabberdctl command line tool,
+ # and in a cluster of several ejabberd nodes.
+@@ -60,10 +56,7 @@
+ #
+ #INET_DIST_INTERFACE=127.0.0.1
+ 
+-#.
+-#' ERL_EPMD_ADDRESS: IP addresses where epmd listens for connections
+-#
+-# IMPORTANT: This option works only in Erlang/OTP R14B03 and newer.
++# ERL_EPMD_ADDRESS: IP addresses where epmd listens for connections
+ #
+ # This environment variable may be set to a comma-separated
+ # list of IP addresses, in which case the epmd daemon
+@@ -76,8 +69,7 @@
+ #
+ #ERL_EPMD_ADDRESS=127.0.0.1
+ 
+-#.
+-#' ERL_PROCESSES: Maximum number of Erlang processes
++# ERL_PROCESSES: Maximum number of Erlang processes
+ #
+ # Erlang consumes a lot of lightweight processes. If there is a lot of activity
+ # on ejabberd so that the maximum number of processes is reached, people will
+@@ -90,8 +82,7 @@
+ #
+ #ERL_PROCESSES=250000
+ 
+-#.
+-#' ERL_MAX_ETS_TABLES: Maximum number of ETS and Mnesia tables
++# ERL_MAX_ETS_TABLES: Maximum number of ETS and Mnesia tables
+ #
+ # The number of concurrent ETS and Mnesia tables is limited. When the limit is
+ # reached, errors will appear in the logs:
+@@ -103,8 +94,7 @@
+ #
+ #ERL_MAX_ETS_TABLES=1400
+ 
+-#.
+-#' ERL_OPTIONS: Additional Erlang options
++# ERL_OPTIONS: Additional Erlang options
+ #
+ # The next variable allows to specify additional options passed to erlang while
+ # starting ejabberd. Some useful options are -noshell, -detached, -heart. When
+@@ -118,8 +108,7 @@
+ #
+ #ERL_OPTIONS=""
+ 
+-#.
+-#' ERLANG_NODE: Erlang node name
++# ERLANG_NODE: Erlang node name
+ #
+ # The next variable allows to explicitly specify erlang node for ejabberd
+ # It can be given in different formats:
+@@ -136,8 +125,7 @@
+ #
+ #ERLANG_NODE=ejabberd@localhost
+ 
+-#.
+-#' EJABBERD_PID_PATH: ejabberd PID file
++# EJABBERD_PID_PATH: ejabberd PID file
+ #
+ # Indicate the full path to the ejabberd Process identifier (PID) file.
+ # If this variable is defined, ejabberd writes the PID file when starts,
+@@ -147,7 +135,3 @@
+ # Default: don't write PID file
+ #
+ #EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
+-
+-#.
+-#'
+-# vim: foldmarker=#',#. foldmethod=marker:
