@@ -33,6 +33,10 @@ override_dh_auto_install:
 	find $(CURDIR) | sort | grep init
 	cp $(CURDIR)/ejabberd.init $(CURDIR)/debian/
 
+override_dh_fixperms:
+	dh_fixperms
+	erlang-depends
+
 # test suite requires a running mysql and postgres server, so skipping the test.
 override_dh_auto_test:
 
