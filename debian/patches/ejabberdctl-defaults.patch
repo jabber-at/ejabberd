@@ -21,3 +21,11 @@
  fi
  if [ -f "$EJABBERDCTL_CONFIG_PATH" ] ; then
      . "$EJABBERDCTL_CONFIG_PATH"
+@@ -246,6 +250,7 @@
+     echo "  --config-dir dir   Config ejabberd:    $ETCDIR"
+     echo "  --config file      Config ejabberd:    $EJABBERD_CONFIG_PATH"
+     echo "  --ctl-config file  Config ejabberdctl: $EJABBERDCTL_CONFIG_PATH"
++    echo "  --default-dir      Default directory:  $DEFAULTDIR"
+     echo "  --logs dir         Directory for logs: $LOGS_DIR"
+     echo "  --spool dir        Database spool dir: $SPOOLDIR"
+     echo "  --node nodename    ejabberd node name: $ERLANG_NODE"
