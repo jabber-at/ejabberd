@@ -51,7 +51,7 @@
 -    echo "Starting ejabberd..."
 -    su - $USER -c "$CTL start"
 -    su - $USER -c "$CTL started"
-+    echo -n "Starting ejabberd..."
++    echo -n "Starting ejabberd... "
 +    if ! status; then
 +        su - $USER -c "$CTL start"
 +        su - $USER -c "$CTL started"
@@ -63,7 +63,7 @@
 -    echo "Stopping ejabberd..."
 -    su - $USER -c "$CTL stop"
 -    su - $USER -c "$CTL stopped"
-+    echo -n "Stopping ejabberd..."
++    echo -n "Stopping ejabberd... "
 +    if status; then
 +        su - $USER -c "$CTL stop"
 +        su - $USER -c "$CTL stopped"
@@ -75,7 +75,7 @@
 -    echo "Getting ejabberd status..."
 -    su - $USER -c "$CTL status"
 +    echo -n "Getting ejabberd status... "
-+    if status; then:
++    if status; then
 +        echo "OK."
 +    else
 +        echo "Not running."
