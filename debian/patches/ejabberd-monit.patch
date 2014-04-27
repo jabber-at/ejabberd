@@ -34,7 +34,7 @@
      ;;
    stop)
      test -x "$CTL" || exit 0
-     echo "Stopping ejabberd..."
+     echo -n "Stopping ejabberd..."
 +    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
      if status; then
          su - $USER -c "$CTL stop"

@@ -9,7 +9,7 @@
  
  ### BEGIN INIT INFO
  # Provides:          ejabberd
-@@ -16,34 +19,48 @@
+@@ -16,40 +19,59 @@
  
  set -o errexit
  
@@ -48,9 +48,10 @@
  case "$1" in
    start)
      test -x "$CTL" || exit 0
-     echo "Starting ejabberd..."
+-    echo "Starting ejabberd..."
 -    su - $USER -c "$CTL start"
 -    su - $USER -c "$CTL started"
++    echo -n "Starting ejabberd..."
 +    if ! status; then
 +        su - $USER -c "$CTL start"
 +        su - $USER -c "$CTL started"
@@ -59,9 +60,10 @@
      ;;
    stop)
      test -x "$CTL" || exit 0
-     echo "Stopping ejabberd..."
+-    echo "Stopping ejabberd..."
 -    su - $USER -c "$CTL stop"
 -    su - $USER -c "$CTL stopped"
++    echo -n "Stopping ejabberd..."
 +    if status; then
 +        su - $USER -c "$CTL stop"
 +        su - $USER -c "$CTL stopped"
@@ -69,3 +71,16 @@
      echo "done."
      ;;
    status)
+     test -x "$CTL" || exit 0
+-    echo "Getting ejabberd status..."
+-    su - $USER -c "$CTL status"
++    echo -n "Getting ejabberd status... "
++    if status; then:
++        echo "OK."
++    else
++        echo "Not running."
++        exit 3  # "not running" according to LSB
++    fi
+     ;;
+   force-reload|restart)
+     "$0" stop
