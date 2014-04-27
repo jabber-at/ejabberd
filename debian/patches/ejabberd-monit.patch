@@ -25,10 +25,10 @@
  
  # Include ejabberd defaults if available
  if [ -f /etc/default/ejabberd ] ; then
-@@ -45,11 +46,13 @@
-     echo "Starting ejabberd..."
-     su - $USER -c "$CTL start"
-     su - $USER -c "$CTL started"
+@@ -52,11 +53,13 @@
+         su - $USER -c "$CTL start"
+         su - $USER -c "$CTL started"
+     fi
 +    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit monitor ejabberd
      echo "done."
      ;;
@@ -36,6 +36,6 @@
      test -x "$CTL" || exit 0
      echo "Stopping ejabberd..."
 +    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
-     su - $USER -c "$CTL stop"
-     su - $USER -c "$CTL stopped"
-     echo "done."
+     if status; then
+         su - $USER -c "$CTL stop"
+         su - $USER -c "$CTL stopped"
