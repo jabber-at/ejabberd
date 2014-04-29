@@ -6,3 +6,4 @@ ejabberdctl-defaults.patch
 ejabberd-config.patch
 ejabberd-init.patch
 ejabberd-monit.patch
+ejabberd-pid.patch

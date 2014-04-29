@@ -1,0 +1,39 @@
+--- a/ejabberd.init.template
++++ b/ejabberd.init.template
+@@ -22,6 +22,7 @@
+ DIR=/usr/sbin
+ CTL="$DIR"/ejabberdctl
+ USER=@installuser@
++EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
+ EJABBERD_MONIT_INTEGRATION=no
+ 
+ # Include ejabberd defaults if available
+@@ -45,11 +46,18 @@
+     su - $USER -c "$CTL status" > /dev/null
+ }
+ 
++EJABBERD_PID_DIR=$(dirname $EJABBERD_PID_PATH)
++
+ case "$1" in
+   start)
+     test -x "$CTL" || exit 0
+     echo -n "Starting ejabberd... "
+     if ! status; then
++        if [ ! -d $EJABBERD_PID_DIR ]; then
++            mkdir $EJABBERD_PID_DIR
++            chown ejabberd:ejabberd $EJABBERD_PID_DIR
++            chmod 755 $EJABBERD_PID_DIR
++        fi
+         su - $USER -c "$CTL start"
+         su - $USER -c "$CTL started"
+     fi
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -9,6 +9,7 @@
+ FIREWALL_WINDOW=""
+ INET_DIST_INTERFACE="127.0.0.1"
+ ERLANG_NODE=ejabberd@localhost
++EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
+ 
+ # define default environment variables
+ SCRIPT_DIR=`cd ${0%/*} && pwd`
