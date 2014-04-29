@@ -27,6 +27,17 @@
          su - $USER -c "$CTL start"
          su - $USER -c "$CTL started"
      fi
+@@ -64,6 +72,10 @@
+         su - $USER -c "$CTL stop"
+         su - $USER -c "$CTL stopped"
+     fi
++    if [ -f $EJABBERD_PID_PATH ]; then
++        rm -f $EJABBERD_PID_PATH
++    fi
++
+     echo "done."
+     ;;
+   status)
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
 @@ -9,6 +9,7 @@
