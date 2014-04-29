@@ -8,7 +8,7 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 # NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 # on Debian Stable and all Ubuntu distros up to at least Saucy.
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
-    --enable-odbs --enable-mysql --enable-pgsql \
+    --enable-odbc --enable-mysql --enable-pgsql \
     --enable-stun --enable-json
 
 override_dh_auto_configure:
