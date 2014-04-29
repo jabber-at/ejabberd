@@ -16,7 +16,8 @@
 -DIR=@ctlscriptpath@
 +DIR=/usr/sbin
  CTL="$DIR"/ejabberdctl
- USER=@installuser@
+-USER=@installuser@
++USER=ejabberd
  
 -test -x "$CTL" || {
 -	echo "ERROR: ejabberd not found: $DIR"
@@ -84,3 +85,29 @@
      ;;
    force-reload|restart)
      "$0" stop
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -59,13 +59,11 @@
+   G_USER=
+   CHOWN_COMMAND=echo
+   CHOWN_OUTPUT=/dev/null
+-  INIT_USER=root
+ else
+   O_USER=-o $(INSTALLUSER)
+   G_USER=-g $(INSTALLUSER)
+   CHOWN_COMMAND=chown
+   CHOWN_OUTPUT=&1
+-  INIT_USER=$(INSTALLUSER)
+ endif
+ 
+ all: deps src
+@@ -130,9 +128,6 @@
+ 	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
+ 	#
+ 	# Init script
+-	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
+-		-e "s*@installuser@*$(INIT_USER)*" ejabberd.init.template \
+-		> ejabberd.init
+ 	chmod 755 ejabberd.init
+ 	#
+ 	# Binary Erlang files

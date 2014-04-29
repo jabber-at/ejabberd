@@ -20,7 +20,7 @@
 @@ -22,6 +22,7 @@
  DIR=/usr/sbin
  CTL="$DIR"/ejabberdctl
- USER=@installuser@
+ USER=ejabberd
 +EJABBERD_MONIT_INTEGRATION=no
  
  # Include ejabberd defaults if available
