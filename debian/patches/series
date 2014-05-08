@@ -7,3 +7,4 @@ ejabberd-config.patch
 ejabberd-init.patch
 ejabberd-monit.patch
 ejabberd-pid.patch
+rebar-dependencies.patch

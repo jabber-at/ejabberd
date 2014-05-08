@@ -1,0 +1,59 @@
+--- a/rebar.config.script
++++ b/rebar.config.script
+@@ -52,12 +52,12 @@
+                     Acc
+             end, [], Cfg),
+ 
+-Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab"}},
+-        {p1_tls, ".*", {git, "git://github.com/processone/tls"}},
+-        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep"}},
+-        {p1_xml, ".*", {git, "git://github.com/processone/xml"}},
+-        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml"}},
+-        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc"}}],
++Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "516a942d99d4ee70c4a81729d28eee310c53dfbe"}},
++        {p1_tls, ".*", {git, "git://github.com/processone/tls", "b06627fbc5d0904bf0d6295dc6e4aba92c773322"}},
++        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "9e9e0f8dbe6a70ef36e1d4436b458ca5a77fbcfb"}},
++        {p1_xml, ".*", {git, "git://github.com/processone/xml", "8b16167d8b65e31e1232e7c41a06db63e358de1d"}},
++        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "da07a8aa54a830acf319747a9ddabe3ac74f8490"}},
++        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc", "eb40f68ae8d54614728206fa9a0acdd01e203df3"}}],
+ 
+ ConfigureCmd = fun(Pkg, Flags) ->
+                        {'get-deps',
+@@ -81,26 +81,26 @@
+ 
+ CfgDeps = lists:flatmap(
+             fun({mysql, true}) ->
+-                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql"}}];
++                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "1a645c7a7bc2279fdbc7ec6140665c62a6c48613"}}];
+                ({pgsql, true}) ->
+-                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql"}}];
++                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "9c99e90648536fb577e1d188f8b7765395c0a15f"}}];
+                ({pam, true}) ->
+-                    [{p1_pam, ".*", {git, "git://github.com/processone/epam"}}];
++                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "b628df5a1a3aa174cc4fe04292a1ed815e20f5b9"}}];
+                ({zlib, true}) ->
+-                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib"}}];
++                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "d26586b1d39ea83d38fa450d33596f816061dcd7"}}];
+                ({stun, true}) ->
+-                    [{p1_stun, ".*", {git, "git://github.com/processone/stun"}}];
++                    [{p1_stun, ".*", {git, "git://github.com/processone/stun", "f8a4bae1dadbdafc8c6ac6285767eb641ad84e2a"}}];
+                ({json, true}) ->
+-                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy"}}];
++                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "d16a4fd968e000b65e4678cccfad68d7a0a8bd1c"}}];
+                ({iconv, true}) ->
+-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv"}}];
++                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "cf8e73d2d3a0fd8d6a9269c23807c74ed2ac9edb"}}];
+                ({http, true}) ->
+-                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse"}},
+-                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc"}}];
++                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse", "d824491d37449763ac44398f8494731e0c1418c1"}},
++                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc", "3c7fdeee241b6813efddcb08ad1697186780d385"}}];
+                ({lager, true}) ->
+-                    [{lager, ".*", {git, "git://github.com/basho/lager"}}];
++                    [{lager, ".*", {git, "git://github.com/basho/lager", "36466ef78c4eaea03339c2d0daf1bf181bd3041f"}}];
+                ({lager, false}) ->
+-                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger"}}];
++                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "262ee265f9d7708fd932e7d1a22279feffcd3efb"}}];
+                (_) ->
+                     []
+             end, Cfg),
