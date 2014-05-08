@@ -4,6 +4,7 @@
 # see: dh_installdeb(1)
 
 set -e
+set -x
 
 CONFIG_SOURCE=/usr/share/ejabberd/ejabberd.yml
 CONFIG_TARGET=/etc/ejabberd/ejabberd.yml
@@ -124,6 +125,8 @@ register_admin()
 
 case "$1" in
     configure|reconfigure)
+    ls -l /var/lib
+    ls -a /var/lib/ejabberd
 	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd
 	setup_ejabberd "$@"
     ;;
