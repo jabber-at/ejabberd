@@ -26,6 +26,7 @@ override_dh_auto_install:
 
 	# Remove unused upstream directories:
 	rm -rf $(DESTDIR)/var/lock
+	rmdir $(DESTDIR)/var/lib/ejabberd
 	rmdir $(DESTDIR)/var/lib
 
 	# Remove upstream license file:
