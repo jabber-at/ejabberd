@@ -2,5 +2,4 @@ etc/default
 etc/ejabberd
 etc/init.d
 usr/share/ejabberd
-var/lib/ejabberd
 var/log/ejabberd
