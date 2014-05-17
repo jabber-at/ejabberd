@@ -9,7 +9,7 @@
  
  ##
  ## route_subdomains: Delegate subdomains to other XMPP servers.
-@@ -84,11 +84,13 @@
+@@ -84,17 +84,19 @@
      ## certificate, specify the full path to the
      ## file and uncomment this line:
      ##
@@ -18,6 +18,15 @@
 +    certfile: "/etc/ejabberd/ejabberd.pem"
 +    starttls: true
 +    starttls_required: true
+     ##
+     ## Custom OpenSSL options
+     ##
+-    ## protocol_options:
+-    ##   - "no_sslv3"
+-    ##   - "no_tlsv1"
++    protocol_options:
++       - "no_sslv3"
++       - "no_tlsv1"
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
@@ -25,7 +34,7 @@
    - 
      port: 5269
      module: ejabberd_s2s_in
-@@ -137,12 +139,12 @@
+@@ -143,12 +145,12 @@
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -38,9 +47,9 @@
 -## s2s_certfile: "/path/to/ssl.pem"
 +s2s_certfile: "/etc/ejabberd/ejabberd.pem"
  
+ ## Custom OpenSSL options
  ##
- ## domain_certfile: Specify a different certificate for each served hostname.
-@@ -216,7 +218,7 @@
+@@ -228,7 +230,7 @@
  ##
  ## List of LDAP servers:
  ## ldap_servers:
@@ -49,7 +58,7 @@
  ##
  ## Encryption of connection to LDAP servers:
  ## ldap_encrypt: none
-@@ -346,8 +348,8 @@
+@@ -358,8 +360,8 @@
    ##
    ## admin:
    ##   user:
@@ -60,7 +69,7 @@
    ##
    ## Blocked users
    ##
-@@ -393,11 +395,11 @@
+@@ -405,11 +407,11 @@
  ## Define specific ACLs in a virtual host.
  ##
  ## host_config:
@@ -74,7 +83,7 @@
  
  ###   ============
  ###   ACCESS RULES
-@@ -453,6 +455,12 @@
+@@ -465,6 +467,12 @@
    ##   bad_servers: deny
    ##   all: allow
  
@@ -87,7 +96,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
-@@ -461,7 +469,7 @@
+@@ -473,7 +481,7 @@
  ## Define specific Access Rules in a virtual host.
  ##
  ## host_config:
@@ -96,7 +105,7 @@
  ##     access:
  ##       c2s:
  ##         admin: allow
-@@ -481,7 +489,7 @@
+@@ -493,7 +501,7 @@
  ## Set a different default language in a virtual host.
  ##
  ## host_config:
@@ -105,7 +114,7 @@
  ##     language: "ru"
  
  ###   =======
-@@ -490,12 +498,12 @@
+@@ -502,12 +510,12 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -120,9 +129,9 @@
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -515,10 +523,16 @@
-   mod_blocking: {} # requires mod_privacy
+@@ -528,10 +536,16 @@
    mod_caps: {}
+   mod_carboncopy: {}
    mod_configure: {} # requires mod_adhoc
 -  mod_disco: {}
 +  mod_disco:
@@ -140,7 +149,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -529,13 +543,15 @@
+@@ -542,13 +556,15 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
@@ -159,7 +168,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -554,7 +570,7 @@
+@@ -567,7 +583,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -168,7 +177,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -581,7 +597,7 @@
+@@ -594,7 +610,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -177,7 +186,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -590,21 +606,26 @@
+@@ -603,20 +619,25 @@
  
      access: register
    mod_roster: {}
@@ -195,14 +204,13 @@
  ##
  ## Enable modules with custom options in a specific virtual host
  ##
- ## host_config:
+ ## append_host_config:
 -##   "localhost":
 +##   "__HOSTNAME__":
- ##     add:
- ##       modules:
- ##         mod_echo:
--##           host: "mirror.localhost"
-+##           host: "mirror.__HOSTNAME__"
+ ##     modules:
+ ##       mod_echo:
+-##         host: "mirror.localhost"
++##         host: "mirror.__HOSTNAME__"
  
  ### Local Variables:
  ### mode: yaml
