@@ -5,7 +5,7 @@
 %%% Created : 31 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -17,10 +17,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -178,10 +177,12 @@ add_windows_nameservers() ->
 
 
 broadcast_c2s_shutdown() ->
-    Children = supervisor:which_children(ejabberd_c2s_sup),
+    Children = ejabberd_sm:get_all_pids(),
     lists:foreach(
-      fun({_, C2SPid, _, _}) ->
-	      C2SPid ! system_shutdown
+      fun(C2SPid) when node(C2SPid) == node() ->
+	      C2SPid ! system_shutdown;
+	 (_) ->
+	      ok
       end, Children).
 
 %%%

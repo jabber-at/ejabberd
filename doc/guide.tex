@@ -68,6 +68,7 @@
 \newcommand{\modannounce}{\module{mod\_announce}}
 \newcommand{\modblocking}{\module{mod\_blocking}}
 \newcommand{\modcaps}{\module{mod\_caps}}
+\newcommand{\modcarboncopy}{\module{mod\_carboncopy}}
 \newcommand{\modconfigure}{\module{mod\_configure}}
 \newcommand{\moddisco}{\module{mod\_disco}}
 \newcommand{\modecho}{\module{mod\_echo}}
@@ -92,6 +93,7 @@
 \newcommand{\modsharedroster}{\module{mod\_shared\_roster}}
 \newcommand{\modsharedrosterldap}{\module{mod\_shared\_roster\_ldap}}
 \newcommand{\modsic}{\module{mod\_sic}}
+\newcommand{\modsip}{\module{mod\_sip}}
 \newcommand{\modstats}{\module{mod\_stats}}
 \newcommand{\modtime}{\module{mod\_time}}
 \newcommand{\modvcard}{\module{mod\_vcard}}
@@ -396,7 +398,7 @@ Some options that you may be interested in modifying:
         Enable Stream Compression (XEP-0138) using zlib.
 
         \titem{--enable-stun}
-        Enable STUN support (see section \ref{stun}).
+        Enable STUN/TURN support (see section \ref{stun}).
 
         \titem{--enable-iconv}
         Enable iconv support. This is needed for \term{mod\_irc} (see seciont \ref{modirc}).
@@ -869,10 +871,12 @@ The available modules, their purpose and the options allowed by each one are:
 \begin{description}
   \titem{\texttt{ejabberd\_c2s}}
     Handles c2s connections.\\
-    Options: \texttt{access}, \texttt{certfile}, \texttt{ciphers},
-    \texttt{max\_fsm\_queue},
-    \texttt{max\_stanza\_size}, \texttt{shaper},
-    \texttt{starttls}, \texttt{starttls\_required}, \texttt{tls},
+    Options: \texttt{access}, \texttt{certfile}, \texttt{ciphers}, \texttt{protocol\_options}
+    \texttt{max\_ack\_queue}, \texttt{max\_fsm\_queue},
+    \texttt{max\_stanza\_size}, \texttt{resend\_on\_timeout},
+    \texttt{resume\_timeout}, \texttt{shaper},
+    \texttt{starttls}, \texttt{starttls\_required},
+    \texttt{stream\_management}, \texttt{tls},
     \texttt{zlib}, \texttt{tls\_compression}
   \titem{\texttt{ejabberd\_s2s\_in}}
     Handles incoming s2s connections.\\
@@ -882,14 +886,28 @@ The available modules, their purpose and the options allowed by each one are:
     (as defined in the Jabber Component Protocol (\xepref{0114}).\\
     Options: \texttt{access}, \texttt{hosts}, \texttt{max\_fsm\_queue},
     \texttt{service\_check\_from}, \texttt{shaper\_rule}
+  \titem{\texttt{ejabberd\_sip}}
+    Handles SIP requests as defined in
+    \footahref{http://tools.ietf.org/html/rfc3261}{RFC 3261}.\\
+    Options: \texttt{certfile}, \texttt{tls}
   \titem{\texttt{ejabberd\_stun}}
-    Handles STUN Binding requests as defined in
-    \footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389}.\\
-    Options: \texttt{certfile}
+    Handles STUN/TURN requests as defined in
+    \footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389} and
+    \footahref{http://tools.ietf.org/html/rfc5766}{RFC 5766}.\\
+    Options: \texttt{certfile}, \texttt{tls}, \texttt{use\_turn}, \texttt{turn\_ip},
+    \texttt{turn\_port\_range}, \texttt{turn\_max\_allocations},
+    \texttt{turn\_max\_permissions}, \texttt{shaper}, \texttt{server\_name},
+    \texttt{auth\_realm}, \texttt{auth\_type}
   \titem{\texttt{ejabberd\_http}}
     Handles incoming HTTP connections.\\
     Options: \texttt{captcha}, \texttt{certfile}, \texttt{default\_host}, \texttt{http\_bind}, \texttt{http\_poll},
     \texttt{request\_handlers}, \texttt{tls}, \texttt{tls\_compression}, \texttt{trusted\_proxies}, \texttt{web\_admin}\\
+  \titem{\texttt{ejabberd\_xmlrpc}}
+    Handles XML-RPC requests to execute ejabberd commands (\ref{eja-commands}).\\
+    Options: \texttt{access\_commands}, \texttt{maxsessions}, \texttt{timeout}.\\
+    You can find option explanations, example configuration in old and new format,
+    and example calls in several languages in the old
+    \footahref{https://raw.github.com/processone/ejabberd-contrib/master/ejabberd\_xmlrpc/README.txt}{ejabberd\_xmlrpc README.txt}
 \end{description}
 
 
@@ -911,6 +929,10 @@ This is a detailed description of each option allowed by the listening modules:
     To define a certificate file specific for a given domain, use the global option \term{domain\_certfile}.
   \titem{ciphers: Ciphers} OpenSSL ciphers list in the same format accepted by
   `\verb|openssl ciphers|' command.
+  \titem{protocol\_options: ProtocolOpts} \ind{options!protocol\_options}
+  List of general options relating to SSL/TLS. These map to \verb|<a href="https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html">OpenSSL's set_options()</a>|.
+  For a full list of options available in ejabberd, \verb|<a href="https://github.com/processone/tls/blob/master/c_src/options.h">see the source</a>|.
+  The default entry is: \verb|"no_sslv2"|
   \titem{default\_host: undefined|HostName\}}
     If the HTTP request received by ejabberd contains the HTTP header \term{Host}
     with an ambiguous virtual host that doesn't match any one defined in ejabberd (see \ref{hostnames}),
@@ -956,6 +978,13 @@ This is a detailed description of each option allowed by the listening modules:
     \term{http\_poll\_timeout}. The default value is five minutes.
     The option can be defined in \term{ejabberd.yml}, expressing the time
     in seconds: \verb|{http_poll_timeout, 300}.|
+  \titem{max\_ack\_queue: Size}
+    This option specifies the maximum number of unacknowledged stanzas
+    queued for possible retransmission if \term{stream\_management} is
+    enabled. When the limit is reached, the first stanza is dropped from
+    the queue before adding the next one. This option can be specified
+    for \term{ejabberd\_c2s} listeners. The allowed values are positive
+    integers and \term{infinity}. Default value: \term{500}.
   \titem{max\_fsm\_queue: Size}
     This option specifies the maximum number of elements in the queue of the FSM
     (Finite State Machine).
@@ -993,6 +1022,23 @@ request_handlers:
   /"a"/"b": mod_foo
   /"http-bind": mod_http_bind
 \end{verbatim}
+  \titem{resend\_on\_timeout: true|false}
+    If \term{stream\_management} is enabled and this option is set to
+    \term{true}, any stanzas that weren't acknowledged by the client
+    will be resent on session timeout. This behavior might often be
+    desired, but could have unexpected results under certain
+    circumstances. For example, a message that was sent to two resources
+    might get resent to one of them if the other one timed out.
+    Therefore, the default value for this option is \term{false}, which
+    tells ejabberd to generate an error message instead. The option can
+    be specified for \term{ejabberd\_c2s} listeners.
+  \titem{resume\_timeout: Seconds}
+    This option configures the number of seconds until a session times
+    out if the connection is lost. During this period of time, a client
+    may resume the session if \term{stream\_management} is enabled. This
+    option can be specified for \term{ejabberd\_c2s} listeners. Setting
+    it to \term{0} effectively disables session resumption. The default
+    value is \term{300}.
   \titem{service\_check\_from: true|false}
     \ind{options!service\_check\_from}
     This option can be used with \term{ejabberd\_service} only.
@@ -1016,6 +1062,10 @@ request_handlers:
     No unencrypted connections will be allowed.
     You should also set the \option{certfile} option.
     You can define a certificate file for a specific domain using the global option \option{domain\_certfile}.
+  \titem{stream\_management: true|false}
+    Setting this option to \term{false} disables ejabberd's support for
+    \ind{protocols!XEP-0198: Stream Management}. It can be specified for
+    \term{ejabberd\_c2s} listeners. The default value is \term{true}.
   \titem{timeout: Integer} \ind{options!timeout}
     Timeout of the connections, expressed in milliseconds.
     Default: 5000
@@ -1059,6 +1109,10 @@ There are some additional global options that can be specified in the ejabberd c
   Full path to the file containing the SSL certificate for a specific domain.
   \titem{s2s\_ciphers: Ciphers} \ind{options!s2s\_ciphers} OpenSSL ciphers list
   in the same format accepted by `\verb|openssl ciphers|' command.
+  \titem{s2s\_protocol\_options: ProtocolOpts} \ind{options!s2s\_protocol\_options}
+  List of general options relating to SSL/TLS. These map to \verb|<a href="https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html">OpenSSL's set_options()</a>|.
+  For a full list of options available in ejabberd, \verb|<a href="https://github.com/processone/tls/blob/protocol_options/c_src/options.h">see the source</a>|.
+  The default entry is: \verb|"no_sslv2"|
   \titem{outgoing\_s2s\_families: [Family, ...]} \ind{options!outgoing\_s2s\_families}
   Specify which address families to try, in what order.
   By default it first tries connecting with IPv4, if that fails it tries using IPv6.
@@ -1778,7 +1832,7 @@ The syntax is:
 
 When a JID is checked to have access to \term{Accessname}, the server
 sequentially checks if that JID matches any of the ACLs that are named in the
-second elements of the tuples in the list. If it matches, the first element of
+first elements of the tuples in the list. If it matches, the second element of
 the first matched tuple is returned, otherwise the value `\term{deny}' is
 returned.
 
@@ -1941,22 +1995,57 @@ listen:
   ...
 \end{verbatim}
 
-\makesubsection{stun}{STUN}
+\makesubsection{stun}{STUN and TURN}
 \ind{options!stun}\ind{stun}
 
-\ejabberd{} is able to act as a stand-alone STUN server
-(\footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389}). Currently only Binding usage
-is supported. In that role \ejabberd{} helps clients with Jingle ICE (\xepref{0176}) support to discover their external addresses and ports.
+\ejabberd{} is able to act as a stand-alone STUN/TURN server
+(\footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389}/\footahref{http://tools.ietf.org/html/rfc5766}{RFC 5766}). In that role \ejabberd{} helps clients with ICE (\footahref{http://tools.ietf.org/html/rfc5245}{RFC 5245}) or Jingle ICE (\xepref{0176}) support to discover their external addresses and ports and to relay media traffic when it is impossible to establish direct
+peer-to-peer connection.
 
 You should configure \term{ejabberd\_stun} listening module as described in \ref{listened} section.
-If \option{certfile} option is defined, \ejabberd{} multiplexes TCP and
-TLS over TCP connections on the same port. Obviously, \option{certfile} option
-is defined for \term{tcp} only. Note however that TCP or TLS over TCP
-support is not required for Binding usage and is reserved for
-\footahref{http://tools.ietf.org/html/draft-ietf-behave-turn-16}{TURN}
-functionality. Feel free to configure \term{udp} transport only.
+The specific configurable options are:
+\begin{description}
+  \titem{tls: true|false}
+  If enabled, \option{certfile} option must be set, otherwise \ejabberd{}
+  will not be able to accept TLS connections. Obviously, this option
+  makes sense for \term{tcp} transport only. The default is \term{false}.
+  \titem{certfile: Path}
+  Path to the certificate file. Only makes sense when \option{tls} is set.
+  \titem{use\_turn: true|false}
+  Enables/disables TURN (media relay) functionality. The default is \term{false}.
+  \titem{turn\_ip: String}
+  The IPv4 address advertised by your TURN server. The address should not be NAT'ed
+  or firewalled. There is not default, so you should set this option explicitly.
+  Implies \term{use\_turn}.
+  \titem{turn\_min\_port: Integer}
+  Together with \option{turn\_max\_port} forms port range to allocate from.
+  The default is 49152. Implies \term{use\_turn}.
+  \titem{turn\_max\_port: Integer}
+  Together with \option{turn\_min\_port} forms port range to allocate from.
+  The default is 65535. Implies \term{use\_turn}.
+  \titem{turn\_max\_allocations: Integer|unlimited}
+  Maximum number of TURN allocations available from the particular IP address.
+  The default value is 10. Implies \term{use\_turn}.
+  \titem{turn\_max\_permissions: Integer|unlimited}
+  Maximum number of TURN permissions available from the particular IP address.
+  The default value is 10. Implies \term{use\_turn}.
+  \titem{auth\_type: user|anonymous}
+  Which authentication type to use for TURN allocation requests. When type \term{user}
+  is set, ejabberd authentication backend is used. For \term{anonymous} type
+  no authentication is performed (not recommended for public services).
+  The default is \term{user}. Implies \term{use\_turn}.
+  \titem{auth\_realm: String}
+  When \option{auth\_type} is set to \term{user} and you have several virtual
+  hosts configured you should set this option explicitly to the virtual host
+  you want to serve on this particular listening port. Implies \term{use\_turn}.
+  \titem{shaper: Atom}
+  For \term{tcp} transports defines shaper to use. The default is \term{none}.
+  \titem{server\_name: String}
+  Defines software version to return with every response. The default is the
+  STUN library version.
+\end{description}
 
-Example configuration:
+Example configuration with disabled TURN functionality (STUN only):
 \begin{verbatim}
 listen:
   ...
@@ -1974,16 +2063,94 @@ listen:
   ...
 \end{verbatim}
 
-You also need to configure DNS SRV records properly so clients can easily discover a
-STUN server serving your XMPP domain. Refer to section
-\footahref{http://tools.ietf.org/html/rfc5389\#section-9}{DNS Discovery of a Server}
-of \footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389} for details.
+Example configuration with TURN functionality. Note that STUN is always
+enabled if TURN is enabled. Here, only UDP section is shown:
+\begin{verbatim}
+listen:
+  ...
+  - 
+    port: 3478
+    transport: udp
+    use_turn: true
+    turn_ip: 10.20.30.1
+    module: ejabberd_stun
+  ...
+\end{verbatim}
 
-Example DNS SRV configuration:
+You also need to configure DNS SRV records properly so clients can easily discover a
+STUN/TURN server serving your XMPP domain. Refer to section
+\footahref{http://tools.ietf.org/html/rfc5389\#section-9}{DNS Discovery of a Server}
+of \footahref{http://tools.ietf.org/html/rfc5389}{RFC 5389} and section
+\footahref{http://tools.ietf.org/html/rfc5766\#section-6}{Creating an Allocation}
+of \footahref{http://tools.ietf.org/html/rfc5766}{RFC 5766} for details.
+
+Example DNS SRV configuration for STUN only:
 \begin{verbatim}
 _stun._udp   IN SRV  0 0 3478 stun.example.com.
 _stun._tcp   IN SRV  0 0 3478 stun.example.com.
 _stuns._tcp  IN SRV  0 0 5349 stun.example.com.
+\end{verbatim}
+
+And you should also add these in the case if TURN is enabled:
+\begin{verbatim}
+_turn._udp   IN SRV  0 0 3478 turn.example.com.
+_turn._tcp   IN SRV  0 0 3478 turn.example.com.
+_turns._tcp  IN SRV  0 0 5349 turn.example.com.
+\end{verbatim}
+
+\makesubsection{sip}{SIP}
+\ind{options!sip}\ind{sip}
+
+\ejabberd{} has built-in SIP support. In order to activate it you need to add
+listeners for it, configure DNS properly and enable \modsip{} for
+the desired virtual host.
+
+To add a listener you should configure \term{ejabberd\_sip} listening module as
+described in \ref{listened} section. If option \option{tls} is specified, option
+\option{certfile} must be specified as well, otherwise incoming TLS connections would fail.
+
+Example configuration with standard ports
+(as per \footahref{http://tools.ietf.org/html/rfc3261}{RFC 3261}):
+\begin{verbatim}
+listen:
+  ...
+  - 
+    port: 5060
+    transport: udp
+    module: ejabberd_sip
+  - 
+    port: 5060
+    module: ejabberd_sip
+  -
+    port: 5061
+    module: ejabberd_sip
+    tls: true
+    certfile: "/etc/ejabberd/server.pem"
+  ...
+\end{verbatim}
+
+Note that there is no StartTLS support in SIP and \footahref{http://en.wikipedia.org/wiki/Server\_Name\_Indication}{SNI} support is somewhat tricky, so for TLS you have to configure
+different virtual hosts on different ports if you have different certificate files for them.
+
+Next you need to configure DNS SIP records for your virtual domains.
+Refer to \footahref{http://tools.ietf.org/html/rfc3263}{RFC 3263} for the detailed explanation.
+Simply put, you should add NAPTR and SRV records for your domains.
+Skip NAPTR configuration if your DNS provider doesn't support this type of records.
+It's not fatal, however, highly recommended.
+
+Example configuration of NAPTR records:
+\begin{verbatim}
+example.com IN NAPTR 10  0 "s" "SIPS+D2T" "" _sips._tcp.example.com.
+example.com IN NAPTR 20  0 "s" "SIP+D2T" "" _sip._tcp.example.com.
+example.com IN NAPTR 30  0 "s" "SIP+D2U" "" _sip._udp.example.com.
+\end{verbatim}
+
+Example configuration of SRV records with standard ports
+(as per \footahref{http://tools.ietf.org/html/rfc3261}{RFC 3261}):
+\begin{verbatim}
+_sip._udp   IN SRV  0 0 5060 sip.example.com.
+_sip._tcp   IN SRV  0 0 5060 sip.example.com.
+_sips._tcp  IN SRV  0 0 5061 sip.example.com.
 \end{verbatim}
 
 \makesubsection{includeconfigfile}{Include Additional Configuration Files}
@@ -2515,8 +2682,7 @@ modules:
   mod_echo: {}
 \end{verbatim}
 \item In the second example the modules \modecho{}, \modtime{}, and
-  \modversion{} are loaded without options. Remark that, besides the last entry,
-  all entries end with a comma:
+  \modversion{} are loaded without options.
 \begin{verbatim}
 modules:
   mod_echo:      {}
@@ -2539,6 +2705,7 @@ The following table lists all modules included in \ejabberd{}.
     \hline \ahrefloc{modannounce}{\modannounce{}} & Manage announcements & recommends \modadhoc{} \\
     \hline \modblocking{} & Simple Communications Blocking (\xepref{0191}) & \modprivacy{} \\
     \hline \modcaps{} &  Entity Capabilities (\xepref{0115}) & \\
+    \hline \modcarboncopy{} & Message Carbons (\xepref{0280}) & \\
     \hline \modconfigure{} & Server configuration using Ad-Hoc & \modadhoc{} \\
     \hline \ahrefloc{moddisco}{\moddisco{}} & Service Discovery (\xepref{0030}) &  \\
     \hline \ahrefloc{modecho}{\modecho{}} & Echoes XMPP stanzas &  \\
@@ -2563,6 +2730,7 @@ The following table lists all modules included in \ejabberd{}.
     \hline \ahrefloc{modsharedroster}{\modsharedroster{}} & Shared roster management & \modroster{} \\
     \hline \ahrefloc{modsharedrosterldap}{\modsharedrosterldap{}} & LDAP Shared roster management & \modroster{} \\
     \hline \ahrefloc{modsic}{\modsic{}} & Server IP Check (\xepref{0279}) &  \\
+    \hline \ahrefloc{modsip}{\modsip{}} & SIP Registrar/Proxy (\footahref{http://tools.ietf.org/html/rfc3261}{RFC 3261}) & \term{ejabberd\_sip} \\
     \hline \ahrefloc{modstats}{\modstats{}} & Statistics Gathering (\xepref{0039}) &  \\
     \hline \ahrefloc{modtime}{\modtime{}} & Entity Time (\xepref{0202}) &  \\
     \hline \ahrefloc{modvcard}{\modvcard{}} & vcard-temp (\xepref{0054}) &  \\
@@ -4046,15 +4214,28 @@ Options:
    not add/remove/modify contacts,
    or subscribe/unsubscribe presence.
    By default there aren't restrictions.
+ \titem{managers} \ind{options!managers}
+   List of remote entities that can manage users rosters using Remote Roster Management
+   (\xepref{0321}).
+   The protocol sections implemented are:
+   \term{4.2. The remote entity requests current user's roster}.
+   \term{4.3. The user updates roster}.
+   \term{4.4. The remote entity updates the user's roster}.
+   A remote entity cab only get or modify roster items that have the same domain as the entity.
+   Default value is: \term{[]}.
 \end{description}
 
-This example configuration enables Roster Versioning with storage of current id:
+This example configuration enables Roster Versioning with storage of current id.
+The ICQ and MSN transports can get ICQ and MSN contacts, add them, or remove them for any local account:
 \begin{verbatim}
 modules:
   ...
   mod_roster:
     versioning: true
     store_current_id: true
+    managers:
+     - "icq.example.org"
+     - "msn.example.org"
   ...
 \end{verbatim}
 
@@ -4590,6 +4771,49 @@ Options:
 \iqdiscitem{\ns{urn:xmpp:sic:0}}
 \end{description}
 
+\makesubsection{modsip}{\modsip{}}
+\ind{modules!\modsip{}}
+This module adds SIP proxy/registrar support for the corresponding virtual host.
+Note that it is not enough to just load this module only. You should also configure
+listeners and DNS records properly. See section \ref{sip} for the full explanation.
+
+Example configuration:
+\begin{verbatim}
+modules:
+  ...
+  mod_sip: {}
+  ...
+\end{verbatim}
+
+Options:
+\begin{description}
+\titem{via: [\{type: Type, host: Host, port: Port\}]}\ind{options!via}With
+this option for every \term{Type} you can specify \term{Host} and \term{Port}
+to set in \term{Via} header of outgoing SIP messages, where \term{Type} can be
+\term{udp}, \term{tcp} or \term{tls}. \term{Host} is a string and \term{Port} is 
+a non negative integer. This is useful if you're running your server in a non-standard
+network topology. Example configuration:
+\begin{verbatim}
+modules:
+  ...
+  mod_sip:
+    via:
+      - 
+        type: tls
+        host: "sip-tls.example.com"
+        port: 5061
+      - 
+        type: tcp
+        host: "sip-tcp.example.com"
+        port: 5060
+      - 
+        type: udp
+        host: "sip-udp.example.com"
+        port: 5060
+  ...
+\end{verbatim}
+\end{description}
+
 \makesubsection{modstats}{\modstats{}}
 \ind{modules!\modstats{}}\ind{protocols!XEP-0039: Statistics Gathering}\ind{statistics}
 
@@ -4982,6 +5206,9 @@ This can be used by other scripts to determine automatically
 if a command succeeded or failed,
 for example using: \term{echo \$?}
 
+If you use Bash, you can get Bash completion by copying the file \term{tools/ejabberdctl.bc}
+to the directory \term{/etc/bash\_completion.d/} (in Debian, Ubuntu, Fedora and maybe others).
+
 \makesubsection{ectl-commands}{ejabberdctl Commands}
 
 When \term{ejabberdctl} is executed without any parameter,
@@ -5130,9 +5357,9 @@ with a defined number and type of calling arguments and type of result
 that is registered in the \term{ejabberd\_commands} service.
 Those commands can be defined in any Erlang module and executed using any valid frontend.
 
-\ejabberd{} includes a frontend to execute \term{ejabberd commands}: the script \term{ejabberdctl}.
+\ejabberd{} includes two frontends to execute \term{ejabberd commands}: the script \term{ejabberdctl} (\ref{ejabberdctl})
+and the \term{ejabberd\_xmlrpc} listener (\ref{listened-module}).
 Other known frontends that can be installed to execute ejabberd commands in different ways are:
-\term{ejabberd\_xmlrpc} (XML-RPC service),
 \term{mod\_rest} (HTTP POST service),
 \term{mod\_shcommands} (ejabberd WebAdmin page).
 
@@ -5943,7 +6170,7 @@ Thanks to all people who contributed to this guide:
 \makechapter{copyright}{Copyright Information}
 
 Ejabberd Installation and Operation Guide.\\
-Copyright \copyright{} 2003 --- 2013 ProcessOne
+Copyright \copyright{} 2003 --- 2014 ProcessOne
 
 This document is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
