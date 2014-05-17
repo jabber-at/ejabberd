@@ -5,7 +5,7 @@
 %%% Created :  9 Feb 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -17,10 +17,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -28,7 +27,7 @@
 
 -author('alexey@process-one.net').
 
--export([start/0, new/1, new1/1, update/2,
+-export([start/0, new/1, new1/1, update/2, get_max_rate/1,
          transform_options/1, load_from_config/0]).
 
 -include("ejabberd.hrl").
@@ -75,6 +74,18 @@ load_from_config() ->
             {error, Err}
     end.
 
+-spec get_max_rate(atom()) -> none | non_neg_integer().
+
+get_max_rate(none) ->
+    none;
+get_max_rate(Name) ->
+    case ets:lookup(shaper, {Name, global}) of
+	[#shaper{maxrate = R}] ->
+	    R;
+	[] ->
+	    none
+    end.
+
 -spec new(atom()) -> shaper().
 
 new(none) ->
@@ -84,8 +95,6 @@ new(Name) ->
                   [#shaper{maxrate = R}] ->
                       R;
                   [] ->
-                      ?WARNING_MSG("Attempt to initialize an "
-                                   "unspecified shaper '~s'", [Name]),
                       none
               end,
     new1(MaxRate).

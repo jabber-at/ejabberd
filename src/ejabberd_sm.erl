@@ -5,7 +5,7 @@
 %%% Created : 24 Nov 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -17,10 +17,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -33,11 +32,14 @@
 %% API
 -export([start_link/0,
 	 route/3,
-	 open_session/5, close_session/4,
+	 open_session/5,
+	 open_session/6,
+	 close_session/4,
 	 check_in_subscription/6,
 	 bounce_offline_message/3,
 	 disconnect_removed_user/2,
 	 get_user_resources/2,
+	 get_user_present_resources/2,
 	 set_presence/7,
 	 unset_presence/6,
 	 close_session_unset_presence/5,
@@ -52,9 +54,12 @@
 	 connected_users/0,
 	 connected_users_number/0,
 	 user_resources/2,
+	 disconnect_user/2,
 	 get_session_pid/3,
 	 get_user_info/3,
 	 get_user_ip/3,
+	 get_max_user_sessions/2,
+	 get_all_pids/0,
 	 is_existing_resource/3
 	]).
 
@@ -68,7 +73,7 @@
 -include("jlib.hrl").
 
 -include("ejabberd_commands.hrl").
-
+-include_lib("stdlib/include/ms_transform.hrl").
 -include("mod_privacy.hrl").
 
 -record(session, {sid, usr, us, priority, info}).
@@ -107,16 +112,21 @@ route(From, To, Packet) ->
       _ -> ok
     end.
 
--spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
+-spec open_session(sid(), binary(), binary(), binary(), prio(), info()) -> ok.
 
-open_session(SID, User, Server, Resource, Info) ->
-    set_session(SID, User, Server, Resource, undefined, Info),
+open_session(SID, User, Server, Resource, Priority, Info) ->
+    set_session(SID, User, Server, Resource, Priority, Info),
     mnesia:dirty_update_counter(session_counter,
 				jlib:nameprep(Server), 1),
     check_for_sessions_to_replace(User, Server, Resource),
     JID = jlib:make_jid(User, Server, Resource),
     ejabberd_hooks:run(sm_register_connection_hook,
 		       JID#jid.lserver, [SID, JID, Info]).
+
+-spec open_session(sid(), binary(), binary(), binary(), info()) -> ok.
+
+open_session(SID, User, Server, Resource, Info) ->
+    open_session(SID, User, Server, Resource, undefined, Info).
 
 -spec close_session(sid(), binary(), binary(), binary()) -> ok.
 
@@ -165,6 +175,20 @@ get_user_resources(User, Server) ->
 	    [];
 	Ss ->
 	    [element(3, S#session.usr) || S <- clean_session_list(Ss)]
+    end.
+
+-spec get_user_present_resources(binary(), binary()) -> [tuple()].
+
+get_user_present_resources(LUser, LServer) ->
+    US = {LUser, LServer},
+    case catch mnesia:dirty_index_read(session, US,
+				       #session.us)
+	of
+      {'EXIT', _Reason} -> [];
+      Ss ->
+	  [{S#session.priority, element(3, S#session.usr)}
+	   || S <- clean_session_list(Ss),
+	      is_integer(S#session.priority)]
     end.
 
 -spec get_user_ip(binary(), binary(), binary()) -> ip().
@@ -260,13 +284,23 @@ dirty_get_my_sessions_list() ->
 	[{'==', {node, '$1'}, node()}],
 	['$_']}]).
 
+-spec get_vh_session_list(binary()) -> [ljid()].
+
 get_vh_session_list(Server) ->
     LServer = jlib:nameprep(Server),
     mnesia:dirty_select(session,
 			[{#session{usr = '$1', _ = '_'},
 			  [{'==', {element, 2, '$1'}, LServer}], ['$1']}]).
 
--spec get_vh_session_list(binary()) -> [ljid()].
+-spec get_all_pids() -> [pid()].
+
+get_all_pids() ->
+    mnesia:dirty_select(
+      session,
+      ets:fun2ms(
+        fun(#session{sid = {_, Pid}}) ->
+		Pid
+        end)).
 
 get_vh_session_number(Server) ->
     LServer = jlib:nameprep(Server),
@@ -670,20 +704,6 @@ clean_session_list([S1, S2 | Rest], Res) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-get_user_present_resources(LUser, LServer) ->
-    US = {LUser, LServer},
-    case catch mnesia:dirty_index_read(session, US,
-				       #session.us)
-	of
-      {'EXIT', _Reason} -> [];
-      Ss ->
-	  [{S#session.priority, element(3, S#session.usr)}
-	   || S <- clean_session_list(Ss),
-	      is_integer(S#session.priority)]
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %% On new session, check if some existing connections need to be replace
 check_for_sessions_to_replace(User, Server, Resource) ->
     LUser = jlib:nodeprep(User),
@@ -800,8 +820,14 @@ commands() ->
 			tags = [session],
 			desc = "List user's connected resources",
 			module = ?MODULE, function = user_resources,
-			args = [{user, string}, {host, string}],
-			result = {resources, {list, {resource, string}}}}].
+			args = [{user, binary}, {host, binary}],
+			result = {resources, {list, {resource, string}}}},
+     #ejabberd_commands{name = disconnect_user,
+			tags = [session],
+			desc = "Disconnect user's active sessions",
+			module = ?MODULE, function = disconnect_user,
+			args = [{user, binary}, {host, binary}],
+			result = {num_resources, integer}}].
 
 -spec connected_users() -> [binary()].
 
@@ -818,6 +844,14 @@ user_resources(User, Server) ->
     Resources = get_user_resources(User, Server),
     lists:sort(Resources).
 
+disconnect_user(User, Server) ->
+    Resources = get_user_resources(User, Server),
+    lists:foreach(
+	fun(Resource) ->
+		PID = get_session_pid(User, Server, Resource),
+		PID ! disconnect
+	end, Resources),
+    length(Resources).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Update Mnesia tables
@@ -827,6 +861,7 @@ update_tables() ->
       [ur, user, node] -> mnesia:delete_table(session);
       [ur, user, pid] -> mnesia:delete_table(session);
       [usr, us, pid] -> mnesia:delete_table(session);
+      [usr, us, sid, priority, info] -> mnesia:delete_table(session);
       [sid, usr, us, priority] ->
 	  mnesia:delete_table(session);
       [sid, usr, us, priority, info] -> ok;

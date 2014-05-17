@@ -5,7 +5,7 @@
 %%% Created :  5 Mar 2005 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -17,10 +17,9 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License
-%%% along with this program; if not, write to the Free Software
-%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-%%% 02111-1307 USA
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
 
@@ -188,17 +187,24 @@ get_rosteritem_name([], _, _) -> <<"">>;
 get_rosteritem_name([ModVcard], U, S) ->
     From = jlib:make_jid(<<"">>, S, jlib:atom_to_binary(?MODULE)),
     To = jlib:make_jid(U, S, <<"">>),
-    IQ = {iq, <<"">>, get, <<"vcard-temp">>, <<"">>,
-	  #xmlel{name = <<"vCard">>,
-		 attrs = [{<<"xmlns">>, <<"vcard-temp">>}],
-		 children = []}},
-    IQ_Vcard = ModVcard:process_sm_iq(From, To, IQ),
-    try get_rosteritem_name_vcard(IQ_Vcard#iq.sub_el) catch
-      E1:E2 ->
-	  ?ERROR_MSG("Error ~p found when trying to get the "
-		     "vCard of ~s@~s in ~p:~n ~p",
-		     [E1, U, S, ModVcard, E2]),
-	  <<"">>
+    case lists:member(To#jid.lserver, ?MYHOSTS) of
+        true ->
+            IQ = {iq, <<"">>, get, <<"vcard-temp">>, <<"">>,
+                  #xmlel{name = <<"vCard">>,
+                         attrs = [{<<"xmlns">>, <<"vcard-temp">>}],
+                         children = []}},
+            IQ_Vcard = ModVcard:process_sm_iq(From, To, IQ),
+            case catch get_rosteritem_name_vcard(IQ_Vcard#iq.sub_el) of
+                {'EXIT', Err} ->
+                    ?ERROR_MSG("Error found when trying to get the "
+                               "vCard of ~s@~s in ~p:~n ~p",
+                               [U, S, ModVcard, Err]),
+                    <<"">>;
+                NickName ->
+                    NickName
+            end;
+        false ->
+            <<"">>
     end.
 
 get_rosteritem_name_vcard([]) -> <<"">>;
