@@ -9,3 +9,4 @@ ejabberd-monit.patch
 ejabberd-pid.patch
 rebar-dependencies.patch
 ejabberd-version.patch
+nodename.patch

@@ -1,0 +1,25 @@
+--- a/ejabberdctl.cfg.example
++++ b/ejabberdctl.cfg.example
+@@ -121,9 +121,9 @@
+ #   The same as previous, but erlang will use long hostname
+ #   (see erl (1) manual for details)
+ #
+-# Default: ejabberd@localhost
++# Default: ejabberd
+ #
+-#ERLANG_NODE=ejabberd@localhost
++#ERLANG_NODE=ejabberd
+ 
+ # EJABBERD_PID_PATH: ejabberd PID file
+ #
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -8,7 +8,7 @@
+ ERL_MAX_ETS_TABLES=1400
+ FIREWALL_WINDOW=""
+ INET_DIST_INTERFACE="127.0.0.1"
+-ERLANG_NODE=ejabberd@localhost
++ERLANG_NODE=ejabberd
+ EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
+ 
+ # define default environment variables
