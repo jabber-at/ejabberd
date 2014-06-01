@@ -3,6 +3,7 @@ ejabberd (1:14.05-2) unstable; urgency=low
   * Add nodename.patch, now default to "ejabberd" as nodename, 
     this was the default in previous versions.
   * Depend on gsfonts, which is required for CAPTCHA generation.
+  * Add machine-readable copyright file.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 31 May 2014 09:58:39 +0200
 
