@@ -15,7 +15,7 @@ Vcs-Browser: https://git.fsinf.at/apt/ejabberd
 Package: ejabberd
 Architecture: any
 Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, 
- openssl, ucf, imagemagick, gsfonts
+ openssl, ucf, imagemagick, gsfonts,
  ${misc:Depends}, ${shlibs:Depends}
 Suggests: libunix-syslog-perl, monit, ejabberd-mod-admin-extra,
  ejabberd-mod-muc-admin
