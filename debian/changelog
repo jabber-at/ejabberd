@@ -1,3 +1,10 @@
+ejabberd (1:14.05-3) unstable; urgency=low
+
+  * Add mod_irc-update.patch, fixes an error we had with the irc_custom table
+    after updating from 2.1.3 to 14.05.
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 07 Jun 2014 10:13:36 +0200
+
 ejabberd (1:14.05-2) unstable; urgency=low
 
   * Add nodename.patch, now default to "ejabberd" as nodename, 

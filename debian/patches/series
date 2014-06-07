@@ -10,3 +10,4 @@ ejabberd-pid.patch
 rebar-dependencies.patch
 ejabberd-version.patch
 nodename.patch
+mod_irc-update.patch
