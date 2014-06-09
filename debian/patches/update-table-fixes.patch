@@ -1,4 +1,4 @@
-Description: Fix updating the mod_irc table from 2.1.13 to 14.05
+Description: Fix updating various tables from 2.1.13 to 14.05
 Origin: upstream
  * https://github.com/processone/ejabberd/commit/3e8a0af6d142708d04821f220d56d3889c8762a9
  * https://github.com/processone/ejabberd/commit/6f4b4ad0879c6ba295fd1ac62524b184f55724ae
