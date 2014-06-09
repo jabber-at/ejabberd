@@ -2,6 +2,8 @@ Description: Fix updating various tables from 2.1.13 to 14.05
 Origin: upstream
  * https://github.com/processone/ejabberd/commit/3e8a0af6d142708d04821f220d56d3889c8762a9
  * https://github.com/processone/ejabberd/commit/6f4b4ad0879c6ba295fd1ac62524b184f55724ae
+ * https://github.com/processone/ejabberd/commit/c485aea48bcdc6cf4c562f624cfcdbf59ee96820
+ * https://github.com/processone/ejabberd/commit/62be3bc1119022599cb568548a21c57d6235e31d
 Bug-Github: https://github.com/processone/ejabberd/issues/234
 Applied-Upstream: ?
 Last-Update: 2014-06-07
@@ -35,7 +37,7 @@ Last-Update: 2014-06-07
  	     gen_mod:db_type(LServer, ?MODULE)).
  
  set_data(_LServer, Host, From, Data, mnesia) ->
-@@ -1217,28 +1218,41 @@
+@@ -1217,28 +1218,48 @@
                   end,
      {Username, ConnParams}.
  
@@ -61,9 +63,16 @@ Last-Update: 2014-06-07
 +			 try
 +			     [conn_param_to_binary(Param)]
 +			 catch _:_ ->
-+				 ?ERROR_MSG("failed to convert parameter "
-+					    " ~p for user ~s",
-+					    [Param, jlib:jid_to_string(JID)]),
++				 if JID /= error ->
++					 ?ERROR_MSG("failed to convert "
++						    "parameter ~p for user ~s",
++						    [Param,
++						     jlib:jid_to_string(JID)]);
++				    true ->
++					 ?ERROR_MSG("failed to convert "
++						    "parameter ~p",
++						    [Param])
++				 end,
 +				 []
 +			 end
 +		 end, Params)};
@@ -89,7 +98,7 @@ Last-Update: 2014-06-07
                {binary_to_list(S), binary_to_list(E)};
           ({S, E, Port}) ->
                {binary_to_list(S), binary_to_list(E), Port};
-@@ -1256,10 +1270,11 @@
+@@ -1256,10 +1277,11 @@
              fun(#irc_custom{us_host = {_, H}}) -> H end,
              fun(#irc_custom{us_host = {{U, S}, H},
                              data = Data} = R) ->
