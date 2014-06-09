@@ -5,11 +5,11 @@ Source: http://www.process-one.net/en/ejabberd/downloads
 
 Files: *
 Copyright: Copyright (c) 2002 - 2014, Process One
-License: GPL-2+
+License: GPL-2+ with OpenSSL exception
 
 Files: debian/*
 Copyright: Copyright (c) 2011 - 2013, Mathias Ertl <mati@jabber.at>
-License: GPL-2+
+License: GPL-2+ with OpenSSL exception
 
 License: GPL-2+ with OpenSSL exception
  This program is free software; you can redistribute it
