@@ -2,6 +2,7 @@ ejabberd (1:14.05-3) unstable; urgency=low
 
   * Add update-table-fixes.patch, which fixes various bugs when updating from
     ejabberd 2.1.13 to 14.05.
+  * add failed_auth.patch for mod_logsession.
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 09 Jun 2014 11:11:37 +0200
 
