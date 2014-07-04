@@ -9,7 +9,7 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 # on Debian Stable and all Ubuntu distros up to at least Saucy.
 DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
     --enable-odbc --enable-mysql --enable-pgsql \
-    --enable-stun --enable-json
+    --enable-stun --enable-json --enable-transient_supervisors
 
 override_dh_auto_configure:
 	dh_auto_configure -- ${DEB_CONFIGURE_EXTRA_FLAGS}
