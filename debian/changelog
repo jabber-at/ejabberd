@@ -1,6 +1,9 @@
 ejabberd (1:14.05-4) unstable; urgency=low
 
   * Enable --enable-transient_supervisors, fixes EJAB-1700.
+  * Warnings for ejabberdctl debug/live are only displayed when
+    EJABBERD_BYPASS_WARNINGS is not set to true, fixed path to
+    /etc/default/ejabberd in those warnings.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 04 Jul 2014 12:12:51 +0200
 
