@@ -1,3 +1,7 @@
+Description: Use defaults file from /etc/default/ejabberd
+Bug-Github: https://github.com/processone/ejabberd/pull/248
+Applied-Upstream: ?
+Last-Update: 2014-07-11
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
 @@ -47,7 +47,8 @@
