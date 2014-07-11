@@ -5,7 +5,7 @@ ejabberd (1:14.05-4) unstable; urgency=low
     EJABBERD_BYPASS_WARNINGS is not set to true, fixed path to
     /etc/default/ejabberd in those warnings.
 
- -- Mathias Ertl <mati@jabber.at>  Fri, 04 Jul 2014 12:12:51 +0200
+ -- Mathias Ertl <mati@jabber.at>  Fri, 11 Jul 2014 15:10:47 +0200
 
 ejabberd (1:14.05-3) unstable; urgency=low
 
