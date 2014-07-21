@@ -23,3 +23,12 @@
  EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
  
  # define default environment variables
+@@ -275,7 +275,7 @@
+         JOT='/usr/bin/jot'
+         if [ ! -x "$JOT" ] ; then
+             # no flock or jot, simply invoke ctlexec()
+-            CTL_CONN="ctl-${ERLANG_NODE}"
++            CTL_CONN="ctl-$$-${ERLANG_NODE}"
+             ctlexec $CTL_CONN $COMMAND
+             result=$?
+         else
