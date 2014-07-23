@@ -1,13 +1,18 @@
+ejabberd (1:14.07-2) unstable; urgency=low
+
+  * Add ejabberdctl-home patch to make ejabberdctl executeable as root
+    (otherwise the erlang.cookie is not found).
+
+ -- Mathias Ertl <mati@jabber.at>  Thu, 24 Jul 2014 01:04:37 +0200
+
 ejabberd (1:14.07-1) unstable; urgency=low
 
   * Version bump from upstream.
   * Remove patches applied upstream: ejabberd-version.patch,
     update-table-fixes.patch
   * Append PID to ejabberdctl erlang node, improves concurrent invocations.
-  * Add ejabberdctl-home patch to make ejabberdctl executeable as root
-    (otherwise the erlang.cookie is not found).
 
- -- Mathias Ertl <mati@jabber.at>  Mon, 21 Jul 2014 19:06:10 +0200
+ -- Mathias Ertl <mati@jabber.at>  Wed, 23 Jul 2014 19:06:10 +0200
 
 ejabberd (1:14.05-4) unstable; urgency=low
 

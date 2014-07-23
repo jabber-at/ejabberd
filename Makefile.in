@@ -59,13 +59,11 @@ ifeq ($(INSTALLUSER),)
   G_USER=
   CHOWN_COMMAND=echo
   CHOWN_OUTPUT=/dev/null
-  INIT_USER=root
 else
   O_USER=-o $(INSTALLUSER)
   G_USER=-g $(INSTALLUSER)
   CHOWN_COMMAND=chown
   CHOWN_OUTPUT=&1
-  INIT_USER=$(INSTALLUSER)
 endif
 
 all: deps src
@@ -131,7 +129,7 @@ install: all
 	#
 	# Init script
 	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-		-e "s*@installuser@*$(INIT_USER)*" ejabberd.init.template \
+		ejabberd.init.template \
 		> ejabberd.init
 	chmod 755 ejabberd.init
 	#

@@ -659,6 +659,11 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 							privacy_list = PrivList},
 			fsm_next_state(session_established, NewStateData);
 		  _ ->
+		      ejabberd_hooks:run(failed_auth_hook,
+				       StateData#state.server,
+				       [legacy, U,
+					StateData#state.server,
+					StateData#state.ip]),
 		      IP = peerip(StateData#state.sockmod,
 				  StateData#state.socket),
 		      ?INFO_MSG("(~w) Failed legacy authentication for "
@@ -753,6 +758,11 @@ wait_for_feature_request({xmlstreamelement, El},
 		fsm_next_state(wait_for_sasl_response,
 			       StateData#state{sasl_state = NewSASLState});
 	    {error, Error, Username} ->
+	    ejabberd_hooks:run(failed_auth_hook,
+			       StateData#state.server,
+			       [sasl_auth, Username,
+				StateData#state.server,
+				StateData#state.ip]),
 		IP = peerip(StateData#state.sockmod, StateData#state.socket),
 		?INFO_MSG("(~w) Failed authentication for ~s@~s from IP ~s",
 		       [StateData#state.socket,
@@ -920,6 +930,11 @@ wait_for_sasl_response({xmlstreamelement, El},
 		fsm_next_state(wait_for_sasl_response,
 			       StateData#state{sasl_state = NewSASLState});
 	    {error, Error, Username} ->
+		ejabberd_hooks:run(failed_auth_hook,
+			       StateData#state.server,
+			       [sasl_resp, Username,
+				StateData#state.server,
+				StateData#state.ip]),
 		IP = peerip(StateData#state.sockmod, StateData#state.socket),
 		?INFO_MSG("(~w) Failed authentication for ~s@~s from IP ~s",
 		       [StateData#state.socket,
@@ -932,6 +947,12 @@ wait_for_sasl_response({xmlstreamelement, El},
 						children = []}]}),
 		fsm_next_state(wait_for_feature_request, StateData);
 	    {error, Error} ->
+		Username = element(5, element(9, StateData#state.sasl_state)),
+		ejabberd_hooks:run(failed_auth_hook,
+			       StateData#state.server,
+			       [sasl_resp, Username,
+				StateData#state.server,
+				StateData#state.ip]),
 		send_element(StateData,
 			     #xmlel{name = <<"failure">>,
 				    attrs = [{<<"xmlns">>, ?NS_SASL}],

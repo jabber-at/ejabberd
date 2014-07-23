@@ -85,7 +85,7 @@ log_rate_limit: 100
 ##   - "example.org"
 ##
 hosts:
-  - "localhost"
+  - "__HOSTNAME__"
 
 ##
 ## route_subdomains: Delegate subdomains to other XMPP servers.
@@ -110,17 +110,19 @@ listen:
     ## certificate, specify the full path to the
     ## file and uncomment this line:
     ##
-    ## certfile: "/path/to/ssl.pem"
-    ## starttls: true
+    certfile: "/etc/ejabberd/ejabberd.pem"
+    starttls: true
+    starttls_required: true
     ##
     ## Custom OpenSSL options
     ##
-    ## protocol_options:
-    ##   - "no_sslv3"
-    ##   - "no_tlsv1"
+    protocol_options:
+       - "no_sslv3"
+       - "no_tlsv1"
     max_stanza_size: 65536
     shaper: c2s_shaper
     access: c2s
+    zlib: true
   - 
     port: 5269
     module: ejabberd_s2s_in
@@ -169,12 +171,12 @@ listen:
 ## Allowed values are: false optional required required_trusted
 ## You must specify a certificate file.
 ##
-## s2s_use_starttls: optional
+s2s_use_starttls: required
 
 ##
 ## s2s_certfile: Specify a certificate file.
 ##
-## s2s_certfile: "/path/to/ssl.pem"
+s2s_certfile: "/etc/ejabberd/ejabberd.pem"
 
 ## Custom OpenSSL options
 ##
@@ -254,7 +256,7 @@ auth_method: internal
 ##
 ## List of LDAP servers:
 ## ldap_servers:
-##   - "localhost"
+##   - "ldap.__HOSTNAME__"
 ##
 ## Encryption of connection to LDAP servers:
 ## ldap_encrypt: none
@@ -384,8 +386,8 @@ acl:
   ##
   ## admin:
   ##   user:
-  ##     - "aleksey": "localhost"
-  ##     - "ermine": "example.org"
+  ##     - "aleksey": "__HOSTNAME__"
+  ##     - "ermine": "xmpp.example.com"
   ##
   ## Blocked users
   ##
@@ -431,11 +433,11 @@ acl:
 ## Define specific ACLs in a virtual host.
 ##
 ## host_config:
-##   "localhost":
+##   "__HOSTNAME__":
 ##     acl:
 ##       admin:
 ##         user:
-##           - "bob-local": "localhost"
+##           - "bob-local": "__HOSTNAME__"
 
 ###   ============
 ###   ACCESS RULES
@@ -491,6 +493,12 @@ access:
   ##   bad_servers: deny
   ##   all: allow
 
+
+  max_s2s_connections:
+     all: 3
+  max_s2s_connections_per_node:
+     all: 3
+
 ## By default the frequency of account registrations from the same IP
 ## is limited to 1 account every 10 minutes. To disable, specify: infinity
 ## registration_timeout: 600
@@ -499,7 +507,7 @@ access:
 ## Define specific Access Rules in a virtual host.
 ##
 ## host_config:
-##   "localhost":
+##   "__HOSTNAME__":
 ##     access:
 ##       c2s:
 ##         admin: allow
@@ -519,7 +527,7 @@ language: "en"
 ## Set a different default language in a virtual host.
 ##
 ## host_config:
-##   "localhost":
+##   "__HOSTNAME__":
 ##     language: "ru"
 
 ###   =======
@@ -528,12 +536,12 @@ language: "en"
 ##
 ## Full path to a script that generates the image.
 ##
-## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
+captcha_cmd: "/usr/lib/ejabberd/priv/bin/captcha.sh"
 
 ##
 ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
 ##
-## captcha_host: "example.org:5280"
+captcha_host: "https://__HOSTNAME__:5280"
 
 ##
 ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
@@ -554,10 +562,16 @@ modules:
   mod_caps: {}
   mod_carboncopy: {}
   mod_configure: {} # requires mod_adhoc
-  mod_disco: {}
+  mod_disco:
+    server_info:
+        modules: all
+        name: "abuse-addresses"
+        urls: ["mailto:abuse@__HOSTNAME__"]
   ## mod_echo: {}
-  mod_irc: {}
-  mod_http_bind: {}
+  mod_irc:
+    default_encoding: "utf-8"
+  mod_http_bind:
+    max_inactivity: 60
   ## mod_http_fileserver:
   ##   docroot: "/var/www"
   ##   accesslog: "/var/log/ejabberd/access.log"
@@ -568,13 +582,15 @@ modules:
     access_create: muc_create
     access_persistent: muc_create
     access_admin: muc_admin
+    min_message_interval: 1.0
+    min_presence_interval: 5.0
   ## mod_muc_log: {}
   mod_offline: 
     access_max_user_messages: max_user_offline_messages
   mod_ping: {}
-  ## mod_pres_counter:
-  ##   count: 5
-  ##   interval: 60
+  mod_pres_counter:
+     count: 5
+     interval: 60
   mod_privacy: {}
   mod_private: {}
   ## mod_proxy65: {}
@@ -593,7 +609,7 @@ modules:
     ##
     ## Protect In-Band account registrations with CAPTCHA.
     ##
-    ## captcha_protected: true
+    captcha_protected: true
 
     ##
     ## Set the minimum informational entropy for passwords.
@@ -620,7 +636,7 @@ modules:
     ##
     ## Only clients in the server machine can register accounts
     ##
-    ip_access: trusted_network
+    ## ip_access: trusted_network
 
     ##
     ## Local c2s or remote s2s users cannot register accounts
@@ -629,20 +645,25 @@ modules:
 
     access: register
   mod_roster: {}
+  mod_sic: {}
   mod_shared_roster: {}
   mod_stats: {}
   mod_time: {}
   mod_vcard: {}
   mod_version: {}
+  ## to enable extra admin commands, install ejabberd-mod-admin-extra and
+  ## ejabberd-mod-muc-admin and uncomment:
+  ##mod_admin_extra: {}
+  ##mod_muc_admin: {}
 
 ##
 ## Enable modules with custom options in a specific virtual host
 ##
 ## append_host_config:
-##   "localhost":
+##   "__HOSTNAME__":
 ##     modules:
 ##       mod_echo:
-##         host: "mirror.localhost"
+##         host: "mirror.__HOSTNAME__"
 
 ### Local Variables:
 ### mode: yaml

@@ -49,15 +49,15 @@ SrcDirs = lists:foldl(
                     Acc
             end, [], Cfg),
 
-Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab"}},
-        {p1_tls, ".*", {git, "git://github.com/processone/tls"}},
-        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep"}},
-        {p1_xml, ".*", {git, "git://github.com/processone/xml"}},
-	{esip, ".*", {git, "git://github.com/processone/p1_sip"}},
-	{p1_stun, ".*", {git, "git://github.com/processone/stun"}},
-        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml"}},
-        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc"}},
-        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils"}}],
+Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "7b89d6afb66d8ff9d56671864be74654f5b18e2f"}},
+        {p1_tls, ".*", {git, "git://github.com/processone/tls", "53f047886c556786e6c8fef57f2a45a51b028f21"}},
+        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "9e9e0f8dbe6a70ef36e1d4436b458ca5a77fbcfb"}},
+        {p1_xml, ".*", {git, "git://github.com/processone/xml", "7bd8e61adbcd9a8f26e9f2c9fbf45cecf097e453"}},
+	{esip, ".*", {git, "git://github.com/processone/p1_sip", "9db2f379940b171023d7ab6f60ca922c53c6d105"}},
+	{p1_stun, ".*", {git, "git://github.com/processone/stun", "096b98941639fb6fdf9ab5eec6fe036cc9653155"}},
+        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "236b9435ad3731dbab637a16616167e09c074183"}},
+        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc", "9e9be055c248be7bfb87b04dd9c444bc46e54912"}},
+        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "9ab36b794d2cec5107c9de1b1c7dae62aa48b358"}}],
 
 ConfigureCmd = fun(Pkg, Flags) ->
                        {'get-deps',
@@ -82,28 +82,28 @@ PostHooks = [ConfigureCmd("p1_tls", ""),
 
 CfgDeps = lists:flatmap(
             fun({mysql, true}) ->
-                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql"}}];
+                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "52e28c8df7dcf1d3e9de6ac9def65f79e2f864dc"}}];
                ({pgsql, true}) ->
-                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql"}}];
+                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
                ({pam, true}) ->
-                    [{p1_pam, ".*", {git, "git://github.com/processone/epam"}}];
+                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "99c6705469fcb5de5186d33a15e8c15134a91727"}}];
                ({zlib, true}) ->
-                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib"}}];
+                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "52e82bbc12258ca17ea7ed9b5d10eca60c3db006"}}];
                ({riak, true}) ->
                     [{riakc, ".*",
 		      {git, "git://github.com/basho/riak-erlang-client",
 		       {tag, "1.4.2"}}}];
                ({json, true}) ->
-                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy"}}];
+                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "99867af6e9bfec6bb80b10524d4dc27e39150dee"}}];
                ({iconv, true}) ->
-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv"}}];
+                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "7afc233d484566d8f87e0cbedd514a472626caf8"}}];
                ({http, true}) ->
-                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse"}},
-                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc"}}];
+                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse", "d2e369ff42666c3574b8b7ec26f69027895c4d94"}},
+                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc", "5e459ec93f916ca7e5f2e1d4b14a20fbb0c49402"}}];
                ({lager, true}) ->
-                    [{lager, ".*", {git, "git://github.com/basho/lager"}}];
+                    [{lager, ".*", {git, "git://github.com/basho/lager", "dd267603e93e8babe9ef9164fc176b430d669431"}}];
                ({lager, false}) ->
-                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger"}}];
+                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "c7141aff68282dec46d60a3f39cbf658d0c91961"}}];
                (_) ->
                     []
             end, Cfg),

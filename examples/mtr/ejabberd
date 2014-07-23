@@ -44,9 +44,8 @@ force*)
         ;;
 esac
 
-if checkyesno ${rcvar}
+if ! checkyesno ${rcvar}
 then
-else
     exit 0
 fi
 

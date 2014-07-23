@@ -1,4 +1,7 @@
-#! /bin/sh
+#!/bin/sh
+#
+# ejabberd        Start/stop ejabberd server
+#
 
 ### BEGIN INIT INFO
 # Provides:          ejabberd
@@ -16,40 +19,74 @@
 
 set -o errexit
 
-DIR=@ctlscriptpath@
+DIR=/usr/sbin
 CTL="$DIR"/ejabberdctl
-USER=@installuser@
+USER=ejabberd
+EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
+EJABBERD_MONIT_INTEGRATION=no
 
-test -x "$CTL" || {
-	echo "ERROR: ejabberd not found: $DIR"
+# Include ejabberd defaults if available
+if [ -f /etc/default/ejabberd ] ; then
+    . /etc/default/ejabberd
+fi
+
+if [ ! -x "$CTL" ]; then
+	echo "ERROR: $CTL: File not found or not executeable."
 	exit 1
-}
-grep ^"$USER": /etc/passwd >/dev/null || {
-	echo "ERROR: System user not found: $USER"
+fi
+if [ $(grep -c ^"$USER": /etc/passwd) -ne 1 ]; then
+	echo "ERROR: System user not found: $USER."
 	exit 2
-}
+fi
 
 export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+status()
+{
+    su - $USER -c "$CTL status" > /dev/null
+}
+
+EJABBERD_PID_DIR=$(dirname $EJABBERD_PID_PATH)
 
 case "$1" in
   start)
     test -x "$CTL" || exit 0
-    echo "Starting ejabberd..."
-    su - $USER -c "$CTL start"
-    su - $USER -c "$CTL started"
+    echo -n "Starting ejabberd... "
+    if ! status; then
+        if [ ! -d $EJABBERD_PID_DIR ]; then
+            mkdir $EJABBERD_PID_DIR
+            chown ejabberd:ejabberd $EJABBERD_PID_DIR
+            chmod 755 $EJABBERD_PID_DIR
+        fi
+        su - $USER -c "$CTL start"
+        su - $USER -c "$CTL started"
+    fi
+    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit monitor ejabberd
     echo "done."
     ;;
   stop)
     test -x "$CTL" || exit 0
-    echo "Stopping ejabberd..."
-    su - $USER -c "$CTL stop"
-    su - $USER -c "$CTL stopped"
+    echo -n "Stopping ejabberd... "
+    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
+    if status; then
+        su - $USER -c "$CTL stop"
+        su - $USER -c "$CTL stopped"
+    fi
+    if [ -f $EJABBERD_PID_PATH ]; then
+        rm -f $EJABBERD_PID_PATH
+    fi
+
     echo "done."
     ;;
   status)
     test -x "$CTL" || exit 0
-    echo "Getting ejabberd status..."
-    su - $USER -c "$CTL status"
+    echo -n "Getting ejabberd status... "
+    if status; then
+        echo "OK."
+    else
+        echo "Not running."
+        exit 3  # "not running" according to LSB
+    fi
     ;;
   force-reload|restart)
     "$0" stop

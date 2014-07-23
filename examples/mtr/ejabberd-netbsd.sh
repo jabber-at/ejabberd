@@ -8,8 +8,7 @@ if [ ! pkg_info erlang 1>/dev/null 2>&1 ]; then
     make
     make install
 fi
-if pkg_info erlang | grep -q erlang-9.1nb1; then
-else
+if ! pkg_info erlang | grep -q erlang-9.1nb1; then
     echo "erlang-9.1nb1 not installed" 1>&2
     exit 1
 fi
