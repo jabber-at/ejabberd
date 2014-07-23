@@ -1,6 +1,6 @@
 --- a/rebar.config.script
 +++ b/rebar.config.script
-@@ -53,13 +53,13 @@
+@@ -49,15 +49,15 @@
                      Acc
              end, [], Cfg),
  
@@ -9,19 +9,23 @@
 -        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep"}},
 -        {p1_xml, ".*", {git, "git://github.com/processone/xml"}},
 -	{esip, ".*", {git, "git://github.com/processone/p1_sip"}},
+-	{p1_stun, ".*", {git, "git://github.com/processone/stun"}},
 -        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml"}},
--        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc"}}],
-+Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "d8033a305d4b47ca0b7ba770a1bab5bae066c748"}},
-+        {p1_tls, ".*", {git, "git://github.com/processone/tls", "f6aef446b5d4a0f8d18d2afefd043d2e3d87093b"}},
+-        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc"}},
+-        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils"}}],
++Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "7b89d6afb66d8ff9d56671864be74654f5b18e2f"}},
++        {p1_tls, ".*", {git, "git://github.com/processone/tls", "53f047886c556786e6c8fef57f2a45a51b028f21"}},
 +        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "9e9e0f8dbe6a70ef36e1d4436b458ca5a77fbcfb"}},
-+        {p1_xml, ".*", {git, "git://github.com/processone/xml", "73fa96fec08a20c2b57cc0105644b3c63aa56533"}},
-+	{esip, ".*", {git, "git://github.com/processone/p1_sip", "ca05b2dc11fb5499cd3be080692f3239d7fb5c73"}},
-+        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "da07a8aa54a830acf319747a9ddabe3ac74f8490"}},
-+        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc", "9e9be055c248be7bfb87b04dd9c444bc46e54912"}}],
++        {p1_xml, ".*", {git, "git://github.com/processone/xml", "7bd8e61adbcd9a8f26e9f2c9fbf45cecf097e453"}},
++	{esip, ".*", {git, "git://github.com/processone/p1_sip", "9db2f379940b171023d7ab6f60ca922c53c6d105"}},
++	{p1_stun, ".*", {git, "git://github.com/processone/stun", "096b98941639fb6fdf9ab5eec6fe036cc9653155"}},
++        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "236b9435ad3731dbab637a16616167e09c074183"}},
++        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc", "9e9be055c248be7bfb87b04dd9c444bc46e54912"}},
++        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "9ab36b794d2cec5107c9de1b1c7dae62aa48b358"}}],
  
  ConfigureCmd = fun(Pkg, Flags) ->
                         {'get-deps',
-@@ -84,26 +84,26 @@
+@@ -82,28 +82,28 @@
  
  CfgDeps = lists:flatmap(
              fun({mysql, true}) ->
@@ -32,27 +36,28 @@
 +                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
                 ({pam, true}) ->
 -                    [{p1_pam, ".*", {git, "git://github.com/processone/epam"}}];
-+                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "99c6705469fcb5de5186d33a15e8c15134a91727"}}];
++                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
                 ({zlib, true}) ->
 -                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib"}}];
 +                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "52e82bbc12258ca17ea7ed9b5d10eca60c3db006"}}];
-                ({stun, true}) ->
--                    [{p1_stun, ".*", {git, "git://github.com/processone/stun"}}];
-+                    [{p1_stun, ".*", {git, "git://github.com/processone/stun", "1639c51d2c315ec03b541f4079b15565ed0b61f6"}}];
+                ({riak, true}) ->
+                     [{riakc, ".*",
+ 		      {git, "git://github.com/basho/riak-erlang-client",
+ 		       {tag, "1.4.2"}}}];
                 ({json, true}) ->
 -                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy"}}];
-+                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "1e95a84b0ce8d5a86e3431e2095f245272c88662"}}];
++                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "99867af6e9bfec6bb80b10524d4dc27e39150dee"}}];
                 ({iconv, true}) ->
 -                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv"}}];
 +                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "7afc233d484566d8f87e0cbedd514a472626caf8"}}];
                 ({http, true}) ->
 -                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse"}},
 -                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc"}}];
-+                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse", "5bae7308a749f2dc801347c27f56dc1a21996aea"}},
++                    [{ibrowse, ".*", {git, "git://github.com/cmullaparthi/ibrowse", "d2e369ff42666c3574b8b7ec26f69027895c4d94"}},
 +                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc", "5e459ec93f916ca7e5f2e1d4b14a20fbb0c49402"}}];
                 ({lager, true}) ->
 -                    [{lager, ".*", {git, "git://github.com/basho/lager"}}];
-+                    [{lager, ".*", {git, "git://github.com/basho/lager", "4d8291edb72a25ac0efde907e2ecaa115108ff90"}}];
++                    [{lager, ".*", {git, "git://github.com/basho/lager", "dd267603e93e8babe9ef9164fc176b430d669431"}}];
                 ({lager, false}) ->
 -                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger"}}];
 +                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "c7141aff68282dec46d60a3f39cbf658d0c91961"}}];

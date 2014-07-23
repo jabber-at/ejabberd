@@ -40,9 +40,9 @@
    status)
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -9,6 +9,7 @@
+@@ -8,6 +8,7 @@
+ ERL_MAX_ETS_TABLES=1400
  FIREWALL_WINDOW=""
- INET_DIST_INTERFACE="127.0.0.1"
  ERLANG_NODE=ejabberd@localhost
 +EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
  
