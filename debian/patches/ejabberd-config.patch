@@ -1,6 +1,6 @@
 --- a/ejabberd.yml.example
 +++ b/ejabberd.yml.example
-@@ -59,7 +59,7 @@
+@@ -85,7 +85,7 @@
  ##   - "example.org"
  ##
  hosts:
@@ -9,7 +9,7 @@
  
  ##
  ## route_subdomains: Delegate subdomains to other XMPP servers.
-@@ -84,17 +84,19 @@
+@@ -110,17 +110,19 @@
      ## certificate, specify the full path to the
      ## file and uncomment this line:
      ##
@@ -34,7 +34,7 @@
    - 
      port: 5269
      module: ejabberd_s2s_in
-@@ -143,12 +145,12 @@
+@@ -169,12 +171,12 @@
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -49,7 +49,7 @@
  
  ## Custom OpenSSL options
  ##
-@@ -228,7 +230,7 @@
+@@ -254,7 +256,7 @@
  ##
  ## List of LDAP servers:
  ## ldap_servers:
@@ -58,7 +58,7 @@
  ##
  ## Encryption of connection to LDAP servers:
  ## ldap_encrypt: none
-@@ -358,8 +360,8 @@
+@@ -384,8 +386,8 @@
    ##
    ## admin:
    ##   user:
@@ -69,7 +69,7 @@
    ##
    ## Blocked users
    ##
-@@ -405,11 +407,11 @@
+@@ -431,11 +433,11 @@
  ## Define specific ACLs in a virtual host.
  ##
  ## host_config:
@@ -83,7 +83,7 @@
  
  ###   ============
  ###   ACCESS RULES
-@@ -465,6 +467,12 @@
+@@ -491,6 +493,12 @@
    ##   bad_servers: deny
    ##   all: allow
  
@@ -96,7 +96,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
-@@ -473,7 +481,7 @@
+@@ -499,7 +507,7 @@
  ## Define specific Access Rules in a virtual host.
  ##
  ## host_config:
@@ -105,7 +105,7 @@
  ##     access:
  ##       c2s:
  ##         admin: allow
-@@ -493,7 +501,7 @@
+@@ -519,7 +527,7 @@
  ## Set a different default language in a virtual host.
  ##
  ## host_config:
@@ -114,7 +114,7 @@
  ##     language: "ru"
  
  ###   =======
-@@ -502,12 +510,12 @@
+@@ -528,12 +536,12 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -129,7 +129,7 @@
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -528,10 +536,16 @@
+@@ -554,10 +562,16 @@
    mod_caps: {}
    mod_carboncopy: {}
    mod_configure: {} # requires mod_adhoc
@@ -149,7 +149,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -542,13 +556,15 @@
+@@ -568,13 +582,15 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
@@ -168,7 +168,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -567,7 +583,7 @@
+@@ -593,7 +609,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -177,7 +177,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -594,7 +610,7 @@
+@@ -620,7 +636,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -186,7 +186,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -603,20 +619,25 @@
+@@ -629,20 +645,25 @@
  
      access: register
    mod_roster: {}
