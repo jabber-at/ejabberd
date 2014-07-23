@@ -1,0 +1,10 @@
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -108,6 +108,7 @@
+ SASL_LOG_PATH=$LOGS_DIR/erlang.log
+ DATETIME=`date "+%Y%m%d-%H%M%S"`
+ ERL_CRASH_DUMP=$LOGS_DIR/erl_crash_$DATETIME.dump
++HOME=$SPOOL_DIR
+ ERL_INETRC=$ETC_DIR/inetrc
+ 
+ # define erl parameters

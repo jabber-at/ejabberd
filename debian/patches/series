@@ -10,3 +10,4 @@ ejabberd-pid.patch
 rebar-dependencies.patch
 nodename.patch
 failed_auth.patch
+ejabberdctl-home.patch
