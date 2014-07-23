@@ -36,7 +36,7 @@
 +                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
                 ({pam, true}) ->
 -                    [{p1_pam, ".*", {git, "git://github.com/processone/epam"}}];
-+                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
++                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "99c6705469fcb5de5186d33a15e8c15134a91727"}}];
                 ({zlib, true}) ->
 -                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib"}}];
 +                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "52e82bbc12258ca17ea7ed9b5d10eca60c3db006"}}];
