@@ -89,7 +89,8 @@ process_sm_iq(#jid{luser = LUser, lserver = LServer},
 		    end,
 		case DBType of
 		  odbc -> ejabberd_odbc:sql_transaction(LServer, F);
-		  mnesia -> mnesia:transaction(F)
+		  mnesia -> mnesia:transaction(F);
+		  riak -> F()
 		end,
 		IQ#iq{type = result, sub_el = []}
 	  end;
@@ -149,7 +150,12 @@ set_data(LUser, LServer, {XMLNS, El}, odbc) ->
     LXMLNS = ejabberd_odbc:escape(XMLNS),
     SData = ejabberd_odbc:escape(xml:element_to_binary(El)),
     odbc_queries:set_private_data(LServer, Username, LXMLNS,
-				  SData).
+				  SData);
+set_data(LUser, LServer, {XMLNS, El}, riak) ->
+    ejabberd_riak:put(#private_storage{usns = {LUser, LServer, XMLNS},
+                                       xml = El},
+		      private_storage_schema(),
+                      [{'2i', [{<<"us">>, {LUser, LServer}}]}]).
 
 get_data(LUser, LServer, Data) ->
     get_data(LUser, LServer,
@@ -182,12 +188,17 @@ get_data(LUser, LServer, odbc, [{XMLNS, El} | Els],
 	    Data when is_record(Data, xmlel) ->
 		get_data(LUser, LServer, odbc, Els, [Data | Res])
 	  end;
-      %% MREMOND: I wonder when the query could return a vcard ?
-      {selected, [<<"vcard">>], []} ->
-	  get_data(LUser, LServer, odbc, Els, [El | Res]);
       _ -> get_data(LUser, LServer, odbc, Els, [El | Res])
+    end;
+get_data(LUser, LServer, riak, [{XMLNS, El} | Els],
+	 Res) ->
+    case ejabberd_riak:get(private_storage, private_storage_schema(),
+			   {LUser, LServer, XMLNS}) of
+        {ok, #private_storage{xml = NewEl}} ->
+            get_data(LUser, LServer, riak, Els, [NewEl|Res]);
+        _ ->
+            get_data(LUser, LServer, riak, Els, [El|Res])
     end.
-
 
 get_data(LUser, LServer) ->
     get_all_data(LUser, LServer,
@@ -214,7 +225,19 @@ get_all_data(LUser, LServer, odbc) ->
               end, Res);
         _ ->
             []
+    end;
+get_all_data(LUser, LServer, riak) ->
+    case ejabberd_riak:get_by_index(
+           private_storage, private_storage_schema(),
+	   <<"us">>, {LUser, LServer}) of
+        {ok, Res} ->
+            [El || #private_storage{xml = El} <- Res];
+        _ ->
+            []
     end.
+
+private_storage_schema() ->
+    {record_info(fields, private_storage), #private_storage{}}.
 
 remove_user(User, Server) ->
     LUser = jlib:nodeprep(User),
@@ -242,7 +265,10 @@ remove_user(LUser, LServer, mnesia) ->
 remove_user(LUser, LServer, odbc) ->
     Username = ejabberd_odbc:escape(LUser),
     odbc_queries:del_user_private_storage(LServer,
-					  Username).
+					  Username);
+remove_user(LUser, LServer, riak) ->
+    {atomic, ejabberd_riak:delete_by_index(private_storage,
+                                           <<"us">>, {LUser, LServer})}.
 
 update_table() ->
     Fields = record_info(fields, private_storage),
@@ -287,5 +313,9 @@ import(LServer) ->
 
 import(_LServer, mnesia, #private_storage{} = PS) ->
     mnesia:dirty_write(PS);
+
+import(_LServer, riak, #private_storage{usns = {LUser, LServer, _}} = PS) ->
+    ejabberd_riak:put(PS, private_storage_schema(),
+		      [{'2i', [{<<"us">>, {LUser, LServer}}]}]);
 import(_, _, _) ->
     pass.

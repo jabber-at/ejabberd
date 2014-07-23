@@ -12,7 +12,7 @@
 -behaviour(?GEN_FSM).
 
 %% API
--export([start/2, start_link/2, route/4]).
+-export([start/2, start_link/2, route/3, route/4]).
 
 %% gen_fsm callbacks
 -export([init/1, wait_for_request/2, wait_for_response/2,
@@ -21,7 +21,9 @@
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
--include("esip.hrl").
+-include_lib("esip/include/esip.hrl").
+
+-define(SIGN_LIFETIME, 300). %% in seconds.
 
 -record(state, {host = <<"">>  :: binary(),
 		opts = []      :: [{certfile, binary()}],
@@ -42,6 +44,43 @@ start_link(LServer, Opts) ->
 route(SIPMsg, _SIPSock, TrID, Pid) ->
     ?GEN_FSM:send_event(Pid, {SIPMsg, TrID}).
 
+route(#sip{hdrs = Hdrs} = Req, LServer, Opts) ->
+    case proplists:get_bool(authenticated, Opts) of
+	true ->
+	    route_statelessly(Req, LServer, Opts);
+	false ->
+	    ConfiguredRRoute = get_configured_record_route(LServer),
+	    case esip:get_hdrs('route', Hdrs) of
+		[{_, URI, _}|_] ->
+		    case cmp_uri(URI, ConfiguredRRoute) of
+			true ->
+			    case is_signed_by_me(URI#uri.user, Hdrs) of
+				true ->
+				    route_statelessly(Req, LServer, Opts);
+				false ->
+				    error
+			    end;
+			false ->
+			    error
+		    end;
+		[] ->
+		    error
+	    end
+    end.
+
+route_statelessly(Req, LServer, Opts) ->
+    Req1 = prepare_request(LServer, Req),
+    case connect(Req1, add_certfile(LServer, Opts)) of
+	{ok, SIPSocketsWithURIs} ->
+	    lists:foreach(
+	      fun({SIPSocket, _URI}) ->
+		      Req2 = add_via(SIPSocket, LServer, Req1),
+		      esip:send(SIPSocket, Req2)
+	      end, SIPSocketsWithURIs);
+	_ ->
+	    error
+    end.
+
 %%%===================================================================
 %%% gen_fsm callbacks
 %%%===================================================================
@@ -51,16 +90,18 @@ init([Host, Opts]) ->
 
 wait_for_request({#sip{type = request} = Req, TrID}, State) ->
     Opts = State#state.opts,
-    Req1 = mod_sip:prepare_request(Req),
+    Req1 = prepare_request(State#state.host, Req),
     case connect(Req1, Opts) of
-	{ok, SIPSockets} ->
+	{ok, SIPSocketsWithURIs} ->
 	    NewState =
 		lists:foldl(
-		  fun(_SIPSocket, {error, _} = Err) ->
+		  fun(_SIPSocketWithURI, {error, _} = Err) ->
 			  Err;
-		     (SIPSocket, #state{tr_ids = TrIDs} = AccState) ->
-			  Req2 = add_via(SIPSocket, State#state.host, Req1),
-			  case esip:request(SIPSocket, Req2,
+		     ({SIPSocket, URI}, #state{tr_ids = TrIDs} = AccState) ->
+			  Req2 = add_record_route_and_set_uri(
+				   URI, State#state.host, Req1),
+			  Req3 = add_via(SIPSocket, State#state.host, Req2),
+			  case esip:request(SIPSocket, Req3,
 					    {?MODULE, route, [self()]}) of
 			      {ok, ClientTrID} ->
 				  NewTrIDs = [ClientTrID|TrIDs],
@@ -69,7 +110,7 @@ wait_for_request({#sip{type = request} = Req, TrID}, State) ->
 				  cancel_pending_transactions(AccState),
 				  Err
 			  end
-		  end, State, SIPSockets),
+		  end, State, SIPSocketsWithURIs),
 	    case NewState of
 		{error, _} = Err ->
 		    {Status, Reason} = esip:error_status(Err),
@@ -200,7 +241,7 @@ connect(#sip{hdrs = Hdrs} = Req, Opts) ->
 	false ->
 	    case esip:connect(Req, Opts) of
 		{ok, SIPSock} ->
-		    {ok, [SIPSock]};
+		    {ok, [{SIPSock, Req#sip.uri}]};
 		{error, _} = Err ->
 		    Err
 	    end
@@ -230,13 +271,68 @@ add_via(#sip_socket{type = Transport}, LServer, #sip{hdrs = Hdrs} = Req) ->
     Via = #via{transport = ViaTransport,
 	       host = ViaHost,
 	       port = ViaPort,
-	       params = [{<<"branch">>, esip:make_branch()},
-			 {<<"rport">>, <<"">>}]},
+	       params = [{<<"branch">>, esip:make_branch()}]},
     Req#sip{hdrs = [{'via', [Via]}|Hdrs]}.
+
+add_record_route_and_set_uri(URI, LServer, #sip{hdrs = Hdrs} = Req) ->
+    case is_request_within_dialog(Req) of
+	false ->
+	    case need_record_route(LServer) of
+		true ->
+		    RR_URI = get_configured_record_route(LServer),
+		    {MSecs, Secs, _} = now(),
+		    TS = list_to_binary(integer_to_list(MSecs*1000000 + Secs)),
+		    Sign = make_sign(TS, Hdrs),
+		    User = <<TS/binary, $-, Sign/binary>>,
+		    NewRR_URI = RR_URI#uri{user = User},
+		    Hdrs1 = [{'record-route', [{<<>>, NewRR_URI, []}]}|Hdrs],
+		    Req#sip{uri = URI, hdrs = Hdrs1};
+		false ->
+		    Req
+	    end;
+	true ->
+	    Req
+    end.
+
+is_request_within_dialog(#sip{hdrs = Hdrs}) ->
+    {_, _, Params} = esip:get_hdr('to', Hdrs),
+    esip:has_param(<<"tag">>, Params).
+
+need_record_route(LServer) ->
+    gen_mod:get_module_opt(
+      LServer, mod_sip, always_record_route,
+      fun(true) -> true;
+	 (false) -> false
+      end, true).
+
+make_sign(TS, Hdrs) ->
+    {_, #uri{user = FUser, host = FServer}, FParams} = esip:get_hdr('from', Hdrs),
+    {_, #uri{user = TUser, host = TServer}, _} = esip:get_hdr('to', Hdrs),
+    LFUser = safe_nodeprep(FUser),
+    LTUser = safe_nodeprep(TUser),
+    LFServer = safe_nameprep(FServer),
+    LTServer = safe_nameprep(TServer),
+    FromTag = esip:get_param(<<"tag">>, FParams),
+    CallID = esip:get_hdr('call-id', Hdrs),
+    SharedKey = ejabberd_config:get_option(shared_key, fun(V) -> V end),
+    p1_sha:sha([SharedKey, LFUser, LFServer, LTUser, LTServer,
+		FromTag, CallID, TS]).
+
+is_signed_by_me(TS_Sign, Hdrs) ->
+    try
+	[TSBin, Sign] = str:tokens(TS_Sign, <<"-">>),
+	TS = list_to_integer(binary_to_list(TSBin)),
+	{MSecs, Secs, _} = now(),
+	NowTS = MSecs*1000000 + Secs,
+	true = (NowTS - TS) =< ?SIGN_LIFETIME,
+	Sign == make_sign(TSBin, Hdrs)
+    catch _:_ ->
+	    false
+    end.
 
 get_configured_vias(LServer) ->
     gen_mod:get_module_opt(
-      LServer, ?MODULE, via,
+      LServer, mod_sip, via,
       fun(L) ->
 	      lists:map(
 		fun(Opts) ->
@@ -251,6 +347,25 @@ get_configured_vias(LServer) ->
 			{Type, {Host, Port}}
 		end, L)
       end, []).
+
+get_configured_record_route(LServer) ->
+    gen_mod:get_module_opt(
+      LServer, mod_sip, record_route,
+      fun(IOList) ->
+	      S = iolist_to_binary(IOList),
+	      #uri{} = esip:decode_uri(S)
+      end, #uri{host = LServer, params = [{<<"lr">>, <<"">>}]}).
+
+get_configured_routes(LServer) ->
+    gen_mod:get_module_opt(
+      LServer, mod_sip, routes,
+      fun(L) ->
+	      lists:map(
+		fun(IOList) ->
+			S = iolist_to_binary(IOList),
+			#uri{} = esip:decode_uri(S)
+		end, L)
+      end, [#uri{host = LServer, params = [{<<"lr">>, <<"">>}]}]).
 
 mark_transaction_as_complete(TrID, State) ->
     NewTrIDs = lists:delete(TrID, State#state.tr_ids),
@@ -274,4 +389,53 @@ choose_best_response(#state{responses = Responses} = State) ->
 		[] ->
 		    ok
 	    end
+    end.
+
+%% Just compare host part only.
+cmp_uri(#uri{host = H1}, #uri{host = H2}) ->
+    jlib:nameprep(H1) == jlib:nameprep(H2).
+
+is_my_route(URI, URIs) ->
+    lists:any(fun(U) -> cmp_uri(URI, U) end, URIs).
+
+prepare_request(LServer, #sip{hdrs = Hdrs} = Req) ->
+    ConfiguredRRoute = get_configured_record_route(LServer),
+    ConfiguredRoutes = get_configured_routes(LServer),
+    Hdrs1 = lists:flatmap(
+	      fun({Hdr, HdrList}) when Hdr == 'route';
+				       Hdr == 'record-route' ->
+		      case lists:filter(
+			     fun({_, URI, _}) ->
+				     not cmp_uri(URI, ConfiguredRRoute)
+					 and not is_my_route(URI, ConfiguredRoutes)
+			     end, HdrList) of
+			  [] ->
+			      [];
+			  HdrList1 ->
+			      [{Hdr, HdrList1}]
+		      end;
+		 (Hdr) ->
+		      [Hdr]
+	      end, Hdrs),
+    MF = esip:get_hdr('max-forwards', Hdrs1),
+    Hdrs2 = esip:set_hdr('max-forwards', MF-1, Hdrs1),
+    Hdrs3 = lists:filter(
+              fun({'proxy-authorization', {_, Params}}) ->
+                      Realm = esip:unquote(esip:get_param(<<"realm">>, Params)),
+		      not mod_sip:is_my_host(jlib:nameprep(Realm));
+                 (_) ->
+                      true
+              end, Hdrs2),
+    Req#sip{hdrs = Hdrs3}.
+
+safe_nodeprep(S) ->
+    case jlib:nodeprep(S) of
+	error -> S;
+	S1 -> S1
+    end.
+
+safe_nameprep(S) ->
+    case jlib:nameprep(S) of
+	error -> S;
+	S1 -> S1
     end.

@@ -1,5 +1,5 @@
 -include_lib("common_test/include/ct.hrl").
--include("xml.hrl").
+-include_lib("p1_xml/include/xml.hrl").
 -include("ns.hrl").
 -include("ejabberd.hrl").
 -include("mod_proxy65.hrl").
@@ -14,6 +14,8 @@
 -define(STREAM_TRAILER, <<"</stream:stream>">>).
 
 -define(PUBSUB(Node), <<(?NS_PUBSUB)/binary, "#", Node>>).
+
+-define(EJABBERD_CT_URI, <<"http://www.process-one.net/en/ejabberd_ct/">>).
 
 -define(recv2(P1, P2),
         (fun() ->
@@ -59,6 +61,7 @@
 -define(PGSQL_VHOST, <<"pgsql.localhost">>).
 -define(LDAP_VHOST, <<"ldap.localhost">>).
 -define(EXTAUTH_VHOST, <<"extauth.localhost">>).
+-define(RIAK_VHOST, <<"riak.localhost">>).
 
 insert(Val, N, Tuple) ->
     L = tuple_to_list(Tuple),

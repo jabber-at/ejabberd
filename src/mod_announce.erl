@@ -792,6 +792,18 @@ announce_motd(Host, Packet) ->
                           end, Sessions)
                 end,
             mnesia:transaction(F);
+        riak ->
+            try
+                lists:foreach(
+                  fun({U, S, _R}) ->
+                          ok = ejabberd_riak:put(#motd_users{us = {U, S}},
+						 motd_users_schema(),
+                                                 [{'2i', [{<<"server">>, S}]}])
+                  end, Sessions),
+                {atomic, ok}
+            catch _:{badmatch, Err} ->
+                    {atomic, Err}
+            end;
         odbc ->
             F = fun() ->
                         lists:foreach(
@@ -837,6 +849,10 @@ announce_motd_update(LServer, Packet) ->
                         mnesia:write(#motd{server = LServer, packet = Packet})
                 end,
             mnesia:transaction(F);
+        riak ->
+            {atomic, ejabberd_riak:put(#motd{server = LServer,
+                                             packet = Packet},
+				       motd_schema())};
         odbc ->
             XML = ejabberd_odbc:escape(xml:element_to_binary(Packet)),
             F = fun() ->
@@ -887,6 +903,16 @@ announce_motd_delete(LServer) ->
                                       end, Users)
                 end,
             mnesia:transaction(F);
+        riak ->
+            try
+                ok = ejabberd_riak:delete(motd, LServer),
+                ok = ejabberd_riak:delete_by_index(motd_users,
+                                                   <<"server">>,
+                                                   LServer),
+                {atomic, ok}
+            catch _:{badmatch, Err} ->
+                    {atomic, Err}
+            end;
         odbc ->
             F = fun() ->
                         ejabberd_odbc:sql_query_t([<<"delete from motd;">>])
@@ -914,6 +940,23 @@ send_motd(#jid{luser = LUser, lserver = LServer} = JID, mnesia) ->
 	    end;
 	_ ->
 	    ok
+    end;
+send_motd(#jid{luser = LUser, lserver = LServer} = JID, riak) ->
+    case catch ejabberd_riak:get(motd, motd_schema(), LServer) of
+        {ok, #motd{packet = Packet}} ->
+            US = {LUser, LServer},
+            case ejabberd_riak:get(motd_users, motd_users_schema(), US) of
+                {ok, #motd_users{}} ->
+                    ok;
+                _ ->
+                    Local = jlib:make_jid(<<>>, LServer, <<>>),
+		    ejabberd_router:route(Local, JID, Packet),
+                    {atomic, ejabberd_riak:put(
+                               #motd_users{us = US}, motd_users_schema(),
+                               [{'2i', [{<<"server">>, LServer}]}])}
+            end;
+        _ ->
+            ok
     end;
 send_motd(#jid{luser = LUser, lserver = LServer} = JID, odbc) when LUser /= <<>> ->
     case catch ejabberd_odbc:sql_query(
@@ -961,6 +1004,13 @@ get_stored_motd(LServer) ->
 get_stored_motd_packet(LServer, mnesia) ->
     case catch mnesia:dirty_read({motd, LServer}) of
 	[#motd{packet = Packet}] ->
+            {ok, Packet};
+	_ ->
+	    error
+    end;
+get_stored_motd_packet(LServer, riak) ->
+    case ejabberd_riak:get(motd, motd_schema(), LServer) of
+        {ok, #motd{packet = Packet}} ->
             {ok, Packet};
 	_ ->
 	    error
@@ -1052,6 +1102,12 @@ update_motd_users_table() ->
 	    mnesia:transform_table(motd_users, ignore, Fields)
     end.
 
+motd_schema() ->
+    {record_info(fields, motd), #motd{}}.
+
+motd_users_schema() ->
+    {record_info(fields, motd_users), #motd_users{}}.
+
 export(_Server) ->
     [{motd,
       fun(Host, #motd{server = LServer, packet = El})
@@ -1089,5 +1145,10 @@ import(_LServer, mnesia, #motd{} = Motd) ->
     mnesia:dirty_write(Motd);
 import(_LServer, mnesia, #motd_users{} = Users) ->
     mnesia:dirty_write(Users);
+import(_LServer, riak, #motd{} = Motd) ->
+    ejabberd_riak:put(Motd, motd_schema());
+import(_LServer, riak, #motd_users{us = {_, S}} = Users) ->
+    ejabberd_riak:put(Users, motd_users_schema(),
+		      [{'2i', [{<<"server">>, S}]}]);
 import(_, _, _) ->
     pass.

@@ -12,8 +12,49 @@
 
 decode({xmlel, _name, _attrs, _} = _el) ->
     case {_name, get_attr(<<"xmlns">>, _attrs)} of
+      {<<"failed">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_sm_failed(_el);
+      {<<"a">>, <<"urn:xmpp:sm:3">>} -> decode_sm_a(_el);
+      {<<"r">>, <<"urn:xmpp:sm:3">>} -> decode_sm_r(_el);
+      {<<"resumed">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_sm_resumed(_el);
+      {<<"resume">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_sm_resume(_el);
+      {<<"enabled">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_sm_enabled(_el);
+      {<<"enable">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_sm_enable(_el);
+      {<<"sm">>, <<"urn:xmpp:sm:3">>} ->
+	  decode_feature_sm(_el);
+      {<<"sent">>, <<"urn:xmpp:carbons:2">>} ->
+	  decode_carbons_sent(_el);
+      {<<"received">>, <<"urn:xmpp:carbons:2">>} ->
+	  decode_carbons_received(_el);
+      {<<"private">>, <<"urn:xmpp:carbons:2">>} ->
+	  decode_carbons_private(_el);
+      {<<"enable">>, <<"urn:xmpp:carbons:2">>} ->
+	  decode_carbons_enable(_el);
+      {<<"disable">>, <<"urn:xmpp:carbons:2">>} ->
+	  decode_carbons_disable(_el);
+      {<<"forwarded">>, <<"urn:xmpp:forward:0">>} ->
+	  decode_forwarded(_el);
       {<<"x">>, <<"http://jabber.org/protocol/muc">>} ->
 	  decode_muc(_el);
+      {<<"query">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  decode_muc_admin(_el);
+      {<<"reason">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  decode_muc_admin_reason(_el);
+      {<<"continue">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  decode_muc_admin_continue(_el);
+      {<<"actor">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  decode_muc_admin_actor(_el);
+      {<<"item">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  decode_muc_admin_item(_el);
       {<<"query">>,
        <<"http://jabber.org/protocol/muc#owner">>} ->
 	  decode_muc_owner(_el);
@@ -690,7 +731,36 @@ decode({xmlel, _name, _attrs, _} = _el) ->
 
 is_known_tag({xmlel, _name, _attrs, _} = _el) ->
     case {_name, get_attr(<<"xmlns">>, _attrs)} of
+      {<<"failed">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"a">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"r">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"resumed">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"resume">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"enabled">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"enable">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"sm">>, <<"urn:xmpp:sm:3">>} -> true;
+      {<<"sent">>, <<"urn:xmpp:carbons:2">>} -> true;
+      {<<"received">>, <<"urn:xmpp:carbons:2">>} -> true;
+      {<<"private">>, <<"urn:xmpp:carbons:2">>} -> true;
+      {<<"enable">>, <<"urn:xmpp:carbons:2">>} -> true;
+      {<<"disable">>, <<"urn:xmpp:carbons:2">>} -> true;
+      {<<"forwarded">>, <<"urn:xmpp:forward:0">>} -> true;
       {<<"x">>, <<"http://jabber.org/protocol/muc">>} -> true;
+      {<<"query">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  true;
+      {<<"reason">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  true;
+      {<<"continue">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  true;
+      {<<"actor">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  true;
+      {<<"item">>,
+       <<"http://jabber.org/protocol/muc#admin">>} ->
+	  true;
       {<<"query">>,
        <<"http://jabber.org/protocol/muc#owner">>} ->
 	  true;
@@ -1237,9 +1307,53 @@ is_known_tag({xmlel, _name, _attrs, _} = _el) ->
       _ -> false
     end.
 
+encode({sm_failed, _} = Failed) ->
+    encode_sm_failed(Failed,
+		     [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_a, _} = A) ->
+    encode_sm_a(A, [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_r} = R) ->
+    encode_sm_r(R, [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_resumed, _, _} = Resumed) ->
+    encode_sm_resumed(Resumed,
+		      [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_resume, _, _} = Resume) ->
+    encode_sm_resume(Resume,
+		     [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_enabled, _, _, _, _} = Enabled) ->
+    encode_sm_enabled(Enabled,
+		      [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({sm_enable, _, _} = Enable) ->
+    encode_sm_enable(Enable,
+		     [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({feature_sm} = Sm) ->
+    encode_feature_sm(Sm,
+		      [{<<"xmlns">>, <<"urn:xmpp:sm:3">>}]);
+encode({carbons_sent, _} = Sent) ->
+    encode_carbons_sent(Sent,
+			[{<<"xmlns">>, <<"urn:xmpp:carbons:2">>}]);
+encode({carbons_received, _} = Received) ->
+    encode_carbons_received(Received,
+			    [{<<"xmlns">>, <<"urn:xmpp:carbons:2">>}]);
+encode({carbons_private} = Private) ->
+    encode_carbons_private(Private,
+			   [{<<"xmlns">>, <<"urn:xmpp:carbons:2">>}]);
+encode({carbons_enable} = Enable) ->
+    encode_carbons_enable(Enable,
+			  [{<<"xmlns">>, <<"urn:xmpp:carbons:2">>}]);
+encode({carbons_disable} = Disable) ->
+    encode_carbons_disable(Disable,
+			   [{<<"xmlns">>, <<"urn:xmpp:carbons:2">>}]);
+encode({forwarded, _, _} = Forwarded) ->
+    encode_forwarded(Forwarded,
+		     [{<<"xmlns">>, <<"urn:xmpp:forward:0">>}]);
 encode({muc, _, _} = X) ->
     encode_muc(X,
 	       [{<<"xmlns">>, <<"http://jabber.org/protocol/muc">>}]);
+encode({muc_admin, _} = Query) ->
+    encode_muc_admin(Query,
+		     [{<<"xmlns">>,
+		       <<"http://jabber.org/protocol/muc#admin">>}]);
 encode({muc_owner, _, _} = Query) ->
     encode_muc_owner(Query,
 		     [{<<"xmlns">>,
@@ -1252,14 +1366,6 @@ encode({muc_user, _, _, _, _, _, _} = X) ->
     encode_muc_user(X,
 		    [{<<"xmlns">>,
 		      <<"http://jabber.org/protocol/muc#user">>}]);
-encode({muc_item, _, _, _, _, _, _, _} = Item) ->
-    encode_muc_user_item(Item,
-			 [{<<"xmlns">>,
-			   <<"http://jabber.org/protocol/muc#user">>}]);
-encode({muc_actor, _, _} = Actor) ->
-    encode_muc_user_actor(Actor,
-			  [{<<"xmlns">>,
-			    <<"http://jabber.org/protocol/muc#user">>}]);
 encode({muc_invite, _, _, _} = Invite) ->
     encode_muc_user_invite(Invite,
 			   [{<<"xmlns">>,
@@ -1742,22 +1848,39 @@ pp(muc_history, 4) ->
 pp(muc_decline, 3) -> [reason, from, to];
 pp(muc_user_destroy, 2) -> [reason, jid];
 pp(muc_invite, 3) -> [reason, from, to];
-pp(muc_actor, 2) -> [jid, nick];
-pp(muc_item, 7) ->
-    [actor, continue, reason, affiliation, role, jid, nick];
 pp(muc_user, 6) ->
     [decline, destroy, invites, items, status_codes,
      password];
 pp(muc_owner_destroy, 3) -> [jid, reason, password];
 pp(muc_owner, 2) -> [destroy, config];
+pp(muc_item, 7) ->
+    [actor, continue, reason, affiliation, role, jid, nick];
+pp(muc_actor, 2) -> [jid, nick];
+pp(muc_admin, 1) -> [items];
 pp(muc, 2) -> [history, password];
+pp(forwarded, 2) -> [delay, sub_els];
+pp(carbons_disable, 0) -> [];
+pp(carbons_enable, 0) -> [];
+pp(carbons_private, 0) -> [];
+pp(carbons_received, 1) -> [forwarded];
+pp(carbons_sent, 1) -> [forwarded];
+pp(feature_sm, 0) -> [];
+pp(sm_enable, 2) -> [max, resume];
+pp(sm_enabled, 4) -> [id, location, max, resume];
+pp(sm_resume, 2) -> [h, previd];
+pp(sm_resumed, 2) -> [h, previd];
+pp(sm_r, 0) -> [];
+pp(sm_a, 1) -> [h];
+pp(sm_failed, 1) -> [reason];
 pp(_, _) -> no.
 
 enc_bool(false) -> <<"false">>;
 enc_bool(true) -> <<"true">>.
 
 dec_bool(<<"false">>) -> false;
-dec_bool(<<"true">>) -> true.
+dec_bool(<<"0">>) -> false;
+dec_bool(<<"true">>) -> true;
+dec_bool(<<"1">>) -> true.
 
 resourceprep(R) ->
     case jlib:resourceprep(R) of
@@ -1790,6 +1913,853 @@ dec_tzo(Val) ->
     H = jlib:binary_to_integer(H1),
     M = jlib:binary_to_integer(M1),
     if H >= -12, H =< 12, M >= 0, M < 60 -> {H, M} end.
+
+decode_sm_failed({xmlel, <<"failed">>, _attrs, _els}) ->
+    Reason = decode_sm_failed_els(_els, undefined),
+    {sm_failed, Reason}.
+
+decode_sm_failed_els([], Reason) -> Reason;
+decode_sm_failed_els([{xmlel, <<"bad-request">>, _attrs,
+		       _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_bad_request(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"conflict">>, _attrs,
+		       _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els, decode_error_conflict(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"feature-not-implemented">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_feature_not_implemented(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"forbidden">>, _attrs,
+		       _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els, decode_error_forbidden(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"gone">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els, decode_error_gone(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"internal-server-error">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_internal_server_error(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"item-not-found">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_item_not_found(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"jid-malformed">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_jid_malformed(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"not-acceptable">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_not_acceptable(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"not-allowed">>, _attrs,
+		       _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_not_allowed(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"not-authorized">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_not_authorized(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"policy-violation">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_policy_violation(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"recipient-unavailable">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_recipient_unavailable(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"redirect">>, _attrs,
+		       _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els, decode_error_redirect(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"registration-required">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_registration_required(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"remote-server-not-found">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_remote_server_not_found(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"remote-server-timeout">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_remote_server_timeout(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"resource-constraint">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_resource_constraint(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"service-unavailable">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_service_unavailable(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel,
+		       <<"subscription-required">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_subscription_required(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"undefined-condition">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_undefined_condition(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([{xmlel, <<"unexpected-request">>,
+		       _attrs, _} =
+			  _el
+		      | _els],
+		     Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns ==
+	 <<"urn:ietf:params:xml:ns:xmpp-stanzas">> ->
+	   decode_sm_failed_els(_els,
+				decode_error_unexpected_request(_el));
+       true -> decode_sm_failed_els(_els, Reason)
+    end;
+decode_sm_failed_els([_ | _els], Reason) ->
+    decode_sm_failed_els(_els, Reason).
+
+encode_sm_failed({sm_failed, Reason}, _xmlns_attrs) ->
+    _els = 'encode_sm_failed_$reason'(Reason, []),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"failed">>, _attrs, _els}.
+
+'encode_sm_failed_$reason'(undefined, _acc) -> _acc;
+'encode_sm_failed_$reason'('bad-request' = Reason,
+			   _acc) ->
+    [encode_error_bad_request(Reason,
+			      [{<<"xmlns">>,
+				<<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'(conflict = Reason, _acc) ->
+    [encode_error_conflict(Reason,
+			   [{<<"xmlns">>,
+			     <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('feature-not-implemented' =
+			       Reason,
+			   _acc) ->
+    [encode_error_feature_not_implemented(Reason,
+					  [{<<"xmlns">>,
+					    <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'(forbidden = Reason, _acc) ->
+    [encode_error_forbidden(Reason,
+			    [{<<"xmlns">>,
+			      <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'({gone, _} = Reason, _acc) ->
+    [encode_error_gone(Reason,
+		       [{<<"xmlns">>,
+			 <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('internal-server-error' =
+			       Reason,
+			   _acc) ->
+    [encode_error_internal_server_error(Reason,
+					[{<<"xmlns">>,
+					  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('item-not-found' = Reason,
+			   _acc) ->
+    [encode_error_item_not_found(Reason,
+				 [{<<"xmlns">>,
+				   <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('jid-malformed' = Reason,
+			   _acc) ->
+    [encode_error_jid_malformed(Reason,
+				[{<<"xmlns">>,
+				  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('not-acceptable' = Reason,
+			   _acc) ->
+    [encode_error_not_acceptable(Reason,
+				 [{<<"xmlns">>,
+				   <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('not-allowed' = Reason,
+			   _acc) ->
+    [encode_error_not_allowed(Reason,
+			      [{<<"xmlns">>,
+				<<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('not-authorized' = Reason,
+			   _acc) ->
+    [encode_error_not_authorized(Reason,
+				 [{<<"xmlns">>,
+				   <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('policy-violation' = Reason,
+			   _acc) ->
+    [encode_error_policy_violation(Reason,
+				   [{<<"xmlns">>,
+				     <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('recipient-unavailable' =
+			       Reason,
+			   _acc) ->
+    [encode_error_recipient_unavailable(Reason,
+					[{<<"xmlns">>,
+					  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'({redirect, _} = Reason,
+			   _acc) ->
+    [encode_error_redirect(Reason,
+			   [{<<"xmlns">>,
+			     <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('registration-required' =
+			       Reason,
+			   _acc) ->
+    [encode_error_registration_required(Reason,
+					[{<<"xmlns">>,
+					  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('remote-server-not-found' =
+			       Reason,
+			   _acc) ->
+    [encode_error_remote_server_not_found(Reason,
+					  [{<<"xmlns">>,
+					    <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('remote-server-timeout' =
+			       Reason,
+			   _acc) ->
+    [encode_error_remote_server_timeout(Reason,
+					[{<<"xmlns">>,
+					  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('resource-constraint' =
+			       Reason,
+			   _acc) ->
+    [encode_error_resource_constraint(Reason,
+				      [{<<"xmlns">>,
+					<<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('service-unavailable' =
+			       Reason,
+			   _acc) ->
+    [encode_error_service_unavailable(Reason,
+				      [{<<"xmlns">>,
+					<<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('subscription-required' =
+			       Reason,
+			   _acc) ->
+    [encode_error_subscription_required(Reason,
+					[{<<"xmlns">>,
+					  <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('undefined-condition' =
+			       Reason,
+			   _acc) ->
+    [encode_error_undefined_condition(Reason,
+				      [{<<"xmlns">>,
+					<<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc];
+'encode_sm_failed_$reason'('unexpected-request' =
+			       Reason,
+			   _acc) ->
+    [encode_error_unexpected_request(Reason,
+				     [{<<"xmlns">>,
+				       <<"urn:ietf:params:xml:ns:xmpp-stanzas">>}])
+     | _acc].
+
+decode_sm_a({xmlel, <<"a">>, _attrs, _els}) ->
+    H = decode_sm_a_attrs(_attrs, undefined), {sm_a, H}.
+
+decode_sm_a_attrs([{<<"h">>, _val} | _attrs], _H) ->
+    decode_sm_a_attrs(_attrs, _val);
+decode_sm_a_attrs([_ | _attrs], H) ->
+    decode_sm_a_attrs(_attrs, H);
+decode_sm_a_attrs([], H) -> decode_sm_a_attr_h(H).
+
+encode_sm_a({sm_a, H}, _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_sm_a_attr_h(H, _xmlns_attrs),
+    {xmlel, <<"a">>, _attrs, _els}.
+
+decode_sm_a_attr_h(undefined) ->
+    erlang:error({xmpp_codec,
+		  {missing_attr, <<"h">>, <<"a">>, <<"urn:xmpp:sm:3">>}});
+decode_sm_a_attr_h(_val) ->
+    case catch dec_int(_val, 0, infinity) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"h">>, <<"a">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_a_attr_h(_val, _acc) ->
+    [{<<"h">>, enc_int(_val)} | _acc].
+
+decode_sm_r({xmlel, <<"r">>, _attrs, _els}) -> {sm_r}.
+
+encode_sm_r({sm_r}, _xmlns_attrs) ->
+    _els = [],
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"r">>, _attrs, _els}.
+
+decode_sm_resumed({xmlel, <<"resumed">>, _attrs,
+		   _els}) ->
+    {H, Previd} = decode_sm_resumed_attrs(_attrs, undefined,
+					  undefined),
+    {sm_resumed, H, Previd}.
+
+decode_sm_resumed_attrs([{<<"h">>, _val} | _attrs], _H,
+			Previd) ->
+    decode_sm_resumed_attrs(_attrs, _val, Previd);
+decode_sm_resumed_attrs([{<<"previd">>, _val} | _attrs],
+			H, _Previd) ->
+    decode_sm_resumed_attrs(_attrs, H, _val);
+decode_sm_resumed_attrs([_ | _attrs], H, Previd) ->
+    decode_sm_resumed_attrs(_attrs, H, Previd);
+decode_sm_resumed_attrs([], H, Previd) ->
+    {decode_sm_resumed_attr_h(H),
+     decode_sm_resumed_attr_previd(Previd)}.
+
+encode_sm_resumed({sm_resumed, H, Previd},
+		  _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_sm_resumed_attr_previd(Previd,
+					   encode_sm_resumed_attr_h(H,
+								    _xmlns_attrs)),
+    {xmlel, <<"resumed">>, _attrs, _els}.
+
+decode_sm_resumed_attr_h(undefined) ->
+    erlang:error({xmpp_codec,
+		  {missing_attr, <<"h">>, <<"resumed">>,
+		   <<"urn:xmpp:sm:3">>}});
+decode_sm_resumed_attr_h(_val) ->
+    case catch dec_int(_val, 0, infinity) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"h">>, <<"resumed">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_resumed_attr_h(_val, _acc) ->
+    [{<<"h">>, enc_int(_val)} | _acc].
+
+decode_sm_resumed_attr_previd(undefined) ->
+    erlang:error({xmpp_codec,
+		  {missing_attr, <<"previd">>, <<"resumed">>,
+		   <<"urn:xmpp:sm:3">>}});
+decode_sm_resumed_attr_previd(_val) -> _val.
+
+encode_sm_resumed_attr_previd(_val, _acc) ->
+    [{<<"previd">>, _val} | _acc].
+
+decode_sm_resume({xmlel, <<"resume">>, _attrs, _els}) ->
+    {H, Previd} = decode_sm_resume_attrs(_attrs, undefined,
+					 undefined),
+    {sm_resume, H, Previd}.
+
+decode_sm_resume_attrs([{<<"h">>, _val} | _attrs], _H,
+		       Previd) ->
+    decode_sm_resume_attrs(_attrs, _val, Previd);
+decode_sm_resume_attrs([{<<"previd">>, _val} | _attrs],
+		       H, _Previd) ->
+    decode_sm_resume_attrs(_attrs, H, _val);
+decode_sm_resume_attrs([_ | _attrs], H, Previd) ->
+    decode_sm_resume_attrs(_attrs, H, Previd);
+decode_sm_resume_attrs([], H, Previd) ->
+    {decode_sm_resume_attr_h(H),
+     decode_sm_resume_attr_previd(Previd)}.
+
+encode_sm_resume({sm_resume, H, Previd},
+		 _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_sm_resume_attr_previd(Previd,
+					  encode_sm_resume_attr_h(H,
+								  _xmlns_attrs)),
+    {xmlel, <<"resume">>, _attrs, _els}.
+
+decode_sm_resume_attr_h(undefined) ->
+    erlang:error({xmpp_codec,
+		  {missing_attr, <<"h">>, <<"resume">>,
+		   <<"urn:xmpp:sm:3">>}});
+decode_sm_resume_attr_h(_val) ->
+    case catch dec_int(_val, 0, infinity) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"h">>, <<"resume">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_resume_attr_h(_val, _acc) ->
+    [{<<"h">>, enc_int(_val)} | _acc].
+
+decode_sm_resume_attr_previd(undefined) ->
+    erlang:error({xmpp_codec,
+		  {missing_attr, <<"previd">>, <<"resume">>,
+		   <<"urn:xmpp:sm:3">>}});
+decode_sm_resume_attr_previd(_val) -> _val.
+
+encode_sm_resume_attr_previd(_val, _acc) ->
+    [{<<"previd">>, _val} | _acc].
+
+decode_sm_enabled({xmlel, <<"enabled">>, _attrs,
+		   _els}) ->
+    {Id, Location, Max, Resume} =
+	decode_sm_enabled_attrs(_attrs, undefined, undefined,
+				undefined, undefined),
+    {sm_enabled, Id, Location, Max, Resume}.
+
+decode_sm_enabled_attrs([{<<"id">>, _val} | _attrs],
+			_Id, Location, Max, Resume) ->
+    decode_sm_enabled_attrs(_attrs, _val, Location, Max,
+			    Resume);
+decode_sm_enabled_attrs([{<<"location">>, _val}
+			 | _attrs],
+			Id, _Location, Max, Resume) ->
+    decode_sm_enabled_attrs(_attrs, Id, _val, Max, Resume);
+decode_sm_enabled_attrs([{<<"max">>, _val} | _attrs],
+			Id, Location, _Max, Resume) ->
+    decode_sm_enabled_attrs(_attrs, Id, Location, _val,
+			    Resume);
+decode_sm_enabled_attrs([{<<"resume">>, _val} | _attrs],
+			Id, Location, Max, _Resume) ->
+    decode_sm_enabled_attrs(_attrs, Id, Location, Max,
+			    _val);
+decode_sm_enabled_attrs([_ | _attrs], Id, Location, Max,
+			Resume) ->
+    decode_sm_enabled_attrs(_attrs, Id, Location, Max,
+			    Resume);
+decode_sm_enabled_attrs([], Id, Location, Max,
+			Resume) ->
+    {decode_sm_enabled_attr_id(Id),
+     decode_sm_enabled_attr_location(Location),
+     decode_sm_enabled_attr_max(Max),
+     decode_sm_enabled_attr_resume(Resume)}.
+
+encode_sm_enabled({sm_enabled, Id, Location, Max,
+		   Resume},
+		  _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_sm_enabled_attr_resume(Resume,
+					   encode_sm_enabled_attr_max(Max,
+								      encode_sm_enabled_attr_location(Location,
+												      encode_sm_enabled_attr_id(Id,
+																_xmlns_attrs)))),
+    {xmlel, <<"enabled">>, _attrs, _els}.
+
+decode_sm_enabled_attr_id(undefined) -> undefined;
+decode_sm_enabled_attr_id(_val) -> _val.
+
+encode_sm_enabled_attr_id(undefined, _acc) -> _acc;
+encode_sm_enabled_attr_id(_val, _acc) ->
+    [{<<"id">>, _val} | _acc].
+
+decode_sm_enabled_attr_location(undefined) -> undefined;
+decode_sm_enabled_attr_location(_val) -> _val.
+
+encode_sm_enabled_attr_location(undefined, _acc) ->
+    _acc;
+encode_sm_enabled_attr_location(_val, _acc) ->
+    [{<<"location">>, _val} | _acc].
+
+decode_sm_enabled_attr_max(undefined) -> undefined;
+decode_sm_enabled_attr_max(_val) ->
+    case catch dec_int(_val, 0, infinity) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"max">>, <<"enabled">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_enabled_attr_max(undefined, _acc) -> _acc;
+encode_sm_enabled_attr_max(_val, _acc) ->
+    [{<<"max">>, enc_int(_val)} | _acc].
+
+decode_sm_enabled_attr_resume(undefined) -> false;
+decode_sm_enabled_attr_resume(_val) ->
+    case catch dec_bool(_val) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"resume">>, <<"enabled">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_enabled_attr_resume(false, _acc) -> _acc;
+encode_sm_enabled_attr_resume(_val, _acc) ->
+    [{<<"resume">>, enc_bool(_val)} | _acc].
+
+decode_sm_enable({xmlel, <<"enable">>, _attrs, _els}) ->
+    {Max, Resume} = decode_sm_enable_attrs(_attrs,
+					   undefined, undefined),
+    {sm_enable, Max, Resume}.
+
+decode_sm_enable_attrs([{<<"max">>, _val} | _attrs],
+		       _Max, Resume) ->
+    decode_sm_enable_attrs(_attrs, _val, Resume);
+decode_sm_enable_attrs([{<<"resume">>, _val} | _attrs],
+		       Max, _Resume) ->
+    decode_sm_enable_attrs(_attrs, Max, _val);
+decode_sm_enable_attrs([_ | _attrs], Max, Resume) ->
+    decode_sm_enable_attrs(_attrs, Max, Resume);
+decode_sm_enable_attrs([], Max, Resume) ->
+    {decode_sm_enable_attr_max(Max),
+     decode_sm_enable_attr_resume(Resume)}.
+
+encode_sm_enable({sm_enable, Max, Resume},
+		 _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_sm_enable_attr_resume(Resume,
+					  encode_sm_enable_attr_max(Max,
+								    _xmlns_attrs)),
+    {xmlel, <<"enable">>, _attrs, _els}.
+
+decode_sm_enable_attr_max(undefined) -> undefined;
+decode_sm_enable_attr_max(_val) ->
+    case catch dec_int(_val, 0, infinity) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"max">>, <<"enable">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_enable_attr_max(undefined, _acc) -> _acc;
+encode_sm_enable_attr_max(_val, _acc) ->
+    [{<<"max">>, enc_int(_val)} | _acc].
+
+decode_sm_enable_attr_resume(undefined) -> false;
+decode_sm_enable_attr_resume(_val) ->
+    case catch dec_bool(_val) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"resume">>, <<"enable">>,
+			 <<"urn:xmpp:sm:3">>}});
+      _res -> _res
+    end.
+
+encode_sm_enable_attr_resume(false, _acc) -> _acc;
+encode_sm_enable_attr_resume(_val, _acc) ->
+    [{<<"resume">>, enc_bool(_val)} | _acc].
+
+decode_feature_sm({xmlel, <<"sm">>, _attrs, _els}) ->
+    {feature_sm}.
+
+encode_feature_sm({feature_sm}, _xmlns_attrs) ->
+    _els = [],
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"sm">>, _attrs, _els}.
+
+decode_carbons_sent({xmlel, <<"sent">>, _attrs,
+		     _els}) ->
+    Forwarded = decode_carbons_sent_els(_els, error),
+    {carbons_sent, Forwarded}.
+
+decode_carbons_sent_els([], Forwarded) ->
+    case Forwarded of
+      error ->
+	  erlang:error({xmpp_codec,
+			{missing_tag, <<"forwarded">>,
+			 <<"urn:xmpp:forward:0">>}});
+      {value, Forwarded1} -> Forwarded1
+    end;
+decode_carbons_sent_els([{xmlel, <<"forwarded">>,
+			  _attrs, _} =
+			     _el
+			 | _els],
+			Forwarded) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<"urn:xmpp:forward:0">> ->
+	   decode_carbons_sent_els(_els,
+				   {value, decode_forwarded(_el)});
+       true -> decode_carbons_sent_els(_els, Forwarded)
+    end;
+decode_carbons_sent_els([_ | _els], Forwarded) ->
+    decode_carbons_sent_els(_els, Forwarded).
+
+encode_carbons_sent({carbons_sent, Forwarded},
+		    _xmlns_attrs) ->
+    _els = 'encode_carbons_sent_$forwarded'(Forwarded, []),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"sent">>, _attrs, _els}.
+
+'encode_carbons_sent_$forwarded'(Forwarded, _acc) ->
+    [encode_forwarded(Forwarded,
+		      [{<<"xmlns">>, <<"urn:xmpp:forward:0">>}])
+     | _acc].
+
+decode_carbons_received({xmlel, <<"received">>, _attrs,
+			 _els}) ->
+    Forwarded = decode_carbons_received_els(_els, error),
+    {carbons_received, Forwarded}.
+
+decode_carbons_received_els([], Forwarded) ->
+    case Forwarded of
+      error ->
+	  erlang:error({xmpp_codec,
+			{missing_tag, <<"forwarded">>,
+			 <<"urn:xmpp:forward:0">>}});
+      {value, Forwarded1} -> Forwarded1
+    end;
+decode_carbons_received_els([{xmlel, <<"forwarded">>,
+			      _attrs, _} =
+				 _el
+			     | _els],
+			    Forwarded) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<"urn:xmpp:forward:0">> ->
+	   decode_carbons_received_els(_els,
+				       {value, decode_forwarded(_el)});
+       true -> decode_carbons_received_els(_els, Forwarded)
+    end;
+decode_carbons_received_els([_ | _els], Forwarded) ->
+    decode_carbons_received_els(_els, Forwarded).
+
+encode_carbons_received({carbons_received, Forwarded},
+			_xmlns_attrs) ->
+    _els = 'encode_carbons_received_$forwarded'(Forwarded,
+						[]),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"received">>, _attrs, _els}.
+
+'encode_carbons_received_$forwarded'(Forwarded, _acc) ->
+    [encode_forwarded(Forwarded,
+		      [{<<"xmlns">>, <<"urn:xmpp:forward:0">>}])
+     | _acc].
+
+decode_carbons_private({xmlel, <<"private">>, _attrs,
+			_els}) ->
+    {carbons_private}.
+
+encode_carbons_private({carbons_private},
+		       _xmlns_attrs) ->
+    _els = [],
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"private">>, _attrs, _els}.
+
+decode_carbons_enable({xmlel, <<"enable">>, _attrs,
+		       _els}) ->
+    {carbons_enable}.
+
+encode_carbons_enable({carbons_enable}, _xmlns_attrs) ->
+    _els = [],
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"enable">>, _attrs, _els}.
+
+decode_carbons_disable({xmlel, <<"disable">>, _attrs,
+			_els}) ->
+    {carbons_disable}.
+
+encode_carbons_disable({carbons_disable},
+		       _xmlns_attrs) ->
+    _els = [],
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"disable">>, _attrs, _els}.
+
+decode_forwarded({xmlel, <<"forwarded">>, _attrs,
+		  _els}) ->
+    {Delay, __Els} = decode_forwarded_els(_els, undefined,
+					  []),
+    {forwarded, Delay, __Els}.
+
+decode_forwarded_els([], Delay, __Els) ->
+    {Delay, lists:reverse(__Els)};
+decode_forwarded_els([{xmlel, <<"delay">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Delay, __Els) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<"urn:xmpp:delay">> ->
+	   decode_forwarded_els(_els, decode_delay(_el), __Els);
+       true -> decode_forwarded_els(_els, Delay, __Els)
+    end;
+decode_forwarded_els([{xmlel, _, _, _} = _el | _els],
+		     Delay, __Els) ->
+    case is_known_tag(_el) of
+      true ->
+	  decode_forwarded_els(_els, Delay,
+			       [decode(_el) | __Els]);
+      false -> decode_forwarded_els(_els, Delay, __Els)
+    end;
+decode_forwarded_els([_ | _els], Delay, __Els) ->
+    decode_forwarded_els(_els, Delay, __Els).
+
+encode_forwarded({forwarded, Delay, __Els},
+		 _xmlns_attrs) ->
+    _els = 'encode_forwarded_$delay'(Delay,
+				     [encode(_el) || _el <- __Els]),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"forwarded">>, _attrs, _els}.
+
+'encode_forwarded_$delay'(undefined, _acc) -> _acc;
+'encode_forwarded_$delay'(Delay, _acc) ->
+    [encode_delay(Delay,
+		  [{<<"xmlns">>, <<"urn:xmpp:delay">>}])
+     | _acc].
 
 decode_muc({xmlel, <<"x">>, _attrs, _els}) ->
     History = decode_muc_els(_els, undefined),
@@ -1833,6 +2803,319 @@ decode_muc_attr_password(_val) -> _val.
 encode_muc_attr_password(undefined, _acc) -> _acc;
 encode_muc_attr_password(_val, _acc) ->
     [{<<"password">>, _val} | _acc].
+
+decode_muc_admin({xmlel, <<"query">>, _attrs, _els}) ->
+    Items = decode_muc_admin_els(_els, []),
+    {muc_admin, Items}.
+
+decode_muc_admin_els([], Items) -> lists:reverse(Items);
+decode_muc_admin_els([{xmlel, <<"item">>, _attrs, _} =
+			  _el
+		      | _els],
+		     Items) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<>>;
+       _xmlns == <<"http://jabber.org/protocol/muc#admin">> ->
+	   decode_muc_admin_els(_els,
+				[decode_muc_admin_item(_el) | Items]);
+       true -> decode_muc_admin_els(_els, Items)
+    end;
+decode_muc_admin_els([_ | _els], Items) ->
+    decode_muc_admin_els(_els, Items).
+
+encode_muc_admin({muc_admin, Items}, _xmlns_attrs) ->
+    _els = 'encode_muc_admin_$items'(Items, []),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"query">>, _attrs, _els}.
+
+'encode_muc_admin_$items'([], _acc) -> _acc;
+'encode_muc_admin_$items'([Items | _els], _acc) ->
+    'encode_muc_admin_$items'(_els,
+			      [encode_muc_admin_item(Items, []) | _acc]).
+
+decode_muc_admin_reason({xmlel, <<"reason">>, _attrs,
+			 _els}) ->
+    Cdata = decode_muc_admin_reason_els(_els, <<>>), Cdata.
+
+decode_muc_admin_reason_els([], Cdata) ->
+    decode_muc_admin_reason_cdata(Cdata);
+decode_muc_admin_reason_els([{xmlcdata, _data} | _els],
+			    Cdata) ->
+    decode_muc_admin_reason_els(_els,
+				<<Cdata/binary, _data/binary>>);
+decode_muc_admin_reason_els([_ | _els], Cdata) ->
+    decode_muc_admin_reason_els(_els, Cdata).
+
+encode_muc_admin_reason(Cdata, _xmlns_attrs) ->
+    _els = encode_muc_admin_reason_cdata(Cdata, []),
+    _attrs = _xmlns_attrs,
+    {xmlel, <<"reason">>, _attrs, _els}.
+
+decode_muc_admin_reason_cdata(<<>>) -> undefined;
+decode_muc_admin_reason_cdata(_val) -> _val.
+
+encode_muc_admin_reason_cdata(undefined, _acc) -> _acc;
+encode_muc_admin_reason_cdata(_val, _acc) ->
+    [{xmlcdata, _val} | _acc].
+
+decode_muc_admin_continue({xmlel, <<"continue">>,
+			   _attrs, _els}) ->
+    Thread = decode_muc_admin_continue_attrs(_attrs,
+					     undefined),
+    Thread.
+
+decode_muc_admin_continue_attrs([{<<"thread">>, _val}
+				 | _attrs],
+				_Thread) ->
+    decode_muc_admin_continue_attrs(_attrs, _val);
+decode_muc_admin_continue_attrs([_ | _attrs], Thread) ->
+    decode_muc_admin_continue_attrs(_attrs, Thread);
+decode_muc_admin_continue_attrs([], Thread) ->
+    decode_muc_admin_continue_attr_thread(Thread).
+
+encode_muc_admin_continue(Thread, _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_muc_admin_continue_attr_thread(Thread,
+						   _xmlns_attrs),
+    {xmlel, <<"continue">>, _attrs, _els}.
+
+decode_muc_admin_continue_attr_thread(undefined) ->
+    undefined;
+decode_muc_admin_continue_attr_thread(_val) -> _val.
+
+encode_muc_admin_continue_attr_thread(undefined,
+				      _acc) ->
+    _acc;
+encode_muc_admin_continue_attr_thread(_val, _acc) ->
+    [{<<"thread">>, _val} | _acc].
+
+decode_muc_admin_actor({xmlel, <<"actor">>, _attrs,
+			_els}) ->
+    {Jid, Nick} = decode_muc_admin_actor_attrs(_attrs,
+					       undefined, undefined),
+    {muc_actor, Jid, Nick}.
+
+decode_muc_admin_actor_attrs([{<<"jid">>, _val}
+			      | _attrs],
+			     _Jid, Nick) ->
+    decode_muc_admin_actor_attrs(_attrs, _val, Nick);
+decode_muc_admin_actor_attrs([{<<"nick">>, _val}
+			      | _attrs],
+			     Jid, _Nick) ->
+    decode_muc_admin_actor_attrs(_attrs, Jid, _val);
+decode_muc_admin_actor_attrs([_ | _attrs], Jid, Nick) ->
+    decode_muc_admin_actor_attrs(_attrs, Jid, Nick);
+decode_muc_admin_actor_attrs([], Jid, Nick) ->
+    {decode_muc_admin_actor_attr_jid(Jid),
+     decode_muc_admin_actor_attr_nick(Nick)}.
+
+encode_muc_admin_actor({muc_actor, Jid, Nick},
+		       _xmlns_attrs) ->
+    _els = [],
+    _attrs = encode_muc_admin_actor_attr_nick(Nick,
+					      encode_muc_admin_actor_attr_jid(Jid,
+									      _xmlns_attrs)),
+    {xmlel, <<"actor">>, _attrs, _els}.
+
+decode_muc_admin_actor_attr_jid(undefined) -> undefined;
+decode_muc_admin_actor_attr_jid(_val) ->
+    case catch dec_jid(_val) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"jid">>, <<"actor">>,
+			 <<"http://jabber.org/protocol/muc#admin">>}});
+      _res -> _res
+    end.
+
+encode_muc_admin_actor_attr_jid(undefined, _acc) ->
+    _acc;
+encode_muc_admin_actor_attr_jid(_val, _acc) ->
+    [{<<"jid">>, enc_jid(_val)} | _acc].
+
+decode_muc_admin_actor_attr_nick(undefined) ->
+    undefined;
+decode_muc_admin_actor_attr_nick(_val) -> _val.
+
+encode_muc_admin_actor_attr_nick(undefined, _acc) ->
+    _acc;
+encode_muc_admin_actor_attr_nick(_val, _acc) ->
+    [{<<"nick">>, _val} | _acc].
+
+decode_muc_admin_item({xmlel, <<"item">>, _attrs,
+		       _els}) ->
+    {Actor, Continue, Reason} =
+	decode_muc_admin_item_els(_els, undefined, undefined,
+				  undefined),
+    {Affiliation, Role, Jid, Nick} =
+	decode_muc_admin_item_attrs(_attrs, undefined,
+				    undefined, undefined, undefined),
+    {muc_item, Actor, Continue, Reason, Affiliation, Role,
+     Jid, Nick}.
+
+decode_muc_admin_item_els([], Actor, Continue,
+			  Reason) ->
+    {Actor, Continue, Reason};
+decode_muc_admin_item_els([{xmlel, <<"actor">>, _attrs,
+			    _} =
+			       _el
+			   | _els],
+			  Actor, Continue, Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<>>;
+       _xmlns == <<"http://jabber.org/protocol/muc#admin">> ->
+	   decode_muc_admin_item_els(_els,
+				     decode_muc_admin_actor(_el), Continue,
+				     Reason);
+       true ->
+	   decode_muc_admin_item_els(_els, Actor, Continue, Reason)
+    end;
+decode_muc_admin_item_els([{xmlel, <<"continue">>,
+			    _attrs, _} =
+			       _el
+			   | _els],
+			  Actor, Continue, Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<>>;
+       _xmlns == <<"http://jabber.org/protocol/muc#admin">> ->
+	   decode_muc_admin_item_els(_els, Actor,
+				     decode_muc_admin_continue(_el), Reason);
+       true ->
+	   decode_muc_admin_item_els(_els, Actor, Continue, Reason)
+    end;
+decode_muc_admin_item_els([{xmlel, <<"reason">>, _attrs,
+			    _} =
+			       _el
+			   | _els],
+			  Actor, Continue, Reason) ->
+    _xmlns = get_attr(<<"xmlns">>, _attrs),
+    if _xmlns == <<>>;
+       _xmlns == <<"http://jabber.org/protocol/muc#admin">> ->
+	   decode_muc_admin_item_els(_els, Actor, Continue,
+				     decode_muc_admin_reason(_el));
+       true ->
+	   decode_muc_admin_item_els(_els, Actor, Continue, Reason)
+    end;
+decode_muc_admin_item_els([_ | _els], Actor, Continue,
+			  Reason) ->
+    decode_muc_admin_item_els(_els, Actor, Continue,
+			      Reason).
+
+decode_muc_admin_item_attrs([{<<"affiliation">>, _val}
+			     | _attrs],
+			    _Affiliation, Role, Jid, Nick) ->
+    decode_muc_admin_item_attrs(_attrs, _val, Role, Jid,
+				Nick);
+decode_muc_admin_item_attrs([{<<"role">>, _val}
+			     | _attrs],
+			    Affiliation, _Role, Jid, Nick) ->
+    decode_muc_admin_item_attrs(_attrs, Affiliation, _val,
+				Jid, Nick);
+decode_muc_admin_item_attrs([{<<"jid">>, _val}
+			     | _attrs],
+			    Affiliation, Role, _Jid, Nick) ->
+    decode_muc_admin_item_attrs(_attrs, Affiliation, Role,
+				_val, Nick);
+decode_muc_admin_item_attrs([{<<"nick">>, _val}
+			     | _attrs],
+			    Affiliation, Role, Jid, _Nick) ->
+    decode_muc_admin_item_attrs(_attrs, Affiliation, Role,
+				Jid, _val);
+decode_muc_admin_item_attrs([_ | _attrs], Affiliation,
+			    Role, Jid, Nick) ->
+    decode_muc_admin_item_attrs(_attrs, Affiliation, Role,
+				Jid, Nick);
+decode_muc_admin_item_attrs([], Affiliation, Role, Jid,
+			    Nick) ->
+    {decode_muc_admin_item_attr_affiliation(Affiliation),
+     decode_muc_admin_item_attr_role(Role),
+     decode_muc_admin_item_attr_jid(Jid),
+     decode_muc_admin_item_attr_nick(Nick)}.
+
+encode_muc_admin_item({muc_item, Actor, Continue,
+		       Reason, Affiliation, Role, Jid, Nick},
+		      _xmlns_attrs) ->
+    _els = 'encode_muc_admin_item_$reason'(Reason,
+					   'encode_muc_admin_item_$continue'(Continue,
+									     'encode_muc_admin_item_$actor'(Actor,
+													    []))),
+    _attrs = encode_muc_admin_item_attr_nick(Nick,
+					     encode_muc_admin_item_attr_jid(Jid,
+									    encode_muc_admin_item_attr_role(Role,
+													    encode_muc_admin_item_attr_affiliation(Affiliation,
+																		   _xmlns_attrs)))),
+    {xmlel, <<"item">>, _attrs, _els}.
+
+'encode_muc_admin_item_$actor'(undefined, _acc) -> _acc;
+'encode_muc_admin_item_$actor'(Actor, _acc) ->
+    [encode_muc_admin_actor(Actor, []) | _acc].
+
+'encode_muc_admin_item_$continue'(undefined, _acc) ->
+    _acc;
+'encode_muc_admin_item_$continue'(Continue, _acc) ->
+    [encode_muc_admin_continue(Continue, []) | _acc].
+
+'encode_muc_admin_item_$reason'(undefined, _acc) ->
+    _acc;
+'encode_muc_admin_item_$reason'(Reason, _acc) ->
+    [encode_muc_admin_reason(Reason, []) | _acc].
+
+decode_muc_admin_item_attr_affiliation(undefined) ->
+    undefined;
+decode_muc_admin_item_attr_affiliation(_val) ->
+    case catch dec_enum(_val,
+			[admin, member, none, outcast, owner])
+	of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"affiliation">>, <<"item">>,
+			 <<"http://jabber.org/protocol/muc#admin">>}});
+      _res -> _res
+    end.
+
+encode_muc_admin_item_attr_affiliation(undefined,
+				       _acc) ->
+    _acc;
+encode_muc_admin_item_attr_affiliation(_val, _acc) ->
+    [{<<"affiliation">>, enc_enum(_val)} | _acc].
+
+decode_muc_admin_item_attr_role(undefined) -> undefined;
+decode_muc_admin_item_attr_role(_val) ->
+    case catch dec_enum(_val,
+			[moderator, none, participant, visitor])
+	of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"role">>, <<"item">>,
+			 <<"http://jabber.org/protocol/muc#admin">>}});
+      _res -> _res
+    end.
+
+encode_muc_admin_item_attr_role(undefined, _acc) ->
+    _acc;
+encode_muc_admin_item_attr_role(_val, _acc) ->
+    [{<<"role">>, enc_enum(_val)} | _acc].
+
+decode_muc_admin_item_attr_jid(undefined) -> undefined;
+decode_muc_admin_item_attr_jid(_val) ->
+    case catch dec_jid(_val) of
+      {'EXIT', _} ->
+	  erlang:error({xmpp_codec,
+			{bad_attr_value, <<"jid">>, <<"item">>,
+			 <<"http://jabber.org/protocol/muc#admin">>}});
+      _res -> _res
+    end.
+
+encode_muc_admin_item_attr_jid(undefined, _acc) -> _acc;
+encode_muc_admin_item_attr_jid(_val, _acc) ->
+    [{<<"jid">>, enc_jid(_val)} | _acc].
+
+decode_muc_admin_item_attr_nick(undefined) -> undefined;
+decode_muc_admin_item_attr_nick(_val) -> _val.
+
+encode_muc_admin_item_attr_nick(undefined, _acc) ->
+    _acc;
+encode_muc_admin_item_attr_nick(_val, _acc) ->
+    [{<<"nick">>, _val} | _acc].
 
 decode_muc_owner({xmlel, <<"query">>, _attrs, _els}) ->
     {Config, Destroy} = decode_muc_owner_els(_els,

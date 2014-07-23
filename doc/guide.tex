@@ -322,13 +322,12 @@ To compile \ejabberd{} on a `Unix-like' operating system, you need:
 \item GCC
 \item Libexpat 1.95 or higher
 \item Erlang/OTP R15B or higher.
-\item Libyaml 1.4 or higher
+\item Libyaml 0.1.4 or higher
 \item OpenSSL 0.9.8 or higher, for STARTTLS, SASL and SSL encryption.
 \item Zlib 1.2.3 or higher, for Stream Compression support (\xepref{0138}). Optional.
 \item PAM library. Optional. For Pluggable Authentication Modules (PAM). See section \ref{pam}.
 \item GNU Iconv 1.8 or higher, for the IRC Transport (mod\_irc). Optional. Not needed on systems with GNU Libc. See section \ref{modirc}.
 \item ImageMagick's Convert program. Optional. For CAPTCHA challenges. See section \ref{captcha}.
-\item exmpp 0.9.6 or higher. Optional. For import/export user data with \xepref{0227} XML files.
 \end{itemize}
 
 \makesubsection{download}{Download Source Code}
@@ -396,9 +395,6 @@ Some options that you may be interested in modifying:
 
         \titem{--enable-zlib}
         Enable Stream Compression (XEP-0138) using zlib.
-
-        \titem{--enable-stun}
-        Enable STUN/TURN support (see section \ref{stun}).
 
         \titem{--enable-iconv}
         Enable iconv support. This is needed for \term{mod\_irc} (see seciont \ref{modirc}).
@@ -907,7 +903,7 @@ The available modules, their purpose and the options allowed by each one are:
     Options: \texttt{access\_commands}, \texttt{maxsessions}, \texttt{timeout}.\\
     You can find option explanations, example configuration in old and new format,
     and example calls in several languages in the old
-    \footahref{https://raw.github.com/processone/ejabberd-contrib/master/ejabberd\_xmlrpc/README.txt}{ejabberd\_xmlrpc README.txt}
+    \footahref{http://www.ejabberd.im/ejabberd\_xmlrpc}{ejabberd\_xmlrpc documentation}.
 \end{description}
 
 
@@ -930,8 +926,10 @@ This is a detailed description of each option allowed by the listening modules:
   \titem{ciphers: Ciphers} OpenSSL ciphers list in the same format accepted by
   `\verb|openssl ciphers|' command.
   \titem{protocol\_options: ProtocolOpts} \ind{options!protocol\_options}
-  List of general options relating to SSL/TLS. These map to \verb|<a href="https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html">OpenSSL's set_options()</a>|.
-  For a full list of options available in ejabberd, \verb|<a href="https://github.com/processone/tls/blob/master/c_src/options.h">see the source</a>|.
+  List of general options relating to SSL/TLS. These map to
+  \footahref{https://www.openssl.org/docs/ssl/SSL\_CTX\_set\_options.html}{OpenSSL's set\_options()}.
+  For a full list of options available in ejabberd,
+  \footahref{https://github.com/processone/tls/blob/master/c\_src/options.h}{see the source}.
   The default entry is: \verb|"no_sslv2"|
   \titem{default\_host: undefined|HostName\}}
     If the HTTP request received by ejabberd contains the HTTP header \term{Host}
@@ -981,10 +979,10 @@ This is a detailed description of each option allowed by the listening modules:
   \titem{max\_ack\_queue: Size}
     This option specifies the maximum number of unacknowledged stanzas
     queued for possible retransmission if \term{stream\_management} is
-    enabled. When the limit is reached, the first stanza is dropped from
-    the queue before adding the next one. This option can be specified
-    for \term{ejabberd\_c2s} listeners. The allowed values are positive
-    integers and \term{infinity}. Default value: \term{500}.
+    enabled. When the limit is exceeded, the client session is
+    terminated. This option can be specified for \term{ejabberd\_c2s}
+    listeners. The allowed values are positive integers and
+    \term{infinity}. Default value: \term{500}.
   \titem{max\_fsm\_queue: Size}
     This option specifies the maximum number of elements in the queue of the FSM
     (Finite State Machine).
@@ -1110,8 +1108,10 @@ There are some additional global options that can be specified in the ejabberd c
   \titem{s2s\_ciphers: Ciphers} \ind{options!s2s\_ciphers} OpenSSL ciphers list
   in the same format accepted by `\verb|openssl ciphers|' command.
   \titem{s2s\_protocol\_options: ProtocolOpts} \ind{options!s2s\_protocol\_options}
-  List of general options relating to SSL/TLS. These map to \verb|<a href="https://www.openssl.org/docs/ssl/SSL_CTX_set_options.html">OpenSSL's set_options()</a>|.
-  For a full list of options available in ejabberd, \verb|<a href="https://github.com/processone/tls/blob/protocol_options/c_src/options.h">see the source</a>|.
+  List of general options relating to SSL/TLS. These map to
+  \footahref{https://www.openssl.org/docs/ssl/SSL\_CTX\_set\_options.html}{OpenSSL's set\_options()}.
+  For a full list of options available in ejabberd,
+  \footahref{https://github.com/processone/tls/blob/master/c\_src/options.h}{see the source}.
   The default entry is: \verb|"no_sslv2"|
   \titem{outgoing\_s2s\_families: [Family, ...]} \ind{options!outgoing\_s2s\_families}
   Specify which address families to try, in what order.
@@ -1288,11 +1288,11 @@ access:
     all: normal
   xmlrpc_access: 
     xmlrpc_bot: allow
-  s2s_access:
+  s2s:
     trusted_servers: allow
     all: deny
 s2s_certfile: "/path/to/ssl.pem"
-s2s_policy: s2s_access
+s2s_access: s2s
 s2s_use_starttls: required_trusted
 listen: 
   - 
@@ -2294,7 +2294,7 @@ listen:
 %TODO: this whole section is not yet 100% optimized
 
 \ejabberd{} uses its internal Mnesia database by default. However, it is
-possible to use a relational database or an LDAP server to store persistent,
+possible to use a relational database, key-value storage or an LDAP server to store persistent,
 long-living data. \ejabberd{} is very flexible: you can configure different
 authentication methods for different virtual hosts, you can configure different
 authentication mechanisms for the same virtual host (fallback), you can set
@@ -2307,6 +2307,7 @@ The following databases are supported by \ejabberd{}:
 \item \footahref{http://www.mysql.com/}{MySQL}
 \item \footahref{http://en.wikipedia.org/wiki/Open\_Database\_Connectivity}{Any ODBC compatible database}
 \item \footahref{http://www.postgresql.org/}{PostgreSQL}
+\item \footahref{http://basho.com/riak/}{Riak}
 \end{itemize}
 
 The following LDAP servers are tested with \ejabberd{}:
@@ -2661,6 +2662,79 @@ modules:
   ...
 \end{verbatim}
 
+\makesubsection{riak}{Riak}
+\ind{databases!Riak}
+
+\footahref{http://basho.com/riak/}{Riak} is a distributed NoSQL key-value data store.
+The actual database access is defined in the options with \term{riak\_} prefix.
+
+\makesubsubsection{riakconnection}{Connection}
+\ind{riak!connection}
+
+The following paramaters are available:
+\begin{description}
+  \titem{riak\_server: String} A hostname of the Riak server. The default is
+  \term{``localhost''}.
+  \titem{riak\_port: Port} The port where the Riak server is accepting connections.
+  The defalt is 8087.
+  \titem{riak\_pool\_size: N} By default \ejabberd{} opens 10 connections to
+  the Riak server. You can change this number by using this option.
+  \titem{riak\_start\_interval: N} If the connection to the Riak server fails,
+  \ejabberd{} waits 30 seconds before retrying.
+  You can modify this interval with this option.
+\end{description}
+
+Example configuration:
+\begin{verbatim}
+riak_server: "riak.server.com"
+riak_port: 9097
+\end{verbatim}
+
+\makesubsubsection{riakstorage}{Storage}
+\ind{riak!storage}
+
+Several \ejabberd{} modules can be used to store information in Riak database.
+Refer to the corresponding module documentation to see if it supports such
+ability. To enable storage to Riak database, just make
+sure that your database is running well (see the next section), and add the
+module option \term{db\_type: riak}.
+
+\makesubsubsection{riakconfiguration}{Riak Configuration}
+\ind{riak!configuration}
+
+First, you need to configure Riak to use
+\footahref{http://en.wikipedia.org/wiki/LevelDB}{LevelDB} as a database backend.
+
+If you are using Riak 2.x and higher, configure \term{storage\_backend} option
+of \term{/etc/riak/riak.conf} as follows:
+\begin{verbatim}
+...
+storage_backend = leveldb
+...
+\end{verbatim}
+
+If you are using Riak 1.4.x and older, configure \term{storage\_backend} option
+of \term{/etc/riak/app.config} in the section \term{riak\_kv} as follows:
+\begin{verbatim}
+...
+ {riak_kv, [
+            ...
+            {storage_backend, riak_kv_eleveldb_backend},
+...
+\end{verbatim}
+
+Second, Riak should be pointed to \ejabberd{} Erlang binary files (*.beam).
+As described in \ref{install}, by default those are located
+in \term{/lib/ejabberd/ebin} directory. So you
+should add the following to \term{/etc/riak/vm.args}:
+\begin{verbatim}
+...
+## Path to ejabberd beams in order to make map/reduce
+-pz /lib/ejabberd/ebin
+...
+\end{verbatim}
+Important notice: make sure Riak has at least read access to that directory.
+Otherwise its startup will likely fail.
 
 \makesection{modules}{Modules Configuration}
 \ind{modules}
@@ -2748,7 +2822,7 @@ The following table lists all modules included in \ejabberd{}.
 You can see which database backend each module needs by looking at the suffix:
 \begin{itemize}
 \item No suffix, this means that the module uses Erlang's built-in database
-  Mnesia as backend, or a ODBC database in some cases (see~\ref{database}).
+  Mnesia as backend, Riak key-value store or ODBC database (see~\ref{database}).
 \item `\_ldap', this means that the module needs an LDAP server as backend.
 \end{itemize}
 
@@ -4787,16 +4861,40 @@ modules:
 
 Options:
 \begin{description}
+\titem{record\_route: SIP\_URI}\ind{options!record\_route}When the option
+\term{always\_record\_route} is set or when SIP outbound
+is utilized \footahref{http://tools.ietf.org/html/rfc5626}{RFC 5626},
+\ejabberd{} inserts \term{Record-Route} header field with this \term{SIP\_URI}
+into a SIP message. The default is SIP URI constructed from the virtual host.
+\titem{always\_record\_route: true|false}\ind{options!always\_record\_route}
+Always insert \term{Record-Route} header into SIP messages. This approach allows
+to bypass NATs/firewalls a bit more easily. The default is \term{true}.
+\titem{routes: [SIP\_URI]}\ind{options!routes}You can set a list of SIP URIs of routes
+pointing to this proxy server. The default is a list of a SIP URI constructed
+from the virtual host.
+\titem{flow\_timeout\_udp: Seconds}For SIP outbound UDP connections set a keep-alive
+timer to \term{Seconds}. The default is 29.
+\titem{flow\_timeout\_tcp: Seconds}For SIP outbound TCP connections set a keep-alive
+timer to \term{Seconds}. The default is 120.
 \titem{via: [\{type: Type, host: Host, port: Port\}]}\ind{options!via}With
 this option for every \term{Type} you can specify \term{Host} and \term{Port}
 to set in \term{Via} header of outgoing SIP messages, where \term{Type} can be
 \term{udp}, \term{tcp} or \term{tls}. \term{Host} is a string and \term{Port} is 
 a non negative integer. This is useful if you're running your server in a non-standard
-network topology. Example configuration:
+network topology.
+\end{description}
+Example complex configuration:
 \begin{verbatim}
 modules:
   ...
   mod_sip:
+    always_record_route: false
+    record_route: sip:example.com;lr
+    routes:
+      - sip:example.com;lr
+      - sip:sip.example.com;lr
+    flow_timeout_udp: 30
+    flow_timeout_tcp: 130
     via:
       - 
         type: tls
@@ -4812,7 +4910,6 @@ modules:
         port: 5060
   ...
 \end{verbatim}
-\end{description}
 
 \makesubsection{modstats}{\modstats{}}
 \ind{modules!\modstats{}}\ind{protocols!XEP-0039: Statistics Gathering}\ind{statistics}
@@ -6015,10 +6112,11 @@ The syntax is:
 
 \makesection{logfiles}{Log Files}
 
-An \ejabberd{} node writes two log files:
+An \ejabberd{} node writes three log files:
 \begin{description}
 	\titem{ejabberd.log} is the ejabberd service log, with the messages reported by \ejabberd{} code
-	\titem{erlang.log} is the Erlang/OTP system log, with the messages reported by Erlang/OTP using SASL (System Architecture Support Libraries)
+        \titem{error.log} is the file accumulating error messages from \term{ejabberd.log}
+	\titem{crash.log} is the Erlang/OTP log, with the crash messages reported by Erlang/OTP using SASL (System Architecture Support Libraries)
 \end{description}
 
 The option \term{loglevel} modifies the verbosity of the file ejabberd.log. The syntax:
@@ -6040,13 +6138,50 @@ For example, the default configuration is:
 loglevel: 4
 \end{verbatim}
 
-The log files grow continually, so it is recommended to rotate them periodically.
-To rotate the log files, rename the files and then reopen them.
+Option \term{log\_rate\_limit} is useful if you want to protect the logging
+mechanism from being overloaded by excessive amount of log messages.
+The syntax is:
+\begin{description}
+  \titem{log\_rate\_limit: N} Where N is a maximum number of log messages per second.
+  The default value is 100.
+\end{description}
+When the limit is reached the similar warning message is logged:
+\begin{verbatim}
+lager_error_logger_h dropped 800 messages in the last second that exceeded the limit of 100 messages/sec
+\end{verbatim}
+
+By default \ejabberd{} rotates the log files when they get grown above a certain size.
+The exact value is controlled by \term{log\_rotate\_size} option.
+The syntax is:
+\begin{description}
+  \titem{log\_rotate\_size: N} Where N is the maximum size of a log file in bytes.
+  The default value is 10485760 (10Mb).
+\end{description}
+
+\ejabberd{} can also rotates the log files at given date interval.
+The exact value is controlled by \term{log\_rotate\_date} option.
+The syntax is:
+\begin{description}
+  \titem{log\_rotate\_date: D} Where D is a string with syntax is taken from the syntax newsyslog uses in newsyslog.conf.
+  The default value is \term{""} (no rotation triggered by date).
+\end{description}
+
+However, you can rotate the log files manually.
+For doing this, set \term{log\_rotate\_size} option to 0 and \term{log\_rotate\_date}
+to empty list, then, when you need to rotate the files, rename and then reopen them.
 The ejabberdctl command \term{reopen-log} 
 (please refer to section \ref{ectl-commands})
 reopens the log files,
 and also renames the old ones if you didn't rename them.
 
+The option \term{log\_rotate\_count} defines the number of rotated files to keep
+by \term{reopen-log} command.
+Every such file has a numeric suffix. The exact format is:
+\begin{description}
+  \titem{log\_rotate\_count: N} The default value is 1,
+  which means only \term{ejabberd.log.0}, \term{error.log.0}
+  and \term{crash.log.0} will be kept.
+\end{description}
 
 \makesection{debugconsole}{Debug Console}
 

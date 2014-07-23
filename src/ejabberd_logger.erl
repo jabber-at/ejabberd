@@ -61,29 +61,66 @@ get_log_path() ->
 
 -ifdef(LAGER).
 
+get_pos_integer_env(Name, Default) ->
+    case application:get_env(ejabberd, Name) of
+        {ok, I} when is_integer(I), I>0 ->
+            I;
+        undefined ->
+            Default;
+        {ok, Junk} ->
+            error_logger:error_msg("wrong value for ~s: ~p; "
+                                   "using ~p as a fallback~n",
+                                   [Name, Junk, Default]),
+            Default
+    end.
+get_pos_string_env(Name, Default) ->
+    case application:get_env(ejabberd, Name) of
+        {ok, L} when is_list(L) ->
+            L;
+        undefined ->
+            Default;
+        {ok, Junk} ->
+            error_logger:error_msg("wrong value for ~s: ~p; "
+                                   "using ~p as a fallback~n",
+                                   [Name, Junk, Default]),
+            Default
+    end.
+
 start() ->
+    application:load(sasl),
+    application:set_env(sasl, sasl_error_logger, false),
     application:load(lager),
     ConsoleLog = get_log_path(),
     Dir = filename:dirname(ConsoleLog),
     ErrorLog = filename:join([Dir, "error.log"]),
     CrashLog = filename:join([Dir, "crash.log"]),
+    LogRotateDate = get_pos_string_env(log_rotate_date, ""),
+    LogRotateSize = get_pos_integer_env(log_rotate_size, 10*1024*1024),
+    LogRotateCount = get_pos_integer_env(log_rotate_count, 1),
+    LogRateLimit = get_pos_integer_env(log_rate_limit, 100),
+    application:set_env(lager, error_logger_hwm, LogRateLimit),
     application:set_env(
       lager, handlers,
       [{lager_console_backend, info},
-       {lager_file_backend, [{file, ConsoleLog}, {level, info}, {count, 1}]},
-       {lager_file_backend, [{file, ErrorLog}, {level, error}, {count, 1}]}]),
+       {lager_file_backend, [{file, ConsoleLog}, {level, info}, {date, LogRotateDate},
+                             {count, LogRotateCount}, {size, LogRotateSize}]},
+       {lager_file_backend, [{file, ErrorLog}, {level, error}, {date, LogRotateDate},
+                             {count, LogRotateCount}, {size, LogRotateSize}]}]),
     application:set_env(lager, crash_log, CrashLog),
+    application:set_env(lager, crash_log_date, LogRotateDate),
+    application:set_env(lager, crash_log_size, LogRotateSize),
+    application:set_env(lager, crash_log_count, LogRotateCount),
     ejabberd:start_app(lager),
     ok.
 
 reopen_log() ->
+    lager_crash_log ! rotate,
     lists:foreach(
       fun({lager_file_backend, File}) ->
               whereis(lager_event) ! {rotate, File};
          (_) ->
               ok
-      end, gen_event:which_handlers(lager_event)),
-    reopen_sasl_log().
+      end, gen_event:which_handlers(lager_event)).
 
 get() ->
     case lager:get_loglevel(lager_console_backend) of
@@ -145,8 +182,6 @@ get() ->
 set(LogLevel) ->
     p1_loglevel:set(LogLevel).
 
--endif.
-
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -179,3 +214,5 @@ get_sasl_error_logger_type () ->
 	{ok, Bad} -> exit ({bad_config, {sasl, {errlog_type, Bad}}});
 	_ -> all
     end.
+
+-endif.

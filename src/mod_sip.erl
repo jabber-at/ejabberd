@@ -12,7 +12,7 @@
 -behaviour(esip).
 
 %% API
--export([start/2, stop/1, prepare_request/1, make_response/2, at_my_host/1]).
+-export([start/2, stop/1, make_response/2, is_my_host/1, at_my_host/1]).
 
 %% esip_callbacks
 -export([data_in/2, data_out/2, message_in/2, message_out/2,
@@ -20,7 +20,7 @@
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
--include("esip.hrl").
+-include_lib("esip/include/esip.hrl").
 
 %%%===================================================================
 %%% API
@@ -68,6 +68,8 @@ message_in(#sip{type = request, method = M} = Req, SIPSock)
         Action ->
             request(Req, SIPSock, undefined, Action)
     end;
+message_in(ping, SIPSock) ->
+    mod_sip_registrar:ping(SIPSock);
 message_in(_, _) ->
     ok.
 
@@ -77,8 +79,17 @@ message_out(_, _) ->
 response(_Resp, _SIPSock) ->
     ok.
 
+request(#sip{method = <<"ACK">>} = Req, SIPSock) ->
+    case action(Req, SIPSock) of
+	{relay, LServer} ->
+	    mod_sip_proxy:route(Req, LServer, [{authenticated, true}]);
+	{proxy_auth, LServer} ->
+	    mod_sip_proxy:route(Req, LServer, [{authenticated, false}]);
+	_ ->
+	    ok
+    end;
 request(_Req, _SIPSock) ->
-    error.
+    ok.
 
 request(Req, SIPSock, TrID) ->
     request(Req, SIPSock, TrID, action(Req, SIPSock)).
@@ -105,20 +116,20 @@ request(Req, SIPSock, TrID, Action) ->
 		    ?INFO_MSG("failed to proxy request ~p: ~p", [Req, Err]),
                     Err
             end;
-        {proxy_auth, Host} ->
+        {proxy_auth, LServer} ->
             make_response(
               Req,
               #sip{status = 407,
                    type = response,
                    hdrs = [{'proxy-authenticate',
-                            make_auth_hdr(Host)}]});
-        {auth, Host} ->
+                            make_auth_hdr(LServer)}]});
+        {auth, LServer} ->
             make_response(
               Req,
               #sip{status = 401,
                    type = response,
                    hdrs = [{'www-authenticate',
-                            make_auth_hdr(Host)}]});
+                            make_auth_hdr(LServer)}]});
         deny ->
             make_response(Req, #sip{status = 403,
                                     type = response});
@@ -151,8 +162,9 @@ action(#sip{method = <<"REGISTER">>, type = request, hdrs = Hdrs,
             uri = #uri{user = <<"">>} = URI} = Req, SIPSock) ->
     case at_my_host(URI) of
 	true ->
-	    case esip:get_hdrs('require', Hdrs) of
-		[_|_] = Require ->
+	    Require = esip:get_hdrs('require', Hdrs) -- supported(),
+	    case Require of
+		[_|_] ->
 		    {unsupported, Require};
 		_ ->
 		    {_, ToURI, _} = esip:get_hdr('to', Hdrs),
@@ -162,7 +174,7 @@ action(#sip{method = <<"REGISTER">>, type = request, hdrs = Hdrs,
 				true ->
 				    register;
 				false ->
-				    {auth, ToURI#uri.host}
+				    {auth, jlib:nameprep(ToURI#uri.host)}
 			    end;
 			false ->
 			    deny
@@ -178,8 +190,9 @@ action(#sip{method = Method, hdrs = Hdrs, type = request} = Req, SIPSock) ->
         0 ->
             loop;
         _ ->
-            case esip:get_hdrs('proxy-require', Hdrs) of
-                [_|_] = Require ->
+	    Require = esip:get_hdrs('proxy-require', Hdrs) -- supported(),
+            case Require of
+                [_|_] ->
                     {unsupported, Require};
                 _ ->
                     {_, ToURI, _} = esip:get_hdr('to', Hdrs),
@@ -242,30 +255,21 @@ check_auth(#sip{method = Method, hdrs = Hdrs, body = Body}, AuthHdr, _SIPSock) -
 allow() ->
     [<<"OPTIONS">>, <<"REGISTER">>].
 
+supported() ->
+    [<<"path">>, <<"outbound">>].
+
 process(#sip{method = <<"OPTIONS">>} = Req, _) ->
     make_response(Req, #sip{type = response, status = 200,
-                            hdrs = [{'allow', allow()}]});
+                            hdrs = [{'allow', allow()},
+				    {'supported', supported()}]});
 process(#sip{method = <<"REGISTER">>} = Req, _) ->
     make_response(Req, #sip{type = response, status = 400});
 process(Req, _) ->
     make_response(Req, #sip{type = response, status = 405,
 			    hdrs = [{'allow', allow()}]}).
 
-prepare_request(#sip{hdrs = Hdrs1} = Req) ->
-    MF = esip:get_hdr('max-forwards', Hdrs1),
-    Hdrs2 = esip:set_hdr('max-forwards', MF-1, Hdrs1),
-    Hdrs3 = lists:filter(
-              fun({'proxy-authorization', {_, Params}}) ->
-                      Realm = esip:unquote(esip:get_param(<<"realm">>, Params)),
-		      not is_my_host(jlib:nameprep(Realm));
-                 (_) ->
-                      true
-              end, Hdrs2),
-    Req#sip{hdrs = Hdrs3}.
-
 make_auth_hdr(LServer) ->
-    Realm = jlib:nameprep(LServer),
-    {<<"Digest">>, [{<<"realm">>, esip:quote(Realm)},
+    {<<"Digest">>, [{<<"realm">>, esip:quote(LServer)},
                     {<<"qop">>, esip:quote(<<"auth">>)},
                     {<<"nonce">>, esip:quote(esip:make_hexstr(20))}]}.
 

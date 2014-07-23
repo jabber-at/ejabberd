@@ -1,8 +1,11 @@
 language: erlang
 
 otp_release:
-  - 17.0
+  - R16B03
   - R15B01
+
+services:
+  - riak
 
 before_install:
   - sudo apt-get -qq update
@@ -20,9 +23,9 @@ before_script:
 
 script:
   - ./autogen.sh
-  - ./configure --enable-transient_supervisors --enable-all --disable-http --disable-odbc
+  - ./configure --enable-all --disable-http --disable-odbc
   - make
-  - make test
+  - ERL_LIBS=$PWD make test
   - grep -q 'TEST COMPLETE, \([[:digit:]]*\) ok, .* of \1 ' logs/raw.log
 
 after_script:
