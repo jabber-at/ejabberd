@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, community m4_esyscmd([git describe --tags | tr -d '\n']), [ejabberd@process-one.net], [ejabberd])
+AC_INIT(ejabberd, m4_esyscmd([echo `git describe --tags 2>/dev/null || echo community` | sed 's/-g.*//' | tr -d '\012']), [ejabberd@process-one.net], [ejabberd])
 REQUIRE_ERLANG_MIN="5.9.1 (Erlang/OTP R15B01)"
 REQUIRE_ERLANG_MAX="9.0.0 (No Max)"
 
@@ -106,10 +106,10 @@ AC_ARG_ENABLE(mssql,
 esac],[db_type=generic])
 
 AC_ARG_ENABLE(all,
-[AC_HELP_STRING([--enable-all], [same as --enable-nif --enable-odbc --enable-mysql --enable-pgsql --enable-pam --enable-zlib --enable-stun --enable-riak --enable-json --enable-iconv --enable-debug --enable-http --enable-lager --enable-tools (useful for Dialyzer checks, default: no)])],
+[AC_HELP_STRING([--enable-all], [same as --enable-nif --enable-odbc --enable-mysql --enable-pgsql --enable-pam --enable-zlib --enable-riak --enable-json --enable-iconv --enable-debug --enable-http --enable-lager --enable-tools (useful for Dialyzer checks, default: no)])],
 [case "${enableval}" in
-  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true stun=true riak=true json=true iconv=true debug=true http=true lager=true tools=true ;;
-  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false stun=false riak=false json=false iconv=false debug=false http=false lager=false tools=false ;;
+  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true riak=true json=true iconv=true debug=true http=true lager=true tools=true ;;
+  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false riak=false json=false iconv=false debug=false http=false lager=false tools=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-all) ;;
 esac],[])
 
@@ -169,13 +169,13 @@ AC_ARG_ENABLE(zlib,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-zlib) ;;
 esac],[if test "x$zlib" = "x"; then zlib=true; fi])
 
-AC_ARG_ENABLE(stun,
-[AC_HELP_STRING([--enable-stun], [enable STUN support (default: no)])],
+AC_ARG_ENABLE(riak,
+[AC_HELP_STRING([--enable-riak], [enable Riak support (default: no)])],
 [case "${enableval}" in
-  yes) stun=true ;;
-  no)  stun=false ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-stun) ;;
-esac],[if test "x$stun" = "x"; then stun=false; fi])
+  yes) riak=true ;;
+  no)  riak=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-riak) ;;
+esac],[if test "x$riak" = "x"; then riak=false; fi])
 
 AC_ARG_ENABLE(json,
 [AC_HELP_STRING([--enable-json], [enable JSON support for mod_bosh (default: no)])],
@@ -235,31 +235,6 @@ if test "$ENABLEUSER" != ""; then
   AC_SUBST([INSTALLUSER], [$ENABLEUSER])
 fi
 
-AC_ERLANG_CHECK_LIB([sasl], [],
-    [AC_MSG_ERROR([Erlang application 'sasl' was not found])])
-AC_ERLANG_CHECK_LIB([crypto], [],
-    [AC_MSG_ERROR([Erlang application 'crypto' was not found])])
-AC_ERLANG_CHECK_LIB([public_key], [],
-    [AC_MSG_ERROR([Erlang application 'public_key' was not found])])
-AC_ERLANG_CHECK_LIB([ssl], [],
-    [AC_MSG_ERROR([Erlang application 'ssl' was not found])])
-AC_ERLANG_CHECK_LIB([mnesia], [],
-    [AC_MSG_ERROR([Erlang application 'mnesia' was not found])])
-AC_ERLANG_CHECK_LIB([inets], [],
-    [AC_MSG_ERROR([Erlang application 'inets' was not found])])
-AC_ERLANG_CHECK_LIB([compiler], [],
-    [AC_MSG_ERROR([Erlang application 'compiler' was not found])])
-if test "x$odbc" = "xtrue"; then
-   AC_ERLANG_CHECK_LIB([odbc], [],
-      [AC_MSG_ERROR([Erlang application 'odbc' was not found])])
-fi
-if test "x$tools" = "xtrue"; then
-   AC_ERLANG_CHECK_LIB([tools], [],
-      [AC_MSG_ERROR([Erlang application 'tools' was not found])])
-   AC_ERLANG_CHECK_LIB([runtime_tools], [],
-      [AC_MSG_ERROR([Erlang application 'runtime_tools' was not found])])
-fi
-
 AC_SUBST(hipe)
 AC_SUBST(roster_gateway_workaround)
 AC_SUBST(transient_supervisors)
@@ -271,7 +246,7 @@ AC_SUBST(mysql)
 AC_SUBST(pgsql)
 AC_SUBST(pam)
 AC_SUBST(zlib)
-AC_SUBST(stun)
+AC_SUBST(riak)
 AC_SUBST(json)
 AC_SUBST(iconv)
 AC_SUBST(debug)

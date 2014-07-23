@@ -17,9 +17,10 @@
 %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 %%% General Public License for more details.
 %%%
-%%% You should have received a copy of the GNU General Public License along
-%%% with this program; if not, write to the Free Software Foundation, Inc.,
-%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+%%% You should have received a copy of the GNU General Public License
+%%% along with this program; if not, write to the Free Software
+%%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+%%% 02111-1307 USA
 %%%
 %%% 2009, improvements from ProcessOne to support correct PEP handling
 %%% through s2s, use less memory, and speedup global caps handling
@@ -35,7 +36,8 @@
 
 -export([read_caps/1, caps_stream_features/2,
 	 disco_features/5, disco_identity/5, disco_info/5,
-	 get_features/1]).
+	 get_features/2, export/1, import_info/0, import/5,
+         import_start/2, import_stop/2]).
 
 %% gen_mod callbacks
 -export([start/2, start_link/2, stop/1]).
@@ -45,10 +47,8 @@
 	 handle_cast/2, terminate/2, code_change/3]).
 
 %% hook handlers
--export([user_send_packet/3,
-	 user_receive_packet/4,
-	 c2s_presence_in/2,
-	 c2s_broadcast_recipients/5]).
+-export([user_send_packet/3, user_receive_packet/4,
+	 c2s_presence_in/2, c2s_broadcast_recipients/6]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -79,9 +79,6 @@
 
 -record(state, {host = <<"">> :: binary()}).
 
-%%====================================================================
-%% API
-%%====================================================================
 start_link(Host, Opts) ->
     Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     gen_server:start_link({local, Proc}, ?MODULE,
@@ -99,20 +96,14 @@ stop(Host) ->
     supervisor:terminate_child(ejabberd_sup, Proc),
     supervisor:delete_child(ejabberd_sup, Proc).
 
-%% get_features returns a list of features implied by the given caps
-%% record (as extracted by read_caps) or 'unknown' if features are
-%% not completely collected at the moment.
-get_features(nothing) -> [];
-get_features(#caps{node = Node, version = Version, exts = Exts}) ->
+get_features(_Host, nothing) -> [];
+get_features(Host, #caps{node = Node, version = Version,
+		   exts = Exts}) ->
     SubNodes = [Version | Exts],
-%% read_caps takes a list of XML elements (the child elements of a
-%% <presence/> stanza) and returns an opaque value representing the
-%% Entity Capabilities contained therein, or the atom nothing if no
-%% capabilities are advertised.
     lists:foldl(fun (SubNode, Acc) ->
 			NodePair = {Node, SubNode},
 			case cache_tab:lookup(caps_features, NodePair,
-					      caps_read_fun(NodePair))
+					      caps_read_fun(Host, NodePair))
 			    of
 			  {ok, Features} when is_list(Features) ->
 			      Features ++ Acc;
@@ -120,6 +111,8 @@ get_features(#caps{node = Node, version = Version, exts = Exts}) ->
 			end
 		end,
 		[], SubNodes).
+
+-spec read_caps([xmlel()]) -> nothing | caps().
 
 read_caps(Els) -> read_caps(Els, nothing).
 
@@ -149,13 +142,11 @@ read_caps([_ | Tail], Result) ->
     read_caps(Tail, Result);
 read_caps([], Result) -> Result.
 
-%%====================================================================
-%% Hooks
-%%====================================================================
-user_send_packet(
-		 #jid{luser = User, lserver = Server} = From,
-		 #jid{luser = User, lserver = Server, lresource = <<"">>},
-		 #xmlel{name = <<"presence">>, attrs = Attrs, children = Els}) ->
+user_send_packet(#jid{luser = User, lserver = Server} = From,
+		 #jid{luser = User, lserver = Server,
+		      lresource = <<"">>},
+		 #xmlel{name = <<"presence">>, attrs = Attrs,
+		       children = Els} = Pkt) ->
     Type = xml:get_attr_s(<<"type">>, Attrs),
     if Type == <<"">>; Type == <<"available">> ->
 	   case read_caps(Els) of
@@ -164,12 +155,15 @@ user_send_packet(
 		 feature_request(Server, From, Caps, [Version | Exts])
 	   end;
        true -> ok
-    end;
-user_send_packet(_From, _To, _Packet) -> ok.
+    end,
+    Pkt;
+user_send_packet( _From, _To, Pkt) ->
+    Pkt.
 
-user_receive_packet(#jid{lserver = Server}, From, _To,
+user_receive_packet(#jid{lserver = Server},
+		    From, _To,
 		    #xmlel{name = <<"presence">>, attrs = Attrs,
-			   children = Els}) ->
+			   children = Els} = Pkt) ->
     Type = xml:get_attr_s(<<"type">>, Attrs),
     IsRemote = not lists:member(From#jid.lserver, ?MYHOSTS),
     if IsRemote and
@@ -180,9 +174,12 @@ user_receive_packet(#jid{lserver = Server}, From, _To,
 		 feature_request(Server, From, Caps, [Version | Exts])
 	   end;
        true -> ok
-    end;
-user_receive_packet(_JID, _From, _To, _Packet) ->
-    ok.
+    end,
+    Pkt;
+user_receive_packet( _JID, _From, _To, Pkt) ->
+    Pkt.
+
+-spec caps_stream_features([xmlel()], binary()) -> [xmlel()].
 
 caps_stream_features(Acc, MyHost) ->
     case make_my_disco_hash(MyHost) of
@@ -260,7 +257,8 @@ c2s_presence_in(C2SState,
 				  end,
 	   if CapsUpdated ->
 		  ejabberd_hooks:run(caps_update, To#jid.lserver,
-				     [From, To, get_features(Caps)]);
+				     [From, To,
+                                      get_features(To#jid.lserver, Caps)]);
 	      true -> ok
 	   end,
 	   ejabberd_c2s:set_aux_field(caps_resources, NewRs,
@@ -268,63 +266,73 @@ c2s_presence_in(C2SState,
        true -> C2SState
     end.
 
-c2s_broadcast_recipients(InAcc, C2SState, {pep_message, Feature},
-			 _From, _Packet) ->
-    case ejabberd_c2s:get_aux_field(caps_resources, C2SState) of
-	{ok, Rs} ->
-	    gb_trees_fold(
-	      fun(USR, Caps, Acc) ->
-		      case lists:member(Feature, get_features(Caps)) of
-			  true ->
-			      [USR|Acc];
-			  false ->
-			      Acc
-		      end
-	      end, InAcc, Rs);
-	_ ->
-	    InAcc
+c2s_broadcast_recipients(InAcc, Host, C2SState,
+			 {pep_message, Feature}, _From, _Packet) ->
+    case ejabberd_c2s:get_aux_field(caps_resources,
+				    C2SState)
+	of
+      {ok, Rs} ->
+	  gb_trees_fold(fun (USR, Caps, Acc) ->
+				case lists:member(Feature,
+                                                  get_features(Host, Caps))
+				    of
+				  true -> [USR | Acc];
+				  false -> Acc
+				end
+			end,
+			InAcc, Rs);
+      _ -> InAcc
     end;
-c2s_broadcast_recipients(Acc, _, _, _, _) ->
-    Acc.
+c2s_broadcast_recipients(Acc, _, _, _, _, _) -> Acc.
 
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-init([Host, Opts]) ->
+init_db(mnesia, _Host) ->
     case catch mnesia:table_info(caps_features, storage_type) of
-	{'EXIT', _} ->
-	    ok;
-	disc_only_copies ->
-	    ok;
-	_ ->
-	    mnesia:delete_table(caps_features)
+        {'EXIT', _} ->
+            ok;
+        disc_only_copies ->
+            ok;
+        _ ->
+            mnesia:delete_table(caps_features)
     end,
     mnesia:create_table(caps_features,
-			[{disc_only_copies, [node()]},
-			 {local_content, true},
-			 {attributes, record_info(fields, caps_features)}]),
-    mnesia:add_table_copy(caps_features, node(), disc_only_copies),
-    MaxSize = gen_mod:get_opt(cache_size, Opts, fun(CS) when is_integer(CS) -> CS end, 1000),
-    LifeTime = gen_mod:get_opt(cache_life_time, Opts, fun(CL) when is_integer(CL) -> CL end, timer:hours(24) div 1000),
-    cache_tab:new(caps_features, [{max_size, MaxSize}, {life_time, LifeTime}]),
-    ejabberd_hooks:add(c2s_presence_in, Host,
-		       ?MODULE, c2s_presence_in, 75),
+                        [{disc_only_copies, [node()]},
+                         {local_content, true},
+                         {attributes,
+                          record_info(fields, caps_features)}]),
+    update_table(),
+    mnesia:add_table_copy(caps_features, node(),
+                          disc_only_copies);
+init_db(_, _) ->
+    ok.
+
+init([Host, Opts]) ->
+    init_db(gen_mod:db_type(Opts), Host),
+    MaxSize = gen_mod:get_opt(cache_size, Opts,
+                              fun(I) when is_integer(I), I>0 -> I end,
+                              1000),
+    LifeTime = gen_mod:get_opt(cache_life_time, Opts,
+                               fun(I) when is_integer(I), I>0 -> I end,
+			       timer:hours(24) div 1000),
+    cache_tab:new(caps_features,
+		  [{max_size, MaxSize}, {life_time, LifeTime}]),
+    ejabberd_hooks:add(c2s_presence_in, Host, ?MODULE,
+		       c2s_presence_in, 75),
     ejabberd_hooks:add(c2s_broadcast_recipients, Host,
 		       ?MODULE, c2s_broadcast_recipients, 75),
-    ejabberd_hooks:add(user_send_packet, Host,
-		       ?MODULE, user_send_packet, 75),
-    ejabberd_hooks:add(user_receive_packet, Host,
-		       ?MODULE, user_receive_packet, 75),
-    ejabberd_hooks:add(c2s_stream_features, Host,
-		       ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:add(s2s_stream_features, Host,
-		       ?MODULE, caps_stream_features, 75),
-    ejabberd_hooks:add(disco_local_features, Host,
-		       ?MODULE, disco_features, 75),
-    ejabberd_hooks:add(disco_local_identity, Host,
-		       ?MODULE, disco_identity, 75),
-    ejabberd_hooks:add(disco_info, Host,
-		       ?MODULE, disco_info, 75),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE,
+		       user_send_packet, 75),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE,
+		       user_receive_packet, 75),
+    ejabberd_hooks:add(c2s_stream_features, Host, ?MODULE,
+		       caps_stream_features, 75),
+    ejabberd_hooks:add(s2s_stream_features, Host, ?MODULE,
+		       caps_stream_features, 75),
+    ejabberd_hooks:add(disco_local_features, Host, ?MODULE,
+		       disco_features, 75),
+    ejabberd_hooks:add(disco_local_identity, Host, ?MODULE,
+		       disco_identity, 75),
+    ejabberd_hooks:add(disco_info, Host, ?MODULE,
+		       disco_info, 75),
     {ok, #state{host = Host}}.
 
 handle_call(stop, _From, State) ->
@@ -360,15 +368,12 @@ terminate(_Reason, State) ->
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
-%%====================================================================
-%% Aux functions
-%%====================================================================
 feature_request(Host, From, Caps,
 		[SubNode | Tail] = SubNodes) ->
     Node = Caps#caps.node,
     NodePair = {Node, SubNode},
     case cache_tab:lookup(caps_features, NodePair,
-			  caps_read_fun(NodePair))
+			  caps_read_fun(Host, NodePair))
 	of
       {ok, Fs} when is_list(Fs) ->
 	  feature_request(Host, From, Caps, Tail);
@@ -388,7 +393,7 @@ feature_request(Host, From, Caps,
 					      SubNode/binary>>}],
 				      children = []}]},
 		 cache_tab:insert(caps_features, NodePair, now_ts(),
-				  caps_write_fun(NodePair, now_ts())),
+				  caps_write_fun(Host, NodePair, now_ts())),
 		 F = fun (IQReply) ->
 			     feature_response(IQReply, Host, From, Caps,
 					      SubNodes)
@@ -416,7 +421,7 @@ feature_response(#iq{type = result,
 				   Els),
 	  cache_tab:insert(caps_features, NodePair,
 			   Features,
-			   caps_write_fun(NodePair, Features));
+			   caps_write_fun(Host, NodePair, Features));
       false -> ok
     end,
     feature_request(Host, From, Caps, SubNodes);
@@ -424,18 +429,66 @@ feature_response(_IQResult, Host, From, Caps,
 		 [_SubNode | SubNodes]) ->
     feature_request(Host, From, Caps, SubNodes).
 
-caps_read_fun(Node) ->
+caps_read_fun(Host, Node) ->
+    LServer = jlib:nameprep(Host),
+    DBType = gen_mod:db_type(LServer, ?MODULE),
+    caps_read_fun(LServer, Node, DBType).
+
+caps_read_fun(_LServer, Node, mnesia) ->
     fun () ->
 	    case mnesia:dirty_read({caps_features, Node}) of
 	      [#caps_features{features = Features}] -> {ok, Features};
 	      _ -> error
 	    end
+    end;
+caps_read_fun(_LServer, Node, riak) ->
+    fun() ->
+            case ejabberd_riak:get(caps_features, caps_features_schema(), Node) of
+                {ok, #caps_features{features = Features}} -> {ok, Features};
+                _ -> error
+            end
+    end;
+caps_read_fun(LServer, {Node, SubNode}, odbc) ->
+    fun() ->
+            SNode = ejabberd_odbc:escape(Node),
+            SSubNode = ejabberd_odbc:escape(SubNode),
+            case ejabberd_odbc:sql_query(
+                   LServer, [<<"select feature from caps_features where ">>,
+                             <<"node='">>, SNode, <<"' and subnode='">>,
+                             SSubNode, <<"';">>]) of
+                {selected, [<<"feature">>], [[H]|_] = Fs} ->
+                    case catch jlib:binary_to_integer(H) of
+                        Int when is_integer(Int), Int>=0 ->
+                            {ok, Int};
+                        _ ->
+                            {ok, lists:flatten(Fs)}
+                    end;
+                _ ->
+                    error
+            end
     end.
 
-caps_write_fun(Node, Features) ->
+caps_write_fun(Host, Node, Features) ->
+    LServer = jlib:nameprep(Host),
+    DBType = gen_mod:db_type(LServer, ?MODULE),
+    caps_write_fun(LServer, Node, Features, DBType).
+
+caps_write_fun(_LServer, Node, Features, mnesia) ->
     fun () ->
 	    mnesia:dirty_write(#caps_features{node_pair = Node,
 					      features = Features})
+    end;
+caps_write_fun(_LServer, Node, Features, riak) ->
+    fun () ->
+            ejabberd_riak:put(#caps_features{node_pair = Node,
+                                             features = Features},
+			      caps_features_schema())
+    end;
+caps_write_fun(LServer, NodePair, Features, odbc) ->
+    fun () ->
+            ejabberd_odbc:sql_transaction(
+              LServer,
+              sql_write_features_t(NodePair, Features))
     end.
 
 make_my_disco_hash(Host) ->
@@ -585,3 +638,98 @@ is_valid_node(Node) ->
         _ ->
             false
     end.
+
+update_table() ->
+    Fields = record_info(fields, caps_features),
+    case mnesia:table_info(caps_features, attributes) of
+        Fields ->
+            ejabberd_config:convert_table_to_binary(
+              caps_features, Fields, set,
+              fun(#caps_features{node_pair = {N, _}}) -> N end,
+              fun(#caps_features{node_pair = {N, P},
+                                 features = Fs} = R) ->
+                      NewFs = if is_integer(Fs) ->
+                                      Fs;
+                                 true ->
+                                      [iolist_to_binary(F) || F <- Fs]
+                              end,
+                      R#caps_features{node_pair = {iolist_to_binary(N),
+                                                   iolist_to_binary(P)},
+                                      features = NewFs}
+              end);
+        _ ->
+            ?INFO_MSG("Recreating caps_features table", []),
+            mnesia:transform_table(caps_features, ignore, Fields)
+    end.
+
+sql_write_features_t({Node, SubNode}, Features) ->
+    SNode = ejabberd_odbc:escape(Node),
+    SSubNode = ejabberd_odbc:escape(SubNode),
+    NewFeatures = if is_integer(Features) ->
+                          [jlib:integer_to_binary(Features)];
+                     true ->
+                          Features
+                  end,
+    [[<<"delete from caps_features where node='">>,
+      SNode, <<"' and subnode='">>, SSubNode, <<"';">>]|
+     [[<<"insert into caps_features(node, subnode, feature) ">>,
+       <<"values ('">>, SNode, <<"', '">>, SSubNode, <<"', '">>,
+       ejabberd_odbc:escape(F), <<"');">>] || F <- NewFeatures]].
+
+caps_features_schema() ->
+    {record_info(fields, caps_features), #caps_features{}}.
+
+export(_Server) ->
+    [{caps_features,
+      fun(_Host, #caps_features{node_pair = NodePair,
+                                features = Features}) ->
+              sql_write_features_t(NodePair, Features);
+         (_Host, _R) ->
+              []
+      end}].
+
+import_info() ->
+    [{<<"caps_features">>, 4}].
+
+import_start(LServer, DBType) ->
+    ets:new(caps_features_tmp, [private, named_table, bag]),
+    init_db(DBType, LServer),
+    ok.
+
+import(_LServer, {odbc, _}, _DBType, <<"caps_features">>,
+       [Node, SubNode, Feature, _TimeStamp]) ->
+    Feature1 = case catch jlib:binary_to_integer(Feature) of
+                   I when is_integer(I), I>0 -> I;
+                   _ -> Feature
+               end,
+    ets:insert(caps_features_tmp, {{Node, SubNode}, Feature1}),
+    ok.
+
+import_stop(LServer, DBType) ->
+    import_next(LServer, DBType, ets:first(caps_features_tmp)),
+    ets:delete(caps_features_tmp),
+    ok.
+
+import_next(_LServer, _DBType, '$end_of_table') ->
+    ok;
+import_next(LServer, DBType, NodePair) ->
+    Features = [F || {_, F} <- ets:lookup(caps_features_tmp, NodePair)],
+    case Features of
+        [I] when is_integer(I), DBType == mnesia ->
+            mnesia:dirty_write(
+              #caps_features{node_pair = NodePair, features = I});
+        [I] when is_integer(I), DBType == riak ->
+            ejabberd_riak:put(
+              #caps_features{node_pair = NodePair, features = I},
+	      caps_features_schema());
+        _ when DBType == mnesia ->
+            mnesia:dirty_write(
+              #caps_features{node_pair = NodePair, features = Features});
+        _ when DBType == riak ->
+            ejabberd_riak:put(
+              #caps_features{node_pair = NodePair, features = Features},
+	      caps_features_schema());
+        _ when DBType == odbc ->
+            ok
+    end,
+    import_next(LServer, DBType, ets:next(caps_features_tmp, NodePair)).

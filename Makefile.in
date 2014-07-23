@@ -151,6 +151,8 @@ install: all
 	# Binary C programs
 	$(INSTALL) -d $(PBINDIR)
 	$(INSTALL) -m 750 $(O_USER) tools/captcha.sh $(PBINDIR)
+	-[ -f deps/p1_pam/priv/bin/epam ] \
+		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR)
 	#
 	# Binary system libraries
 	$(INSTALL) -d $(SODIR)
@@ -181,7 +183,6 @@ install: all
 	$(INSTALL) -m 644 doc/dev.html $(DOCDIR)
 	$(INSTALL) -m 644 doc/guide.html $(DOCDIR)
 	$(INSTALL) -m 644 doc/*.png $(DOCDIR)
-	$(INSTALL) -m 644 doc/*.txt $(DOCDIR)
 	[ -f doc/guide.pdf ] \
 		&& $(INSTALL) -m 644 doc/guide.pdf $(DOCDIR) \
 		|| echo "No doc/guide.pdf was built"

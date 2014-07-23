@@ -233,16 +233,22 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%% Internal functions
 %%--------------------------------------------------------------------
 add_to_log2(text, {Nick, Packet}, Room, Opts, State) ->
-    case {xml:get_subtag(Packet, <<"subject">>),
-	  xml:get_subtag(Packet, <<"body">>)}
+    case {xml:get_subtag(Packet, <<"no-store">>),
+	  xml:get_subtag(Packet, <<"no-permanent-store">>)}
 	of
-      {false, false} -> ok;
-      {false, SubEl} ->
-	  Message = {body, xml:get_tag_cdata(SubEl)},
-	  add_message_to_log(Nick, Message, Room, Opts, State);
-      {SubEl, _} ->
-	  Message = {subject, xml:get_tag_cdata(SubEl)},
-	  add_message_to_log(Nick, Message, Room, Opts, State)
+      {false, false} ->
+	  case {xml:get_subtag(Packet, <<"subject">>),
+		xml:get_subtag(Packet, <<"body">>)}
+	      of
+	    {false, false} -> ok;
+	    {false, SubEl} ->
+		Message = {body, xml:get_tag_cdata(SubEl)},
+		add_message_to_log(Nick, Message, Room, Opts, State);
+	    {SubEl, _} ->
+		Message = {subject, xml:get_tag_cdata(SubEl)},
+		add_message_to_log(Nick, Message, Room, Opts, State)
+	  end;
+      {_, _} -> ok
     end;
 add_to_log2(roomconfig_change, _Occupants, Room, Opts,
 	    State) ->
@@ -779,7 +785,7 @@ fw(F, S, O, FileFormat) ->
 		 S1y = ejabberd_regexp:greplace(S1x, ?PLAINTEXT_IN, <<"<">>),
 		 ejabberd_regexp:greplace(S1y, ?PLAINTEXT_OUT, <<">">>)
 	 end,
-    io:format(F, S2, []).
+    file:write(F, S2).
 
 put_header(_, _, _, _, _, _, _, _, _, plaintext) -> ok;
 put_header(F, Room, Date, CSSFile, Lang, Hour_offset,
@@ -1016,7 +1022,9 @@ htmlize2(S1, NoFollow) ->
 				  <<"\\&nbsp;\\&nbsp;">>),
     S7 = ejabberd_regexp:greplace(S6, <<"\\t">>,
 				  <<"\\&nbsp;\\&nbsp;\\&nbsp;\\&nbsp;">>),
-    ejabberd_regexp:greplace(S7, <<226, 128, 174>>,
+    S8 = ejabberd_regexp:greplace(S7, <<"~">>,
+				  <<"~~">>),
+    ejabberd_regexp:greplace(S8, <<226, 128, 174>>,
 			     <<"[RLO]">>).
 
 link_regexp(false) -> <<"<a href=\"&\">&</a>">>;
@@ -1240,5 +1248,6 @@ calc_hour_offset(TimeHere) ->
 	  3600,
     TimeHereHour - TimeZeroHour.
 
+fjoin([]) -> <<"/">>;
 fjoin(FileList) ->
     list_to_binary(filename:join([binary_to_list(File) || File <- FileList])).

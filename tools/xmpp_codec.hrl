@@ -9,6 +9,13 @@
                      host :: binary(),
                      port = 1080 :: non_neg_integer()}).
 
+-record(sm_resume, {h :: non_neg_integer(),
+                    previd :: binary()}).
+
+-record(carbons_enable, {}).
+
+-record(carbons_private, {}).
+
 -record(pubsub_unsubscribe, {node :: binary(),
                              jid :: any(),
                              subid :: binary()}).
@@ -30,7 +37,18 @@
                       from :: any(),
                       to :: any()}).
 
+-record(sm_a, {h :: non_neg_integer()}).
+
 -record(starttls_proceed, {}).
+
+-record(sm_resumed, {h :: non_neg_integer(),
+                     previd :: binary()}).
+
+-record(forwarded, {delay :: #delay{},
+                    sub_els = [] :: [any()]}).
+
+-record(sm_enable, {max :: non_neg_integer(),
+                    resume = false :: any()}).
 
 -record(starttls_failure, {}).
 
@@ -41,6 +59,8 @@
 -record(private, {xml_els = [] :: [any()]}).
 
 -record(p1_ack, {}).
+
+-record(feature_sm, {}).
 
 -record(pubsub_item, {id :: binary(),
                       xml_els = [] :: [any()]}).
@@ -61,8 +81,7 @@
                             node :: binary(),
                             publisher :: binary()}).
 
--record(muc_actor, {jid :: any(),
-                    nick :: binary()}).
+-record(sm_r, {}).
 
 -record(stat, {name :: binary(),
                units :: binary(),
@@ -78,13 +97,18 @@
 -record(last, {seconds :: non_neg_integer(),
                text :: binary()}).
 
+-record(redirect, {uri :: binary()}).
+
+-record(sm_enabled, {id :: binary(),
+                     location :: binary(),
+                     max :: non_neg_integer(),
+                     resume = false :: any()}).
+
 -record(pubsub_event_items, {node :: binary(),
                              retract = [] :: [binary()],
                              items = [] :: [#pubsub_event_item{}]}).
 
 -record(pubsub_event, {items = [] :: [#pubsub_event_items{}]}).
-
--record(redirect, {uri :: binary()}).
 
 -record(sasl_response, {text :: any()}).
 
@@ -126,6 +150,9 @@
                               subid :: binary(),
                               type :: 'none' | 'pending' | 'subscribed' | 'unconfigured'}).
 
+-record(muc_actor, {jid :: any(),
+                    nick :: binary()}).
+
 -record(shim, {headers = [] :: [{binary(),'undefined' | binary()}]}).
 
 -record(caps, {hash :: binary(),
@@ -144,6 +171,8 @@
                        subid :: binary(),
                        items = [] :: [#pubsub_item{}]}).
 
+-record(carbons_sent, {forwarded :: #forwarded{}}).
+
 -record(p1_rebind, {}).
 
 -record(compress_failure, {reason :: 'processing-failed' | 'setup-failed' | 'unsupported-method'}).
@@ -156,6 +185,8 @@
                       pref = false :: boolean(),
                       x400 = false :: boolean(),
                       userid :: binary()}).
+
+-record(carbons_received, {forwarded :: #forwarded{}}).
 
 -record(pubsub_retract, {node :: binary(),
                          notify = false :: any(),
@@ -207,6 +238,10 @@
                    items = [] :: [#muc_item{}],
                    status_codes = [] :: [pos_integer()],
                    password :: binary()}).
+
+-record(muc_admin, {items = [] :: [#muc_item{}]}).
+
+-record(carbons_disable, {}).
 
 -record(bytestreams, {hosts = [] :: [#streamhost{}],
                       used :: any(),
@@ -342,6 +377,8 @@
                      xdata = [] :: [#xdata{}]}).
 
 -record(sasl_mechanisms, {list = [] :: [binary()]}).
+
+-record(sm_failed, {reason :: atom() | #gone{} | #redirect{}}).
 
 -record(error, {type :: 'auth' | 'cancel' | 'continue' | 'modify' | 'wait',
                 by :: binary(),

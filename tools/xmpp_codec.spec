@@ -3,7 +3,6 @@
            xmlns = <<"jabber:iq:last">>,
            result = {last, '$seconds', '$text'},
            attrs = [#attr{name = <<"seconds">>,
-                          default = undefined,
                           enc = {enc_int, []},
                           dec = {dec_int, [0, infinity]}}],
            cdata = #cdata{label = '$text'}}).
@@ -61,7 +60,6 @@
                           enc = {enc_enum, []},
                           dec = {dec_enum, [[none,to,from,both,remove]]}},
                     #attr{name = <<"ask">>,
-                          default = undefined,
                           enc = {enc_enum, []},
                           dec = {dec_enum, [[subscribe]]}}],
            refs = [#ref{name = roster_group, label = '$groups'}]}).
@@ -1976,6 +1974,56 @@
                         label = '$destroy'},
                    #ref{name = xdata, min = 0, max = 1, label = '$config'}]}).
 
+-xml(muc_admin_item,
+     #elem{name = <<"item">>,
+           xmlns = <<"http://jabber.org/protocol/muc#admin">>,
+           result = {muc_item, '$actor', '$continue', '$reason',
+                     '$affiliation', '$role', '$jid', '$nick'},
+           refs = [#ref{name = muc_admin_actor,
+                        min = 0, max = 1, label = '$actor'},
+                   #ref{name = muc_admin_continue,
+                        min = 0, max = 1, label = '$continue'},
+                   #ref{name = muc_admin_reason,
+                        min = 0, max = 1, label = '$reason'}],
+           attrs = [#attr{name = <<"affiliation">>,
+                          dec = {dec_enum, [[admin, member, none,
+                                             outcast, owner]]},
+                          enc = {enc_enum, []}},
+                    #attr{name = <<"role">>,
+                          dec = {dec_enum, [[moderator, none,
+                                             participant, visitor]]},
+                          enc = {enc_enum, []}},
+                    #attr{name = <<"jid">>,
+                          dec = {dec_jid, []},
+                          enc = {enc_jid, []}},
+                    #attr{name = <<"nick">>}]}).
+
+-xml(muc_admin_actor,
+     #elem{name = <<"actor">>,
+           xmlns = <<"http://jabber.org/protocol/muc#admin">>,
+           result = {muc_actor, '$jid', '$nick'},
+           attrs = [#attr{name = <<"jid">>,
+                          dec = {dec_jid, []},
+                          enc = {enc_jid, []}},
+                    #attr{name = <<"nick">>}]}).
+
+-xml(muc_admin_continue,
+     #elem{name = <<"continue">>,
+           xmlns = <<"http://jabber.org/protocol/muc#admin">>,
+           result = '$thread',
+           attrs = [#attr{name = <<"thread">>}]}).
+
+-xml(muc_admin_reason,
+     #elem{name = <<"reason">>,
+           xmlns = <<"http://jabber.org/protocol/muc#admin">>,
+           result = '$cdata'}).
+
+-xml(muc_admin,
+     #elem{name = <<"query">>,
+	   xmlns = <<"http://jabber.org/protocol/muc#admin">>,
+	   result = {muc_admin, '$items'},
+	   refs = [#ref{name = muc_admin_item, label = '$items'}]}).
+
 -xml(muc,
      #elem{name = <<"x">>,
            xmlns = <<"http://jabber.org/protocol/muc">>,
@@ -1983,6 +2031,158 @@
            attrs = [#attr{name = <<"password">>}],
            refs = [#ref{name = muc_history, min = 0, max = 1,
                         label = '$history'}]}).
+
+-xml(forwarded,
+     #elem{name = <<"forwarded">>,
+           xmlns = <<"urn:xmpp:forward:0">>,
+           result = {forwarded, '$delay', '$_els'},
+           refs = [#ref{name = delay, min = 0,
+                        max = 1, label = '$delay'}]}).
+
+-xml(carbons_disable,
+     #elem{name = <<"disable">>,
+           xmlns = <<"urn:xmpp:carbons:2">>,
+           result = {carbons_disable}}).
+
+-xml(carbons_enable,
+     #elem{name = <<"enable">>,
+	   xmlns = <<"urn:xmpp:carbons:2">>,
+	   result = {carbons_enable}}).
+
+-xml(carbons_private,
+     #elem{name = <<"private">>,
+	   xmlns = <<"urn:xmpp:carbons:2">>,
+	   result = {carbons_private}}).
+
+-xml(carbons_received,
+     #elem{name = <<"received">>,
+	   xmlns = <<"urn:xmpp:carbons:2">>,
+	   result = {carbons_received, '$forwarded'},
+	   refs = [#ref{name = forwarded, min = 1,
+                        max = 1, label = '$forwarded'}]}).
+
+-xml(carbons_sent,
+     #elem{name = <<"sent">>,
+	   xmlns = <<"urn:xmpp:carbons:2">>,
+	   result = {carbons_sent, '$forwarded'},
+	   refs = [#ref{name = forwarded, min = 1,
+                        max = 1, label = '$forwarded'}]}).
+
+-xml(feature_sm,
+     #elem{name = <<"sm">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {feature_sm}}).
+
+-xml(sm_enable,
+     #elem{name = <<"enable">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_enable, '$max', '$resume'},
+	   attrs = [#attr{name = <<"max">>,
+			  dec = {dec_int, [0, infinity]},
+                          enc = {enc_int, []}},
+		    #attr{name = <<"resume">>,
+			  default = false,
+			  dec = {dec_bool, []},
+                          enc = {enc_bool, []}}]}).
+
+-xml(sm_enabled,
+     #elem{name = <<"enabled">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_enabled, '$id', '$location', '$max', '$resume'},
+	   attrs = [#attr{name = <<"id">>},
+		    #attr{name = <<"location">>},
+		    #attr{name = <<"max">>,
+			  dec = {dec_int, [0, infinity]},
+                          enc = {enc_int, []}},
+		    #attr{name = <<"resume">>,
+			  default = false,
+			  dec = {dec_bool, []},
+                          enc = {enc_bool, []}}]}).
+
+-xml(sm_resume,
+     #elem{name = <<"resume">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_resume, '$h', '$previd'},
+	   attrs = [#attr{name = <<"h">>,
+			  required = true,
+			  dec = {dec_int, [0, infinity]},
+                          enc = {enc_int, []}},
+		    #attr{name = <<"previd">>,
+			  required = true}]}).
+
+-xml(sm_resumed,
+     #elem{name = <<"resumed">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_resumed, '$h', '$previd'},
+	   attrs = [#attr{name = <<"h">>,
+			  required = true,
+			  dec = {dec_int, [0, infinity]},
+                          enc = {enc_int, []}},
+		    #attr{name = <<"previd">>,
+			  required = true}]}).
+
+-xml(sm_r,
+     #elem{name = <<"r">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_r}}).
+
+-xml(sm_a,
+     #elem{name = <<"a">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_a, '$h'},
+	   attrs = [#attr{name = <<"h">>,
+			  required = true,
+			  dec = {dec_int, [0, infinity]},
+                          enc = {enc_int, []}}]}).
+
+-xml(sm_failed,
+     #elem{name = <<"failed">>,
+	   xmlns = <<"urn:xmpp:sm:3">>,
+	   result = {sm_failed, '$reason'},
+	   refs = [#ref{name = error_bad_request,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_conflict,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_feature_not_implemented,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_forbidden,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_gone,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_internal_server_error,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_item_not_found,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_jid_malformed,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_not_acceptable,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_not_allowed,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_not_authorized,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_policy_violation,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_recipient_unavailable,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_redirect,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_registration_required,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_remote_server_not_found,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_remote_server_timeout,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_resource_constraint,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_service_unavailable,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_subscription_required,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_undefined_condition,
+                        min = 0, max = 1, label = '$reason'},
+                   #ref{name = error_unexpected_request,
+                        min = 0, max = 1, label = '$reason'}]}).
 
 dec_tzo(Val) ->
     [H1, M1] = str:tokens(Val, <<":">>),
@@ -2026,7 +2226,9 @@ resourceprep(R) ->
     end.
 
 dec_bool(<<"false">>) -> false;
-dec_bool(<<"true">>) -> true.
+dec_bool(<<"0">>) -> false;
+dec_bool(<<"true">>) -> true;
+dec_bool(<<"1">>) -> true.
 
 enc_bool(false) -> <<"false">>;
 enc_bool(true) -> <<"true">>.

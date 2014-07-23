@@ -42,6 +42,7 @@
 -define(NS_IQDATA, <<"jabber:iq:data">>).
 -define(NS_DELAY91, <<"jabber:x:delay">>).
 -define(NS_DELAY, <<"urn:xmpp:delay">>).
+-define(NS_HINTS, <<"urn:xmpp:hints">>).
 -define(NS_EXPIRE, <<"jabber:x:expire">>).
 -define(NS_EVENT, <<"jabber:x:event">>).
 -define(NS_CHATSTATES,
@@ -143,5 +144,8 @@
 -define(NS_MEDIA, <<"urn:xmpp:media-element">>).
 -define(NS_BOB, <<"urn:xmpp:bob">>).
 -define(NS_PING, <<"urn:xmpp:ping">>).
+-define(NS_CARBONS_2, <<"urn:xmpp:carbons:2">>).
+-define(NS_CARBONS_1, <<"urn:xmpp:carbons:1">>).
+-define(NS_FORWARD, <<"urn:xmpp:forward:0">>).
 -define(NS_STREAM_MGMT_2,  <<"urn:xmpp:sm:2">>).
 -define(NS_STREAM_MGMT_3,  <<"urn:xmpp:sm:3">>).

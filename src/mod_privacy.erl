@@ -43,7 +43,7 @@
 	 sql_get_privacy_list_data_by_id_t/1,
 	 sql_get_privacy_list_id_t/2,
 	 sql_set_default_privacy_list/2,
-	 sql_set_privacy_list/2]).
+	 sql_set_privacy_list/2, privacy_schema/0]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -51,6 +51,9 @@
 -include("jlib.hrl").
 
 -include("mod_privacy.hrl").
+
+privacy_schema() ->
+    {record_info(fields, privacy), #privacy{}}.
 
 start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
@@ -160,6 +163,21 @@ process_lists_get(LUser, LServer, _Active, mnesia) ->
 			     Lists),
 	  {Default, LItems}
     end;
+process_lists_get(LUser, LServer, _Active, riak) ->
+    case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+        {ok, #privacy{default = Default, lists = Lists}} ->
+            LItems = lists:map(fun ({N, _}) ->
+                                       #xmlel{name = <<"list">>,
+                                              attrs = [{<<"name">>, N}],
+                                              children = []}
+                               end,
+                               Lists),
+            {Default, LItems};
+        {error, notfound} ->
+            {none, []};
+        {error, _} ->
+            error
+    end;
 process_lists_get(LUser, LServer, _Active, odbc) ->
     Default = case catch sql_get_default_privacy_list(LUser,
 						      LServer)
@@ -208,6 +226,18 @@ process_list_get(LUser, LServer, Name, mnesia) ->
 	    {value, {_, List}} -> List;
 	    _ -> not_found
 	  end
+    end;
+process_list_get(LUser, LServer, Name, riak) ->
+    case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+        {ok, #privacy{lists = Lists}} ->
+            case lists:keysearch(Name, 1, Lists) of
+                {value, {_, List}} -> List;
+                _ -> not_found
+            end;
+        {error, notfound} ->
+            not_found;
+        {error, _} ->
+            error
     end;
 process_list_get(LUser, LServer, Name, odbc) ->
     case catch sql_get_privacy_list_id(LUser, LServer, Name)
@@ -354,6 +384,21 @@ process_default_set(LUser, LServer, {value, Name},
 		end
 	end,
     mnesia:transaction(F);
+process_default_set(LUser, LServer, {value, Name}, riak) ->
+    {atomic,
+     case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+         {ok, #privacy{lists = Lists} = P} ->
+             case lists:keymember(Name, 1, Lists) of
+                 true ->
+                     ejabberd_riak:put(P#privacy{default = Name,
+                                                 lists = Lists},
+				       privacy_schema());
+                 false ->
+                     not_found
+             end;
+         {error, _} ->
+             not_found
+     end};
 process_default_set(LUser, LServer, {value, Name},
 		    odbc) ->
     F = fun () ->
@@ -375,6 +420,14 @@ process_default_set(LUser, LServer, false, mnesia) ->
 		end
 	end,
     mnesia:transaction(F);
+process_default_set(LUser, LServer, false, riak) ->
+    {atomic,
+     case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+         {ok, R} ->
+             ejabberd_riak:put(R#privacy{default = none}, privacy_schema());
+         {error, _} ->
+             ok
+     end};
 process_default_set(LUser, LServer, false, odbc) ->
     case catch sql_unset_default_privacy_list(LUser,
 					      LServer)
@@ -407,6 +460,16 @@ process_active_set(LUser, LServer, Name, mnesia) ->
 	    false -> error
 	  end
     end;
+process_active_set(LUser, LServer, Name, riak) ->
+    case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+        {ok, #privacy{lists = Lists}} ->
+            case lists:keysearch(Name, 1, Lists) of
+                {value, {_, List}} -> List;
+                false -> error
+            end;
+        {error, _} ->
+            error
+    end;
 process_active_set(LUser, LServer, Name, odbc) ->
     case catch sql_get_privacy_list_id(LUser, LServer, Name)
 	of
@@ -438,6 +501,20 @@ remove_privacy_list(LUser, LServer, Name, mnesia) ->
 		end
 	end,
     mnesia:transaction(F);
+remove_privacy_list(LUser, LServer, Name, riak) ->
+    {atomic,
+     case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+         {ok, #privacy{default = Default, lists = Lists} = P} ->
+             if Name == Default ->
+                     conflict;
+                true ->
+                     NewLists = lists:keydelete(Name, 1, Lists),
+                     ejabberd_riak:put(P#privacy{lists = NewLists},
+				       privacy_schema())
+             end;
+         {error, _} ->
+             ok
+     end};
 remove_privacy_list(LUser, LServer, Name, odbc) ->
     F = fun () ->
 		case sql_get_default_privacy_list_t(LUser) of
@@ -465,6 +542,19 @@ set_privacy_list(LUser, LServer, Name, List, mnesia) ->
 		end
 	end,
     mnesia:transaction(F);
+set_privacy_list(LUser, LServer, Name, List, riak) ->
+    {atomic,
+     case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+         {ok, #privacy{lists = Lists} = P} ->
+             NewLists1 = lists:keydelete(Name, 1, Lists),
+             NewLists = [{Name, List} | NewLists1],
+             ejabberd_riak:put(P#privacy{lists = NewLists}, privacy_schema());
+         {error, _} ->
+             NewLists = [{Name, List}],
+             ejabberd_riak:put(#privacy{us = {LUser, LServer},
+                                        lists = NewLists},
+			       privacy_schema())
+     end};
 set_privacy_list(LUser, LServer, Name, List, odbc) ->
     RItems = lists:map(fun item_to_raw/1, List),
     F = fun () ->
@@ -649,6 +739,20 @@ get_user_list(_, LUser, LServer, mnesia) ->
 	  end;
       _ -> {none, []}
     end;
+get_user_list(_, LUser, LServer, riak) ->
+    case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+        {ok, #privacy{default = Default, lists = Lists}} ->
+            case Default of
+                none -> {none, []};
+                _ ->
+                    case lists:keysearch(Default, 1, Lists) of
+                        {value, {_, List}} -> {Default, List};
+                        _ -> {none, []}
+                    end
+            end;
+        {error, _} ->
+            {none, []}
+    end;
 get_user_list(_, LUser, LServer, odbc) ->
     case catch sql_get_default_privacy_list(LUser, LServer)
 	of
@@ -678,6 +782,13 @@ get_user_lists(LUser, LServer, mnesia) ->
         [#privacy{} = P] ->
             {ok, P};
         _ ->
+            error
+    end;
+get_user_lists(LUser, LServer, riak) ->
+    case ejabberd_riak:get(privacy, privacy_schema(), {LUser, LServer}) of
+        {ok, #privacy{} = P} ->
+            {ok, P};
+        {error, _} ->
             error
     end;
 get_user_lists(LUser, LServer, odbc) ->
@@ -843,6 +954,8 @@ remove_user(LUser, LServer, mnesia) ->
     F = fun () -> mnesia:delete({privacy, {LUser, LServer}})
 	end,
     mnesia:transaction(F);
+remove_user(LUser, LServer, riak) ->
+    {atomic, ejabberd_riak:delete(privacy, {LUser, LServer})};
 remove_user(LUser, LServer, odbc) ->
     sql_del_privacy_lists(LUser, LServer).
 
@@ -1134,5 +1247,7 @@ import(LServer) ->
 
 import(_LServer, mnesia, #privacy{} = P) ->
     mnesia:dirty_write(P);
+import(_LServer, riak, #privacy{} = P) ->
+    ejabberd_riak:put(P, privacy_schema());
 import(_, _, _) ->
     pass.
