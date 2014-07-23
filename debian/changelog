@@ -1,8 +1,8 @@
 ejabberd (1:14.07-1) unstable; urgency=low
 
   * Version bump from upstream.
-  * Remove ejabberd-version.patch, configure script now reports the correct
-    version.
+  * Remove patches applied upstream: ejabberd-version.patch,
+    update-table-fixes.patch
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 21 Jul 2014 19:06:10 +0200
 

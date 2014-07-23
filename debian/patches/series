@@ -9,5 +9,4 @@ ejabberd-monit.patch
 ejabberd-pid.patch
 rebar-dependencies.patch
 nodename.patch
-update-table-fixes.patch
 failed_auth.patch
