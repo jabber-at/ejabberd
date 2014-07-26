@@ -18,7 +18,7 @@
 +        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "9e9e0f8dbe6a70ef36e1d4436b458ca5a77fbcfb"}},
 +        {p1_xml, ".*", {git, "git://github.com/processone/xml", "7bd8e61adbcd9a8f26e9f2c9fbf45cecf097e453"}},
 +	{esip, ".*", {git, "git://github.com/processone/p1_sip", "9db2f379940b171023d7ab6f60ca922c53c6d105"}},
-+	{p1_stun, ".*", {git, "git://github.com/processone/stun", "27186925c3bcd6de231310294e9c4a048a5c4ed0"}},
++	{p1_stun, ".*", {git, "git://github.com/processone/stun", "096b98941639fb6fdf9ab5eec6fe036cc9653155"}},
 +        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "236b9435ad3731dbab637a16616167e09c074183"}},
 +        {xmlrpc, ".*", {git, "git://github.com/rds13/xmlrpc", "9e9be055c248be7bfb87b04dd9c444bc46e54912"}},
 +        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "9ab36b794d2cec5107c9de1b1c7dae62aa48b358"}}],
