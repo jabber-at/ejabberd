@@ -57,7 +57,7 @@
 +                     {lhttpc, ".*", {git, "git://github.com/esl/lhttpc", "5e459ec93f916ca7e5f2e1d4b14a20fbb0c49402"}}];
                 ({lager, true}) ->
 -                    [{lager, ".*", {git, "git://github.com/basho/lager"}}];
-+                    [{lager, ".*", {git, "git://github.com/basho/lager", "dd267603e93e8babe9ef9164fc176b430d669431"}}];
++                    [{lager, ".*", {git, "git://github.com/basho/lager", "4d8291edb72a25ac0efde907e2ecaa115108ff90"}}];
                 ({lager, false}) ->
 -                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger"}}];
 +                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "c7141aff68282dec46d60a3f39cbf658d0c91961"}}];
