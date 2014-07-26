@@ -1,6 +1,9 @@
 ejabberd (1:14.07-3) unstable; urgency=low
 
-  * improve clean target to remove all generated files.
+  * Improve clean target to remove all generated files.
+  * Use older lager (same as in 1:14.05-3) version which does not include
+    lager_common_test_backend.erl, which causes a dependency for
+    erlang-common-test (and indirectly for xterm and others).
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 24 Jul 2014 13:19:40 +0200
 

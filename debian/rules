@@ -38,7 +38,8 @@ override_dh_auto_install:
 
 override_dh_fixperms:
 	dh_fixperms
-	#rm $(DESTDIR)/usr/lib/ejabberd/ebin/stun_test.beam
+	# This file in the newest lager version yields a dependency for
+	# erlang-common-test:
 	#rm $(DESTDIR)/usr/lib/ejabberd/ebin/lager_common_test_backend.beam
 	erlang-depends
 
