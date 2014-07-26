@@ -38,7 +38,7 @@ override_dh_auto_install:
 
 override_dh_fixperms:
 	dh_fixperms
-	#rm $(DESTDIR)/usr/lib/ejabberd/ebin/stun_test.beam
+	rm $(DESTDIR)/usr/lib/ejabberd/ebin/stun_test.beam
 	#rm $(DESTDIR)/usr/lib/ejabberd/ebin/lager_common_test_backend.beam
 	erlang-depends
 
