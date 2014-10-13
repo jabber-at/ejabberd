@@ -54,6 +54,16 @@ case "$1" in
     ;;
 esac
 
+case "$1" in
+    remove|purge)
+        if ejabberdctl status >/dev/null || test $? = 1 ; then
+            # Ejabberd is starting ($? = 1) or running ($? = 0)
+	    invoke-rc.d ejabberd stop
+	    pkill -u ejabberd
+	fi
+    ;;
+esac
+
 #DEBHELPER#
 
 exit 0

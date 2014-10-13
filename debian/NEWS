@@ -1,3 +1,35 @@
+ejabberd (14.07-1) unstable; urgency=low
+
+  This is the first release after a rather long time. A lot has changed, many
+  patches were dropped and there's a bunch of new features.
+  Most important: the configuration file format was changed to YAML.
+
+  In previous ejabberd versions the configuration file should be written in
+  Erlang terms. The format is still supported, but it is highly recommended to
+  convert it to the new YAML format using the convert_to_yaml command from
+  ejabberdctl.
+
+  Also, the epam binary has a new location, so if you use PAM with ejabberd
+  make sure to look into README.Debian again.
+
+  Last but not least, mod_admin_extra was packaged separately. It might be a
+  good idea to install ejabberd-contrib if you have enabled that module.
+
+ -- Philipp Huebner <debalance@debian.org>  Wed, 01 Oct 2014 14:59:39 +0200
+
+ejabberd (2.1.11-1) unstable; urgency=low
+
+  This release adds support for the SCRAM-SHA-1 authentication mecnahism.
+  If the fully-qualified hostname of the server differs from the name
+  of the XMPP domain it serves, in order for this mechanism to work
+  with compliant clients, a modification should be made to the ejabberd's
+  configuration file.
+
+  Please consult the section "Using SCRAM-SHA-1 authentication mechanism"
+  in the README.Debian file for detailed information.
+
+ -- Konstantin Khomoutov <flatworm@users.sourceforge.net>  Thu, 16 May 2013 13:27:56 +0000
+
 ejabberd (2.1.8-1) unstable; urgency=low
 
   This release drops support for the @recent@ shared roster group
