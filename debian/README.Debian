@@ -14,6 +14,7 @@ Table of contents
 6. Upgrading from 2.0.x series
 6.1 Changes in ejabberdctl program
 6.2 Changes in logging
+7. Using SCRAM-SHA-1 authentication mechanism
 
 
 1. Running
@@ -58,56 +59,25 @@ by adding them to ERL_OPTIONS in /etc/default/ejabberd.
 ------------
 
 The package always makes a backup of the ejabberd database if it's running
-when it is upgraded or removed. The backup files are stored in
+when it is upgraded or removed. The backup files are stored in the
 /var/backups/ejabberd-<timestamp>.* directory.
 
 
 1.4. Using IPv6
 ---------------
 
-IPv6 is not enabled by default for any network activity in ejabberd.
-This is because with the current state of ejabberd code it's impossible
-to fall back to IPv4 if IPv6 is unavailable, and hence enabling IPv6
-by default would immediately break things for users with IPv6 disabled
-(see http://bugs.debian.org/503313 for more details).
+Since ejabberd 14.07-2, IPv6 is enabled by default, as it is for the Debian kernel.
+The IPv6 listeners also handle IPv4, so all is well.
 
-The actions to be carried out to enable IPv6 depend on whether
-IPv6-only or mixed setup is needed.
-
-To make ejabberd use IPv6 only, proceed with one of these methods:
-* Add the "inet6" atom to the configuration clauses describing
-  c2s and s2s listeners.
-* Specify and IPv6 address for the "ip" option in the configuration
-  of a listener, like {ip, "::"} -- ejabberd is able to deduce the
-  protocol family from an IP address it parses and enable the appropriate
-  mode on the socket such an IP address is configured for.
-* Specify the address to bind to along with the listener port;
-  the notes above about the IP address formatting also apply here.
-
-To support both IPv6 and IPv4, you have to duplicate the sections for
-appropriate listeners hinting ejabberd about the protocol to use
-for each one. One way to do this looks like this (for the c2s listener):
-
-{listen,
-  {{5222, "0.0.0.0"}, ejabberd_c2s, [...]},
-  {{5222, "::"}, ejabberd_c2s, [...]},
-  ...
-}
-
-This way, two (supposedly identical, though not required) c2s listeners
-are configured: the first one for IPv4 and the second one for IPv6;
-ejabberd figures the necessary protocol family out by looking at how
-the IP address to bind to is specified.
-
-Refer to the "Listening Ports" section of the Installation and
-Operation Guide for more info, specifically, to its "Port Number,
-IP Address and Transport Protocol" and "Examples" parts.
+If you want to go back to IPv4 only, replace
+ 'ip: "::"' with 'ip: "0.0.0.0"'
+for all listeners in ejabberd.yml.
 
 
 1.5. Using captcha
 ------------------
 
-Captcha generation script uses the "convert" program from the "imagemagick"
+The captcha generation script uses the "convert" program from the "imagemagick"
 package. As it depends on a lot of packages related to graphics and
 X Window System, it is listed as suggested. Therefore, if you intend to
 enable captcha support for your multi-user conferences be sure to install
@@ -120,54 +90,24 @@ with that of imagemagick.
 2. Hostname issues
 ===================
 
-The ejabberd daemon uses Erlang database Mnesia. Even if it's configured for
-using ODBC it uses Mnesia for some data (privacy lists et.) and runtime tasks
-(keeping routing table etc.). Mnesia is a multi-master database, and it tightly
-bounds to a hostname where it's working. Therefore, if you change computer
-hostname then ejabberd will stop working.
+The Mnesia database used by ejabberd is tightly bound to the hostname it runs on.
+Special care is needed if for some reason the hostname changes.
 
-If you don't have a current database backup then run ejabberd (attached to the
-terminal, otherwise you'll not be able to backup database and quit) by
-
-/usr/sbin/ejabberd --node ejabberd@oldhostname
-
-and in the Erlang shell prompt call
-
-(ejabberd@oldhostname)1> mnesia:backup("/tmp/ejabberd_at_oldhostname.backup").
-
-(note the trailing fullstop). Then stop ejabberd by typing
-
-(ejabberd@oldhostname)1> q().
-
-Now you have the latest Mnesia database backup.
-
-After that run a new Erlang shell by
-
-erl -pa /usr/lib/ejabberd/ebin
-
-and convert the backup file to a new hostname:
-
-1> mnesia_convert:change_node_name('ejabberd@oldhostname',
-				   'ejabberd@newhostname',
-				   "/tmp/ejabberd_at_oldhostname.backup",
-				   "/tmp/ejabberd_at_newhostname.backup").
-
-2> q().
-
-Then use file /tmp/ejabberd_at_newhostname.backup to restore ejabberd database
-as it is described in ejabberdctl manual page.
+In that case, please read the ejabberd Installation and Operation Guide,
+chapter 4.5 "Change Computer Hostname", which can be found as PDF and HTML in
+/usr/share/doc/ejabberd/.
 
 
 3. PAM authentication
 =======================
 
-Ejabberd uses "/usr/lib/ejabberd/priv/bin/epam" binary as a helper
+Ejabberd uses the "epam" binary from the erlang-p1-pam package as a helper
 program to perform PAM authentication.
 Depending on the PAM plugins used, the process accessing these plugins
 might have to be run with elevated privileges. The official ejabberd
 Installation and Operation Guide simplemindedly suggests to make epam
 setuid root which would make it work for any possible case.
-Debian's ejabberd package, on the other hand, ships the epam program
+Debian's erlang-p1-pam package, on the other hand, ships the epam program
 with the setuid and setgid bits cleared, and here is why:
 * Setuid and setgid programs present a serious potential security
   risk and are a target for exploitation attempts (especially
@@ -189,11 +129,11 @@ scripts honor this setting so it survives upgrades.
 
 As an example, to make epam setgid shadow, you can use:
 
-dpkg-statoverride --add root shadow 02755 /usr/lib/ejabberd/priv/bin/epam
+  dpkg-statoverride --add root shadow 02755 /usr/lib/erlang/p1_pam/bin/epam
 
 and to make epam setuid root you can do:
 
-dpkg-statoverride --add root ejabberd 04754 /usr/lib/ejabberd/priv/bin/epam
+  dpkg-statoverride --add root ejabberd 04754 /usr/lib/erlang/p1_pam/bin/epam
 
 (Note that we set o-x there so that only users in the ejabberd group
 are able to elevate their privileges by executing this program.)
@@ -205,32 +145,10 @@ are able to elevate their privileges by executing this program.)
 The ejabberd Installation and Operation Guide mentions that ejabberd
 is able to use various DBMS engines to manage most of ejabberd's data,
 such as user accounts, rosters, offline messages, pubsub storage etc.
-This is confusing, as the only database driver ejabberd supports
-"out of the box" is ODBC; working with any listed DBMS directly
-requires installation of a special database driver for Erlang, which are
-third-party code and are not distributed along with ejabberd.
 
-Debian's ejabberd package does not ship these database drivers,
-and hence it is not possible to work natively with MySQL, PostgreSQL
-and other DBMSes listed as supported by the Guide.
-This issue is discussed in the Debian BTS (see bugs #507144 and #540915).
-
-Therefore, as no one yet stepped forward to create and maintain
-packages which would enable native access to the supported DBMSes,
-you have two options to use them:
-
-* Get, build and install the required Erlang database driver
-  then configure ejabberd to locate the compiled code and use it.
-  Drivers for MySQL and PostgreSQL can be obtained from
-  https://forge.process-one.net/browse/ejabberd-modules
-  Refer to the section "External modules" of this file for details
-  on managing external ejabberd modules.
-
-* Use ODBC backend with a proper ODBC driver. On the ejabberd side,
-  this only requires making corresponding changes in the configuration
-  file. Gerfried Fuchs presented a sample configuration for using
-  PostgreSQL via ODBC in
-  http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=540915#10
+Starting with ejabberd 14.07-1, all officially supported DBMS engines
+are supported through the Debian package, as ejabberd is now compiled
+and installed with support for ODBC, MySQL and PostgreSQL.
 
 Note that it appears that currently the only way to use Microsoft SQL
 Server as a database backend is via ODBC (and the FreeTDS ODBC driver).
@@ -239,25 +157,22 @@ Server as a database backend is via ODBC (and the FreeTDS ODBC driver).
 5. External modules
 ===================
 
-The package installs ejabberd Erlang headers into /usr/lib/ejabberd/include
-directory. To build a module using these headers, as usual include them using
-    -include_lib("ejabberd/include/headername.hrl").
-and compile the module using -pa option to add ejabberd path to a search list
-    erlc -pa /usr/lib/ejabberd/ebin module.erl
+Some 3rd-party modules from https://github.com/processone/ejabberd-contrib
+are available through the ejabberd-contrib package. It only includes
+selected modules from the github repository, if you need more, please
+contact the package maintainer.
 
-Alternatively, include headers as
-    -include("headername.hrl").
-and add option -I /usr/lib/ejabberd/include to erlc command line.
-This is possibly the preferred way to build third-party ejabberd modules.
+If you want to develop your own module, the ejabberd-contrib repository is
+the best place to start. Please see the Readme.md or scroll downwards on
+https://github.com/processone/ejabberd-contrib
 
+All header files are available there as well as through the debian packages.
 
-To install a module, copy the resulting beam file(s) to a directory
+To install a custom module, copy the resulting beam file(s) to a directory
 in which the Erlang emulator running ejabberd looks for compiled
-files. One of such directories is "/usr/lib/ejabberd/ebin", but you are
-strongly advised not to place any files there unless they come from
-a Debian package. Hence, the best way to handle external modules is
-to maintain a special directory for them under "/usr/local" -- for instance,
-the "/usr/local/lib/ejabberd/ebin".
+files.
+The best way to handle external modules is to maintain a special directory
+for them under "/usr/local", e.g. "/usr/local/lib/ejabberd/ebin".
 To make Erlang emulator know about this directory, add an appropriate
 option to the ERL_OPTIONS variable in the "/etc/default/ejabberd" file.
 For the location proposed, you will probably want to add
@@ -361,11 +276,53 @@ The "--sasl-log" command-line option of the ejabberd program was renamed
 to "--erlang-log" to match the change above.
 
 
+7. Using SCRAM-SHA-1 authentication mechanism
+=============================================
+
+Since version 2.1.9 ejabberd supports the SCRAM-SHA-1 authentication
+mechanism (which, among other things, allows one to not store passwords
+of XMPP accounts in clear text if the internal database backend is used
+for storage).  This authentication process implemented by this
+mechanism includes the client sending a so-called "digest URI" which
+includes the server's identity as perceived by the connecting client.
+The SCRAM-SHA-1 RFC document requires this identity to be the
+fully-qualified host name of the server.  This hostname is typically
+obtained by the client by looking up a server-specific DNS record of
+type SRV for the XMPP domain the client wants to register in.
+
+Unfortunately, the current implementation of SCRAM-SHA-1 in ejabberd
+is not able to perform the same kind of DNS query as used by the
+clients to know its "canonical" fully-qualified host name.
+Consequently, if the actual hostname of the server differs from the
+name of the XMPP domain it serves, a special option should be included
+in the configuration file to let the server know its hostname as seen
+by its clients.  This configuration option is called "fqdn" and it
+expects a single argument -- the fully-qualified hostname of the
+server, as recorded in the appropriate DNS SRV record for the server.
+An example of its usage:
+
+{fqdn, "foo.example.com"}.
+
+It worth repeating that if the server's hostname is not different from
+the name of XMPP domain it servers (for instance, the XMPP domain is
+"example.com" and the server's hostname is also "example.com") the
+usage of this configuration option is not necessary as ejabberd will
+just use the domain name in the indicated case.
+
+It should be noted that while certain clients faithfully implement the
+SCRAM-SHA-1 specification, some other clients diverge and use the XMPP
+domain instead of the fully-qualified hostname of the server in the
+digest URI strings they send.  Ejabberd implements relaxed rules for
+interpreting digest URIs to be interoperable with broken client
+implementations.
+
+
 Authors
 =======
 
 Torsten Werner <twerner@debian.org>
 Sergei Golovan <sgolovan@debian.org>
 Konstantin Khomoutov <flatworm@users.sourceforge.net>
+Philipp Huebner <debalance@debian.org>
 
-Sun, 15 Nov 2009 03:52:33 +0300
+Wed, 01 Oct 2014 14:52:33 +0200
