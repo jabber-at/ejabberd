@@ -1,8 +1,8 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
-
-# Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
+
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/default.mk
 
 DESTDIR=$(CURDIR)/debian/ejabberd
 # NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
@@ -11,40 +11,48 @@ DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
     --enable-odbc --enable-mysql --enable-pgsql \
     --enable-stun --enable-json --enable-transient_supervisors --enable-riak
 
+%:
+	dh $@
+
+
+.PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 	dh_auto_configure -- ${DEB_CONFIGURE_EXTRA_FLAGS}
 
-override_dh_clean:
-	rm -f ejabberd.init ejabberdctl.example debian/ejabberd.init
-	dh_clean -Xasn1/ELDAPv3.asn1~
+.PHONY: override_dh_auto_build
+override_dh_auto_build:
+	dh_auto_build
+	cd doc && make all
 
+.PHONY: override_dh_auto_install
 override_dh_auto_install:
 	dh_auto_install
-
-	# Remove unused upstream config files/move to correct location
-	mv $(DESTDIR)/etc/ejabberd/ejabberd.yml $(DESTDIR)/usr/share/ejabberd/ejabberd.yml
+	rm $(DESTDIR)/etc/ejabberd/ejabberd.yml
+	mkdir $(DESTDIR)/etc/init.d $(DESTDIR)/etc/default
+	cp ejabberd.init $(DESTDIR)/etc/init.d/ejabberd
 	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
-
-	# Remove unused upstream directories:
-	rm -rf $(DESTDIR)/var/lock
-	rmdir $(DESTDIR)/var/lib/ejabberd
-	rmdir $(DESTDIR)/var/lib
-
-	# Remove upstream license file:
+	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
+	rm -r $(DESTDIR)/var/lock
+	rm -rf $(DESTDIR)/usr/lib/$(DPKG_CACHE_DEB_BUILD_MULTIARCH)/ejabberd/priv/lib
 	rm $(DESTDIR)/usr/share/doc/ejabberd/COPYING
 
-	find $(CURDIR) | sort | grep init
-	cp $(CURDIR)/ejabberd.init $(CURDIR)/debian/
+.PHONY: override_dh_compress
+override_dh_compress:
+	dh_compress --exclude=ejabberd.yml
 
-override_dh_fixperms:
-	dh_fixperms
-	# This file in the newest lager version yields a dependency for
-	# erlang-common-test:
-	#rm $(DESTDIR)/usr/lib/ejabberd/ebin/lager_common_test_backend.beam
+.PHONY: override_dh_installdeb
+override_dh_installdeb:
 	erlang-depends
+	dh_installdeb
+
+.PHONY: override_dh_auto_clean
+override_dh_auto_clean:
+	cd doc && make clean
+	rm -f doc/version.tex
+	rm -rf Makefile config.log config.status src/ejabberd.app.src vars.config ebin \
+		ejabberd.init ejabberdctl.example include/XmppAddr.hrl src/XmppAddr.asn1db \
+		src/XmppAddr.erl src/eldap_filter_yecc.erl
+	dh_auto_clean
 
 # test suite requires a running mysql and postgres server, so skipping the test.
 override_dh_auto_test:
-
-%:
-	dh $@ ${DH_ARGS}
