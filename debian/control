@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), libexpat1-dev, libssl-dev,
  erlang-base, erlang-asn1, erlang-parsetools, erlang-dev (>= 1:15.b),
  erlang-crypto, erlang-ssl, erlang-mnesia, erlang-inets, erlang-syntax-tools,
  erlang-eunit
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://www.process-one.net/en/projects/ejabberd/
 Vcs-Git: https://git.fsinf.at/apt/ejabberd.git
 Vcs-Browser: https://git.fsinf.at/apt/ejabberd
