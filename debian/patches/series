@@ -2,14 +2,13 @@ remove_deps.diff
 disable_rebar_deps.diff
 disable_test.diff
 fix_includes.diff
-#ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
+fix_init.patch
 enable-ipv6.diff
-#block-mucs-by-name.patch
+fix_option_name.patch
 ejabberdctl-defaults.patch
 ejabberd-config.patch
-ejabberd-init.patch
 ejabberd-monit.patch
 ejabberd-pid.patch
 nodename.patch

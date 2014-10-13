@@ -1,0 +1,48 @@
+Description: fix option name
+ The "ldap_deref_aliases" option has accidentally been renamed to
+ "deref_aliases" as of ejabberd 13.x. This patch reverts that change
+ (but lets ejabberd accept both names for the time being), so that the
+ option name now matches the documentation again. It has been applied
+ upstream after the 14.07 release.
+Author: Holger Weiss <holger@zedat.fu-berlin.de>
+
+diff --git a/src/eldap_utils.erl b/src/eldap_utils.erl
+index a870234..e6e874a 100644
+--- a/src/eldap_utils.erl
++++ b/src/eldap_utils.erl
+@@ -228,13 +228,28 @@ get_config(Host, Opts) ->
+     Base = get_opt({ldap_base, Host}, Opts,
+                    fun iolist_to_binary/1,
+                    <<"">>),
+-    DerefAliases = get_opt({deref_aliases, Host}, Opts,
+-                           fun(never) -> never;
+-                              (searching) -> searching;
+-                              (finding) -> finding;
+-                              (always) -> always
+-                           end, never),
+-    #eldap_config{servers = Servers,
++    OldDerefAliases = get_opt({deref_aliases, Host}, Opts,
++                              fun(never) -> never;
++                                 (searching) -> searching;
++                                 (finding) -> finding;
++                                 (always) -> always
++                              end, unspecified),
++    DerefAliases =
++        if OldDerefAliases == unspecified ->
++                get_opt({ldap_deref_aliases, Host}, Opts,
++                        fun(never) -> never;
++                           (searching) -> searching;
++                           (finding) -> finding;
++                           (always) -> always
++                        end, never);
++           true ->
++                ?WARNING_MSG("Option 'deref_aliases' is deprecated. "
++                             "The option is still supported "
++                             "but it is better to fix your config: "
++                             "use 'ldap_deref_aliases' instead.", []),
++                OldDerefAliases
++        end,
++   #eldap_config{servers = Servers,
+                   backups = Backups,
+                   tls_options = [{encrypt, Encrypt},
+                                  {tls_verify, TLSVerify},
