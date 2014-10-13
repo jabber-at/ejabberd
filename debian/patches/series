@@ -1,5 +1,7 @@
+remove_deps.diff
 disable_rebar_deps.diff
 disable_test.diff
+fix_includes.diff
 #ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
