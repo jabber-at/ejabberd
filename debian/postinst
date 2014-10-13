@@ -71,7 +71,11 @@ root@$EHOSTNAME.$EDOMAINNAME
     USER="$RET"
     db_get ejabberd/password
     PASSWD="$RET"
-    sed -e "s/__USER__/$USER/g ; s/__HOSTNAME__/$HOST/g" $CONFIG_SOURCE >$TEMPFILE
+    sed -e     "s/  - \"localhost\"/  - \"$HOST\"/ ;
+		s/  ## admin/  admin/ ;
+		0,/  ##   user/s/  ##   user/     user/ ;
+		s/  ##     - \"aleksey\": \"localhost\"/         - \"$USER\": \"$HOST\"/ ;
+		s/.*ermine.*//" $CONFIG_SOURCE > $TEMPFILE
     ucf --three-way --debconf-ok $TEMPFILE $CONFIG_TARGET
     db_stop
 
@@ -112,6 +116,7 @@ register_admin()
 		    fi
 		else
 		    echo "Admin user \"$USER@$HOST\" is registered successfully."
+		    invoke-rc.d ejabberd restart
 		fi
 	    fi
 	else
@@ -124,8 +129,12 @@ register_admin()
 
 case "$1" in
     configure|reconfigure)
-	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd
+	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd 2> /dev/null
 	setup_ejabberd "$@"
+	update-rc.d ejabberd defaults > /dev/null
+	if ! ejabberdctl status > /dev/null; then 
+	    invoke-rc.d ejabberd start
+	fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
