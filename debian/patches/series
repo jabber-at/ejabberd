@@ -1,3 +1,5 @@
+disable_rebar_deps.diff
+disable_test.diff
 #ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
@@ -7,7 +9,6 @@ ejabberd-config.patch
 ejabberd-init.patch
 ejabberd-monit.patch
 ejabberd-pid.patch
-rebar-dependencies.patch
 nodename.patch
 failed_auth.patch
 ejabberdctl-home.patch
