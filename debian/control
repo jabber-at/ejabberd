@@ -2,11 +2,12 @@ Source: ejabberd
 Section: net
 Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
-Build-Depends: debhelper (>= 9), libexpat1-dev, libssl-dev,
- zlib1g-dev, libpam0g-dev, po-debconf, git (>= 1.5), libyaml-dev (>= 0.1.4),
- erlang-base, erlang-asn1, erlang-parsetools, erlang-dev (>= 1:15.b),
- erlang-crypto, erlang-ssl, erlang-mnesia, erlang-inets, erlang-syntax-tools,
- erlang-eunit
+Build-Depends: debhelper (>= 9),
+               erlang-asn1, erlang-base, erlang-crypto, erlang-dev (>= 1:15.b), erlang-eunit, erlang-inets, erlang-lager, erlang-jiffy, erlang-mnesia, erlang-parsetools,
+               erlang-p1-cache-tab, erlang-p1-iconv, erlang-p1-mysql, erlang-p1-pam, erlang-p1-pgsql, erlang-p1-sip, erlang-p1-stringprep, erlang-p1-stun,
+               erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib,
+               erlang-ssl, erlang-xmlrpc,
+               hevea, po-debconf, rebar, texlive-latex-base, texlive-latex-recommended, texlive-latex-extra
 Standards-Version: 3.9.6
 Homepage: http://www.process-one.net/en/projects/ejabberd/
 Vcs-Git: https://git.fsinf.at/apt/ejabberd.git
@@ -14,11 +15,12 @@ Vcs-Browser: https://git.fsinf.at/apt/ejabberd
 
 Package: ejabberd
 Architecture: any
-Depends: adduser, ${erlang:Depends}, ${erlang-abi:Depends}, 
- openssl, ucf, imagemagick, gsfonts,
- ${misc:Depends}, ${shlibs:Depends}
-Suggests: libunix-syslog-perl, monit, ejabberd-mod-admin-extra,
- ejabberd-mod-muc-admin
+Depends: adduser, erlang-base (>= 1:15.b) | ${erlang-abi:Depends}, ${erlang:Depends}, openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
+               erlang-lager, erlang-jiffy, erlang-p1-cache-tab, erlang-p1-iconv, erlang-p1-mysql, erlang-p1-pam, erlang-p1-pgsql, erlang-p1-sip, erlang-p1-stringprep,
+               erlang-p1-stun, erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib, erlang-xmlrpc
+Provides: xmpp-server
+Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
+ monit, ejabberd-mod-admin-extra, ejabberd-mod-muc-admin
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc
 Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
  ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
