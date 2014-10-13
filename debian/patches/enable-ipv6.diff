@@ -1,0 +1,33 @@
+Description: enable IPv6 by default
+ Binding to "::" by default enables IPv6 as well as IPv4.
+ This was a release goal for the Lenny release already.
+Author: Philipp Huebner <debalance@debian.org>
+
+Index: ejabberd/ejabberd.yml.example
+===================================================================
+--- ejabberd.orig/ejabberd.yml.example
++++ ejabberd/ejabberd.yml.example
+@@ -104,6 +104,7 @@ hosts:
+ listen: 
+   - 
+     port: 5222
++    ip: "::"
+     module: ejabberd_c2s
+     ##
+     ## If TLS is compiled in and you installed a SSL
+@@ -123,6 +124,7 @@ listen:
+     access: c2s
+   - 
+     port: 5269
++    ip: "::"
+     module: ejabberd_s2s_in
+   ##
+   ## ejabberd_service: Interact with external components (transports, ...)
+@@ -155,6 +157,7 @@ listen:
+   ##   module: ejabberd_xmlrpc
+   - 
+     port: 5280
++    ip: "::"
+     module: ejabberd_http
+     ## request_handlers:
+     ##   "/pub/archive": mod_http_fileserver

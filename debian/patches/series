@@ -5,6 +5,7 @@ fix_includes.diff
 #ejabberd_regexp.patch
 captcha.patch
 fix_examples.patch
+enable-ipv6.diff
 #block-mucs-by-name.patch
 ejabberdctl-defaults.patch
 ejabberd-config.patch
