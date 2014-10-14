@@ -5,11 +5,7 @@ DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
 
 DESTDIR=$(CURDIR)/debian/ejabberd
-# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
-# on Debian Stable and all Ubuntu distros up to at least Saucy.
-DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
-    --enable-odbc --enable-mysql --enable-pgsql \
-    --enable-stun --enable-json --enable-transient_supervisors --enable-riak
+
 
 %:
 	dh $@
@@ -17,7 +13,11 @@ DEB_CONFIGURE_EXTRA_FLAGS := --enable-nif --enable-pam --libdir=/usr/lib \
 
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
-	dh_auto_configure -- ${DEB_CONFIGURE_EXTRA_FLAGS}
+	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
+	# on Debian Stable and all Ubuntu distros up to at least Saucy.
+	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
+	    --enable-nif --enable-transient_supervisors --enable-riak --libdir=/usr/lib \
+	    --enable-zlib --enable-json --enable-iconv --enable-lager --enable-stun
 
 .PHONY: override_dh_auto_build
 override_dh_auto_build:
@@ -53,6 +53,3 @@ override_dh_auto_clean:
 		ejabberd.init ejabberdctl.example include/XmppAddr.hrl src/XmppAddr.asn1db \
 		src/XmppAddr.erl src/eldap_filter_yecc.erl
 	dh_auto_clean
-
-# test suite requires a running mysql and postgres server, so skipping the test.
-override_dh_auto_test:
