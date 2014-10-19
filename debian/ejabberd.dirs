@@ -1,5 +1,5 @@
-etc/default
+#etc/default
 etc/ejabberd
-etc/init.d
+#etc/init.d
 usr/share/ejabberd
 var/log/ejabberd
