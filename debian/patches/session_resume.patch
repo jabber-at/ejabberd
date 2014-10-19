@@ -3,6 +3,9 @@ From: Holger Weiss <holger@zedat.fu-berlin.de>
 Date: Sun, 12 Oct 2014 19:44:35 +0200
 Subject: [PATCH] XEP-0198: Set #state.conn field on session resume
 
+Fixed in ejabberd 14.07+1. This bug causes ejabberdctl connected_users_info to
+show "unknown" connections.
+
 ---
  src/ejabberd_c2s.erl | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)

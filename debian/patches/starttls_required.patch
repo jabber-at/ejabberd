@@ -5,6 +5,8 @@ Subject: [PATCH] Make sure "starttls_required" can't be bypassed
 
 Don't allow clients to circumvent the "starttls_required" option by
 enabling XMPP stream compression.
+
+Fixed in ejabberd 14.07+1.
 ---
  src/ejabberd_c2s.erl | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
