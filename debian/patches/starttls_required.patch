@@ -11,11 +11,9 @@ Fixed in ejabberd 14.07+1.
  src/ejabberd_c2s.erl | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
-index 9bfe225..1591e6f 100644
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -735,7 +735,7 @@ wait_for_feature_request({xmlstreamelement, El},
+@@ -723,7 +723,7 @@
  	(StateData#state.sockmod):get_sockmod(StateData#state.socket),
      case {xml:get_attr_s(<<"xmlns">>, Attrs), Name} of
        {?NS_SASL, <<"auth">>}
@@ -24,7 +22,7 @@ index 9bfe225..1591e6f 100644
  	  Mech = xml:get_attr_s(<<"mechanism">>, Attrs),
  	  ClientIn = jlib:decode_base64(xml:get_cdata(Els)),
  	  case cyrsasl:server_start(StateData#state.sasl_state,
-@@ -856,7 +856,7 @@ wait_for_feature_request({xmlstreamelement, El},
+@@ -842,7 +842,7 @@
  		end
  	  end;
        _ ->
