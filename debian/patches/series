@@ -16,3 +16,4 @@ failed_auth.patch
 ejabberdctl-home.patch
 starttls_required.patch
 session_resume.patch
+presence_probes.patch

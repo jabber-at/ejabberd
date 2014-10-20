@@ -4,7 +4,7 @@ ejabberd (1:14.07-4) unstable; urgency=low
     * Import patches used upstream.
     * Make sure all files are as identical as possible.
     * Dependencies are now shipped as their own package.
-  * Add starttls_required.patch and session_resume.patch.
+  * Add presence_probes.patch, starttls_required.patch and session_resume.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 13 Oct 2014 22:35:58 +0200
 
