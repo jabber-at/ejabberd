@@ -4,6 +4,7 @@ ejabberd (1:14.07-5) unstable; urgency=low
     A common usecase are munin plugins with user=ejabberd and group=ejabberd.
   * Add auth_mechanisms.patch, so that auth mechanisms are only advertised
     after TLS negotiation.
+  * Add dpkg-dev (>= 1.16.1~) as build-dependency.
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 30 Oct 2014 14:45:50 +0100
 
