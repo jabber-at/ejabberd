@@ -2,7 +2,7 @@ ejabberd (1:14.07-5) unstable; urgency=low
 
   * Fix ejabberdctl when invoked as ejabberd user but not with a root-group.
   * Add auth_mechanisms.patch, so that auth mechanisms are only advertised
-    after TLS negotation.
+    after TLS negotiation.
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 13 Oct 2014 22:35:58 +0200
 
