@@ -4,6 +4,15 @@ Applied-Upstream: ?
 Last-Update: 2014-07-11
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
+@@ -25,7 +25,7 @@
+             EXEC_CMD="su $INSTALLUSER -c"
+         fi
+     done
+-    if [ `id -g` -eq `id -g $INSTALLUSER` ] ; then
++    if [ `id -nu` = "$INSTALLUSER" -o `id -g` -eq `id -g $INSTALLUSER` ] ; then
+         EXEC_CMD="sh -c"
+     fi
+     if [ "$EXEC_CMD" = "false" ] ; then
 @@ -46,7 +46,8 @@
          --node) ERLANG_NODE_ARG=$1 ; shift ;;
          --config-dir) ETC_DIR="$1" ; shift ;;
