@@ -10,11 +10,9 @@ TLS connection.
  src/ejabberd_c2s.erl | 32 +++++++++++++++++++-------------
  1 file changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
-index 4c5f677..72ebdb5 100644
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -383,6 +383,9 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -386,6 +386,9 @@
  			    send_header(StateData, Server, <<"1.0">>, DefaultLang),
  			    case StateData#state.authenticated of
  				false ->
@@ -24,7 +22,7 @@ index 4c5f677..72ebdb5 100644
  				    SASLState =
  					cyrsasl:server_new(
  					  <<"jabber">>, Server, <<"">>, [],
-@@ -398,12 +401,21 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -401,12 +404,21 @@
  						  ejabberd_auth:check_password_with_authmodule(
  						    U, Server, P, D, DG)
  					  end),
@@ -52,7 +50,7 @@ index 4c5f677..72ebdb5 100644
  				    SockMod =
  					(StateData#state.sockmod):get_sockmod(
  					  StateData#state.socket),
-@@ -421,9 +433,6 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -424,9 +436,6 @@
  					    _ ->
  						[]
  					end,
@@ -62,7 +60,7 @@ index 4c5f677..72ebdb5 100644
  				    TLSFeature =
  					case (TLS == true) andalso
  					    (TLSEnabled == false) andalso
-@@ -448,10 +457,7 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -451,10 +460,7 @@
  					    #xmlel{name = <<"stream:features">>,
  						   attrs = [],
  						   children =

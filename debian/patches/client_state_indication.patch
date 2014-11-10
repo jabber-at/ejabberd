@@ -71,7 +71,7 @@ Subject: [PATCH] Support XEP-0352: Client State Indication
  \ind{protocols!XEP-0030: Service Discovery}
 --- a/ejabberd.yml.example
 +++ b/ejabberd.yml.example
-@@ -564,6 +564,9 @@
+@@ -565,6 +565,9 @@
    mod_blocking: {} # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
