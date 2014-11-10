@@ -12,8 +12,6 @@ Subject: [PATCH] Support XEP-0352: Client State Indication
  5 files changed, 222 insertions(+), 8 deletions(-)
  create mode 100644 src/mod_client_state.erl
 
-diff --git a/doc/guide.tex b/doc/guide.tex
-index 8e2b910..27fcfc1 100644
 --- a/doc/guide.tex
 +++ b/doc/guide.tex
 @@ -66,6 +66,7 @@
@@ -24,7 +22,7 @@ index 8e2b910..27fcfc1 100644
  \newcommand{\modblocking}{\module{mod\_blocking}}
  \newcommand{\modcaps}{\module{mod\_caps}}
  \newcommand{\modcarboncopy}{\module{mod\_carboncopy}}
-@@ -2781,6 +2782,7 @@
+@@ -2785,6 +2786,7 @@
      \hline \modblocking{} & Simple Communications Blocking (\xepref{0191}) & \modprivacy{} \\
      \hline \modcaps{} &  Entity Capabilities (\xepref{0115}) & \\
      \hline \modcarboncopy{} & Message Carbons (\xepref{0280}) & \\
@@ -32,7 +30,7 @@ index 8e2b910..27fcfc1 100644
      \hline \modconfigure{} & Server configuration using Ad-Hoc & \modadhoc{} \\
      \hline \ahrefloc{moddisco}{\moddisco{}} & Service Discovery (\xepref{0030}) &  \\
      \hline \ahrefloc{modecho}{\modecho{}} & Echoes XMPP stanzas &  \\
-@@ -3001,6 +3003,38 @@
+@@ -3004,6 +3006,38 @@
  deployments as it can broadcast lot of messages. This module should be
  disabled for instances of \ejabberd{} with hundreds of thousands users.
  
@@ -71,11 +69,9 @@ index 8e2b910..27fcfc1 100644
  \makesubsection{moddisco}{\moddisco{}}
  \ind{modules!\moddisco{}}
  \ind{protocols!XEP-0030: Service Discovery}
-diff --git a/ejabberd.yml.example b/ejabberd.yml.example
-index 8f108bf..4755a7d 100644
 --- a/ejabberd.yml.example
 +++ b/ejabberd.yml.example
-@@ -558,6 +558,9 @@ modules:
+@@ -564,6 +564,9 @@
    mod_blocking: {} # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
@@ -83,10 +79,8 @@ index 8f108bf..4755a7d 100644
 +    drop_chat_states: true
 +    queue_presence: false
    mod_configure: {} # requires mod_adhoc
-   mod_disco: {}
-   ## mod_echo: {}
-diff --git a/include/ns.hrl b/include/ns.hrl
-index 6eb54fc..3ec19ac 100644
+   mod_disco:
+     server_info:
 --- a/include/ns.hrl
 +++ b/include/ns.hrl
 @@ -147,5 +147,6 @@
@@ -96,8 +90,6 @@ index 6eb54fc..3ec19ac 100644
 +-define(NS_CLIENT_STATE,  <<"urn:xmpp:csi:0">>).
  -define(NS_STREAM_MGMT_2,  <<"urn:xmpp:sm:2">>).
  -define(NS_STREAM_MGMT_3,  <<"urn:xmpp:sm:3">>).
-diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
-index 87f1bbd..cb6f9e6 100644
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
 @@ -108,6 +108,8 @@
@@ -109,7 +101,7 @@ index 87f1bbd..cb6f9e6 100644
  		mgmt_state,
  		mgmt_xmlns,
  		mgmt_queue,
-@@ -475,6 +477,10 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -488,6 +490,10 @@
  					      false ->
  						  []
  					    end,
@@ -120,7 +112,7 @@ index 87f1bbd..cb6f9e6 100644
  					StreamFeatures = [#xmlel{name = <<"bind">>,
  								attrs = [{<<"xmlns">>, ?NS_BIND}],
  								children = []},
-@@ -484,6 +490,7 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
+@@ -497,6 +503,7 @@
  							    ++
  							    RosterVersioningFeature ++
  							    StreamManagementFeature ++
@@ -128,7 +120,7 @@ index 87f1bbd..cb6f9e6 100644
  							    ejabberd_hooks:run_fold(c2s_stream_features,
  								Server, [], [Server]),
  					send_element(StateData,
-@@ -1165,6 +1172,17 @@ wait_for_session(closed, StateData) ->
+@@ -1163,6 +1170,17 @@
  session_established({xmlstreamelement, #xmlel{name = Name} = El}, StateData)
      when ?IS_STREAM_MGMT_TAG(Name) ->
      fsm_next_state(session_established, dispatch_stream_mgmt(El, StateData));
@@ -146,7 +138,7 @@ index 87f1bbd..cb6f9e6 100644
  session_established({xmlstreamelement, El},
  		    StateData) ->
      FromJID = StateData#state.jid,
-@@ -1855,6 +1873,8 @@ send_element(StateData, El) when StateData#state.xml_socket ->
+@@ -1855,6 +1873,8 @@
  send_element(StateData, El) ->
      send_text(StateData, xml:element_to_binary(El)).
  
@@ -155,7 +147,7 @@ index 87f1bbd..cb6f9e6 100644
  send_stanza(StateData, Stanza) when StateData#state.mgmt_state == pending ->
      mgmt_queue_add(StateData, Stanza);
  send_stanza(StateData, Stanza) when StateData#state.mgmt_state == active ->
-@@ -1869,18 +1889,14 @@ send_stanza(StateData, Stanza) ->
+@@ -1864,18 +1884,14 @@
      send_element(StateData, Stanza),
      StateData.
  
@@ -176,7 +168,7 @@ index 87f1bbd..cb6f9e6 100644
  
  send_header(StateData, Server, Version, Lang)
      when StateData#state.xml_socket ->
-@@ -2762,9 +2778,11 @@ handle_resume(StateData, Attrs) ->
+@@ -2758,9 +2774,11 @@
  		       #xmlel{name = <<"r">>,
  			      attrs = [{<<"xmlns">>, AttrXmlns}],
  			      children = []}),
@@ -190,7 +182,7 @@ index 87f1bbd..cb6f9e6 100644
        {error, El, Msg} ->
  	  send_element(StateData, El),
  	  ?INFO_MSG("Cannot resume session for ~s@~s: ~s",
-@@ -2953,6 +2971,8 @@ inherit_session_state(#state{user = U, server = S} = StateData, ResumeID) ->
+@@ -2952,6 +2970,8 @@
  					   pres_invis = OldStateData#state.pres_invis,
  					   privacy_list = OldStateData#state.privacy_list,
  					   aux_fields = OldStateData#state.aux_fields,
@@ -199,8 +191,8 @@ index 87f1bbd..cb6f9e6 100644
  					   mgmt_xmlns = OldStateData#state.mgmt_xmlns,
  					   mgmt_queue = OldStateData#state.mgmt_queue,
  					   mgmt_timeout = OldStateData#state.mgmt_timeout,
-@@ -2977,6 +2997,71 @@ make_resume_id(StateData) ->
-     jlib:term_to_base64({StateData#state.resource, Time}).
+@@ -2980,6 +3000,71 @@
+     jlib:term_to_base64(ID).
  
  %%%----------------------------------------------------------------------
 +%%% XEP-0352
@@ -271,9 +263,6 @@ index 87f1bbd..cb6f9e6 100644
  %%% JID Set memory footprint reduction code
  %%%----------------------------------------------------------------------
  
-diff --git a/src/mod_client_state.erl b/src/mod_client_state.erl
-new file mode 100644
-index 0000000..8336316
 --- /dev/null
 +++ b/src/mod_client_state.erl
 @@ -0,0 +1,91 @@

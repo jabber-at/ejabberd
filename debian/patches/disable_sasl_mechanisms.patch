@@ -12,11 +12,9 @@ Closes #339.
  src/cyrsasl.erl | 28 +++++++++++++++++++++++++---
  2 files changed, 30 insertions(+), 3 deletions(-)
 
-diff --git a/doc/guide.tex b/doc/guide.tex
-index 2c20df9..d77a252 100644
 --- a/doc/guide.tex
 +++ b/doc/guide.tex
-@@ -1453,6 +1453,11 @@
+@@ -1447,6 +1447,11 @@
  The option syntax is:
  \esyntax{fqdn: undefined|FqdnString|[FqdnString]}
  
@@ -28,11 +26,9 @@ index 2c20df9..d77a252 100644
  \makesubsubsection{internalauth}{Internal}
  \ind{internal authentication}\ind{Mnesia}
  
-diff --git a/src/cyrsasl.erl b/src/cyrsasl.erl
-index f404a7a..db2160c 100644
 --- a/src/cyrsasl.erl
 +++ b/src/cyrsasl.erl
-@@ -93,9 +93,15 @@ start() ->
+@@ -93,9 +93,15 @@
  ).
  
  register_mechanism(Mechanism, Module, PasswordType) ->
@@ -51,7 +47,7 @@ index f404a7a..db2160c 100644
  
  %%% TODO: use callbacks
  %%-include("ejabberd.hrl").
-@@ -215,3 +221,19 @@ filter_anonymous(Host, Mechs) ->
+@@ -215,3 +221,19 @@
        true  -> Mechs;
        false -> Mechs -- [<<"ANONYMOUS">>]
      end.
