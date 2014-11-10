@@ -77,7 +77,7 @@ Subject: [PATCH] Support XEP-0352: Client State Indication
    mod_carboncopy: {}
 +  mod_client_state:
 +    drop_chat_states: true
-+    queue_presence: false
++    queue_presence: true
    mod_configure: {} # requires mod_adhoc
    mod_disco:
      server_info:
