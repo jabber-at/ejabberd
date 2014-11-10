@@ -1,4 +1,4 @@
-ejabberd (1:14.07-5) unstable; urgency=low
+ejabberd (1:14.07-6) unstable; urgency=low
 
   * Add client_state_indication.patch, Support XEP-0352: Client State
     Indication
@@ -6,7 +6,7 @@ ejabberd (1:14.07-5) unstable; urgency=low
     authentication.
   * Add resend_on_timeout: if_offline option to default configuration.
 
- -- Mathias Ertl <mati@jabber.at>  Thu, 30 Oct 2014 14:45:50 +0100
+ -- Mathias Ertl <mati@jabber.at>  Mon, 10 Nov 2014 14:53:26 +0100
 
 ejabberd (1:14.07-5) unstable; urgency=low
 
