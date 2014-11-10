@@ -18,3 +18,5 @@ starttls_required.patch
 session_resume.patch
 presence_probes.patch
 auth_mechanisms.patch
+disable_sasl_mechanisms.patch
+client_state_indication.patch

@@ -1,5 +1,14 @@
 ejabberd (1:14.07-5) unstable; urgency=low
 
+  * Add client_state_indication.patch, Support XEP-0352: Client State
+    Indication
+  * Add disable_sasl_mechanisms.patch so you can disable DIGEST-MD5
+    authentication.
+
+ -- Mathias Ertl <mati@jabber.at>  Thu, 30 Oct 2014 14:45:50 +0100
+
+ejabberd (1:14.07-5) unstable; urgency=low
+
   * Fix ejabberdctl when invoked as ejabberd user but not with a root-group.
     A common usecase are munin plugins with user=ejabberd and group=ejabberd.
   * Add auth_mechanisms.patch, so that auth mechanisms are only advertised
