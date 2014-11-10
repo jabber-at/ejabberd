@@ -4,6 +4,7 @@ ejabberd (1:14.07-5) unstable; urgency=low
     Indication
   * Add disable_sasl_mechanisms.patch so you can disable DIGEST-MD5
     authentication.
+  * Add resend_on_timeout: if_offline option to default configuration.
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 30 Oct 2014 14:45:50 +0100
 
