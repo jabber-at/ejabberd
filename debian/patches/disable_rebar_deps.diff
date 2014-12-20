@@ -3,11 +3,9 @@ Description: remove make targets for deps
  using rebar at build time.
 Author: Philipp Huebner <debalance@debian.org>
 
-Index: ejabberd/Makefile.in
-===================================================================
---- ejabberd.orig/Makefile.in
-+++ ejabberd/Makefile.in
-@@ -68,26 +68,11 @@ else
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -68,26 +68,11 @@
    INIT_USER=$(INSTALLUSER)
  endif
  
@@ -33,10 +31,10 @@ Index: ejabberd/Makefile.in
 -	rm -rf deps/.built
 -	$(REBAR) update-deps && :> deps/.got
 -
- translations:
- 	contrib/extract_translations/prepare-translation.sh -updateall
+ xref: all
+ 	$(REBAR) skip_deps=true xref
  
-@@ -103,8 +88,6 @@ spec:
+@@ -107,8 +92,6 @@
  	$(ERL) -noinput +B -pa ebin -pa deps/*/ebin -eval \
  	'case xml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
  
@@ -45,7 +43,7 @@ Index: ejabberd/Makefile.in
  install: all
  	#
  	# Configuration files
-@@ -139,14 +122,11 @@ install: all
+@@ -143,24 +126,19 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
@@ -60,11 +58,31 @@ Index: ejabberd/Makefile.in
  	#
  	# Binary C programs
  	$(INSTALL) -d $(PBINDIR)
-@@ -156,7 +136,6 @@ install: all
+ 	$(INSTALL) -m 750 $(O_USER) tools/captcha.sh $(PBINDIR)
+-	-[ -f deps/p1_pam/priv/bin/epam ] \
+-		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR)
  	#
  	# Binary system libraries
  	$(INSTALL) -d $(SODIR)
 -	$(INSTALL) -m 644 $(DLLs) $(SODIR)
++	$(INSTALL) -m 644 $(SODIR)
+ 	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
  	#
  	# Translated strings
- 	$(INSTALL) -d $(MSGSDIR)
+@@ -223,8 +201,6 @@
+ 	rm -rf $(LOGDIR)
+ 
+ clean:
+-	rm -rf deps/.got
+-	rm -rf deps/.built
+ 	rm -rf test/*.beam
+ 	$(REBAR) clean
+ 
+@@ -235,7 +211,6 @@
+ 	rm -f config.status
+ 	rm -f config.log
+ 	rm -rf autom4te.cache
+-	rm -rf deps
+ 	rm -rf ebin
+ 	rm -f Makefile
+ 	rm -f vars.config
