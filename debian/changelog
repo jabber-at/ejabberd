@@ -1,5 +1,14 @@
 ejabberd (1:14.07-6) unstable; urgency=low
 
+  * Version bump from upstream.
+  * Removed patches applied upstream:
+    * client_state_indication.patch
+    * disable_sasl_mechanisms.patch
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
+
+ejabberd (1:14.07-6) unstable; urgency=low
+
   * Add client_state_indication.patch, Support XEP-0352: Client State
     Indication
   * Add disable_sasl_mechanisms.patch so you can disable DIGEST-MD5
