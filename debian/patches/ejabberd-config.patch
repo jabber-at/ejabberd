@@ -9,14 +9,18 @@
  
  ##
  ## route_subdomains: Delegate subdomains to other XMPP servers.
-@@ -111,17 +111,20 @@
+@@ -111,22 +111,19 @@
      ## certificate, specify the full path to the
-     ## file and uncomment this line:
+     ## file and uncomment these lines:
      ##
 -    ## certfile: "/path/to/ssl.pem"
 -    ## starttls: true
+-    ##
+-    ## To enforce TLS encryption for client connections,
+-    ## use this instead of the "starttls" option:
+-    ##
+-    ## starttls_required: true
 +    certfile: "/etc/ejabberd/ejabberd.pem"
-+    starttls: true
 +    starttls_required: true
      ##
      ## Custom OpenSSL options
@@ -35,7 +39,17 @@
    - 
      port: 5269
      ip: "::"
-@@ -172,12 +175,12 @@
+@@ -172,17 +169,22 @@
+     ## register: true
+     captcha: true
+ 
++
++## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
++## password storage (see auth_password_format option).
++disable_sasl_mechanisms: "digest-md5"
++
+ ##
+ ## s2s_use_starttls: Enable STARTTLS + Dialback for S2S connections.
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -50,7 +64,17 @@
  
  ## Custom OpenSSL options
  ##
-@@ -257,7 +260,7 @@
+@@ -231,7 +233,8 @@
+ ##
+ ## Store the plain passwords or hashed for SCRAM:
+ ## auth_password_format: plain
+-## auth_password_format: scram
++auth_password_format: scram
++
+ ##
+ ## Define the FQDN if ejabberd doesn't detect it:
+ ## fqdn: "server3.example.com"
+@@ -262,7 +265,7 @@
  ##
  ## List of LDAP servers:
  ## ldap_servers:
@@ -59,7 +83,7 @@
  ##
  ## Encryption of connection to LDAP servers:
  ## ldap_encrypt: none
-@@ -387,8 +390,8 @@
+@@ -392,8 +395,8 @@
    ##
    ## admin:
    ##   user:
@@ -70,7 +94,7 @@
    ##
    ## Blocked users
    ##
-@@ -434,11 +437,11 @@
+@@ -439,11 +442,11 @@
  ## Define specific ACLs in a virtual host.
  ##
  ## host_config:
@@ -84,7 +108,7 @@
  
  ###   ============
  ###   ACCESS RULES
-@@ -494,6 +497,12 @@
+@@ -499,6 +502,12 @@
    ##   bad_servers: deny
    ##   all: allow
  
@@ -97,7 +121,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
-@@ -502,7 +511,7 @@
+@@ -507,7 +516,7 @@
  ## Define specific Access Rules in a virtual host.
  ##
  ## host_config:
@@ -106,7 +130,7 @@
  ##     access:
  ##       c2s:
  ##         admin: allow
-@@ -522,7 +531,7 @@
+@@ -527,7 +536,7 @@
  ## Set a different default language in a virtual host.
  ##
  ## host_config:
@@ -115,7 +139,7 @@
  ##     language: "ru"
  
  ###   =======
-@@ -531,12 +540,12 @@
+@@ -536,12 +545,12 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -130,9 +154,12 @@
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -557,10 +566,16 @@
-   mod_caps: {}
+@@ -563,12 +572,19 @@
    mod_carboncopy: {}
+   mod_client_state:
+     drop_chat_states: true
+-    queue_presence: false
++    queue_presence: true
    mod_configure: {} # requires mod_adhoc
 -  mod_disco: {}
 +  mod_disco:
@@ -143,6 +170,7 @@
    ## mod_echo: {}
 -  mod_irc: {}
 -  mod_http_bind: {}
++  mod_fail2ban: {}
 +  mod_irc:
 +    default_encoding: "utf-8"
 +  mod_http_bind:
@@ -150,7 +178,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -571,13 +586,15 @@
+@@ -579,13 +595,15 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
@@ -169,7 +197,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -596,7 +613,7 @@
+@@ -604,7 +622,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -178,7 +206,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -623,7 +640,7 @@
+@@ -631,7 +649,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -187,7 +215,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -632,20 +649,25 @@
+@@ -640,12 +658,18 @@
  
      access: register
    mod_roster: {}
@@ -197,24 +225,15 @@
    mod_time: {}
    mod_vcard: {}
    mod_version: {}
+ 
 +  ## to enable extra admin commands, install ejabberd-mod-admin-extra and
 +  ## ejabberd-mod-muc-admin and uncomment:
 +  ##mod_admin_extra: {}
 +  ##mod_muc_admin: {}
- 
++
  ##
  ## Enable modules with custom options in a specific virtual host
  ##
- ## append_host_config:
--##   "localhost":
-+##   "__HOSTNAME__":
- ##     modules:
- ##       mod_echo:
--##         host: "mirror.localhost"
-+##         host: "mirror.__HOSTNAME__"
- 
- ### Local Variables:
- ### mode: yaml
 --- a/ejabberdctl.cfg.example
 +++ b/ejabberdctl.cfg.example
 @@ -3,7 +3,7 @@
