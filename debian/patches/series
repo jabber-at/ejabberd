@@ -11,7 +11,7 @@ ejabberd-config.patch
 ejabberd-monit.patch
 ejabberd-pid.patch
 nodename.patch
-failed_auth.patch
+#failed_auth.patch
 ejabberdctl-home.patch
 starttls_required.patch
 session_resume.patch
