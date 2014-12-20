@@ -8,7 +8,7 @@
  EJABBERD_MONIT_INTEGRATION=no
  
  test -x "$CTL" || {
-@@ -44,6 +45,7 @@
+@@ -44,12 +45,18 @@
  
  
  export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
@@ -16,27 +16,23 @@
  
  case "$1" in
    start)
-@@ -51,6 +53,11 @@
+     test -x "$CTL" || exit 0
      mkrundir
      echo "Starting ejabberd..."
-     if ! /etc/init.d/ejabberd status > /dev/null; then 
-+	if [ ! -d $EJABBERD_PID_DIR ]; then
-+		mkdir $EJABBERD_PID_DIR
-+		chown ejabberd:ejabberd $EJABBERD_PID_DIR
-+		chmod 755 $EJABBERD_PID_DIR
-+	fi
- 	su - $USER -c "$CTL start"
- 	su - $USER -c "$CTL started"
-     fi
-@@ -65,6 +72,13 @@
- 	su - $USER -c "$CTL stop"
- 	su - $USER -c "$CTL stopped"
++    if [ ! -d $EJABBERD_PID_DIR ]; then
++      mkdir $EJABBERD_PID_DIR
++      chown ejabberd:ejabberd $EJABBERD_PID_DIR
++      chmod 755 $EJABBERD_PID_DIR
++    fi
+     if ! /etc/init.d/ejabberd status > /dev/null; then
+       su - $USER -c "$CTL start"
+       su - $USER -c "$CTL started"
+@@ -65,6 +72,10 @@
+       su - $USER -c "$CTL stop"
+       su - $USER -c "$CTL stopped"
      fi
 +    if [ -f $EJABBERD_PID_PATH ]; then
 +        rm -f $EJABBERD_PID_PATH
-+    fi
-+    if [ -f $EJABBERD_PID_PATH ]; then
-+	rm -f $EJABBERD_PID_PATH
 +    fi
 +
      echo "done."
