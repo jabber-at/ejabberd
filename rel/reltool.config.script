@@ -28,7 +28,7 @@ ConfiguredOTPApps = lists:flatmap(
 
 OTPApps = RequiredOTPApps ++ ConfiguredOTPApps,
 
-DepRequiredApps = [p1_cache_tab, p1_tls, p1_stringprep, p1_xml, p1_yaml, xmlrpc],
+DepRequiredApps = [p1_cache_tab, p1_tls, p1_stringprep, p1_xml, p1_yaml, p1_utils],
 
 DepConfiguredApps = lists:flatmap(
                       fun({mysql, true}) -> [p1_mysql];
@@ -38,7 +38,6 @@ DepConfiguredApps = lists:flatmap(
                          ({stun, true}) -> [p1_stun];
                          ({json, true}) -> [jiffy];
                          ({iconv, true}) -> [p1_iconv];
-                         ({http, true}) -> [ibrowse, lhttpc];
                          ({lager, true}) -> [lager, goldrush];
                          ({lager, false}) -> [p1_logger];
                          (_) -> []

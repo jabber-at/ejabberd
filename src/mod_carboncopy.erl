@@ -138,8 +138,8 @@ user_receive_packet(JID, _From, To, Packet) ->
 %    - registered to the user_send_packet hook, to be called only once even for multicast
 %    - do not support "private" message mode, and do not modify the original packet in any way
 %    - we also replicate "read" notifications
-check_and_forward(JID, To, #xmlel{name = <<"message">>, attrs = Attrs} = Packet, Direction)->
-    case xml:get_attr_s(<<"type">>, Attrs) == <<"chat">> andalso
+check_and_forward(JID, To, Packet, Direction)->
+    case is_chat_or_normal_message(Packet) andalso
 	     xml:get_subtag(Packet, <<"private">>) == false andalso
 		 xml:get_subtag(Packet, <<"no-copy">>) == false of
 	true ->
@@ -167,6 +167,10 @@ remove_connection(User, Server, Resource, _Status)->
 send_copies(JID, To, Packet, Direction)->
     {U, S, R} = jlib:jid_tolower(JID),
     PrioRes = ejabberd_sm:get_user_present_resources(U, S),
+    {MaxPrio, MaxRes} = case catch lists:max(PrioRes) of
+	{Prio, Res} -> {Prio, Res};
+	_ -> {0, undefined}
+    end,
 
     IsBareTo = case {Direction, To} of
 	{received, #jid{lresource = <<>>}} -> true;
@@ -180,15 +184,19 @@ send_copies(JID, To, Packet, Direction)->
     end,
     %% list of JIDs that should receive a carbon copy of this message (excluding the
     %% receiver(s) of the original message
-    TargetJIDs = if IsBareTo ->
-	    MaxPrio = case catch lists:max(PrioRes) of
-		{Prio, _Res} -> Prio;
-		_ -> 0
-	    end,
+    TargetJIDs = case {IsBareTo, R} of
+	{true, MaxRes} ->
 	    OrigTo = fun(Res) -> lists:member({MaxPrio, Res}, PrioRes) end,
 	    [ {jlib:make_jid({U, S, CCRes}), CC_Version}
 	     || {CCRes, CC_Version} <- list(U, S), not OrigTo(CCRes) ];
-	true ->
+	{true, _} ->
+	    %% The message was sent to our bare JID, and we currently have
+	    %% multiple resources with the same highest priority, so the session
+	    %% manager routes the message to each of them. We create carbon
+	    %% copies only from one of those resources (the one where R equals
+	    %% MaxRes) in order to avoid duplicates.
+	    [];
+	{false, _} ->
 	    [ {jlib:make_jid({U, S, CCRes}), CC_Version}
 	     || {CCRes, CC_Version} <- list(U, S), CCRes /= R ]
 	    %TargetJIDs = lists:delete(JID, [ jlib:make_jid({U, S, CCRes}) || CCRes <- list(U, S) ]),
@@ -207,7 +215,7 @@ send_copies(JID, To, Packet, Direction)->
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CARBONS_2) ->
     #xmlel{name = <<"message">>, 
 	   attrs = [{<<"xmlns">>, <<"jabber:client">>},
-		    {<<"type">>, <<"chat">>},
+		    {<<"type">>, message_type(Packet)},
 		    {<<"from">>, jlib:jid_to_string(Sender)},
 		    {<<"to">>, jlib:jid_to_string(Dest)}],
 	   children = [	
@@ -223,7 +231,7 @@ build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CARBONS_2) ->
 build_forward_packet(JID, Packet, Sender, Dest, Direction, ?NS_CARBONS_1) ->
     #xmlel{name = <<"message">>, 
 	   attrs = [{<<"xmlns">>, <<"jabber:client">>},
-		    {<<"type">>, <<"chat">>},
+		    {<<"type">>, message_type(Packet)},
 		    {<<"from">>, jlib:jid_to_string(Sender)},
 		    {<<"to">>, jlib:jid_to_string(Dest)}],
 	   children = [	
@@ -263,6 +271,20 @@ complete_packet(From, #xmlel{name = <<"message">>, attrs = OrigAttrs} = Packet, 
 complete_packet(_From, #xmlel{name = <<"message">>, attrs=OrigAttrs} = Packet, received) ->
     Attrs = lists:keystore(<<"xmlns">>, 1, OrigAttrs, {<<"xmlns">>, <<"jabber:client">>}),
     Packet#xmlel{attrs = Attrs}.
+
+message_type(#xmlel{attrs = Attrs}) ->
+    case xml:get_attr(<<"type">>, Attrs) of
+	{value, Type} -> Type;
+	false -> <<"normal">>
+    end.
+
+is_chat_or_normal_message(#xmlel{name = <<"message">>} = Packet) ->
+    case message_type(Packet) of
+	<<"chat">> -> true;
+	<<"normal">> -> true;
+	_ -> false
+    end;
+is_chat_or_normal_message(_Packet) -> false.
 
 %% list {resource, cc_version} with carbons enabled for given user and host
 list(User, Server)->

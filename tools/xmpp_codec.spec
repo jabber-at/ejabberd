@@ -944,8 +944,10 @@
                      '$username', '$nick', '$password', '$name',
                      '$first', '$last', '$email', '$address',
                      '$city', '$state', '$zip', '$phone', '$url',
-                     '$date', '$misc', '$text', '$key'},
-           refs = [#ref{name = register_registered, min = 0, max = 1,
+                     '$date', '$misc', '$text', '$key', '$xdata'},
+           refs = [#ref{name = xdata, min = 0, max = 1,
+			label = '$xdata'},
+		   #ref{name = register_registered, min = 0, max = 1,
                         default = false, label = '$registered'},
                    #ref{name = register_remove, min = 0, max = 1,
                         default = false, label = '$remove'},
@@ -1484,6 +1486,18 @@
                         label = '$categories'},
                    #ref{name = vcard_CLASS, min = 0, max = 1, label = '$class'}]}).
 
+-xml(vcard_xupdate_photo,
+     #elem{name = <<"photo">>,
+	   xmlns = <<"vcard-temp:x:update">>,
+	   result = '$cdata'}).
+
+-xml(vcard_xupdate,
+     #elem{name = <<"x">>,
+	   xmlns = <<"vcard-temp:x:update">>,
+	   result = {vcard_xupdate, '$photo'},
+	   refs = [#ref{name = vcard_xupdate_photo, min = 0, max = 1,
+			label = '$photo'}]}).
+
 -xml(xdata_field_required,
      #elem{name = <<"required">>,
            xmlns = <<"jabber:x:data">>,
@@ -1754,6 +1768,33 @@
            xmlns = <<"http://jabber.org/protocol/shim">>,
            result = {shim, '$headers'},
            refs = [#ref{name = shim_header, label = '$headers'}]}).
+
+-record(chatstate, {type :: active | composing | gone | inactive | paused}).
+
+-xml(chatstate_active,
+     #elem{name = <<"active">>,
+           xmlns = <<"http://jabber.org/protocol/chatstates">>,
+           result = {chatstate, active}}).
+
+-xml(chatstate_composing,
+     #elem{name = <<"composing">>,
+           xmlns = <<"http://jabber.org/protocol/chatstates">>,
+           result = {chatstate, composing}}).
+
+-xml(chatstate_gone,
+     #elem{name = <<"gone">>,
+           xmlns = <<"http://jabber.org/protocol/chatstates">>,
+           result = {chatstate, gone}}).
+
+-xml(chatstate_inactive,
+     #elem{name = <<"inactive">>,
+           xmlns = <<"http://jabber.org/protocol/chatstates">>,
+           result = {chatstate, inactive}}).
+
+-xml(chatstate_paused,
+     #elem{name = <<"paused">>,
+           xmlns = <<"http://jabber.org/protocol/chatstates">>,
+           result = {chatstate, paused}}).
 
 -xml(delay,
      #elem{name = <<"delay">>,
@@ -2068,18 +2109,38 @@
 	   refs = [#ref{name = forwarded, min = 1,
                         max = 1, label = '$forwarded'}]}).
 
+-xml(feature_csi,
+     #elem{name = <<"csi">>,
+	   xmlns = <<"urn:xmpp:csi:0">>,
+	   result = {feature_csi, '$xmlns'},
+	   attrs = [#attr{name = <<"xmlns">>}]}).
+
+-record(csi, {type :: active | inactive}).
+
+-xml(csi_active,
+     #elem{name = <<"active">>,
+	   xmlns = <<"urn:xmpp:csi:0">>,
+	   result = {csi, active}}).
+
+-xml(csi_inactive,
+     #elem{name = <<"inactive">>,
+	   xmlns = <<"urn:xmpp:csi:0">>,
+	   result = {csi, inactive}}).
+
 -xml(feature_sm,
      #elem{name = <<"sm">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {feature_sm}}).
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {feature_sm, '$xmlns'},
+	   attrs = [#attr{name = <<"xmlns">>}]}).
 
 -xml(sm_enable,
      #elem{name = <<"enable">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_enable, '$max', '$resume'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_enable, '$max', '$resume', '$xmlns'},
 	   attrs = [#attr{name = <<"max">>,
 			  dec = {dec_int, [0, infinity]},
                           enc = {enc_int, []}},
+		    #attr{name = <<"xmlns">>},
 		    #attr{name = <<"resume">>,
 			  default = false,
 			  dec = {dec_bool, []},
@@ -2087,10 +2148,11 @@
 
 -xml(sm_enabled,
      #elem{name = <<"enabled">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_enabled, '$id', '$location', '$max', '$resume'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_enabled, '$id', '$location', '$max', '$resume', '$xmlns'},
 	   attrs = [#attr{name = <<"id">>},
 		    #attr{name = <<"location">>},
+		    #attr{name = <<"xmlns">>},
 		    #attr{name = <<"max">>,
 			  dec = {dec_int, [0, infinity]},
                           enc = {enc_int, []}},
@@ -2101,44 +2163,49 @@
 
 -xml(sm_resume,
      #elem{name = <<"resume">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_resume, '$h', '$previd'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_resume, '$h', '$previd', '$xmlns'},
 	   attrs = [#attr{name = <<"h">>,
 			  required = true,
 			  dec = {dec_int, [0, infinity]},
                           enc = {enc_int, []}},
+		    #attr{name = <<"xmlns">>},
 		    #attr{name = <<"previd">>,
 			  required = true}]}).
 
 -xml(sm_resumed,
      #elem{name = <<"resumed">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_resumed, '$h', '$previd'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_resumed, '$h', '$previd', '$xmlns'},
 	   attrs = [#attr{name = <<"h">>,
 			  required = true,
 			  dec = {dec_int, [0, infinity]},
                           enc = {enc_int, []}},
+		    #attr{name = <<"xmlns">>},
 		    #attr{name = <<"previd">>,
 			  required = true}]}).
 
 -xml(sm_r,
      #elem{name = <<"r">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_r}}).
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_r, '$xmlns'},
+	   attrs = [#attr{name = <<"xmlns">>}]}).
 
 -xml(sm_a,
      #elem{name = <<"a">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_a, '$h'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_a, '$h', '$xmlns'},
 	   attrs = [#attr{name = <<"h">>,
 			  required = true,
 			  dec = {dec_int, [0, infinity]},
-                          enc = {enc_int, []}}]}).
+                          enc = {enc_int, []}},
+		    #attr{name = <<"xmlns">>}]}).
 
 -xml(sm_failed,
      #elem{name = <<"failed">>,
-	   xmlns = <<"urn:xmpp:sm:3">>,
-	   result = {sm_failed, '$reason'},
+	   xmlns = [<<"urn:xmpp:sm:2">>, <<"urn:xmpp:sm:3">>],
+	   result = {sm_failed, '$reason', '$xmlns'},
+	   attrs = [#attr{name = <<"xmlns">>}],
 	   refs = [#ref{name = error_bad_request,
                         min = 0, max = 1, label = '$reason'},
                    #ref{name = error_conflict,

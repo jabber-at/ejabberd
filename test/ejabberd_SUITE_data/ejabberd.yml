@@ -11,6 +11,7 @@ host_config:
     modules: 
       mod_announce: 
         db_type: odbc
+        access: local
       mod_blocking: 
         db_type: odbc
       mod_caps: 
@@ -39,6 +40,8 @@ host_config:
         db_type: odbc
       mod_vcard: 
         db_type: odbc
+      mod_vcard_xupdate:
+        db_type: odbc
       mod_adhoc: []
       mod_configure: []
       mod_disco: []
@@ -64,6 +67,7 @@ Welcome to this XMPP server."
     modules: 
       mod_announce: 
         db_type: odbc
+        access: local
       mod_blocking: 
         db_type: odbc
       mod_caps: 
@@ -92,6 +96,8 @@ Welcome to this XMPP server."
         db_type: odbc
       mod_vcard: 
         db_type: odbc
+      mod_vcard_xupdate:
+        db_type: odbc
       mod_adhoc: []
       mod_configure: []
       mod_disco: []
@@ -110,6 +116,7 @@ Welcome to this XMPP server."
     modules: 
       mod_announce: 
         db_type: internal
+        access: local
       mod_blocking: 
         db_type: internal
       mod_caps: 
@@ -138,8 +145,13 @@ Welcome to this XMPP server."
         db_type: internal
       mod_vcard: 
         db_type: internal
+      mod_vcard_xupdate:
+        db_type: internal
       mod_carboncopy:
         db_type: internal
+      mod_client_state:
+        drop_chat_states: true
+        queue_presence: true
       mod_adhoc: []
       mod_configure: []
       mod_disco: []
@@ -158,6 +170,7 @@ Welcome to this XMPP server."
     modules: 
       mod_announce: 
         db_type: riak
+        access: local
       mod_blocking: 
         db_type: riak
       mod_caps: 
@@ -177,6 +190,8 @@ Welcome to this XMPP server."
         store_current_id: true
         db_type: riak
       mod_vcard: 
+        db_type: riak
+      mod_vcard_xupdate:
         db_type: riak
       mod_adhoc: []
       mod_configure: []

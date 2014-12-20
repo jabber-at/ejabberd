@@ -88,6 +88,10 @@ update:
 	rm -rf deps/.built
 	$(REBAR) update-deps && :> deps/.got
 
+xref: all
+	$(REBAR) skip_deps=true xref
+
+
 translations:
 	contrib/extract_translations/prepare-translation.sh -updateall
 
@@ -157,6 +161,7 @@ install: all
 	# Binary system libraries
 	$(INSTALL) -d $(SODIR)
 	$(INSTALL) -m 644 $(DLLs) $(SODIR)
+	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
 	#
 	# Translated strings
 	$(INSTALL) -d $(MSGSDIR)
@@ -180,12 +185,16 @@ install: all
 	#
 	# Documentation
 	$(INSTALL) -d $(DOCDIR)
-	$(INSTALL) -m 644 doc/dev.html $(DOCDIR)
-	$(INSTALL) -m 644 doc/guide.html $(DOCDIR)
-	$(INSTALL) -m 644 doc/*.png $(DOCDIR)
+	[ -f doc/dev.html ] \
+		&& $(INSTALL) -m 644 doc/dev.html $(DOCDIR) \
+		|| echo "No doc/dev.html was built"
+	[ -f doc/guide.html ] \
+		&& $(INSTALL) -m 644 doc/guide.html $(DOCDIR) \
+		|| echo "No doc/guide.html was built"
 	[ -f doc/guide.pdf ] \
 		&& $(INSTALL) -m 644 doc/guide.pdf $(DOCDIR) \
 		|| echo "No doc/guide.pdf was built"
+	$(INSTALL) -m 644 doc/*.png $(DOCDIR)
 	$(INSTALL) -m 644 COPYING $(DOCDIR)
 
 uninstall: uninstall-binary

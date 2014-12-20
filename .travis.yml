@@ -23,8 +23,8 @@ before_script:
 
 script:
   - ./autogen.sh
-  - ./configure --enable-all --disable-http --disable-odbc
-  - make
+  - ./configure --enable-all --disable-odbc
+  - make xref
   - ERL_LIBS=$PWD make test
   - grep -q 'TEST COMPLETE, \([[:digit:]]*\) ok, .* of \1 ' logs/raw.log
 
