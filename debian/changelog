@@ -1,4 +1,4 @@
-ejabberd (1:14.07-6) unstable; urgency=low
+ejabberd (1:14.12-1) unstable; urgency=low
 
   * Version bump from upstream.
   * Enable mod_fail2ban in default config file.
