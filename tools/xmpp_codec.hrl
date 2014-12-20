@@ -1,16 +1,24 @@
 %% Created automatically by XML generator (xml_gen.erl)
 %% Source: xmpp_codec.spec
 
+-record(chatstate, {type :: active | composing | gone | inactive | paused}).
+
+-record(csi, {type :: active | inactive}).
+
 -record(feature_register, {}).
 
 -record(sasl_success, {text :: any()}).
+
+-record(text, {lang :: binary(),
+               data :: binary()}).
 
 -record(streamhost, {jid :: any(),
                      host :: binary(),
                      port = 1080 :: non_neg_integer()}).
 
 -record(sm_resume, {h :: non_neg_integer(),
-                    previd :: binary()}).
+                    previd :: binary(),
+                    xmlns :: binary()}).
 
 -record(carbons_enable, {}).
 
@@ -37,18 +45,21 @@
                       from :: any(),
                       to :: any()}).
 
--record(sm_a, {h :: non_neg_integer()}).
+-record(sm_a, {h :: non_neg_integer(),
+               xmlns :: binary()}).
 
 -record(starttls_proceed, {}).
 
 -record(sm_resumed, {h :: non_neg_integer(),
-                     previd :: binary()}).
+                     previd :: binary(),
+                     xmlns :: binary()}).
 
 -record(forwarded, {delay :: #delay{},
                     sub_els = [] :: [any()]}).
 
 -record(sm_enable, {max :: non_neg_integer(),
-                    resume = false :: any()}).
+                    resume = false :: any(),
+                    xmlns :: binary()}).
 
 -record(starttls_failure, {}).
 
@@ -60,7 +71,7 @@
 
 -record(p1_ack, {}).
 
--record(feature_sm, {}).
+-record(feature_sm, {xmlns :: binary()}).
 
 -record(pubsub_item, {id :: binary(),
                       xml_els = [] :: [any()]}).
@@ -81,7 +92,10 @@
                             node :: binary(),
                             publisher :: binary()}).
 
--record(sm_r, {}).
+-record(sm_r, {xmlns :: binary()}).
+
+-record(muc_actor, {jid :: any(),
+                    nick :: binary()}).
 
 -record(stat, {name :: binary(),
                units :: binary(),
@@ -102,7 +116,8 @@
 -record(sm_enabled, {id :: binary(),
                      location :: binary(),
                      max :: non_neg_integer(),
-                     resume = false :: any()}).
+                     resume = false :: any(),
+                     xmlns :: binary()}).
 
 -record(pubsub_event_items, {node :: binary(),
                              retract = [] :: [binary()],
@@ -119,6 +134,8 @@
                     text :: any()}).
 
 -record(p1_push, {}).
+
+-record(feature_csi, {xmlns :: binary()}).
 
 -record(legacy_delay, {stamp :: binary(),
                        from :: any()}).
@@ -150,8 +167,15 @@
                               subid :: binary(),
                               type :: 'none' | 'pending' | 'subscribed' | 'unconfigured'}).
 
--record(muc_actor, {jid :: any(),
-                    nick :: binary()}).
+-record(muc_item, {actor :: #muc_actor{},
+                   continue :: binary(),
+                   reason :: binary(),
+                   affiliation :: 'admin' | 'member' | 'none' | 'outcast' | 'owner',
+                   role :: 'moderator' | 'none' | 'participant' | 'visitor',
+                   jid :: any(),
+                   nick :: binary()}).
+
+-record(muc_admin, {items = [] :: [#muc_item{}]}).
 
 -record(shim, {headers = [] :: [{binary(),'undefined' | binary()}]}).
 
@@ -192,9 +216,6 @@
                          notify = false :: any(),
                          items = [] :: [#pubsub_item{}]}).
 
--record(text, {lang :: binary(),
-               data :: binary()}).
-
 -record(vcard_geo, {lat :: binary(),
                     lon :: binary()}).
 
@@ -224,14 +245,6 @@
 -record(bind, {jid :: any(),
                resource :: any()}).
 
--record(muc_item, {actor :: #muc_actor{},
-                   continue :: binary(),
-                   reason :: binary(),
-                   affiliation :: 'admin' | 'member' | 'none' | 'outcast' | 'owner',
-                   role :: 'moderator' | 'none' | 'participant' | 'visitor',
-                   jid :: any(),
-                   nick :: binary()}).
-
 -record(muc_user, {decline :: #muc_decline{},
                    destroy :: #muc_user_destroy{},
                    invites = [] :: [#muc_invite{}],
@@ -239,7 +252,7 @@
                    status_codes = [] :: [pos_integer()],
                    password :: binary()}).
 
--record(muc_admin, {items = [] :: [#muc_item{}]}).
+-record(vcard_xupdate, {photo :: binary()}).
 
 -record(carbons_disable, {}).
 
@@ -287,27 +300,6 @@
                               autojoin = false :: any(),
                               nick :: binary(),
                               password :: binary()}).
-
--record(register, {registered = false :: boolean(),
-                   remove = false :: boolean(),
-                   instructions :: binary(),
-                   username :: 'none' | binary(),
-                   nick :: 'none' | binary(),
-                   password :: 'none' | binary(),
-                   name :: 'none' | binary(),
-                   first :: 'none' | binary(),
-                   last :: 'none' | binary(),
-                   email :: 'none' | binary(),
-                   address :: 'none' | binary(),
-                   city :: 'none' | binary(),
-                   state :: 'none' | binary(),
-                   zip :: 'none' | binary(),
-                   phone :: 'none' | binary(),
-                   url :: 'none' | binary(),
-                   date :: 'none' | binary(),
-                   misc :: 'none' | binary(),
-                   text :: 'none' | binary(),
-                   key :: 'none' | binary()}).
 
 -record(bookmark_url, {name :: binary(),
                        url :: binary()}).
@@ -371,6 +363,28 @@
                  items :: #pubsub_items{},
                  retract :: #pubsub_retract{}}).
 
+-record(register, {registered = false :: boolean(),
+                   remove = false :: boolean(),
+                   instructions :: binary(),
+                   username :: 'none' | binary(),
+                   nick :: 'none' | binary(),
+                   password :: 'none' | binary(),
+                   name :: 'none' | binary(),
+                   first :: 'none' | binary(),
+                   last :: 'none' | binary(),
+                   email :: 'none' | binary(),
+                   address :: 'none' | binary(),
+                   city :: 'none' | binary(),
+                   state :: 'none' | binary(),
+                   zip :: 'none' | binary(),
+                   phone :: 'none' | binary(),
+                   url :: 'none' | binary(),
+                   date :: 'none' | binary(),
+                   misc :: 'none' | binary(),
+                   text :: 'none' | binary(),
+                   key :: 'none' | binary(),
+                   xdata :: #xdata{}}).
+
 -record(disco_info, {node :: binary(),
                      identities = [] :: [#identity{}],
                      features = [] :: [binary()],
@@ -378,7 +392,8 @@
 
 -record(sasl_mechanisms, {list = [] :: [binary()]}).
 
--record(sm_failed, {reason :: atom() | #gone{} | #redirect{}}).
+-record(sm_failed, {reason :: atom() | #gone{} | #redirect{},
+                    xmlns :: binary()}).
 
 -record(error, {type :: 'auth' | 'cancel' | 'continue' | 'modify' | 'wait',
                 by :: binary(),
@@ -467,3 +482,5 @@
 
 -record(time, {tzo :: any(),
                utc :: any()}).
+
+

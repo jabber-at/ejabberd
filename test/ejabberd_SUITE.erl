@@ -199,6 +199,8 @@ db_tests(riak) ->
        blocking,
        vcard,
        test_unregister]},
+     {test_muc_register, [sequence],
+      [muc_register_master, muc_register_slave]},
      {test_roster_subscribe, [parallel],
       [roster_subscribe_master,
        roster_subscribe_slave]},
@@ -206,6 +208,10 @@ db_tests(riak) ->
       [offline_master, offline_slave]},
      {test_muc, [parallel],
       [muc_master, muc_slave]},
+     {test_announce, [sequence],
+      [announce_master, announce_slave]},
+     {test_vcard_xupdate, [parallel],
+      [vcard_xupdate_master, vcard_xupdate_slave]},
      {test_roster_remove, [parallel],
       [roster_remove_master,
        roster_remove_slave]}];
@@ -224,6 +230,8 @@ db_tests(mnesia) ->
        vcard,
        pubsub,
        test_unregister]},
+     {test_muc_register, [sequence],
+      [muc_register_master, muc_register_slave]},
      {test_roster_subscribe, [parallel],
       [roster_subscribe_master,
        roster_subscribe_slave]},
@@ -231,8 +239,14 @@ db_tests(mnesia) ->
       [offline_master, offline_slave]},
      {test_carbons, [parallel],
       [carbons_master, carbons_slave]},
+     {test_client_state, [parallel],
+      [client_state_master, client_state_slave]},
      {test_muc, [parallel],
       [muc_master, muc_slave]},
+     {test_announce, [sequence],
+      [announce_master, announce_slave]},
+     {test_vcard_xupdate, [parallel],
+      [vcard_xupdate_master, vcard_xupdate_slave]},
      {test_roster_remove, [parallel],
       [roster_remove_master,
        roster_remove_slave]}];
@@ -252,6 +266,8 @@ db_tests(_) ->
        vcard,
        pubsub,
        test_unregister]},
+     {test_muc_register, [sequence],
+      [muc_register_master, muc_register_slave]},
      {test_roster_subscribe, [parallel],
       [roster_subscribe_master,
        roster_subscribe_slave]},
@@ -259,6 +275,10 @@ db_tests(_) ->
       [offline_master, offline_slave]},
      {test_muc, [parallel],
       [muc_master, muc_slave]},
+     {test_announce, [sequence],
+      [announce_master, announce_slave]},
+     {test_vcard_xupdate, [parallel],
+      [vcard_xupdate_master, vcard_xupdate_slave]},
      {test_roster_remove, [parallel],
       [roster_remove_master,
        roster_remove_slave]}].
@@ -513,16 +533,16 @@ sm(Config) ->
     Msg = #message{to = ServerJID, body = [#text{data = <<"body">>}]},
     true = ?config(sm, Config),
     %% Enable the session management with resumption enabled
-    send(Config, #sm_enable{resume = true}),
+    send(Config, #sm_enable{resume = true, xmlns = ?NS_STREAM_MGMT_3}),
     #sm_enabled{id = ID, resume = true} = recv(),
     %% Initial request; 'h' should be 0.
-    send(Config, #sm_r{}),
+    send(Config, #sm_r{xmlns = ?NS_STREAM_MGMT_3}),
     #sm_a{h = 0} = recv(),
     %% sending two messages and requesting again; 'h' should be 3.
     send(Config, Msg),
     send(Config, Msg),
     send(Config, Msg),
-    send(Config, #sm_r{}),
+    send(Config, #sm_r{xmlns = ?NS_STREAM_MGMT_3}),
     #sm_a{h = 3} = recv(),
     close_socket(Config),
     {save_config, set_opt(sm_previd, ID, Config)}.
@@ -537,11 +557,11 @@ sm_resume(Config) ->
     Msg = #message{from = ServerJID, to = MyJID, body = [Txt]},
     %% Route message. The message should be queued by the C2S process.
     ejabberd_router:route(ServerJID, MyJID, xmpp_codec:encode(Msg)),
-    send(Config, #sm_resume{previd = ID, h = 0}),
+    send(Config, #sm_resume{previd = ID, h = 0, xmlns = ?NS_STREAM_MGMT_3}),
     #sm_resumed{previd = ID, h = 3} = recv(),
     #message{from = ServerJID, to = MyJID, body = [Txt]} = recv(),
     #sm_r{} = recv(),
-    send(Config, #sm_a{h = 1}),
+    send(Config, #sm_a{h = 1, xmlns = ?NS_STREAM_MGMT_3}),
     disconnect(Config).
 
 private(Config) ->
@@ -708,6 +728,42 @@ vcard_get(Config) ->
         send_recv(Config, #iq{type = get, sub_els = [#vcard{}]}),
     disconnect(Config).
 
+vcard_xupdate_master(Config) ->
+    Img = <<137, "PNG\r\n", 26, $\n>>,
+    ImgHash = p1_sha:sha(Img),
+    MyJID = my_jid(Config),
+    Peer = ?config(slave, Config),
+    wait_for_slave(Config),
+    send(Config, #presence{}),
+    ?recv2(#presence{from = MyJID, type = undefined},
+           #presence{from = Peer, type = undefined}),
+    VCard = #vcard{photo = #vcard_photo{type = <<"image/png">>, binval = Img}},
+    I1 = send(Config, #iq{type = set, sub_els = [VCard]}),
+    ?recv2(#iq{type = result, sub_els = [], id = I1},
+	   #presence{from = MyJID, type = undefined,
+		     sub_els = [#vcard_xupdate{photo = ImgHash}]}),
+    I2 = send(Config, #iq{type = set, sub_els = [#vcard{}]}),
+    ?recv3(#iq{type = result, sub_els = [], id = I2},
+	   #presence{from = MyJID, type = undefined,
+		     sub_els = [#vcard_xupdate{photo = undefined}]},
+	   #presence{from = Peer, type = unavailable}),
+    disconnect(Config).
+
+vcard_xupdate_slave(Config) ->
+    Img = <<137, "PNG\r\n", 26, $\n>>,
+    ImgHash = p1_sha:sha(Img),
+    MyJID = my_jid(Config),
+    Peer = ?config(master, Config),
+    send(Config, #presence{}),
+    #presence{from = MyJID, type = undefined} = recv(),
+    wait_for_master(Config),
+    #presence{from = Peer, type = undefined} = recv(),
+    #presence{from = Peer, type = undefined,
+	      sub_els = [#vcard_xupdate{photo = ImgHash}]} = recv(),
+    #presence{from = Peer, type = undefined,
+	      sub_els = [#vcard_xupdate{photo = undefined}]} = recv(),
+    disconnect(Config).
+
 stats(Config) ->
     #iq{type = result, sub_els = [#stats{stat = Stats}]} =
         send_recv(Config, #iq{type = get, sub_els = [#stats{}],
@@ -745,7 +801,7 @@ pubsub(Config) ->
                                       node = Node,
                                       jid = my_jid(Config)}}]}),
     ?recv2(
-       #message{sub_els = [#pubsub_event{}, #delay{}]},
+       #message{sub_els = [#pubsub_event{}, #delay{}, #legacy_delay{}]},
        #iq{type = result, id = I1}),
     %% Get subscriptions
     true = lists:member(?PUBSUB("retrieve-subscriptions"), Features),
@@ -1004,7 +1060,8 @@ muc_master(Config) ->
     %% As this is the newly created room, we receive only the 2nd stanza.
     #presence{
           from = MyNickJID,
-          sub_els = [#muc_user{
+          sub_els = [#vcard_xupdate{},
+		     #muc_user{
                         status_codes = Codes,
                         items = [#muc_item{role = moderator,
                                            jid = MyJID,
@@ -1073,7 +1130,8 @@ muc_master(Config) ->
 				      [#muc_invite{to = PeerJID}]}]}),
     %% Peer is joining
     #presence{from = PeerNickJID,
-	      sub_els = [#muc_user{
+	      sub_els = [#vcard_xupdate{},
+			 #muc_user{
 			    items = [#muc_item{role = visitor,
 					       jid = PeerJID,
 					       affiliation = none}]}]} = recv(),
@@ -1106,7 +1164,8 @@ muc_master(Config) ->
 					    fields = ReplyVoiceReqFs}]}),
     %% Peer is becoming a participant
     #presence{from = PeerNickJID,
-	      sub_els = [#muc_user{
+	      sub_els = [#vcard_xupdate{},
+			 #muc_user{
 			    items = [#muc_item{role = participant,
 					       jid = PeerJID,
 					       affiliation = none}]}]} = recv(),
@@ -1124,7 +1183,8 @@ muc_master(Config) ->
 					     affiliation = member}]}]}),
     %% Peer became a member
     #presence{from = PeerNickJID,
-	      sub_els = [#muc_user{
+	      sub_els = [#vcard_xupdate{},
+			 #muc_user{
 			    items = [#muc_item{affiliation = member,
 					       jid = PeerJID,
 					       role = participant}]}]} = recv(),
@@ -1141,7 +1201,7 @@ muc_master(Config) ->
 						   role = none}]}]}),
     %% Got notification the peer is kicked
     %% 307 -> Inform user that he or she has been kicked from the room
-    #presence{from = PeerNickJID,
+    #presence{from = PeerNickJID, type = unavailable,
 	      sub_els = [#muc_user{
 			    status_codes = [307],
 			    items = [#muc_item{affiliation = member,
@@ -1199,14 +1259,16 @@ muc_slave(Config) ->
     %% First presence is from the participant, i.e. from the peer
     #presence{
        from = PeerNickJID,
-       sub_els = [#muc_user{
+       sub_els = [#vcard_xupdate{},
+		  #muc_user{
 		     status_codes = [],
 		     items = [#muc_item{role = moderator,
 					affiliation = owner}]}]} = recv(),
     %% The next is the self-presence (code 110 means it)
     #presence{
        from = MyNickJID,
-       sub_els = [#muc_user{
+       sub_els = [#vcard_xupdate{},
+		  #muc_user{
 		     status_codes = [110],
 		     items = [#muc_item{role = visitor,
 					affiliation = none}]}]} = recv(),
@@ -1237,7 +1299,8 @@ muc_slave(Config) ->
     send(Config, #message{to = Room, sub_els = [VoiceReq]}),
     %% Becoming a participant
     #presence{from = MyNickJID,
-	      sub_els = [#muc_user{
+	      sub_els = [#vcard_xupdate{},
+			 #muc_user{
 			    items = [#muc_item{role = participant,
 					       affiliation = none}]}]} = recv(),
     %% Sending private message to the peer
@@ -1245,7 +1308,8 @@ muc_slave(Config) ->
 			  body = [#text{data = Subject}]}),
     %% Becoming a member
     #presence{from = MyNickJID,
-	      sub_els = [#muc_user{
+	      sub_els = [#vcard_xupdate{},
+			 #muc_user{
 			    items = [#muc_item{role = participant,
 					       affiliation = member}]}]} = recv(),
     %% Retrieving a member list
@@ -1271,6 +1335,91 @@ muc_slave(Config) ->
 			    status_codes = [307],
 			    items = [#muc_item{affiliation = member,
 					       role = none}]}]} = recv(),
+    disconnect(Config).
+
+muc_register_nick(Config, MUC, PrevNick, Nick) ->
+    {Registered, PrevNickVals} = if PrevNick /= <<"">> ->
+					 {true, [PrevNick]};
+				    true ->
+					 {false, []}
+				 end,
+    %% Request register form
+    #iq{type = result,
+	sub_els = [#register{registered = Registered,
+			     xdata = #xdata{type = form,
+					    fields = FsWithoutNick}}]} =
+	send_recv(Config, #iq{type = get, to = MUC,
+			      sub_els = [#register{}]}),
+    %% Check if 'nick' field presents
+    #xdata_field{type = 'text-single',
+		 var = <<"nick">>,
+		 values = PrevNickVals} =
+	lists:keyfind(<<"nick">>, #xdata_field.var, FsWithoutNick),
+    X = #xdata{type = submit,
+	       fields = [#xdata_field{var = <<"nick">>, values = [Nick]}]},
+    %% Submitting form
+    #iq{type = result, sub_els = [_|_]} =
+	send_recv(Config, #iq{type = set, to = MUC,
+			      sub_els = [#register{xdata = X}]}),
+    %% Check if the nick was registered
+    #iq{type = result,
+	sub_els = [#register{registered = true,
+			     xdata = #xdata{type = form,
+					    fields = FsWithNick}}]} =
+	send_recv(Config, #iq{type = get, to = MUC,
+			      sub_els = [#register{}]}),
+    #xdata_field{type = 'text-single', var = <<"nick">>,
+		 values = [Nick]} = 
+	lists:keyfind(<<"nick">>, #xdata_field.var, FsWithNick).
+
+muc_register_master(Config) ->
+    MUC = muc_jid(Config),
+    %% Register nick "master1"
+    muc_register_nick(Config, MUC, <<"">>, <<"master1">>),
+    %% Unregister nick "master1" via jabber:register
+    #iq{type = result, sub_els = [_|_]} =
+	send_recv(Config, #iq{type = set, to = MUC,
+			      sub_els = [#register{remove = true}]}),
+    %% Register nick "master2"
+    muc_register_nick(Config, MUC, <<"">>, <<"master2">>),
+    %% Now register nick "master"
+    muc_register_nick(Config, MUC, <<"master2">>, <<"master">>),
+    disconnect(Config).
+
+muc_register_slave(Config) ->
+    MUC = muc_jid(Config),
+    %% Trying to register occupied nick "master"
+    X = #xdata{type = submit,
+	       fields = [#xdata_field{var = <<"nick">>,
+				      values = [<<"master">>]}]},
+    #iq{type = error} =
+	send_recv(Config, #iq{type = set, to = MUC,
+			      sub_els = [#register{xdata = X}]}),
+    disconnect(Config).
+
+announce_master(Config) ->
+    MyJID = my_jid(Config),
+    ServerJID = server_jid(Config),
+    MotdJID = jlib:jid_replace_resource(ServerJID, <<"announce/motd">>),
+    MotdText = #text{data = <<"motd">>},
+    send(Config, #presence{}),
+    #presence{from = MyJID} = recv(),
+    %% Set message of the day
+    send(Config, #message{to = MotdJID, body = [MotdText]}),
+    %% Receive this message back
+    #message{from = ServerJID, body = [MotdText]} = recv(),
+    disconnect(Config).
+
+announce_slave(Config) ->
+    MyJID = my_jid(Config),
+    ServerJID = server_jid(Config),
+    MotdDelJID = jlib:jid_replace_resource(ServerJID, <<"announce/motd/delete">>),
+    MotdText = #text{data = <<"motd">>},
+    send(Config, #presence{}),
+    ?recv2(#presence{from = MyJID},
+	   #message{from = ServerJID, body = [MotdText]}),
+    %% Delete message of the day
+    send(Config, #message{to = MotdDelJID}),
     disconnect(Config).
 
 offline_master(Config) ->
@@ -1408,6 +1557,43 @@ carbons_slave(Config) ->
     #presence{from = Peer, type = unavailable} = recv(),
     disconnect(Config).
 
+client_state_master(Config) ->
+    Peer = ?config(slave, Config),
+    Presence = #presence{to = Peer},
+    Message = #message{to = Peer, thread = <<"1">>,
+		       sub_els = [#chatstate{type = active}]},
+    wait_for_slave(Config),
+    %% Should be queued (but see below):
+    send(Config, Presence),
+    %% Should be sent immediately, together with the previous presence:
+    send(Config, Message#message{body = [#text{data = <<"body">>}]}),
+    %% Should be dropped:
+    send(Config, Message),
+    %% Should be queued (but see below):
+    send(Config, Presence),
+    %% Should replace the previous presence in the queue:
+    send(Config, Presence#presence{type = unavailable}),
+    wait_for_slave(Config),
+    %% Should be sent immediately, as the client is active again.
+    send(Config, Message),
+    disconnect(Config).
+
+client_state_slave(Config) ->
+    true = ?config(csi, Config),
+    Peer = ?config(master, Config),
+    send(Config, #csi{type = inactive}),
+    wait_for_master(Config),
+    #presence{from = Peer, sub_els = [#vcard_xupdate{}|_]} = recv(),
+    #message{from = Peer, thread = <<"1">>, sub_els = [#chatstate{type = active}],
+	     body = [#text{data = <<"body">>}]} = recv(),
+    wait_for_master(Config),
+    send(Config, #csi{type = active}),
+    ?recv2(#presence{from = Peer, type = unavailable,
+		     sub_els = [#delay{}, #legacy_delay{}]},
+	   #message{from = Peer, thread = <<"1">>,
+		    sub_els = [#chatstate{type = active}]}),
+    disconnect(Config).
+
 %%%===================================================================
 %%% Aux functions
 %%%===================================================================
@@ -1520,29 +1706,12 @@ split(Data) ->
 clear_riak_tables(Config) ->
     User = ?config(user, Config),
     Server = ?config(server, Config),
-    Slave = jlib:make_jid(<<"test_slave">>, Server, <<>>),
-    Master = jlib:make_jid(<<"test_master">>, Server, <<>>),
     Room = muc_room_jid(Config),
-    {U, S, _} = jlib:jid_tolower(jlib:make_jid(User, Server, <<>>)),
-    {USlave, SSlave, _} = LSlave = jlib:jid_tolower(Slave),
-    {UMaster, SMaster, _} = LMaster = jlib:jid_tolower(Master),
-    {URoom, SRoom, _} = jlib:jid_tolower(jlib:jid_remove_resource(Room)),
-    US = {U, S},
-    USSlave = {USlave, SSlave},
-    USMaster = {UMaster, SMaster},
-    USRoom = {URoom, SRoom},
-    ok = ejabberd_riak:delete(roster, {USlave, SSlave, LMaster}),
-    ok = ejabberd_riak:delete(roster, {UMaster, SMaster, LSlave}),
-    ok = ejabberd_riak:delete(passwd, US),
-    ok = ejabberd_riak:delete(passwd, USSlave),
-    ok = ejabberd_riak:delete(passwd, USMaster),
-    ok = ejabberd_riak:delete(roster_version, USSlave),
-    ok = ejabberd_riak:delete(roster_version, USMaster),
-    ok = ejabberd_riak:delete(last_activity, US),
-    ok = ejabberd_riak:delete(last_activity, USSlave),
-    ok = ejabberd_riak:delete(last_activity, USMaster),
-    ok = ejabberd_riak:delete(vcard, US),
-    ok = ejabberd_riak:delete(privacy, US),
-    ok = ejabberd_riak:delete(private_storage, {U, S, <<"storage:bookmarks">>}),
-    ok = ejabberd_riak:delete(muc_room, USRoom),
+    {URoom, SRoom, _} = jlib:jid_tolower(Room),
+    ejabberd_auth:remove_user(User, Server),
+    ejabberd_auth:remove_user(<<"test_slave">>, Server),
+    ejabberd_auth:remove_user(<<"test_master">>, Server),
+    mod_muc:forget_room(Server, URoom, SRoom),
+    ejabberd_riak:delete(muc_registered, {{<<"test_slave">>, Server}, SRoom}),
+    ejabberd_riak:delete(muc_registered, {{<<"test_master">>, Server}, SRoom}),
     Config.

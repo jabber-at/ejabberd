@@ -210,9 +210,8 @@ get_absolute_path(File) ->
 	absolute ->
 	    File;
 	relative ->
-	    Config_path = get_ejabberd_config_path(),
-	    Config_dir = filename:dirname(Config_path),
-	    filename:absname_join(Config_dir, File)
+	    {ok, Dir} = file:get_cwd(),
+	    filename:absname_join(Dir, File)
     end.
 
 
@@ -989,7 +988,7 @@ report_and_stop(Tab, Err) ->
     halt(string:substr(ErrTxt, 1, 199)).
 
 emit_deprecation_warning(Module, NewModule, DBType) ->
-    ?WARNING_MSG("Module ~s is deprecated, use {~s, [{db_type, ~s}, ...]}"
+    ?WARNING_MSG("Module ~s is deprecated, use ~s with 'db_type: ~s'"
                  " instead", [Module, NewModule, DBType]).
 
 emit_deprecation_warning(Module, NewModule) ->

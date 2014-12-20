@@ -66,12 +66,14 @@
 \newcommand{\module}[1]{\texttt{#1}}
 \newcommand{\modadhoc}{\module{mod\_adhoc}}
 \newcommand{\modannounce}{\module{mod\_announce}}
+\newcommand{\modclientstate}{\module{mod\_client\_state}}
 \newcommand{\modblocking}{\module{mod\_blocking}}
 \newcommand{\modcaps}{\module{mod\_caps}}
 \newcommand{\modcarboncopy}{\module{mod\_carboncopy}}
 \newcommand{\modconfigure}{\module{mod\_configure}}
 \newcommand{\moddisco}{\module{mod\_disco}}
 \newcommand{\modecho}{\module{mod\_echo}}
+\newcommand{\modfailban}{\module{mod\_fail2ban}}
 \newcommand{\modhttpbind}{\module{mod\_http\_bind}}
 \newcommand{\modhttpfileserver}{\module{mod\_http\_fileserver}}
 \newcommand{\modirc}{\module{mod\_irc}}
@@ -1020,7 +1022,7 @@ request_handlers:
   /"a"/"b": mod_foo
   /"http-bind": mod_http_bind
 \end{verbatim}
-  \titem{resend\_on\_timeout: true|false}
+  \titem{resend\_on\_timeout: true|false|if\_offline}
     If \term{stream\_management} is enabled and this option is set to
     \term{true}, any stanzas that weren't acknowledged by the client
     will be resent on session timeout. This behavior might often be
@@ -1028,8 +1030,12 @@ request_handlers:
     circumstances. For example, a message that was sent to two resources
     might get resent to one of them if the other one timed out.
     Therefore, the default value for this option is \term{false}, which
-    tells ejabberd to generate an error message instead. The option can
-    be specified for \term{ejabberd\_c2s} listeners.
+    tells ejabberd to generate an error message instead. As an
+    alternative, the option may be set to \term{if\_offline}. In this
+    case, unacknowledged stanzas are resent only if no other resource is
+    online when the session times out. Otherwise, error messages are
+    generated. The option can be specified for \term{ejabberd\_c2s}
+    listeners.
   \titem{resume\_timeout: Seconds}
     This option configures the number of seconds until a session times
     out if the connection is lost. During this period of time, a client
@@ -1062,7 +1068,7 @@ request_handlers:
     You can define a certificate file for a specific domain using the global option \option{domain\_certfile}.
   \titem{stream\_management: true|false}
     Setting this option to \term{false} disables ejabberd's support for
-    \ind{protocols!XEP-0198: Stream Management}. It can be specified for
+    Stream Management (\xepref{0198}). It can be specified for
     \term{ejabberd\_c2s} listeners. The default value is \term{true}.
   \titem{timeout: Integer} \ind{options!timeout}
     Timeout of the connections, expressed in milliseconds.
@@ -1446,6 +1452,11 @@ of the machine, in case it isn't detected automatically.
 The FQDN is used to authenticate some clients that use the DIGEST-MD5 SASL mechanism.
 The option syntax is:
 \esyntax{fqdn: undefined|FqdnString|[FqdnString]}
+
+The option \option{disable\_sasl\_mechanisms} specifies a list of SASL
+mechanisms that should \emph{not} be offered to the client. The mechanisms can
+be listed as lowercase or uppercase strings. The option syntax is:
+\esyntax{disable\_sasl\_mechanisms: [Mechanism, ...]}
 
 \makesubsubsection{internalauth}{Internal}
 \ind{internal authentication}\ind{Mnesia}
@@ -2023,10 +2034,10 @@ The specific configurable options are:
   \titem{turn\_max\_port: Integer}
   Together with \option{turn\_min\_port} forms port range to allocate from.
   The default is 65535. Implies \term{use\_turn}.
-  \titem{turn\_max\_allocations: Integer|unlimited}
+  \titem{turn\_max\_allocations: Integer|infinity}
   Maximum number of TURN allocations available from the particular IP address.
   The default value is 10. Implies \term{use\_turn}.
-  \titem{turn\_max\_permissions: Integer|unlimited}
+  \titem{turn\_max\_permissions: Integer|infinity}
   Maximum number of TURN permissions available from the particular IP address.
   The default value is 10. Implies \term{use\_turn}.
   \titem{auth\_type: user|anonymous}
@@ -2780,9 +2791,11 @@ The following table lists all modules included in \ejabberd{}.
     \hline \modblocking{} & Simple Communications Blocking (\xepref{0191}) & \modprivacy{} \\
     \hline \modcaps{} &  Entity Capabilities (\xepref{0115}) & \\
     \hline \modcarboncopy{} & Message Carbons (\xepref{0280}) & \\
+    \hline \ahrefloc{modclientstate}{\modclientstate{}} & Filter stanzas for inactive clients &  \\
     \hline \modconfigure{} & Server configuration using Ad-Hoc & \modadhoc{} \\
     \hline \ahrefloc{moddisco}{\moddisco{}} & Service Discovery (\xepref{0030}) &  \\
     \hline \ahrefloc{modecho}{\modecho{}} & Echoes XMPP stanzas &  \\
+    \hline \ahrefloc{modfail2ban}{\modfailban{}} & Bans IPs that show the malicious signs & \\
     \hline \ahrefloc{modhttpbind}{\modhttpbind{}} & XMPP over Bosh service (HTTP Binding) &  \\
     \hline \ahrefloc{modhttpfileserver}{\modhttpfileserver{}} & Small HTTP file server &  \\
     \hline \ahrefloc{modirc}{\modirc{}} & IRC transport &  \\
@@ -2999,6 +3012,38 @@ Note that \modannounce{} can be resource intensive on large
 deployments as it can broadcast lot of messages. This module should be
 disabled for instances of \ejabberd{} with hundreds of thousands users.
 
+\makesubsection{modclientstate}{\modclientstate{}}
+\ind{modules!\modclientstate{}}\ind{Client State Indication}
+\ind{protocols!XEP-0352: Client State Indication}
+
+This module allows for queueing or dropping certain types of stanzas
+when a client indicates that the user is not actively using the client
+at the moment (see \xepref{0352}). This can save bandwidth and
+resources.
+
+Options:
+\begin{description}
+\titem{drop\_chat\_states: true|false} \ind{options!drop\_chat\_states}
+  Drop most "standalone" Chat State Notifications (as defined in
+  \xepref{0085}) while a client indicates inactivity. The default value
+  is \term{false}.
+\titem{queue\_presence: true|false} \ind{options!queue\_presence}
+  While a client is inactive, queue presence stanzas that indicate
+  (un)availability. The latest queued stanza of each contact is
+  delivered as soon as the client becomes active again. The default
+  value is \term{false}.
+\end{description}
+
+Example:
+\begin{verbatim}
+modules:
+  ...
+  mod_client_state:
+    drop_chat_states: true
+    queue_presence: true
+  ...
+\end{verbatim}
+
 \makesubsection{moddisco}{\moddisco{}}
 \ind{modules!\moddisco{}}
 \ind{protocols!XEP-0030: Service Discovery}
@@ -3114,6 +3159,30 @@ modules:
   ...
   mod_echo:
     host: "mirror.example.org"
+  ...
+\end{verbatim}
+
+\makesubsection{modfail2ban}{\modfailban{}}
+\ind{modules!\modfailban{}}\ind{modfail2ban}
+
+The module bans IPs that show the malicious signs. Currently only C2S authentication
+failures are detected.
+
+Available options:
+\begin{description}
+  \titem{c2s\_auth\_ban\_lifetime: Seconds} The lifetime of the IP ban caused by too
+  many C2S authentication failures. The default is 3600, i.e. one hour.
+  \titem{c2s\_max\_auth\_failures: Integer} The number of C2S authentication failures to
+  trigger the IP ban. The default is 20.
+\end{description}
+
+Example:
+\begin{verbatim}
+modules:
+  ...
+  mod_fail2ban:
+    c2s_auth_block_lifetime: 7200
+    c2s_max_auth_failures: 50
   ...
 \end{verbatim}
 
@@ -3415,15 +3484,15 @@ Module options:
 \titem{max\_room\_id: Number} \ind{options!max\_room\_id}
   This option defines the maximum number of characters that Room ID
   can have when creating a new room.
-  The default value is to not limit: infinite.
+  The default value is to not limit: \term{infinity}.
 \titem{max\_room\_name: Number} \ind{options!max\_room\_name}
   This option defines the maximum number of characters that Room Name
   can have when configuring the room.
-  The default value is to not limit: infinite.
+  The default value is to not limit: \term{infinity}.
 \titem{max\_room\_desc: Number} \ind{options!max\_room\_desc}
   This option defines the maximum number of characters that Room Description
   can have when configuring the room.
-  The default value is to not limit: infinite.
+  The default value is to not limit: \term{infinity}.
 \titem{min\_message\_interval: Number} \ind{options!min\_message\_interval}
   This option defines the minimum interval between two messages send
   by an occupant in seconds. This option is global and valid for all
@@ -3755,6 +3824,8 @@ online again. Thus it is very similar to how email works. Note that
   The default value is \term{max\_user\_offline\_messages}.
   Then you can define an access rule with a syntax similar to 
   \term{max\_user\_sessions} (see \ref{configmaxsessions}).
+  \titem{store\_empty\_body: true|false}\ind{options!store\_empty\_body} Whether or not
+  to store messages with empty \term{<body/>} element. The default value is \term{true}.
 \end{description}
 
 This example allows power users to have as much as 5000 offline messages,

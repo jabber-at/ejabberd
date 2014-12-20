@@ -74,7 +74,8 @@
 	 on_user_offline/3, remove_user/2,
 	 disco_local_identity/5, disco_local_features/5,
 	 disco_local_items/5, disco_sm_identity/5,
-	 disco_sm_features/5, disco_sm_items/5]).
+	 disco_sm_features/5, disco_sm_items/5,
+	 drop_pep_error/4]).
 
 %% exported iq handlers
 -export([iq_sm/3]).
@@ -344,6 +345,8 @@ init([ServerHost, Opts]) ->
 			     ?MODULE, disco_sm_features, 75),
 	  ejabberd_hooks:add(disco_sm_items, ServerHost, ?MODULE,
 			     disco_sm_items, 75),
+	  ejabberd_hooks:add(c2s_filter_packet_in, ServerHost, ?MODULE,
+			     drop_pep_error, 75),
 	  gen_iq_handler:add_iq_handler(ejabberd_sm, ServerHost,
 					?NS_PUBSUB, ?MODULE, iq_sm, IQDisc),
 	  gen_iq_handler:add_iq_handler(ejabberd_sm, ServerHost,
@@ -830,8 +833,12 @@ presence_probe(#jid{luser = U, lserver = S}, #jid{luser = U, lserver = S}, _Pid)
     %% ignore presence_probe from my other ressources
     %% to not get duplicated last items
     ok;
-presence_probe(#jid{luser = U, lserver = S, lresource = R}, #jid{lserver = Host} = JID, _Pid) ->
-    presence(Host, {presence, U, S, [R], JID}).
+presence_probe(#jid{luser = U, lserver = S, lresource = R}, #jid{lserver = S} = JID, _Pid) ->
+    presence(S, {presence, U, S, [R], JID});
+presence_probe(_Host, _JID, _Pid) ->
+    %% ignore presence_probe from remote contacts,
+    %% those are handled via caps_update
+    ok.
 
 presence(ServerHost, Presence) ->
     SendLoop = case
@@ -928,6 +935,33 @@ unsubscribe_user(Entity, Owner) ->
 				end,
 				plugins(Host))
 	  end).
+
+%% -------
+%% packet receive hook handling function
+%%
+
+drop_pep_error(#xmlel{name = <<"message">>, attrs = Attrs} = Packet, _JID, From,
+	       #jid{lresource = <<"">>} = To) ->
+    case xml:get_attr_s(<<"type">>, Attrs) of
+      <<"error">> ->
+	  case xml:get_subtag(Packet, <<"event">>) of
+	    #xmlel{attrs = EventAttrs} ->
+		case xml:get_attr_s(<<"xmlns">>, EventAttrs) of
+		  ?NS_PUBSUB_EVENT ->
+		      ?DEBUG("Dropping PEP error message from ~s to ~s",
+			     [jlib:jid_to_string(From),
+			      jlib:jid_to_string(To)]),
+		      drop;
+		  _ ->
+		      Packet
+		end;
+	    false ->
+		Packet
+	  end;
+      _ ->
+	  Packet
+    end;
+drop_pep_error(Acc, _JID, _From, _To) -> Acc.
 
 %% -------
 %% user remove hook handling function
@@ -1069,6 +1103,8 @@ terminate(_Reason,
 				?MODULE, disco_sm_features, 75),
 	  ejabberd_hooks:delete(disco_sm_items, ServerHost,
 				?MODULE, disco_sm_items, 75),
+	  ejabberd_hooks:delete(c2s_filter_packet_in, ServerHost,
+				?MODULE, drop_pep_error, 75),
 	  gen_iq_handler:remove_iq_handler(ejabberd_sm,
 					   ServerHost, ?NS_PUBSUB),
 	  gen_iq_handler:remove_iq_handler(ejabberd_sm,
@@ -2315,7 +2351,7 @@ create_node(Host, ServerHost, Node, Owner, GivenType, Access, Configuration) ->
 		    {result, Reply};
 		{result, {NodeId, _SubsByDepth, Result}} ->
 		    ejabberd_hooks:run(pubsub_create_node, ServerHost, [ServerHost, Host, Node, NodeId, NodeOptions]),
-		    {result, Result};
+		    {result, Reply};
 		Error ->
 		    %% in case we change transaction to sync_dirty...
 		    %%  node_call(Type, delete_node, [Host, Node]),
@@ -3011,8 +3047,8 @@ send_items(Host, Node, NodeId, Type, LJID, last) ->
 						       itemsEls([LastItem])}],
 					   ModifNow, ModifUSR)
     end,
-    ejabberd_router:route(service_jid(Host), jlib:make_jid(LJID), Stanza);
-send_items(Host, Node, NodeId, Type, {U, S, R} = LJID, Number) ->
+    dispatch_items(Host, LJID, Node, Stanza);
+send_items(Host, Node, NodeId, Type, LJID, Number) ->
     ToSend = case node_action(Host, Type, get_items,
 			      [NodeId, LJID])
 		 of
@@ -3040,22 +3076,38 @@ send_items(Host, Node, NodeId, Type, {U, S, R} = LJID, Number) ->
 					attrs = nodeAttr(Node),
 					children = itemsEls(ToSend)}])
 	     end,
-    case {is_tuple(Host), Stanza} of
-      {_, undefined} ->
-	  ok;
-      {false, _} ->
-	  ejabberd_router:route(service_jid(Host),
-				jlib:make_jid(LJID), Stanza);
-      {true, _} ->
-	  case ejabberd_sm:get_session_pid(U, S, R) of
-	    C2SPid when is_pid(C2SPid) ->
-		ejabberd_c2s:broadcast(C2SPid,
-				       {pep_message,
-					<<((Node))/binary, "+notify">>},
-				       _Sender = service_jid(Host), Stanza);
-	    _ -> ok
-	  end
-    end.
+    dispatch_items(Host, LJID, Node, Stanza).
+
+-spec(dispatch_items/4 ::
+(
+  From   :: mod_pubsub:host(),
+  To     :: jid(),
+  Node   :: mod_pubsub:nodeId(),
+  Stanza :: xmlel() | undefined)
+    -> any()
+).
+
+dispatch_items(_From, _To, _Node, _Stanza = undefined) -> ok;
+dispatch_items({FromU, FromS, FromR} = From, {ToU, ToS, ToR} = To, Node,
+	       Stanza) ->
+    C2SPid = case ejabberd_sm:get_session_pid(ToU, ToS, ToR) of
+	       ToPid when is_pid(ToPid) -> ToPid;
+	       _ ->
+		   R = user_resource(FromU, FromS, FromR),
+		   case ejabberd_sm:get_session_pid(FromU, FromS, R) of
+		     FromPid when is_pid(FromPid) -> FromPid;
+		     _ -> undefined
+		   end
+	     end,
+    if C2SPid == undefined -> ok;
+       true ->
+	   ejabberd_c2s:send_filtered(C2SPid,
+				      {pep_message, <<Node/binary, "+notify">>},
+				      service_jid(From), jlib:make_jid(To),
+				      Stanza)
+    end;
+dispatch_items(From, To, _Node, Stanza) ->
+    ejabberd_router:route(service_jid(From), jlib:make_jid(To), Stanza).
 
 %% @spec (Host, JID, Plugins) -> {error, Reason} | {result, Response}
 %%	 Host = host()
@@ -3873,21 +3925,15 @@ payload_xmlelements([_ | Tail], Count) ->
 %% @spec (Els) -> stanza()
 %%	Els = [xmlelement()]
 %% @doc <p>Build pubsub event stanza</p>
-event_stanza(Els) -> event_stanza_withmoreels(Els, []).
-
-event_stanza_with_delay(Els, ModifNow, ModifUSR) ->
-    DateTime = calendar:now_to_datetime(ModifNow),
-    MoreEls = [jlib:timestamp_to_xml(DateTime, utc,
-				     ModifUSR, <<"">>)],
-    event_stanza_withmoreels(Els, MoreEls).
-
-event_stanza_withmoreels(Els, MoreEls) ->
+event_stanza(Els) ->
     #xmlel{name = <<"message">>, attrs = [],
 	   children =
 	       [#xmlel{name = <<"event">>,
 		       attrs = [{<<"xmlns">>, ?NS_PUBSUB_EVENT}],
-		       children = Els}
-		| MoreEls]}.
+		       children = Els}]}.
+
+event_stanza_with_delay(Els, ModifNow, ModifUSR) ->
+    jlib:add_delay_info(event_stanza(Els), ModifUSR, ModifNow).
 
 %%%%%% broadcast functions
 
