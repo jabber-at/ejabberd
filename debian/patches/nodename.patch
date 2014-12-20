@@ -14,7 +14,7 @@
  #
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -292,7 +292,7 @@
+@@ -290,7 +290,7 @@
          JOT='/usr/bin/jot'
          if [ ! -x "$JOT" ] ; then
              # no flock or jot, simply invoke ctlexec()
