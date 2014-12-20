@@ -6,7 +6,6 @@ captcha.patch
 fix_examples.patch
 fix_init.patch
 enable-ipv6.diff
-fix_option_name.patch
 ejabberdctl-defaults.patch
 ejabberd-config.patch
 ejabberd-monit.patch
