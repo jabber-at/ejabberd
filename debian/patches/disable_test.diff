@@ -4,11 +4,9 @@ Description: remove testing with MySQL and PostgreSQL
  and running.
 Author: Philipp Huebner <debalance@debian.org>
 
-Index: ejabberd/Makefile.in
-===================================================================
---- ejabberd.orig/Makefile.in
-+++ ejabberd/Makefile.in
-@@ -260,10 +260,6 @@ dialyzer: erlang_plt deps_plt ejabberd_p
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -265,10 +265,6 @@
  	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
  
  test:
