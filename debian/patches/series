@@ -13,5 +13,4 @@ ejabberd-pid.patch
 nodename.patch
 #failed_auth.patch
 ejabberdctl-home.patch
-presence_probes.patch
 auth_mechanisms.patch

@@ -9,6 +9,7 @@ ejabberd (1:14.07-6) unstable; urgency=low
     * fix_option_name.patch
     * starttls_required.patch
     * session_resume.patch
+    * presence_probes.patch
   * Disable failed-auth.patch, which no longer applies.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
