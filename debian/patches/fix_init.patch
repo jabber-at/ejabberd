@@ -3,10 +3,8 @@ Description: adjust initscript template
  and to follow policy.
 Author: Philipp Huebner <debalance@debian.org>
 
-Index: ejabberd/ejabberd.init.template
-===================================================================
---- ejabberd.orig/ejabberd.init.template
-+++ ejabberd/ejabberd.init.template
+--- a/ejabberd.init.template
++++ b/ejabberd.init.template
 @@ -16,34 +16,52 @@
  
  set -o errexit
@@ -24,21 +22,21 @@ Index: ejabberd/ejabberd.init.template
  	echo "ERROR: ejabberd not found: $DIR"
  	exit 1
  }
--grep ^"$USER": /etc/passwd >/dev/null || {
+-getent passwd "$USER" >/dev/null || {
 -	echo "ERROR: System user not found: $USER"
 -	exit 2
 +
 +mkrundir()
 +{
-+	if [ ! -d $EJABBERDRUN ]; then
-+		mkdir -p $EJABBERDRUN
-+		if [ $? -ne 0 ]; then
-+			echo -n " failed"
-+			return
-+		fi
-+		chmod 0755 $EJABBERDRUN
-+		chown ejabberd:ejabberd $EJABBERDRUN
-+	fi
++   if [ ! -d $EJABBERDRUN ]; then
++       mkdir -p $EJABBERDRUN
++       if [ $? -ne 0 ]; then
++           echo -n " failed"
++           return
++       fi
++       chmod 0755 $EJABBERDRUN
++       chown ejabberd:ejabberd $EJABBERDRUN
++   fi
  }
  
 +
@@ -51,9 +49,9 @@ Index: ejabberd/ejabberd.init.template
      echo "Starting ejabberd..."
 -    su - $USER -c "$CTL start"
 -    su - $USER -c "$CTL started"
-+    if ! /etc/init.d/ejabberd status > /dev/null; then 
-+	su - $USER -c "$CTL start"
-+	su - $USER -c "$CTL started"
++    if ! /etc/init.d/ejabberd status > /dev/null; then
++      su - $USER -c "$CTL start"
++      su - $USER -c "$CTL started"
 +    fi
      echo "done."
      ;;
@@ -63,17 +61,15 @@ Index: ejabberd/ejabberd.init.template
 -    su - $USER -c "$CTL stop"
 -    su - $USER -c "$CTL stopped"
 +    if $CTL status >/dev/null || test $? = 1 ; then
-+	su - $USER -c "$CTL stop"
-+	su - $USER -c "$CTL stopped"
++      su - $USER -c "$CTL stop"
++      su - $USER -c "$CTL stopped"
 +    fi
      echo "done."
      ;;
    status)
-Index: ejabberd/ejabberdctl.template
-===================================================================
---- ejabberd.orig/ejabberdctl.template
-+++ ejabberd/ejabberdctl.template
-@@ -7,12 +7,12 @@ ERL_MAX_PORTS=32000
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -7,12 +7,12 @@
  ERL_PROCESSES=250000
  ERL_MAX_ETS_TABLES=1400
  FIREWALL_WINDOW=""
@@ -88,12 +84,3 @@ Index: ejabberd/ejabberdctl.template
  
  # Compatibility in ZSH
  #setopt shwordsplit 2>/dev/null
-@@ -22,7 +22,7 @@ if [ "$INSTALLUSER" != "" ] ; then
-     EXEC_CMD="false"
-     for GID in `id -G`; do
-         if [ $GID -eq 0 ] ; then
--            EXEC_CMD="su $INSTALLUSER -p -c"
-+            EXEC_CMD="su $INSTALLUSER -c"
-         fi
-     done
-     if [ `id -g` -eq `id -g $INSTALLUSER` ] ; then
