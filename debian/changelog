@@ -1,9 +1,12 @@
 ejabberd (1:14.07-6) unstable; urgency=low
 
   * Version bump from upstream.
+  * Enable mod_fail2ban in default config file.
+  * Set auth_password_format: scram in default config file.
   * Removed patches applied upstream:
     * client_state_indication.patch
     * disable_sasl_mechanisms.patch
+    * fix_option_name.patch
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
 
