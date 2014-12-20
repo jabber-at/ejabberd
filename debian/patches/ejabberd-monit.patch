@@ -26,8 +26,8 @@
  test -x "$CTL" || {
  	echo "ERROR: ejabberd not found: $DIR"
 @@ -53,11 +54,13 @@
- 	su - $USER -c "$CTL start"
- 	su - $USER -c "$CTL started"
+       su - $USER -c "$CTL start"
+       su - $USER -c "$CTL started"
      fi
 +    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit monitor ejabberd
      echo "done."
@@ -37,5 +37,5 @@
      echo "Stopping ejabberd..."
 +    [ "$EJABBERD_MONIT_INTEGRATION" != 'yes' ] || monit unmonitor ejabberd
      if $CTL status >/dev/null || test $? = 1 ; then
- 	su - $USER -c "$CTL stop"
- 	su - $USER -c "$CTL stopped"
+       su - $USER -c "$CTL stop"
+       su - $USER -c "$CTL stopped"
