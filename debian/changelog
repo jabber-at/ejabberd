@@ -12,6 +12,7 @@ ejabberd (1:14.12-1) unstable; urgency=low
     * presence_probes.patch
     * auth_mechanisms.patch
   * Disable failed-auth.patch, which no longer applies.
+  * Replace erlang-xmlrpc dependency with erlang-hyperloglog.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
 
