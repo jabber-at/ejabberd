@@ -1,3 +1,9 @@
+ejabberd (1:14.12-2) unstable; urgency=low
+
+  * Add erlang-p1-zlib as runtime dependency - was missing for some reason.
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
+
 ejabberd (1:14.12-1) unstable; urgency=low
 
   * Version bump from upstream.
