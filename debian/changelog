@@ -3,7 +3,7 @@ ejabberd (1:14.12-2) unstable; urgency=low
   * Add erlang-p1-zlib as runtime dependency - was missing for some reason.
   * Re-add failed_auth.patch for mod_logsession.
 
- -- Mathias Ertl <mati@jabber.at>  Sat, 20 Dec 2014 12:19:06 +0100
+ -- Mathias Ertl <mati@jabber.at>  Tue, 23 Dec 2014 01:08:01 +0100
 
 ejabberd (1:14.12-1) unstable; urgency=low
 
