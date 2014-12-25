@@ -10,8 +10,8 @@ Build-Depends: debhelper (>= 9), dpkg-dev (>= 1.16.1~),
                hevea, po-debconf, rebar, texlive-latex-base, texlive-latex-recommended, texlive-latex-extra
 Standards-Version: 3.9.6
 Homepage: http://www.process-one.net/en/projects/ejabberd/
-Vcs-Git: https://git.fsinf.at/apt/ejabberd.git
-Vcs-Browser: https://git.fsinf.at/apt/ejabberd
+Vcs-Git: https://github.com/jabber-at/ejabberd.git
+Vcs-Browser: https://github.com/jabber-at/ejabberd/
 
 Package: ejabberd
 Architecture: any
