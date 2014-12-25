@@ -130,7 +130,7 @@
  ##     access:
  ##       c2s:
  ##         admin: allow
-@@ -527,7 +536,7 @@
+@@ -527,21 +536,22 @@
  ## Set a different default language in a virtual host.
  ##
  ## host_config:
@@ -139,22 +139,25 @@
  ##     language: "ru"
  
  ###   =======
-@@ -536,12 +545,12 @@
+ ###   CAPTCHA
+-
++###
++### To enable captchas, install imagemagick or graphicsmagick-imagemagick-compat.
  ##
  ## Full path to a script that generates the image.
  ##
 -## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
-+captcha_cmd: "/usr/lib/ejabberd/priv/bin/captcha.sh"
++## captcha_cmd: "/usr/lib/ejabberd/priv/bin/captcha.sh"
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
  ##
 -## captcha_host: "example.org:5280"
-+captcha_host: "https://__HOSTNAME__:5280"
++## captcha_host: "https://__HOSTNAME__:5280"
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -563,12 +572,19 @@
+@@ -563,12 +573,19 @@
    mod_carboncopy: {}
    mod_client_state:
      drop_chat_states: true
@@ -178,7 +181,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -579,13 +595,15 @@
+@@ -579,13 +596,15 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
@@ -197,7 +200,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -604,7 +622,7 @@
+@@ -604,7 +623,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -206,7 +209,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -631,7 +649,7 @@
+@@ -631,7 +650,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -215,7 +218,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -640,12 +658,18 @@
+@@ -640,12 +659,18 @@
  
      access: register
    mod_roster: {}
