@@ -1,14 +1,5 @@
 --- a/ejabberd.yml.example
 +++ b/ejabberd.yml.example
-@@ -85,7 +85,7 @@
- ##   - "example.org"
- ##
- hosts:
--  - "localhost"
-+  - "__HOSTNAME__"
- 
- ##
- ## route_subdomains: Delegate subdomains to other XMPP servers.
 @@ -111,22 +111,19 @@
      ## certificate, specify the full path to the
      ## file and uncomment these lines:
@@ -79,35 +70,10 @@
  ## List of LDAP servers:
  ## ldap_servers:
 -##   - "localhost"
-+##   - "ldap.__HOSTNAME__"
++##   - "ldap.localhost"
  ##
  ## Encryption of connection to LDAP servers:
  ## ldap_encrypt: none
-@@ -392,8 +395,8 @@
-   ##
-   ## admin:
-   ##   user:
--  ##     - "aleksey": "localhost"
--  ##     - "ermine": "example.org"
-+  ##     - "aleksey": "__HOSTNAME__"
-+  ##     - "ermine": "xmpp.example.com"
-   ##
-   ## Blocked users
-   ##
-@@ -439,11 +442,11 @@
- ## Define specific ACLs in a virtual host.
- ##
- ## host_config:
--##   "localhost":
-+##   "__HOSTNAME__":
- ##     acl:
- ##       admin:
- ##         user:
--##           - "bob-local": "localhost"
-+##           - "bob-local": "__HOSTNAME__"
- 
- ###   ============
- ###   ACCESS RULES
 @@ -499,6 +502,12 @@
    ##   bad_servers: deny
    ##   all: allow
@@ -121,22 +87,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
-@@ -507,7 +516,7 @@
- ## Define specific Access Rules in a virtual host.
- ##
- ## host_config:
--##   "localhost":
-+##   "__HOSTNAME__":
- ##     access:
- ##       c2s:
- ##         admin: allow
-@@ -527,21 +536,22 @@
- ## Set a different default language in a virtual host.
- ##
- ## host_config:
--##   "localhost":
-+##   "__HOSTNAME__":
- ##     language: "ru"
+@@ -532,16 +541,17 @@
  
  ###   =======
  ###   CAPTCHA
@@ -153,7 +104,7 @@
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
  ##
 -## captcha_host: "example.org:5280"
-+## captcha_host: "https://__HOSTNAME__:5280"
++## captcha_host: "https://localhost:5280"
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
@@ -169,7 +120,7 @@
 +    server_info:
 +        modules: all
 +        name: "abuse-addresses"
-+        urls: ["mailto:abuse@__HOSTNAME__"]
++        urls: ["mailto:abuse@localhost"]
    ## mod_echo: {}
 -  mod_irc: {}
 -  mod_http_bind: {}
