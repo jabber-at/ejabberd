@@ -1,0 +1,82 @@
+From 7690320f0f419c0c3b9c126a9ee760a38b51378c Mon Sep 17 00:00:00 2001
+From: Badlop <badlop@process-one.net>
+Date: Thu, 15 Jan 2015 17:39:12 +0100
+Subject: [PATCH] Fix access_commands option in ejabberd_xmlrpc, now it works
+
+---
+ src/ejabberd_commands.erl |  9 ++++++++-
+ src/ejabberd_http.erl     |  3 +++
+ src/ejabberd_xmlrpc.erl   | 10 ++--------
+ 3 files changed, 13 insertions(+), 9 deletions(-)
+
+diff --git a/src/ejabberd_commands.erl b/src/ejabberd_commands.erl
+index 6c8d0b9..c279f2d 100644
+--- a/src/ejabberd_commands.erl
++++ b/src/ejabberd_commands.erl
+@@ -399,7 +399,14 @@ check_auth({User, Server, Password}) ->
+ check_access(all, _) ->
+     true;
+ check_access(Access, Auth) ->
+-    {ok, User, Server} = check_auth(Auth),
++    case check_auth(Auth) of
++	{ok, User, Server} ->
++	    check_access(Access, User, Server);
++	_ ->
++	    false
++    end.
++
++check_access(Access, User, Server) ->
+     %% Check this user has access permission
+     case acl:match_rule(Server, Access, jlib:make_jid(User, Server, <<"">>)) of
+ 	allow -> true;
+diff --git a/src/ejabberd_http.erl b/src/ejabberd_http.erl
+index 9509038..289d541 100644
+--- a/src/ejabberd_http.erl
++++ b/src/ejabberd_http.erl
+@@ -299,13 +299,16 @@ process_header(State, Data) ->
+ 		  _ -> ok
+ 		end,
+ 		#state{sockmod = SockMod, socket = Socket,
++		       options = State#state.options,
+ 		       request_handlers = State#state.request_handlers};
+ 	    _ ->
+ 		#state{end_of_request = true,
++		       options = State#state.options,
+ 		       request_handlers = State#state.request_handlers}
+ 	  end;
+       _ ->
+ 	  #state{end_of_request = true,
++		 options = State#state.options,
+ 		 request_handlers = State#state.request_handlers}
+     end.
+ 
+diff --git a/src/ejabberd_xmlrpc.erl b/src/ejabberd_xmlrpc.erl
+index b590018..b1bd164 100644
+--- a/src/ejabberd_xmlrpc.erl
++++ b/src/ejabberd_xmlrpc.erl
+@@ -360,23 +360,17 @@ build_fault_response(Code, ParseString, ParseArgs) ->
+     FaultString = "Error " ++ integer_to_list(Code) ++ "\n"
+         ++ lists:flatten(io_lib:format(ParseString, ParseArgs)),
+     ?WARNING_MSG(FaultString, []),
+-    {false, {response, {fault, Code, FaultString}}}.
++    {false, {response, {fault, Code, list_to_binary(FaultString)}}}.
+ 
+ do_command(AccessCommands, Auth, Command, AttrL, ArgsF,
+ 	   ResultF) ->
+     ArgsFormatted = format_args(AttrL, ArgsF),
+-    AuthBin = convert_auth(Auth),
+     Result =
+-	ejabberd_commands:execute_command(AccessCommands, AuthBin,
++	ejabberd_commands:execute_command(AccessCommands, Auth,
+ 					  Command, ArgsFormatted),
+     ResultFormatted = format_result(Result, ResultF),
+     {command_result, ResultFormatted}.
+ 
+-convert_auth(noauth) ->
+-    noauth;
+-convert_auth({UserT, ServerT, PasswordT}) ->
+-    {list_to_binary(UserT), list_to_binary(ServerT), list_to_binary(PasswordT)}.
+-
+ %%-----------------------------
+ %% Format arguments
+ %%-----------------------------

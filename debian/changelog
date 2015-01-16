@@ -1,3 +1,9 @@
+ejabberd (1:14.12-4) unstable; urgency=low
+
+  * Add XMLRPC authentication patch.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 16 Jan 2015 10:00:55 +0100
+
 ejabberd (1:14.12-3) unstable; urgency=low
 
   * Improve the default config by not activating captcha_cmd by default.
