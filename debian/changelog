@@ -1,6 +1,8 @@
 ejabberd (1:14.12-4) unstable; urgency=low
 
   * Add XMLRPC authentication patch.
+  * Add pubsub_mnesia_upgrade.patch, which fixes mnesia updates for the PEP
+    table from older ejabberd versions.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 16 Jan 2015 10:00:55 +0100
 

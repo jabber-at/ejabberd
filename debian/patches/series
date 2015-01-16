@@ -14,3 +14,4 @@ nodename.patch
 failed_auth.patch
 ejabberdctl-home.patch
 xmlrpc_fix_auth.patch
+pubsub_mnesia_upgrade.patch
