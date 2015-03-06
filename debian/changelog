@@ -1,3 +1,9 @@
+ejabberd (1:15.02-1) unstable; urgency=low
+
+  * Version bump from upstream.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 06 Mar 2015 22:19:08 +0100
+
 ejabberd (1:14.12-4) unstable; urgency=low
 
   * Add XMLRPC authentication patch.
