@@ -13,11 +13,11 @@
 %%% 
 %%%
 %%% The Initial Developer of the Original Code is ProcessOne.
-%%% Portions created by ProcessOne are Copyright 2006-2014, ProcessOne
+%%% Portions created by ProcessOne are Copyright 2006-2015, ProcessOne
 %%% All Rights Reserved.''
-%%% This software is copyright 2006-2014, ProcessOne.
+%%% This software is copyright 2006-2015, ProcessOne.
 %%%
-%%% @copyright 2006-2014 ProcessOne
+%%% @copyright 2006-2015 ProcessOne
 %%% @author Christophe Romain <christophe.romain@process-one.net>
 %%%   [http://www.process-one.net/]
 %%% @version {@vsn}, {@date} {@time}
@@ -1607,7 +1607,7 @@ iq_get_vcard(Lang) ->
 		[{xmlcdata,
 		  <<(translate:translate(Lang,
 					 <<"ejabberd Publish-Subscribe module">>))/binary,
-		    "\nCopyright (c) 2004-2014 ProcessOne">>}]}].
+		    "\nCopyright (c) 2004-2015 ProcessOne">>}]}].
 
 -spec(iq_pubsub/6 ::
 (
@@ -2349,7 +2349,7 @@ create_node(Host, ServerHost, Node, Owner, GivenType, Access, Configuration) ->
 		{result, {NodeId, _SubsByDepth, default}} ->
 		    ejabberd_hooks:run(pubsub_create_node, ServerHost, [ServerHost, Host, Node, NodeId, NodeOptions]),
 		    {result, Reply};
-		{result, {NodeId, _SubsByDepth, Result}} ->
+		{result, {NodeId, _SubsByDepth, _Result}} ->
 		    ejabberd_hooks:run(pubsub_create_node, ServerHost, [ServerHost, Host, Node, NodeId, NodeOptions]),
 		    {result, Reply};
 		Error ->
