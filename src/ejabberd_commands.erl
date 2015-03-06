@@ -5,7 +5,7 @@
 %%% Created : 20 May 2008 by Badlop <badlop@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -399,7 +399,14 @@ check_auth({User, Server, Password}) ->
 check_access(all, _) ->
     true;
 check_access(Access, Auth) ->
-    {ok, User, Server} = check_auth(Auth),
+    case check_auth(Auth) of
+	{ok, User, Server} ->
+	    check_access(Access, User, Server);
+	_ ->
+	    false
+    end.
+
+check_access(Access, User, Server) ->
     %% Check this user has access permission
     case acl:match_rule(Server, Access, jlib:make_jid(User, Server, <<"">>)) of
 	allow -> true;

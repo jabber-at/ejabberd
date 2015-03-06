@@ -5,7 +5,7 @@
 %%% Created : 23 Nov 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -300,7 +300,7 @@ get_password_with_authmodule(User, Server) ->
 
 -spec is_user_exists(binary(), binary()) -> boolean().
 
-is_user_exists(User, <<"">>) ->
+is_user_exists(_User, <<"">>) ->
     false;
 
 is_user_exists(User, Server) ->

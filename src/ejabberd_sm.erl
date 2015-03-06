@@ -5,7 +5,7 @@
 %%% Created : 24 Nov 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -604,7 +604,7 @@ do_route(From, To, #xmlel{} = Packet) ->
 							?ERR_SERVICE_UNAVAILABLE),
 			    ejabberd_router:route(To, From, Err)
 		      end;
-		  _ -> ?DEBUG("packet droped~n", [])
+		  _ -> ?DEBUG("packet dropped~n", [])
 		end;
 	    Ss ->
 		Session = lists:max(Ss),

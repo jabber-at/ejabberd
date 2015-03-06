@@ -6,7 +6,7 @@
  
  
 
- ejabberd 14.12 
+ ejabberd 15.02 
  
  Installation and Operation Guide
  
@@ -76,7 +76,7 @@ BLOCKQUOTE.figure DIV.center DIV.center HR{display:none;}
 <HR SIZE=2><BR>
 <BR>
 
-<TABLE CELLSPACING=6 CELLPADDING=0><TR><TD ALIGN=right NOWRAP> <FONT SIZE=6><B>ejabberd 14.12 </B></FONT></TD></TR>
+<TABLE CELLSPACING=6 CELLPADDING=0><TR><TD ALIGN=right NOWRAP> <FONT SIZE=6><B>ejabberd 15.02 </B></FONT></TD></TR>
 <TR><TD ALIGN=right NOWRAP>&nbsp;</TD></TR>
 <TR><TD ALIGN=right NOWRAP> <FONT SIZE=6>Installation and Operation Guide</FONT></TD></TR>
 </TABLE><BR>
@@ -240,7 +240,7 @@ Comprehensive documentation.
 </LI><LI CLASS="li-itemize">Capability to send announce messages.
 </LI></UL></LI><LI CLASS="li-itemize">Internationalized: <TT>ejabberd</TT> leads in internationalization. Hence it is very well suited in a globalized world. Related features are:
 <UL CLASS="itemize"><LI CLASS="li-itemize">
-Translated to 25 languages. </LI><LI CLASS="li-itemize">Support for <A HREF="http://www.ietf.org/rfc/rfc3490.txt">IDNA</A>.
+Translated to 25 languages. </LI><LI CLASS="li-itemize">Support for <A HREF="http://tools.ietf.org/html/rfc3490">IDNA</A>.
 </LI></UL></LI><LI CLASS="li-itemize">Open Standards: <TT>ejabberd</TT> is the first Open Source Jabber server claiming to fully comply to the XMPP standard.
 <UL CLASS="itemize"><LI CLASS="li-itemize">
 Fully XMPP compliant.
@@ -370,7 +370,7 @@ GNU Make
 Alternatively, the latest development source code can be retrieved from the Git repository using the commands:
 </P><PRE CLASS="verbatim">git clone git://github.com/processone/ejabberd.git ejabberd
 cd ejabberd
-git checkout -b 2.1.x origin/2.1.x
+./autogen.sh
 </PRE><P> <A NAME="compile"></A> </P><!--TOC subsection Compile-->
 <H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc11">2.4.3</A>&#XA0;&#XA0;<A HREF="#compile">Compile</A></H3><!--SEC END --><P> <A NAME="compile"></A> 
 </P><P>To compile <TT>ejabberd</TT> execute the commands:
@@ -595,7 +595,25 @@ param2:
 In previous <TT>ejabberd</TT> version the configuration file should be written
 in Erlang terms. The format is still supported, but it is highly recommended
 to convert it to the new YAML format using <TT>convert_to_yaml</TT> command
-from <TT>ejabberdctl</TT> (see&#XA0;<A HREF="#ejabberdctl">4.1</A> and <A HREF="#list-eja-commands">4.2.1</A> for details).</P><P> <A NAME="hostnames"></A> </P><!--TOC subsection Host Names-->
+from <TT>ejabberdctl</TT> (see&#XA0;<A HREF="#ejabberdctl">4.1</A> and <A HREF="#list-eja-commands">4.2.1</A> for details).</P><P>If you want to specify some options using the old Erlang format,
+you can set them in an additional cfg file, and include it using
+the <TT>include_config_file</TT> option, see <A HREF="#includeconfigfile">3.1.12</A>
+for the option description and a related example in <A HREF="#accesscommands">4.2.2</A>.</P><P>If you just want to provide an erlang term inside an option,
+you can use the <TT>"&gt; erlangterm."</TT> syntax for embedding erlang terms in a YAML file, for example:
+</P><PRE CLASS="verbatim">modules:
+  mod_cron:
+    tasks:
+      - time: 10
+        units: seconds
+        module: mnesia
+        function: info
+        arguments: "&gt; []."
+      - time: 3
+        units: seconds
+        module: ejabberd_auth
+        function: try_register
+        arguments: "&gt; [\"user1\", \"localhost\", \"pass\"]."
+</PRE><P> <A NAME="hostnames"></A> </P><!--TOC subsection Host Names-->
 <H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc22">3.1.2</A>&#XA0;&#XA0;<A HREF="#hostnames">Host Names</A></H3><!--SEC END --><P> <A NAME="hostnames"></A> 
 </P><P>The option <TT>hosts</TT> defines a list containing one or more domains that
 <TT>ejabberd</TT> will serve.</P><P>The syntax is:
@@ -1718,7 +1736,7 @@ enabled if TURN is enabled. Here, only UDP section is shown:
     port: 3478
     transport: udp
     use_turn: true
-    turn_ip: 10.20.30.1
+    turn_ip: "10.20.30.1"
     module: ejabberd_stun
   ...
 </PRE><P>You also need to configure DNS SRV records properly so clients can easily discover a
@@ -3207,9 +3225,9 @@ to be sent or received by the users in 60 seconds:
   ...
 </PRE><P> <A NAME="modprivacy"></A> </P><!--TOC subsection <TT>mod_privacy</TT>-->
 <H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc55">3.3.17</A>&#XA0;&#XA0;<A HREF="#modprivacy"><TT>mod_privacy</TT></A></H3><!--SEC END --><P> <A NAME="modprivacy"></A> 
-</P><P>This module implements Blocking Communication (also known as Privacy Rules)
-as defined in section 10 from XMPP IM. If end users have support for it in
-their XMPP client, they will be able to:
+</P><P>This module implements <A HREF="http://xmpp.org/rfcs/rfc3921.html#privacy">Blocking Communication</A>
+(also known as Privacy Rules).
+If end users have support for it in their XMPP client, they will be able to:
 </P><BLOCKQUOTE CLASS="quote">
 <UL CLASS="itemize"><LI CLASS="li-itemize">
 Retrieving one&#X2019;s privacy lists.
@@ -3558,7 +3576,7 @@ It is important to include the last / character in the URL,
 otherwise the subpages URL will be incorrect.</P><P> <A NAME="modroster"></A> </P><!--TOC subsection <TT>mod_roster</TT>-->
 <H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc61">3.3.23</A>&#XA0;&#XA0;<A HREF="#modroster"><TT>mod_roster</TT></A></H3><!--SEC END --><P> <A NAME="modroster"></A> 
 </P><P>This module implements roster management as defined in
-<A HREF="http://xmpp.org/rfcs/rfc3921.html#roster">RFC 3921: XMPP IM</A>.
+<A HREF="http://tools.ietf.org/html/rfc6121#section-2">RFC 6121: XMPP IM</A>.
 It also supports Roster Versioning (<A HREF="http://xmpp.org/extensions/xep-0237.html">XEP-0237</A>).</P><P>Options:
 </P><DL CLASS="description"><DT CLASS="dt-description">
 <B><TT>iqdisc: Discipline</TT></B></DT><DD CLASS="dd-description"> This specifies
@@ -4361,13 +4379,9 @@ and all the <TT>ejabberd commands</TT> available in that server (see <A HREF="#l
 </DD><DT CLASS="dt-description"><B><TT>restart</TT></B></DT><DD CLASS="dd-description"> Restart the <TT>ejabberd</TT> server.
 </DD><DT CLASS="dt-description"><B><TT>mnesia</TT></B></DT><DD CLASS="dd-description"> Get information about the Mnesia database.
 </DD></DL><P>The <TT>ejabberdctl</TT> script can be restricted to require authentication
-and execute some <TT>ejabberd commands</TT>; see <A HREF="#accesscommands">4.2.2</A>.
-Add the option to the file <TT>ejabberd.yml</TT>.
-In this example there is no restriction:
-</P><PRE CLASS="verbatim">ejabberdctl_access_commands: []
-</PRE><P>If account <TT>robot1@example.org</TT> is registered in <TT>ejabberd</TT> with password <TT>abcdef</TT>
+and execute some <TT>ejabberd commands</TT>; see <A HREF="#accesscommands">4.2.2</A>.</P><P>If account <TT>robot1@example.org</TT> is registered in <TT>ejabberd</TT> with password <TT>abcdef</TT>
 (which MD5 is E8B501798950FC58AAD83C8C14978E),
-and <TT>ejabberd.yml</TT> contains this setting:
+and your old-format configuration file contains this setting:
 </P><PRE CLASS="verbatim">{hosts, ["example.org"]}.
 {acl, bots, {user, "robot1", "example.org"}}.
 {access, ctlaccess, [{allow, bots}]}.
@@ -4470,7 +4484,7 @@ and the <TT>ejabberd_xmlrpc</TT> listener (<A HREF="#listened-module">3.1.4</A>)
 Other known frontends that can be installed to execute ejabberd commands in different ways are:
 <TT>mod_rest</TT> (HTTP POST service),
 <TT>mod_shcommands</TT> (ejabberd WebAdmin page).</P><P> <A NAME="list-eja-commands"></A> </P><!--TOC subsection List of ejabberd Commands-->
-<H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc78">4.2.1</A>&#XA0;&#XA0;<A HREF="#list-eja-commands">List of ejabberd Commands</A></H3><!--SEC END --><P> <A NAME="list-eja-commands"></A> </P><P><TT>ejabberd</TT> includes a few ejabberd Commands by default.
+<H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc78">4.2.1</A>&#XA0;&#XA0;<A HREF="#list-eja-commands">List of ejabberd Commands</A></H3><!--SEC END --><P> <A NAME="list-eja-commands"></A> </P><P><TT>ejabberd</TT> includes a few ejabberd Commands by default as listed below.
 When more modules are installed, new commands may be available in the frontends.</P><P>The easiest way to get a list of the available commands, and get help for them is to use
 the ejabberdctl script:
 </P><PRE CLASS="verbatim">$ ejabberdctl help
@@ -4481,9 +4495,12 @@ Available commands in this ejabberd node:
   connected_users              List all established sessions
   connected_users_number       Get the number of established sessions
   ...
-</PRE><P>The most interesting ones are:
+</PRE><P>The commands included in ejabberd by default are:
 </P><DL CLASS="description"><DT CLASS="dt-description">
-<B><TT>reopen_log</TT></B></DT><DD CLASS="dd-description"> Reopen the log files after they were renamed.
+<B><TT>stop_kindly delay announcement</TT></B></DT><DD CLASS="dd-description"> Inform users and rooms, wait, and stop the server.
+Provide the delay in seconds, and the announcement quoted.
+</DD><DT CLASS="dt-description"><B><TT>registered_vhosts</TT></B></DT><DD CLASS="dd-description"> List all registered vhosts in SERVER
+</DD><DT CLASS="dt-description"><B><TT>reopen_log</TT></B></DT><DD CLASS="dd-description"> Reopen the log files after they were renamed.
 If the old files were not renamed before calling this command,
 they are automatically renamed to <TT>"*-old.log"</TT>. See section <A HREF="#logfiles">7.1</A>.
 </DD><DT CLASS="dt-description"><B><TT>convert_to_yaml /etc/ejabberd/ejabberd.cfg /etc/ejabberd/ejabberd-converted.yml</TT></B></DT><DD CLASS="dd-description">
@@ -4517,18 +4534,37 @@ using jabberd1.4 formatted XML files.
 from other Jabber/XMPP servers
 There exist tutorials to
 <A HREF="http://www.ejabberd.im/migrate-to-ejabberd">migrate from other software to ejabberd</A>.
+</DD><DT CLASS="dt-description"><B><TT>set_master nodename</TT></B></DT><DD CLASS="dd-description">
+Set master node of the clustered Mnesia tables.
+If you provide as nodename "self", this node will be set as its own master.
+</DD><DT CLASS="dt-description"><B><TT>mnesia_change_nodename oldnodename newnodename oldbackup newbackup</TT></B></DT><DD CLASS="dd-description">
+Change the erlang node name in a backup file
 </DD><DT CLASS="dt-description"><B><TT>export2odbc virtualhost directory</TT></B></DT><DD CLASS="dd-description"> 
 Export virtual host information from Mnesia tables to SQL files.
+</DD><DT CLASS="dt-description"><B><TT>update_list</TT></B></DT><DD CLASS="dd-description"> List modified modules that can be updated
+</DD><DT CLASS="dt-description"><B><TT>update module</TT></B></DT><DD CLASS="dd-description"> Update the given module, or use the keyword: all
+</DD><DT CLASS="dt-description"><B><TT>reload_config</TT></B></DT><DD CLASS="dd-description"> Reload ejabberd configuration file into memory
 </DD><DT CLASS="dt-description"><B><TT>delete_expired_messages</TT></B></DT><DD CLASS="dd-description"> This option can be used to delete old messages
 in offline storage. This might be useful when the number of offline messages
 is very high.
 </DD><DT CLASS="dt-description"><B><TT>delete_old_messages days</TT></B></DT><DD CLASS="dd-description"> Delete offline messages older than the given days.
+</DD><DT CLASS="dt-description"><B><TT>incoming_s2s_number</TT></B></DT><DD CLASS="dd-description"> Number of incoming s2s connections on the node
+</DD><DT CLASS="dt-description"><B><TT>outgoing_s2s_number</TT></B></DT><DD CLASS="dd-description"> Number of outgoing s2s connections on the node
 </DD><DT CLASS="dt-description"><B><TT>register user host password</TT></B></DT><DD CLASS="dd-description"> Register an account in that domain with the given password.
 </DD><DT CLASS="dt-description"><B><TT>unregister user host</TT></B></DT><DD CLASS="dd-description"> Unregister the given account.
-</DD></DL><P> <A NAME="accesscommands"></A> </P><!--TOC subsection Restrict Execution with AccessCommands-->
-<H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc79">4.2.2</A>&#XA0;&#XA0;<A HREF="#accesscommands">Restrict Execution with AccessCommands</A></H3><!--SEC END --><P> <A NAME="accesscommands"></A> </P><P>The frontends can be configured to restrict access to certain commands.
-In that case, authentication information must be provided.
-In each frontend the <TT>AccessCommands</TT> option is defined
+</DD><DT CLASS="dt-description"><B><TT>registered_users host</TT></B></DT><DD CLASS="dd-description"> List all registered users in HOST
+</DD><DT CLASS="dt-description"><B><TT>connected_users</TT></B></DT><DD CLASS="dd-description"> List all established sessions
+</DD><DT CLASS="dt-description"><B><TT>connected_users_number</TT></B></DT><DD CLASS="dd-description"> Get the number of established sessions
+</DD><DT CLASS="dt-description"><B><TT>user_resources user host</TT></B></DT><DD CLASS="dd-description"> List user&#X2019;s connected resources
+</DD><DT CLASS="dt-description"><B><TT>kick_user user host</TT></B></DT><DD CLASS="dd-description"> Disconnect user&#X2019;s active sessions</DD></DL><P> <A NAME="accesscommands"></A> </P><!--TOC subsection Restrict Execution with AccessCommands-->
+<H3 CLASS="subsection"><!--SEC ANCHOR --><A NAME="htoc79">4.2.2</A>&#XA0;&#XA0;<A HREF="#accesscommands">Restrict Execution with AccessCommands</A></H3><!--SEC END --><P> <A NAME="accesscommands"></A> </P><P>The frontends can be configured to restrict access to certain commands
+using the <TT>AccessCommands</TT>.
+In that case, authentication information must be provided.</P><P>This option allows quite complex settings, so it does not use the YAML format,
+instead it uses the Erlang format.
+If you want to set that option,
+then you must move the frontend definition to another config file
+and include it using the <TT>include_config_file</TT> option
+(see section&#XA0;<A HREF="#includeconfigfile">3.1.12</A> and the example below).</P><P>In each frontend the <TT>AccessCommands</TT> option is defined
 in a different place. But in all cases the option syntax is the same:
 </P><PRE CLASS="verbatim">AccessCommands = [ {Access, CommandNames, Arguments}, ...]
 Access = atom()
@@ -4569,6 +4605,29 @@ and the provided arguments do not contradict Arguments.</P><P>As an example to u
  %% if argument host is provided, it must be "test.org":
  {_bot_reg_test, [register, unregister], [{host, "test.org"}]}
 ]
+</PRE><P>In summary, you put the frontends configurations in a CFG file using Erlang format, for example a file called <TT>additional.cfg</TT>:
+</P><PRE CLASS="verbatim">{ejabberdctl_access_commands, [ {ctlaccess, [registered_users, register], []} ]}.
+
+{listen, [
+  {4560, ejabberd_xmlrpc, [{maxsessions, 10}, {timeout, 5000},
+    {access_commands, [
+      {ctlaccess, [registered_users], [{host, "localhost"}]}
+    ]}
+  ]}
+ ]}.
+
+{modules, [
+  {mod_rest, [
+    {allowed_ips, [ {127,0,0,1}, {192,168,1,12} ]},
+    {allowed_destinations, [ "nolan@localhost", "admin@example.com" ]},
+    {allowed_stanza_types, [ "message", "presence", "iq" ]},
+    {access_commands, [
+      {ctlaccess, [registered_users], [{host, "localhost"}]}
+    ]}
+   ]}
+ ]}.
+</PRE><P>and then add this line at the end of your main ejabberd configuration file, usually called <TT>ejabberd.yml</TT>:
+</P><PRE CLASS="verbatim">include_config_file: "/etc/ejabberd/additional.cfg"
 </PRE><P> <A NAME="webadmin"></A> </P><!--TOC section Web Admin-->
 <H2 CLASS="section"><!--SEC ANCHOR --><A NAME="htoc80">4.3</A>&#XA0;&#XA0;<A HREF="#webadmin">Web Admin</A></H2><!--SEC END --><P> <A NAME="webadmin"></A> 
 </P><P>The <TT>ejabberd</TT> Web Admin allows to administer most of <TT>ejabberd</TT> using a web browser.</P><P>This feature is enabled by default:
@@ -5027,7 +5086,7 @@ Alexey Shchepin (<A HREF="xmpp:aleksey@jabber.ru"><TT>xmpp:aleksey@jabber.ru</TT
 </LI><LI CLASS="li-itemize">Vsevolod Pelipas (<A HREF="xmpp:vsevoload@jabber.ru"><TT>xmpp:vsevoload@jabber.ru</TT></A>)
 </LI></UL><P> <A NAME="copyright"></A> </P><!--TOC chapter Copyright Information-->
 <H1 CLASS="chapter"><!--SEC ANCHOR --><A NAME="htoc106">Appendix&#XA0;D</A>&#XA0;&#XA0;<A HREF="#copyright">Copyright Information</A></H1><!--SEC END --><P> <A NAME="copyright"></A> </P><P>Ejabberd Installation and Operation Guide.<BR>
-Copyright &#XA9; 2003 &#X2014; 2014 ProcessOne</P><P>This document is free software; you can redistribute it and/or
+Copyright &#XA9; 2003 &#X2014; 2015 ProcessOne</P><P>This document is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
 of the License, or (at your option) any later version.</P><P>This document is distributed in the hope that it will be useful,

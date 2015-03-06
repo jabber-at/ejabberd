@@ -49,15 +49,15 @@ SrcDirs = lists:foldl(
                     Acc
             end, [], Cfg),
 
-Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "7b89d6afb66d8ff9d56671864be74654f5b18e2f"}},
-        {p1_tls, ".*", {git, "git://github.com/processone/tls", "d1366ce51e1cc05738594e1d6c6045fdbda4f3a3"}},
-        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "9e9e0f8dbe6a70ef36e1d4436b458ca5a77fbcfb"}},
-        {p1_xml, ".*", {git, "git://github.com/processone/xml", "b5309833cb9ddb4c0ac63e1ce8e07142470452cb"}},
-	{esip, ".*", {git, "git://github.com/processone/p1_sip", "bba44591c02221b93cbc4e0958efffe0b05405a3"}},
-	{p1_stun, ".*", {git, "git://github.com/processone/stun", "a7c07b69c89c67a45c69c7dfcd17ca986afd9e9b"}},
-        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "236b9435ad3731dbab637a16616167e09c074183"}},
+Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "a361d1489458237a46dc1c8c8e30b37b91dd0852"}},
+        {p1_tls, ".*", {git, "git://github.com/processone/tls", "e97b7bb6a6fbba789d7b5f0d253438637caef329"}},
+        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "3c640237a3a7831dc39de6a6d329d3a9af25c579"}},
+        {p1_xml, ".*", {git, "git://github.com/processone/xml", "cbdd072689fe93ea009fc91c6f88ac8a38ef3108"}},
+	{esip, ".*", {git, "git://github.com/processone/p1_sip", "299225e80ad40ecb81666cde3b21a05893be7c97"}},
+	{p1_stun, ".*", {git, "git://github.com/processone/stun", "daa5da6cd884698db5e8262a55eea5ebec4242fe"}},
+        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "e1f081e1bbf34c35fc60c1b988d62a07fbead3e8"}},
         {ehyperloglog, ".*", {git, "https://github.com/vaxelfel/eHyperLogLog.git", "efd14f262c663cde76d8ed48007826dabe9aca41"}},
-        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "9e646e4ff343e8e902410fa1fe28803202b7e340"}}],
+        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "1bf99f9c8daed3b03f76e2714ca102c520c88b26"}}],
 
 ConfigureCmd = fun(Pkg, Flags) ->
                        {'get-deps',
@@ -82,25 +82,28 @@ PostHooks = [ConfigureCmd("p1_tls", ""),
 
 CfgDeps = lists:flatmap(
             fun({mysql, true}) ->
-                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "a335d5ba307f269c74a783846275ff4e0ead9a4b"}}];
+                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "d568bbe317c4e86ee58a603c46a98809c1279013"}}];
                ({pgsql, true}) ->
-                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "58a09c5cb94a59ffb7a79049e16d2ed9701f3195"}}];
+                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "a913ce691782fdf52654774313df0a54a743da1f"}}];
                ({pam, true}) ->
-                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "99c6705469fcb5de5186d33a15e8c15134a91727"}}];
+                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "494e66c06adbc08036bba7f2858401d84ed7bf87"}}];
                ({zlib, true}) ->
-                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "52e82bbc12258ca17ea7ed9b5d10eca60c3db006"}}];
+                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "93528177ff300bb3ab444e61891576fc7a38c671"}}];
                ({riak, true}) ->
                     [{riakc, ".*",
 		      {git, "git://github.com/basho/riak-erlang-client",
 		       {tag, "1.4.2"}}}];
                ({json, true}) ->
-                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "137d3d94b6ee10001d761d412cbbe7f665680c98"}}];
+                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "801f9e72995eb72b303018885137ad8afbf1fb2b"}}];
+               ({elixir, true}) ->
+                    [{rebar_elixir_plugin, ".*", {git, "git://github.com/yrashk/rebar_elixir_plugin", "9db87db9b09477130e57215bba70bffa0daefeac"}},
+                     {elixir, "1.1.*", {git, "git://github.com/elixir-lang/elixir", "20fcde6ff392836dfd4cf449ee438a11b7f52813"}}];
                ({iconv, true}) ->
-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "dff5ee59ebef0fd373a11804e4f833ab1b861126"}}];
+                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "f940329624cdde2446603446d28edf37b46ed2a6"}}];
                ({lager, true}) ->
-                    [{lager, ".*", {git, "git://github.com/basho/lager", "e88c9160aee47d3fdfc6560fc281138c5df2ec62"}}];
+                    [{lager, ".*", {git, "git://github.com/basho/lager", "d33ccf3b69de09a628fe38b4d7981bb8671b8a4f"}}];
                ({lager, false}) ->
-                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "c7141aff68282dec46d60a3f39cbf658d0c91961"}}];
+                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
                (_) ->
                     []
             end, Cfg),
@@ -142,6 +145,13 @@ CfgXrefs = lists:flatmap(
 		     []
             end, Cfg),
 
+ElixirConfig = case lists:keysearch(elixir, 1, Cfg) of
+                   {value, {elixir, true}} ->
+                       [{plugins, [rebar_elixir_compiler, rebar_exunit] },
+                        {lib_dirs, ["deps/elixir/lib"]}];
+                   _ ->
+                       []
+               end,
 
 {ok, Cwd} = file:get_cwd(),
 
@@ -157,7 +167,7 @@ Config = [{erl_opts, Macros ++ HiPE ++ DebugInfo ++
 	   [{"(XC - UC) || (XU - X - B - "
 	     ++ string:join(CfgXrefs, " - ") ++ ")", []}]},
           {post_hooks, PostHooks ++ CfgPostHooks},
-          {deps, Deps ++ CfgDeps}],
+          {deps, Deps ++ CfgDeps}] ++ ElixirConfig,
 %%io:format("ejabberd configuration:~n  ~p~n", [Config]),
 Config.
 
