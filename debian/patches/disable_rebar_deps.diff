@@ -5,7 +5,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -68,26 +68,11 @@
+@@ -71,26 +71,11 @@
    INIT_USER=$(INSTALLUSER)
  endif
  
@@ -34,7 +34,7 @@ Author: Philipp Huebner <debalance@debian.org>
  xref: all
  	$(REBAR) skip_deps=true xref
  
-@@ -107,8 +92,6 @@
+@@ -110,8 +95,6 @@
  	$(ERL) -noinput +B -pa ebin -pa deps/*/ebin -eval \
  	'case xml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
  
@@ -43,12 +43,27 @@ Author: Philipp Huebner <debalance@debian.org>
  install: all
  	#
  	# Configuration files
-@@ -143,24 +126,18 @@
+@@ -136,11 +119,6 @@
+ 	# Administration script
+ 	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
+ 	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
+-	# Elixir binaries
+-	[ -d $(BINDIR) ] || $(INSTALL) -d -m 755 $(BINDIR)
+-	-[ -f deps/elixir/bin/iex ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/iex $(BINDIR)/iex
+-	-[ -f deps/elixir/bin/elixir ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/elixir $(BINDIR)/elixir
+-	-[ -f deps/elixir/bin/mix ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/mix $(BINDIR)/mix
+ 	#
+ 	# Init script
+ 	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
+@@ -152,27 +130,18 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
 -	$(INSTALL) -m 644 deps/*/ebin/*.app $(BEAMDIR)
 -	$(INSTALL) -m 644 deps/*/ebin/*.beam $(BEAMDIR)
+-	# Install Elixir and Elixir dependancies
+-	-$(INSTALL) -m 644 deps/*/lib/*/ebin/*.app $(BEAMDIR)
+-	-$(INSTALL) -m 644 deps/*/lib/*/ebin/*.beam $(BEAMDIR)
  	rm -f $(BEAMDIR)/configure.beam
  	#
  	# ejabberd header files
@@ -68,7 +83,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
  	#
  	# Translated strings
-@@ -223,8 +200,6 @@
+@@ -238,8 +207,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -77,7 +92,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -235,7 +210,6 @@
+@@ -250,7 +217,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
