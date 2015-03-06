@@ -1,11 +1,9 @@
 Author: Gerfried Fuchs <rhonda@debian.at>	vim:ft=diff:
 Description: Fix syntax problems with the example scripts
 
-Index: VCS/examples/mtr/ejabberd
-===================================================================
---- VCS.orig/examples/mtr/ejabberd
-+++ VCS/examples/mtr/ejabberd
-@@ -44,9 +44,8 @@ force*)
+--- a/examples/mtr/ejabberd
++++ b/examples/mtr/ejabberd
+@@ -44,9 +44,8 @@
          ;;
  esac
  
@@ -16,11 +14,9 @@ Index: VCS/examples/mtr/ejabberd
      exit 0
  fi
  
-Index: VCS/examples/mtr/ejabberd-netbsd.sh
-===================================================================
---- VCS.orig/examples/mtr/ejabberd-netbsd.sh
-+++ VCS/examples/mtr/ejabberd-netbsd.sh
-@@ -8,8 +8,7 @@ if [ ! pkg_info erlang 1>/dev/null 2>&1
+--- a/examples/mtr/ejabberd-netbsd.sh
++++ b/examples/mtr/ejabberd-netbsd.sh
+@@ -8,8 +8,7 @@
      make
      make install
  fi
@@ -30,3 +26,21 @@ Index: VCS/examples/mtr/ejabberd-netbsd.sh
      echo "erlang-9.1nb1 not installed" 1>&2
      exit 1
  fi
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -7,13 +7,13 @@
+ ERL_PROCESSES=250000
+ ERL_MAX_ETS_TABLES=1400
+ FIREWALL_WINDOW=""
+-ERLANG_NODE=ejabberd@localhost
++ERLANG_NODE=ejabberd
+ 
+ # define default environment variables
+ SCRIPT_DIR=`cd ${0%/*} && pwd`
+ ERL={{erl}}
+ IEX={{bindir}}/iex
+-INSTALLUSER={{installuser}}
++INSTALLUSER=ejabberd
+ 
+ # Compatibility in ZSH
+ #setopt shwordsplit 2>/dev/null
