@@ -5,13 +5,13 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/rebar.config.script
 +++ b/rebar.config.script
-@@ -155,9 +155,7 @@
+@@ -165,9 +165,7 @@
            {xref_checks, []},
  	  {xref_queries,
  	   [{"(XC - UC) || (XU - X - B - "
 -	     ++ string:join(CfgXrefs, " - ") ++ ")", []}]},
 -          {post_hooks, PostHooks ++ CfgPostHooks},
--          {deps, Deps ++ CfgDeps}],
+-          {deps, Deps ++ CfgDeps}] ++ ElixirConfig,
 +             ++ string:join(CfgXrefs, " - ") ++ ")", []}]}],
  %%io:format("ejabberd configuration:~n  ~p~n", [Config]),
  Config.
