@@ -301,11 +301,13 @@
  #
  # Indicate the full path to the ejabberd Process identifier (PID) file.
  # If this variable is defined, ejabberd writes the PID file when starts,
-@@ -147,7 +135,3 @@
- # Default: don't write PID file
+@@ -148,8 +136,7 @@
  #
  #EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
--
+ 
 -#.
--#'
--# vim: foldmarker=#',#. foldmethod=marker:
+-#' EJABBERD_CONFIG_PATH: ejabberd configuration file
++# EJABBERD_CONFIG_PATH: ejabberd configuration file
+ #
+ # Specify the full path to the ejabberd configuration file. If the file name has
+ # a ".yml" extension, it is parsed as a YAML file; otherwise, Erlang syntax is
