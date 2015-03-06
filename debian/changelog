@@ -1,6 +1,8 @@
 ejabberd (1:15.02-1) unstable; urgency=low
 
   * Version bump from upstream.
+  * Remove patches applied upstream:
+    * remove_deps.diff
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 06 Mar 2015 22:19:08 +0100
 
