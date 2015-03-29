@@ -55,7 +55,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	#
  	# Init script
  	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-@@ -152,27 +130,18 @@
+@@ -152,29 +130,20 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
@@ -74,6 +74,8 @@ Author: Philipp Huebner <debalance@debian.org>
  	# Binary C programs
  	$(INSTALL) -d $(PBINDIR)
  	$(INSTALL) -m 750 $(O_USER) tools/captcha.sh $(PBINDIR)
+ 	$(INSTALL) -m 750 $(O_USER) tools/joincluster $(PBINDIR)
+ 	$(INSTALL) -m 750 $(O_USER) tools/leavecluster $(PBINDIR)
 -	-[ -f deps/p1_pam/priv/bin/epam ] \
 -		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR)
  	#
@@ -83,7 +85,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
  	#
  	# Translated strings
-@@ -238,8 +207,6 @@
+@@ -240,8 +209,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -92,7 +94,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -250,7 +217,6 @@
+@@ -252,7 +219,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
