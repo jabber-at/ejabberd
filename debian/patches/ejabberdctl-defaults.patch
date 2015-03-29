@@ -4,7 +4,7 @@ Applied-Upstream: ?
 Last-Update: 2014-07-11
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -31,7 +31,7 @@
+@@ -32,7 +32,7 @@
              EXEC_CMD="su $INSTALLUSER -c"
          fi
      done
@@ -13,7 +13,7 @@ Last-Update: 2014-07-11
          EXEC_CMD="sh -c"
      fi
      if [ "$EXEC_CMD" = "false" ] ; then
-@@ -52,7 +52,8 @@
+@@ -53,7 +53,8 @@
          --node) ERLANG_NODE_ARG=$1 ; shift ;;
          --config-dir) ETC_DIR="$1" ; shift ;;
          --config) EJABBERD_CONFIG_PATH="$1" ; shift ;;
@@ -23,7 +23,7 @@ Last-Update: 2014-07-11
          --logs) LOGS_DIR="$1" ; shift ;;
          --spool) SPOOL_DIR="$1" ; shift ;;
          *) ARGS="$ARGS $PARAM" ;;
-@@ -63,8 +64,11 @@
+@@ -64,8 +65,11 @@
  if [ "$ETC_DIR" = "" ] ; then
      ETC_DIR={{sysconfdir}}/ejabberd
  fi
@@ -36,7 +36,7 @@ Last-Update: 2014-07-11
  fi
  if [ -f "$EJABBERDCTL_CONFIG_PATH" ] ; then
      . "$EJABBERDCTL_CONFIG_PATH"
-@@ -306,7 +310,8 @@
+@@ -308,7 +312,8 @@
      echo "Optional parameters when starting an ejabberd node:"
      echo "  --config-dir dir   Config ejabberd:    $ETC_DIR"
      echo "  --config file      Config ejabberd:    $EJABBERD_CONFIG_PATH"

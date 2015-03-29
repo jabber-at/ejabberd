@@ -16,8 +16,8 @@
 +#EJABBERD_MONIT_INTEGRATION=no
 +
  #.
- #'
- # vim: foldmarker=#',#. foldmethod=marker:
+ #' CONTRIB_MODULES_PATH: contributed ejabberd modules path
+ #
 --- a/ejabberd.init.template
 +++ b/ejabberd.init.template
 @@ -22,6 +22,7 @@
