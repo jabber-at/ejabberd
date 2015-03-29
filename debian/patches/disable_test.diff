@@ -6,7 +6,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -271,10 +271,6 @@
+@@ -273,10 +273,6 @@
  	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
  
  test:
@@ -15,5 +15,5 @@ Author: Philipp Huebner <debalance@debian.org>
 -	@echo "*************************************************************************"
 -	$(REBAR) skip_deps=true ct
  
- .PHONY: src doc edoc dialyzer Makefile TAGS clean clean-rel distclean rel \
- 	install uninstall uninstall-binary uninstall-all translations deps test spec \
+ quicktest:
+ 	$(REBAR) skip_deps=true ct suites=elixir
