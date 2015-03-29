@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author Evgeniy Khramtsov <ekhramtsov@process-one.net>
-%%% @copyright (C) 2013, Evgeniy Khramtsov
+%%% @copyright (C) 2002-2015, ProcessOne
 %%% @doc
 %%%
 %%% @end
@@ -25,7 +25,7 @@
 -include("suite.hrl").
 
 suite() ->
-    [{timetrap, {seconds,20}}].
+    [{timetrap, {seconds,120}}].
 
 init_per_suite(Config) ->
     NewConfig = init_config(Config),

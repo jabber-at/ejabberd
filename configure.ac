@@ -106,10 +106,10 @@ AC_ARG_ENABLE(mssql,
 esac],[db_type=generic])
 
 AC_ARG_ENABLE(all,
-[AC_HELP_STRING([--enable-all], [same as --enable-nif --enable-odbc --enable-mysql --enable-pgsql --enable-pam --enable-zlib --enable-riak --enable-json --enable-elixir --enable-iconv --enable-debug --enable-lager --enable-tools (useful for Dialyzer checks, default: no)])],
+[AC_HELP_STRING([--enable-all], [same as --enable-nif --enable-odbc --enable-mysql --enable-pgsql --enable-pam --enable-zlib --enable-riak --enable-redis --enable-json --enable-elixir --enable-iconv --enable-debug --enable-lager --enable-tools (useful for Dialyzer checks, default: no)])],
 [case "${enableval}" in
-  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true riak=true json=true elixir=true iconv=true debug=true lager=true tools=true ;;
-  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false riak=false json=false elixir=false iconv=false debug=false lager=false tools=false ;;
+  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true riak=true redis=true json=true elixir=true iconv=true debug=true lager=true tools=true ;;
+  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false riak=false redis=false json=false elixir=false iconv=false debug=false lager=false tools=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-all) ;;
 esac],[])
 
@@ -177,6 +177,14 @@ AC_ARG_ENABLE(riak,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-riak) ;;
 esac],[if test "x$riak" = "x"; then riak=false; fi])
 
+AC_ARG_ENABLE(redis,
+[AC_HELP_STRING([--enable-redis], [enable Redis support (default: no)])],
+[case "${enableval}" in
+  yes) redis=true ;;
+  no)  redis=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-redis) ;;
+esac],[if test "x$redis" = "x"; then redis=false; fi])
+
 AC_ARG_ENABLE(json,
 [AC_HELP_STRING([--enable-json], [enable JSON support for mod_bosh (default: no)])],
 [case "${enableval}" in
@@ -235,6 +243,8 @@ if test "$ENABLEUSER" != ""; then
   AC_SUBST([INSTALLUSER], [$ENABLEUSER])
 fi
 
+ERLANG_DEPRECATED_TYPES_CHECK
+
 AC_SUBST(hipe)
 AC_SUBST(roster_gateway_workaround)
 AC_SUBST(transient_supervisors)
@@ -247,6 +257,7 @@ AC_SUBST(pgsql)
 AC_SUBST(pam)
 AC_SUBST(zlib)
 AC_SUBST(riak)
+AC_SUBST(redis)
 AC_SUBST(json)
 AC_SUBST(elixir)
 AC_SUBST(iconv)

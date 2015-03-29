@@ -19,7 +19,11 @@
 %%%----------------------------------------------------------------------
 
 -include("ns.hrl").
+-ifdef(NO_EXT_LIB).
+-include("xml.hrl").
+-else.
 -include_lib("p1_xml/include/xml.hrl").
+-endif.
 
 -define(STANZA_ERROR(Code, Type, Condition),
 	#xmlel{name = <<"error">>,
@@ -471,10 +475,10 @@
 
 -type(iq() :: iq_request() | iq_reply()).
 
--record(rsm_in, {max :: integer(),
+-record(rsm_in, {max :: integer() | error,
                  direction :: before | aft,
                  id :: binary(),
-                 index :: integer()}).
+                 index :: integer() | error}).
 
 -record(rsm_out, {count :: integer(),
                   index :: integer(),
