@@ -1,3 +1,9 @@
+ejabberd (1:15.03-1) unstable; urgency=low
+
+  * Version bump from upstream.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 29 Mar 2015 14:15:34 +0200
+
 ejabberd (1:15.02-1) unstable; urgency=low
 
   * Version bump from upstream.
