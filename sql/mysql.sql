@@ -22,6 +22,10 @@ CREATE TABLE users (
     created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB CHARACTER SET utf8;
 
+-- To support SCRAM auth:
+-- ALTER TABLE users ADD COLUMN serverkey text NOT NULL DEFAULT '';
+-- ALTER TABLE users ADD COLUMN salt text NOT NULL DEFAULT '';
+-- ALTER TABLE users ADD COLUMN iterationcount integer NOT NULL DEFAULT 0;
 
 CREATE TABLE last (
     username varchar(250) PRIMARY KEY,
@@ -79,6 +83,7 @@ CREATE TABLE spool (
 ) ENGINE=InnoDB CHARACTER SET utf8;
 
 CREATE INDEX i_despool USING BTREE ON spool(username);
+CREATE INDEX i_spool_created_at USING BTREE ON spool(created_at);
 
 CREATE TABLE vcard (
     username varchar(250) PRIMARY KEY,
@@ -159,6 +164,8 @@ CREATE TABLE privacy_list_data (
     match_presence_out boolean NOT NULL
 ) ENGINE=InnoDB CHARACTER SET utf8;
 CREATE INDEX i_privacy_list_data_id ON privacy_list_data(id);
+
+CREATE INDEX i_privacy_list_data_id USING BTREE ON privacy_list_data(id);
 
 CREATE TABLE private_storage (
     username varchar(250) NOT NULL,
@@ -278,3 +285,17 @@ CREATE TABLE caps_features (
 ) ENGINE=InnoDB CHARACTER SET utf8;
 
 CREATE INDEX i_caps_features_node_subnode ON caps_features(node(75), subnode(75));
+
+CREATE TABLE sm (
+    usec bigint NOT NULL,
+    pid text NOT NULL,
+    node text NOT NULL,
+    username varchar(250) NOT NULL,
+    resource varchar(250) NOT NULL,
+    priority text NOT NULL,
+    info text NOT NULL
+) ENGINE=InnoDB CHARACTER SET utf8;
+
+CREATE UNIQUE INDEX i_sid ON sm(usec, pid(75));
+CREATE INDEX i_node ON sm(node(75));
+CREATE INDEX i_username ON sm(username);

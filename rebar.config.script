@@ -24,6 +24,8 @@ Macros = lists:flatmap(
                    [{d, 'mssql'}];
               ({lager, true}) ->
                    [{d, 'LAGER'}];
+              ({erlang_deprecated_types, true}) ->
+                   [{d, 'ERL_DEPRECATED_TYPES'}];
               (_) ->
                    []
            end, Cfg),
@@ -86,24 +88,26 @@ CfgDeps = lists:flatmap(
                ({pgsql, true}) ->
                     [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "a913ce691782fdf52654774313df0a54a743da1f"}}];
                ({pam, true}) ->
-                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "494e66c06adbc08036bba7f2858401d84ed7bf87"}}];
+                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "d3ce290b7da75d780a03e86e7a8198a80e9826a6"}}];
                ({zlib, true}) ->
-                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "93528177ff300bb3ab444e61891576fc7a38c671"}}];
+                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "e3d4222b7aae616d7ef2e7e2fa0bbf451516c602"}}];
                ({riak, true}) ->
-                    [{riakc, ".*",
-		      {git, "git://github.com/basho/riak-erlang-client",
-		       {tag, "1.4.2"}}}];
+                    [{riakc, ".*", {git, "git://github.com/basho/riak-erlang-client", {tag, "1.4.2"}}}];
                ({json, true}) ->
                     [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "801f9e72995eb72b303018885137ad8afbf1fb2b"}}];
                ({elixir, true}) ->
                     [{rebar_elixir_plugin, ".*", {git, "git://github.com/yrashk/rebar_elixir_plugin", "9db87db9b09477130e57215bba70bffa0daefeac"}},
-                     {elixir, "1.1.*", {git, "git://github.com/elixir-lang/elixir", "20fcde6ff392836dfd4cf449ee438a11b7f52813"}}];
+                     {elixir, ".*", {git, "git://github.com/elixir-lang/elixir", "9e2c5a29a4b3b6542ca1adaaafc3e9f61c1231c8"}}];
                ({iconv, true}) ->
-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "f940329624cdde2446603446d28edf37b46ed2a6"}}];
+                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "a16ac9b918626665e066534878eab7a878eea275"}}];
                ({lager, true}) ->
                     [{lager, ".*", {git, "git://github.com/basho/lager", "d33ccf3b69de09a628fe38b4d7981bb8671b8a4f"}}];
                ({lager, false}) ->
                     [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
+               ({tools, true}) ->
+                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "98cdc40fe6ae7780491ed8d0db691dd15625e9b2"}}];
+	       ({redis, true}) ->
+		    [{eredis, ".*", {git, "git://github.com/wooga/eredis", "f6900e2a828430badac173250e00d540c5c5a02f"}}];
                (_) ->
                     []
             end, Cfg),

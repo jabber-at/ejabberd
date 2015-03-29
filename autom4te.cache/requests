@@ -25,7 +25,8 @@
                         'AC_DEFUN' => 1,
                         '_m4_warn' => 1,
                         'AU_DEFUN' => 1,
-                        'ERLANG_VERSION_CHECK' => 1
+                        'ERLANG_VERSION_CHECK' => 1,
+                        'ERLANG_DEPRECATED_TYPES_CHECK' => 1
                       }
                     ], 'Autom4te::Request' ),
              bless( [

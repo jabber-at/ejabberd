@@ -58,6 +58,7 @@ start(normal, _Args) ->
     Sup = ejabberd_sup:start_link(),
     ejabberd_rdbms:start(),
     ejabberd_riak_sup:start(),
+    ejabberd_sm:start(),
     ejabberd_auth:start(),
     cyrsasl:start(),
     % Profiling
@@ -65,6 +66,7 @@ start(normal, _Args) ->
     %ejabberd_debug:fprof_start(),
     maybe_add_nameservers(),
     start_modules(),
+    ext_mod:start(),
     ejabberd_listener:start_listeners(),
     ?INFO_MSG("ejabberd ~s is started in the node ~p", [?VERSION, node()]),
     Sup;

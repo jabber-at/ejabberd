@@ -1,4 +1,4 @@
-ejabberd Community Edition, by ProcessOne
+ejabberd Community Edition [![Build Status](https://travis-ci.org/processone/ejabberd.svg?branch=master)](https://travis-ci.org/processone/ejabberd)
 =========================================
 
 ejabberd is a distributed, fault-tolerant technology that allows the creation
@@ -155,7 +155,6 @@ tarball.
 Links
 -----
 
-- Guide: https://www.process-one.net/docs/ejabberd/guide_en.html
-- Official site: https://www.process-one.net/en/ejabberd
+- Documentation: http://docs.ejabberd.im
 - Community site: https://www.ejabberd.im
-- Forum: https://www.process-one.net/en/forum
+- ejabberd commercial offering and support: https://www.process-one.net/en/ejabberd

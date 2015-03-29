@@ -594,6 +594,7 @@ debug
 iconv
 elixir
 json
+redis
 riak
 zlib
 pam
@@ -606,6 +607,7 @@ full_xml
 transient_supervisors
 roster_gateway_workaround
 hipe
+erlang_deprecated_types
 INSTALLUSER
 MAKE
 ESCRIPT
@@ -675,6 +677,7 @@ enable_pgsql
 enable_pam
 enable_zlib
 enable_riak
+enable_redis
 enable_json
 enable_elixir
 enable_iconv
@@ -1313,10 +1316,10 @@ Optional Features:
                           requires --enable-odbc)
   --enable-all            same as --enable-nif --enable-odbc --enable-mysql
                           --enable-pgsql --enable-pam --enable-zlib
-                          --enable-riak --enable-json --enable-elixir
-                          --enable-iconv --enable-debug --enable-lager
-                          --enable-tools (useful for Dialyzer checks, default:
-                          no)
+                          --enable-riak --enable-redis --enable-json
+                          --enable-elixir --enable-iconv --enable-debug
+                          --enable-lager --enable-tools (useful for Dialyzer
+                          checks, default: no)
   --enable-tools          build development tools (default: no)
   --enable-nif            replace some functions with C equivalents. Requires
                           Erlang R13B04 or higher (default: no)
@@ -1327,6 +1330,7 @@ Optional Features:
   --enable-zlib           enable Stream Compression (XEP-0138) using zlib
                           (default: yes)
   --enable-riak           enable Riak support (default: no)
+  --enable-redis          enable Redis support (default: no)
   --enable-json           enable JSON support for mod_bosh (default: no)
   --enable-elixir         enable Elixir support (default: no)
   --enable-iconv          enable iconv support (default: yes)
@@ -2871,8 +2875,8 @@ fi
 @%:@ Check whether --enable-all was given.
 if test "${enable_all+set}" = set; then :
   enableval=$enable_all; case "${enableval}" in
-  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true riak=true json=true elixir=true iconv=true debug=true lager=true tools=true ;;
-  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false riak=false json=false elixir=false iconv=false debug=false lager=false tools=false ;;
+  yes) nif=true odbc=true mysql=true pgsql=true pam=true zlib=true riak=true redis=true json=true elixir=true iconv=true debug=true lager=true tools=true ;;
+  no) nif=false odbc=false mysql=false pgsql=false pam=false zlib=false riak=false redis=false json=false elixir=false iconv=false debug=false lager=false tools=false ;;
   *) as_fn_error $? "bad value ${enableval} for --enable-all" "$LINENO" 5 ;;
 esac
 fi
@@ -2974,6 +2978,18 @@ else
 fi
 
 
+@%:@ Check whether --enable-redis was given.
+if test "${enable_redis+set}" = set; then :
+  enableval=$enable_redis; case "${enableval}" in
+  yes) redis=true ;;
+  no)  redis=false ;;
+  *) as_fn_error $? "bad value ${enableval} for --enable-redis" "$LINENO" 5 ;;
+esac
+else
+  if test "x$redis" = "x"; then redis=false; fi
+fi
+
+
 @%:@ Check whether --enable-json was given.
 if test "${enable_json+set}" = set; then :
   enableval=$enable_json; case "${enableval}" in
@@ -3052,6 +3068,28 @@ if test "$ENABLEUSER" != ""; then
   INSTALLUSER=$ENABLEUSER
 
 fi
+
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Erlang is using deprecated types" >&5
+$as_echo_n "checking whether Erlang is using deprecated types... " >&6; }
+		cat > conftest.erl <<EOF
+-module(conftest).
+
+-record(state, {host = dict:new() :: dict:dict()}).
+EOF
+
+	if $ERLC conftest.erl > /dev/null 2>&1; then
+	   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	   erlang_deprecated_types=false
+
+	else
+	   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	   erlang_deprecated_types=true
+
+	fi
+
+
 
 
 
