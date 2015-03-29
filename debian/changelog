@@ -1,6 +1,7 @@
 ejabberd (1:15.03-1) unstable; urgency=low
 
   * Version bump from upstream.
+  * Add patch to fix erlang R15B compat for this release.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 29 Mar 2015 14:15:34 +0200
 
