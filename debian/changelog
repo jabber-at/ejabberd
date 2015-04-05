@@ -1,3 +1,9 @@
+ejabberd (1:15.03-2) unstable; urgency=low
+
+  * Add websockets.patch, fixes proxying websockets via Apache.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 05 Apr 2015 12:48:56 +0200
+
 ejabberd (1:15.03-1) unstable; urgency=low
 
   * Version bump from upstream.

@@ -1,0 +1,39 @@
+From bb18abbc1596ff4588742321b77d06045512600f Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Sat, 4 Apr 2015 21:25:38 +0200
+Subject: [PATCH] ejabberd_websocket: Ignore case of header values
+
+RFC 6455 says that the client's opening handshake includes an Upgrade
+header field "containing the value 'websocket', treated as an ASCII
+case-insensitive value."
+
+Closes #510.
+---
+ src/ejabberd_websocket.erl | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/src/ejabberd_websocket.erl b/src/ejabberd_websocket.erl
+index 8cd1b22..501a3ca 100644
+--- a/src/ejabberd_websocket.erl
++++ b/src/ejabberd_websocket.erl
+@@ -71,12 +71,14 @@ check(_Path, Headers) ->
+ 		case lists:keyfind(Tag, 1, Headers) of
+ 		  false -> true; % header not found, keep in list
+ 		  {_, HVal} ->
+-		      case Val of
+-			ignore -> false; % ignore value -> ok, remove from list
+-			HVal -> false;   % expected val -> ok, remove from list
+-			_ ->
+-			    true         % val is different, keep in list
+-                      end
++		      if Val == ignore ->
++			     % ignore value -> ok, remove from list
++			     false;
++			 true ->
++			     % expected value -> ok, remove from list (false)
++			     % value is different, keep in list (true)
++			     str:to_lower(HVal) /= Val
++		      end
+                 end
+         end,
+     case lists:filter(F, RequiredHeaders) of

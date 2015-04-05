@@ -14,3 +14,4 @@ nodename.patch
 failed_auth.patch
 ejabberdctl-home.patch
 r15b-compat.patch
+websockets.patch
