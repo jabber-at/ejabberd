@@ -15,3 +15,5 @@ failed_auth.patch
 ejabberdctl-home.patch
 r15b-compat.patch
 websockets.patch
+websockets-crash.patch
+ejabberd_http.patch

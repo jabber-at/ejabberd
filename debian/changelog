@@ -1,3 +1,10 @@
+ejabberd (1:15.03-3) unstable; urgency=low
+
+  * Add ejabberd_http.patch, adding support for ciphers and protocol_options.
+  * Add websockets-crash.patch, hopefully fixing a crash with websockets.
+
+ -- Mathias Ertl <mati@jabber.at>  Mon, 06 Apr 2015 18:18:37 +0200
+
 ejabberd (1:15.03-2) unstable; urgency=low
 
   * Add websockets.patch, fixes proxying websockets via Apache.
