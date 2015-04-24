@@ -74,7 +74,7 @@
  ##
  ## Encryption of connection to LDAP servers:
  ## ldap_encrypt: none
-@@ -499,6 +502,12 @@
+@@ -505,6 +508,12 @@
    ##   bad_servers: deny
    ##   all: allow
  
@@ -87,7 +87,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
-@@ -532,16 +541,17 @@
+@@ -538,16 +547,17 @@
  
  ###   =======
  ###   CAPTCHA
@@ -108,7 +108,7 @@
  
  ##
  ## Limit CAPTCHA calls per minute for JID/IP to avoid DoS.
-@@ -563,12 +573,19 @@
+@@ -570,12 +580,19 @@
    mod_carboncopy: {}
    mod_client_state:
      drop_chat_states: true
@@ -132,13 +132,14 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -579,13 +596,15 @@
+@@ -586,14 +603,16 @@
      access_create: muc_create
      access_persistent: muc_create
      access_admin: muc_admin
 +    min_message_interval: 1.0
 +    min_presence_interval: 5.0
    ## mod_muc_log: {}
+   ## mod_multicast: {}
    mod_offline: 
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -151,7 +152,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -604,7 +623,7 @@
+@@ -612,7 +631,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -160,7 +161,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -631,7 +650,7 @@
+@@ -639,7 +658,7 @@
      ##
      ## Only clients in the server machine can register accounts
      ##
@@ -169,7 +170,7 @@
  
      ##
      ## Local c2s or remote s2s users cannot register accounts
-@@ -640,12 +659,18 @@
+@@ -648,12 +667,18 @@
  
      access: register
    mod_roster: {}
