@@ -15,9 +15,11 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 override_dh_auto_configure:
 	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 	# on Debian Stable and all Ubuntu distros up to at least Saucy.
-	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
-	    --enable-nif --enable-transient_supervisors --enable-riak --libdir=/usr/lib \
-	    --enable-zlib --enable-json --enable-iconv --enable-lager --enable-stun
+	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-sqlite \
+	    --enable-pam  --enable-nif --enable-transient_supervisors --enable-riak \
+	    --enable-zlib --enable-json --enable-iconv --enable-lager --enable-stun \
+	    --enable-elixir --enable-redis --enable-riak \
+	    --libdir=/usr/lib
 
 .PHONY: override_dh_auto_build
 override_dh_auto_build:
