@@ -11,6 +11,7 @@
                       ],
                       [
                         '/usr/share/autoconf/autoconf/autoconf.m4f',
+                        'm4/ax_lib_sqlite3.m4',
                         'm4/erlang-extra.m4',
                         'configure.ac'
                       ],
@@ -21,11 +22,12 @@
                         'include' => 1,
                         'AC_DEFUN_ONCE' => 1,
                         'ERLANG_SUBST_LIB_VER' => 1,
-                        'm4_include' => 1,
+                        'AX_LIB_SQLITE3' => 1,
                         'AC_DEFUN' => 1,
+                        'm4_include' => 1,
                         '_m4_warn' => 1,
-                        'AU_DEFUN' => 1,
                         'ERLANG_VERSION_CHECK' => 1,
+                        'AU_DEFUN' => 1,
                         'ERLANG_DEPRECATED_TYPES_CHECK' => 1
                       }
                     ], 'Autom4te::Request' ),

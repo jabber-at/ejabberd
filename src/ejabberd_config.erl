@@ -35,7 +35,8 @@
          get_version/0, get_myhosts/0, get_mylang/0,
          prepare_opt_val/4, convert_table_to_binary/5,
          transform_options/1, collect_options/1,
-         convert_to_yaml/1, convert_to_yaml/2]).
+         convert_to_yaml/1, convert_to_yaml/2,
+         env_binary_to_list/2]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -84,7 +85,7 @@ start() ->
 %% If not specified, the default value 'ejabberd.yml' is assumed.
 %% @spec () -> string()
 get_ejabberd_config_path() ->
-    case application:get_env(config) of
+    case get_env_config() of
 	{ok, Path} -> Path;
 	undefined ->
 	    case os:getenv("EJABBERD_CONFIG_PATH") of
@@ -93,6 +94,18 @@ get_ejabberd_config_path() ->
 		Path ->
 		    Path
 	    end
+    end.
+
+-spec get_env_config() -> {ok, string()} | undefined.
+get_env_config() ->
+    %% First case: the filename can be specified with: erl -config "/path/to/ejabberd.yml".
+    case application:get_env(config) of
+	R = {ok, _Path} -> R;
+	undefined ->
+            %% Second case for embbeding ejabberd in another app, for example for Elixir:
+            %% config :ejabberd,
+            %%   file: "config/ejabberd.yml"
+            application:get_env(ejabberd, file)
     end.
 
 %% @doc Read the ejabberd configuration file.
@@ -153,6 +166,22 @@ convert_to_yaml(File, Output) ->
             io:format("~s~n", [Data]);
         FileName ->
             file:write_file(FileName, Data)
+    end.
+
+%% Some Erlang apps expects env parameters to be list and not binary.
+%% For example, Mnesia is not able to start if mnesia dir is passed as a binary.
+%% However, binary is most common on Elixir, so it is easy to make a setup mistake.
+-spec env_binary_to_list(atom(), atom()) -> {ok, any()}|undefined.
+env_binary_to_list(Application, Parameter) ->
+    %% Application need to be loaded to allow setting parameters
+    application:load(Application),
+    case application:get_env(Application, Parameter) of
+        {ok, Val} when is_binary(Val) ->
+            BVal = binary_to_list(Val),
+            application:set_env(Application, Parameter, BVal),
+            {ok, BVal};
+        Other ->
+            Other
     end.
 
 %% @doc Read an ejabberd configuration file and return the terms.
@@ -679,7 +708,10 @@ is_file_readable(Path) ->
     end.
 
 get_version() ->
-    list_to_binary(element(2, application:get_key(ejabberd, vsn))).
+    case application:get_key(ejabberd, vsn) of
+        undefined -> "";
+        {ok, Vsn} -> list_to_binary(Vsn)
+    end.
 
 -spec get_myhosts() -> [binary()].
 

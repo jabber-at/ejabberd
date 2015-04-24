@@ -6,6 +6,9 @@
 %%% @end
 %%% Created :  1 May 2013 by Evgeniy Khramtsov <ekhramtsov@process-one.net>
 %%%-------------------------------------------------------------------
+
+{require_min_otp_vsn, "16"}.
+
 Cfg = case file:consult("vars.config") of
           {ok, Terms} ->
               Terms;
@@ -51,12 +54,12 @@ SrcDirs = lists:foldl(
                     Acc
             end, [], Cfg),
 
-Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "a361d1489458237a46dc1c8c8e30b37b91dd0852"}},
-        {p1_tls, ".*", {git, "git://github.com/processone/tls", "e97b7bb6a6fbba789d7b5f0d253438637caef329"}},
+Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "cca096330ce39e8b56fe0e0c478df1ff452e7751"}},
+        {p1_tls, ".*", {git, "git://github.com/processone/tls", "e231cbde546c2e2200f6dae01d13cf743d253c6d"}},
         {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "3c640237a3a7831dc39de6a6d329d3a9af25c579"}},
-        {p1_xml, ".*", {git, "git://github.com/processone/xml", "cbdd072689fe93ea009fc91c6f88ac8a38ef3108"}},
-	{esip, ".*", {git, "git://github.com/processone/p1_sip", "299225e80ad40ecb81666cde3b21a05893be7c97"}},
-	{p1_stun, ".*", {git, "git://github.com/processone/stun", "daa5da6cd884698db5e8262a55eea5ebec4242fe"}},
+        {p1_xml, ".*", {git, "git://github.com/processone/xml", "3db0b2f2b96c9fa2f601f96794cc6e8a480615b4"}},
+	{esip, ".*", {git, "git://github.com/processone/p1_sip", "a9b725df78ee44c0f118908eef07395654767d62"}},
+	{p1_stun, ".*", {git, "git://github.com/processone/stun", "d98c71e22492bd5cf95f6a3227de302ace0f70b3"}},
         {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "e1f081e1bbf34c35fc60c1b988d62a07fbead3e8"}},
         {ehyperloglog, ".*", {git, "https://github.com/vaxelfel/eHyperLogLog.git", "efd14f262c663cde76d8ed48007826dabe9aca41"}},
         {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "1bf99f9c8daed3b03f76e2714ca102c520c88b26"}}],
@@ -87,6 +90,8 @@ CfgDeps = lists:flatmap(
                     [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "d568bbe317c4e86ee58a603c46a98809c1279013"}}];
                ({pgsql, true}) ->
                     [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "a913ce691782fdf52654774313df0a54a743da1f"}}];
+               ({sqlite, true}) ->
+                    [{sqlite3, ".*", {git, "git://github.com/alexeyr/erlang-sqlite3", "4ce6211e1063fe6e27e6241f6793136a3cc27bf2"}}];
                ({pam, true}) ->
                     [{p1_pam, ".*", {git, "git://github.com/processone/epam", "d3ce290b7da75d780a03e86e7a8198a80e9826a6"}}];
                ({zlib, true}) ->
@@ -96,16 +101,16 @@ CfgDeps = lists:flatmap(
                ({json, true}) ->
                     [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "801f9e72995eb72b303018885137ad8afbf1fb2b"}}];
                ({elixir, true}) ->
-                    [{rebar_elixir_plugin, ".*", {git, "git://github.com/yrashk/rebar_elixir_plugin", "9db87db9b09477130e57215bba70bffa0daefeac"}},
-                     {elixir, ".*", {git, "git://github.com/elixir-lang/elixir", "9e2c5a29a4b3b6542ca1adaaafc3e9f61c1231c8"}}];
+                    [{rebar_elixir_plugin, ".*", {git, "git://github.com/yrashk/rebar_elixir_plugin", "7058379b7c7e017555647f6b9cecfd87cd50f884"}},
+                     {elixir, ".*", {git, "git://github.com/elixir-lang/elixir", "cd80994a70afd4d51cd84edbe671cdbca94221bc"}}];
                ({iconv, true}) ->
-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "a16ac9b918626665e066534878eab7a878eea275"}}];
+                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "64f6db3fd0aa0204ca1af73e5364446c78aa64cb"}}];
                ({lager, true}) ->
                     [{lager, ".*", {git, "git://github.com/basho/lager", "d33ccf3b69de09a628fe38b4d7981bb8671b8a4f"}}];
                ({lager, false}) ->
                     [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
                ({tools, true}) ->
-                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "98cdc40fe6ae7780491ed8d0db691dd15625e9b2"}}];
+                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "69664df5d0e01a0ae27efb62831d6eea45cc1cd4"}}];
 	       ({redis, true}) ->
 		    [{eredis, ".*", {git, "git://github.com/wooga/eredis", "f6900e2a828430badac173250e00d540c5c5a02f"}}];
                (_) ->
@@ -159,12 +164,21 @@ ElixirConfig = case lists:keysearch(elixir, 1, Cfg) of
 
 {ok, Cwd} = file:get_cwd(),
 
+TestConfigFile = filename:join([Cwd, "test", "config.ctc"]),
+TestConfig = case file:read_file_info(TestConfigFile) of
+                 {ok, _} ->
+                     "-userconfig ct_config_plain " ++ TestConfigFile ++ " ";
+                 _ ->
+                     ""
+             end,
+
 Config = [{erl_opts, Macros ++ HiPE ++ DebugInfo ++
                [{src_dirs, [asn1, src | SrcDirs]}]},
           {sub_dirs, ["rel"]},
           {keep_build_info, true},
-          {ct_extra_params, "-include "
-           ++ filename:join([Cwd, "tools"])},
+          {ct_extra_params, "-ct_hooks cth_surefire "
+           ++ TestConfig
+           ++ "-include " ++ filename:join([Cwd, "tools"])},
 	  {xref_warnings, false},
           {xref_checks, []},
 	  {xref_queries,

@@ -65,8 +65,8 @@ start(normal, _Args) ->
     %ejabberd_debug:eprof_start(),
     %ejabberd_debug:fprof_start(),
     maybe_add_nameservers(),
-    start_modules(),
     ext_mod:start(),
+    start_modules(),
     ejabberd_listener:start_listeners(),
     ?INFO_MSG("ejabberd ~s is started in the node ~p", [?VERSION, node()]),
     Sup;
@@ -110,6 +110,7 @@ loop() ->
     end.
 
 db_init() ->
+    ejabberd_config:env_binary_to_list(mnesia, dir),
     MyNode = node(),
     DbNodes = mnesia:system_info(db_nodes),
     case lists:member(MyNode, DbNodes) of
@@ -238,6 +239,7 @@ set_loglevel_from_config() ->
     ejabberd_logger:set(Level).
 
 start_apps() ->
+    crypto:start(),
     ejabberd:start_app(sasl),
     ejabberd:start_app(ssl),
     ejabberd:start_app(p1_yaml),

@@ -49,7 +49,7 @@
 start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
                              one_queue),
-    case gen_mod:db_type(Opts) of
+    case gen_mod:db_type(Host, Opts) of
       mnesia ->
 	  mnesia:create_table(private_storage,
 			      [{disc_only_copies, [node()]},
@@ -60,12 +60,15 @@ start(Host, Opts) ->
     end,
     ejabberd_hooks:add(remove_user, Host, ?MODULE,
 		       remove_user, 50),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
+				  ?NS_PRIVATE, ?MODULE, process_sm_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
 				  ?NS_PRIVATE, ?MODULE, process_sm_iq, IQDisc).
 
 stop(Host) ->
     ejabberd_hooks:delete(remove_user, Host, ?MODULE,
 			  remove_user, 50),
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PRIVATE),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
 				     ?NS_PRIVATE).
 
