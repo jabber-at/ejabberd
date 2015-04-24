@@ -5,7 +5,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -71,26 +71,11 @@
+@@ -74,26 +74,11 @@
    INIT_USER=$(INSTALLUSER)
  endif
  
@@ -34,7 +34,7 @@ Author: Philipp Huebner <debalance@debian.org>
  xref: all
  	$(REBAR) skip_deps=true xref
  
-@@ -110,8 +95,6 @@
+@@ -113,8 +98,6 @@
  	$(ERL) -noinput +B -pa ebin -pa deps/*/ebin -eval \
  	'case xml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
  
@@ -43,7 +43,7 @@ Author: Philipp Huebner <debalance@debian.org>
  install: all
  	#
  	# Configuration files
-@@ -136,11 +119,6 @@
+@@ -139,11 +122,6 @@
  	# Administration script
  	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
  	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
@@ -55,7 +55,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	#
  	# Init script
  	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-@@ -152,29 +130,20 @@
+@@ -155,29 +133,20 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
@@ -83,9 +83,9 @@ Author: Philipp Huebner <debalance@debian.org>
  	$(INSTALL) -d $(SODIR)
 -	$(INSTALL) -m 644 $(DLLs) $(SODIR)
  	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
+ 	-[ -f $(SODIR)/sqlite3_drv.so ] && (cd $(PRIVDIR); ln -s lib/sqlite3_drv.so; true)
  	#
- 	# Translated strings
-@@ -240,8 +209,6 @@
+@@ -250,8 +219,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -94,7 +94,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -252,7 +219,6 @@
+@@ -262,7 +229,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
