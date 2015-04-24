@@ -27,5 +27,5 @@ Author: Philipp Huebner <debalance@debian.org>
      port: 5280
 +    ip: "::"
      module: ejabberd_http
-     ## request_handlers:
-     ##   "/pub/archive": mod_http_fileserver
+     request_handlers:
+       "/websocket": ejabberd_http_ws

@@ -36,7 +36,7 @@ Last-Update: 2014-07-11
  fi
  if [ -f "$EJABBERDCTL_CONFIG_PATH" ] ; then
      . "$EJABBERDCTL_CONFIG_PATH"
-@@ -308,7 +312,8 @@
+@@ -309,7 +313,8 @@
      echo "Optional parameters when starting an ejabberd node:"
      echo "  --config-dir dir   Config ejabberd:    $ETC_DIR"
      echo "  --config file      Config ejabberd:    $EJABBERD_CONFIG_PATH"

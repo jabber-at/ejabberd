@@ -6,13 +6,14 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -273,10 +273,6 @@
+@@ -283,11 +283,6 @@
  	status=$$? ; if [ $$status -ne 2 ]; then exit $$status; else exit 0; fi
  
  test:
 -	@echo "************************** NOTICE ***************************************"
 -	@cat test/README
 -	@echo "*************************************************************************"
+-	@cd priv && ln -sf ../sql
 -	$(REBAR) skip_deps=true ct
  
  quicktest:
