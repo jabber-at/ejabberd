@@ -3,6 +3,8 @@ ejabberd (1:15.04-1) unstable; urgency=low
   * Version bump from upstream.
   * Increase erlang dependency to 1:16.b (following upstream).
   * Enable support for elixir, sqlite, riak and redis.
+  * Conflict with ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, they are
+    now included in ejabberd.
   * Remove r15b-compat.patch, ejabberd now officially requires erlang R16.
   * Remove websockets.patch websockets-crash.patch ejabberd_http.patch
     (applied upstream).
