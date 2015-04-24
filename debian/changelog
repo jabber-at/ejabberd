@@ -1,7 +1,9 @@
 ejabberd (1:15.04-1) unstable; urgency=low
 
   * Version bump from upstream.
-  * Remove r15b-compat.patch.
+  * Remove r15b-compat.patch, ejabberd now officially requires erlang R16.
+  * Remove websockets.patch websockets-crash.patch ejabberd_http.patch
+    (applied upstream).
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 24 Apr 2015 18:18:57 +0200
 
