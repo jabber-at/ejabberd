@@ -62,6 +62,13 @@ init([]) ->
 	 brutal_kill,
 	 worker,
 	 [ejabberd_router]},
+    Router_multicast =
+	{ejabberd_router_multicast,
+	 {ejabberd_router_multicast, start_link, []},
+	 permanent,
+	 brutal_kill,
+	 worker,
+	 [ejabberd_router_multicast]},
     S2S =
 	{ejabberd_s2s,
 	 {ejabberd_s2s, start_link, []},
@@ -137,14 +144,6 @@ init([]) ->
 	 infinity,
 	 supervisor,
 	 [ejabberd_tmp_sup]},
-    HTTPPollSupervisor =
-	{ejabberd_http_poll_sup,
-	 {ejabberd_tmp_sup, start_link,
-	  [ejabberd_http_poll_sup, ejabberd_http_poll]},
-	 permanent,
-	 infinity,
-	 supervisor,
-	 [ejabberd_tmp_sup]},
     FrontendSocketSupervisor =
 	{ejabberd_frontend_socket_sup,
 	 {ejabberd_tmp_sup, start_link,
@@ -166,6 +165,7 @@ init([]) ->
 	   NodeGroups,
 	   SystemMonitor,
 	   Router,
+	   Router_multicast,
 	   S2S,
 	   Local,
 	   Captcha,
@@ -175,9 +175,6 @@ init([]) ->
 	   S2SOutSupervisor,
 	   ServiceSupervisor,
 	   HTTPSupervisor,
-	   HTTPPollSupervisor,
 	   IQSupervisor,
 	   FrontendSocketSupervisor,
 	   Listener]}}.
-
-
