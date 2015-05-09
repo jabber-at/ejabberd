@@ -33,6 +33,7 @@ override_dh_auto_install:
 	rm $(DESTDIR)/etc/ejabberd/ejabberd.yml
 	mkdir $(DESTDIR)/etc/init.d $(DESTDIR)/etc/default
 	cp ejabberd.init $(DESTDIR)/etc/init.d/ejabberd
+	install -Dm 0644 ejabberd.service $(DESTDIR)/lib/systemd/system/ejabberd.service
 	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
 	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
 	rm -r $(DESTDIR)/var/lock
