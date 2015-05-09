@@ -9,7 +9,7 @@ ejabberd (1:15.04-2) unstable; urgency=low
   * Remove ejabberd.dirs (does not exist in upstream)
   * Remove default for ejabberd/user template (not in upstream)
 
- -- Mathias Ertl <mati@jabber.at>  Fri, 24 Apr 2015 18:18:57 +0200
+ -- Mathias Ertl <mati@jabber.at>  Sat, 09 May 2015 21:57:47 +0200
 
 ejabberd (1:15.04-1) unstable; urgency=low
 
