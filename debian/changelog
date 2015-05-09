@@ -6,6 +6,7 @@ ejabberd (1:15.04-2) unstable; urgency=low
     * Don't depend on /usr/share/doc during postinst (Closes: #764974)
   * Remove ejabberd.dirs (does not exist in upstream)
   * Remove default for ejabberd/user template (not in upstream)
+  * Update copyright.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 24 Apr 2015 18:18:57 +0200
 
