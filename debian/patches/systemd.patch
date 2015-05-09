@@ -1,0 +1,15 @@
+--- a/ejabberd.service.template
++++ b/ejabberd.service.template
+@@ -7,9 +7,9 @@
+ Group=ejabberd
+ LimitNOFILE=16000
+ RestartSec=5
+-ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
+-ExecStop=@ctlscriptpath@/ejabberdctl stop
+-ExecReload=@ctlscriptpath@/ejabberdctl reload_config
++ExecStart=/bin/sh /usr/sbin/ejabberdctl start
++ExecStop=/usr/sbin/ejabberdctl stop
++ExecReload=/usr/sbin/ejabberdctl reload_config
+ Type=oneshot
+ RemainAfterExit=yes
+ 
