@@ -1,3 +1,12 @@
+ejabberd (1:15.04-2) unstable; urgency=low
+
+  * Merge changes from upstream package:
+    * Drop debian/ejabberd.8 as there is no "ejabberd" executable anymore
+    * Add --enable-transient_supervisors build-flag (Closes: #782794)
+    * Don't depend on /usr/share/doc during postinst (Closes: #764974)
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 24 Apr 2015 18:18:57 +0200
+
 ejabberd (1:15.04-1) unstable; urgency=low
 
   * Version bump from upstream.

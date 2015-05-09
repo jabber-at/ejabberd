@@ -5,7 +5,7 @@
 
 set -e
 
-CONFIG_SOURCE=/usr/share/doc/ejabberd/examples/ejabberd.yml.example
+CONFIG_SOURCE=/usr/share/ejabberd/ejabberd.yml.example
 CONFIG_TARGET=/etc/ejabberd/ejabberd.yml
 TEMPFILE=$(mktemp)
 

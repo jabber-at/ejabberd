@@ -1,3 +1,5 @@
+* Add a debconf check for the config change to YAML / add info to Jessie release notes
+
 * Update ejabberd.8
 
 * Update ejabberdctl.8

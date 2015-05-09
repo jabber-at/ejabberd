@@ -14,11 +14,12 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
-	# on Debian Stable and all Ubuntu distros up to at least Saucy.
-	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-sqlite \
-	    --enable-pam  --enable-nif --enable-transient_supervisors --enable-riak \
+	# on Debian Wheezy and all Ubuntu distros up to at least Saucy.
+	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
 	    --enable-zlib --enable-json --enable-iconv --enable-lager --enable-stun \
-	    --enable-elixir --enable-redis --enable-riak \
+	    --enable-transient_supervisors \
+	    --enable-sqlite --enable-nif --enable-transient_supervisors \
+	    --enable-riak --enable-elixir --enable-redis --enable-riak \
 	    --libdir=/usr/lib
 
 .PHONY: override_dh_auto_build
@@ -37,6 +38,8 @@ override_dh_auto_install:
 	rm -r $(DESTDIR)/var/lock
 	rm -rf $(DESTDIR)/usr/lib/$(DPKG_CACHE_DEB_BUILD_MULTIARCH)/ejabberd/priv/lib
 	rm $(DESTDIR)/usr/share/doc/ejabberd/COPYING
+	mkdir $(DESTDIR)/usr/share/ejabberd
+	cp ejabberd.yml.example $(DESTDIR)/usr/share/ejabberd/ejabberd.yml.example
 
 .PHONY: override_dh_compress
 override_dh_compress:
