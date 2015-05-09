@@ -1,0 +1,10 @@
+--- a/src/ext_mod.erl
++++ b/src/ext_mod.erl
+@@ -446,7 +446,6 @@
+         _ -> []
+     end,
+     Options = [{outdir, Ebin}, {i, "include"}, {i, EjabInc},
+-               {d, 'NO_EXT_LIB'},  %% use include instead of include_lib
+                verbose, report_errors, report_warnings]
+               ++ Logger,
+     Result = [case compile:file(File, Options) of
