@@ -2,13 +2,13 @@ Source: ejabberd
 Section: net
 Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
-Build-Depends: debhelper (>= 9), dpkg-dev (>= 1.16.1~),
+Build-Depends: debhelper (>= 9),
                erlang-asn1, erlang-base, erlang-crypto, erlang-dev (>= 1:16.b), erlang-eunit, erlang-inets, erlang-lager, erlang-jiffy, erlang-mnesia, erlang-parsetools,
                erlang-p1-cache-tab, erlang-p1-iconv, erlang-p1-mysql, erlang-p1-pam, erlang-p1-pgsql, erlang-p1-sip, erlang-p1-stringprep, erlang-p1-stun,
                erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib,
                erlang-ssl, erlang-xmlrpc,
                hevea, po-debconf, rebar, texlive-latex-base, texlive-latex-recommended, texlive-latex-extra,
-               libsqlite3-dev
+               libsqlite3-dev, dpkg-dev (>= 1.16.1~)
 Standards-Version: 3.9.6
 Homepage: http://www.process-one.net/en/projects/ejabberd/
 Vcs-Git: https://github.com/jabber-at/ejabberd.git
