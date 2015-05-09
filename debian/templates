@@ -6,7 +6,6 @@ _Description: The name of the host ejabberd will serve:
 
 Template: ejabberd/user
 Type: string
-Default: admin
 _Description: The username of an admin account for ejabberd:
  Please provide the name of an account to administrate the ejabberd server.
  After the installation of ejabberd you can use this account to log in with any
