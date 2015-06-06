@@ -1,3 +1,10 @@
+ejabberd (1:15.04-3) unstable; urgency=low
+
+  * Apply a websocket_test.patch, investigating
+    https://github.com/processone/ejabberd/issues/564
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 06 Jun 2015 21:06:42 +0200
+
 ejabberd (1:15.04-2) unstable; urgency=low
 
   * Install systemd script.
