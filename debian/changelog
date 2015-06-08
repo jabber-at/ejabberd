@@ -1,4 +1,4 @@
-ejabberd (1:15.04-3) unstable; urgency=low
+ejabberd (1:15.04-4) unstable; urgency=low
 
   * Add no_muc_body_in_subject.patch, improves MUC experience for
     conversations users.
