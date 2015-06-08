@@ -17,3 +17,4 @@ module_install.patch
 systemd.patch
 websocket_test.patch
 fix_set_last.patch
+no_muc_body_in_subject.patch
