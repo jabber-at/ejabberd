@@ -47,7 +47,9 @@
 -behaviour(gen_mod).
 -behaviour(gen_server).
 -author('christophe.romain@process-one.net').
--version('1.13-1').
+-protocol({xep, 60, '1.13-1'}).
+-protocol({xep, 163, '1.2'}).
+-protocol({xep, 248, '0.2'}).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -88,8 +90,7 @@
     handle_call/3, handle_cast/2, handle_info/2,
     terminate/2, code_change/3]).
 
-%% calls for parallel sending of last items
--export([send_loop/1]).
+-export([send_loop/1, mod_opt_type/1]).
 
 -define(PROCNAME, ejabberd_mod_pubsub).
 -define(LOOPNAME, ejabberd_mod_pubsub_loop).
@@ -252,7 +253,7 @@ init([ServerHost, Opts]) ->
     PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts,
 	    fun(A) when is_boolean(A) -> A end, true),
     IQDisc = gen_mod:get_opt(iqdisc, Opts,
-	    fun(A) when is_atom(A) -> A end, one_queue),
+	    fun gen_iq_handler:check_type/1, one_queue),
     LastItemCache = gen_mod:get_opt(last_item_cache, Opts,
 	    fun(A) when is_boolean(A) -> A end, false),
     MaxItemsNode = gen_mod:get_opt(max_items_node, Opts,
@@ -732,39 +733,42 @@ in_subscription(_, _, _, _, _, _) ->
     true.
 
 unsubscribe_user(Entity, Owner) ->
-    BJID = jlib:jid_tolower(jlib:jid_remove_resource(Owner)),
-    Host = host(element(2, BJID)),
     spawn(fun () ->
-		lists:foreach(fun (PType) ->
-			    {result, Subs} = node_action(Host, PType,
-				    get_entity_subscriptions,
-				    [Host, Entity]),
-			    lists:foreach(fun
-				    ({#pubsub_node{options = Options,
-							owners = O,
-							id = Nidx},
-						    subscribed, _, JID}) ->
-					case match_option(Options, access_model, presence) of
-					    true ->
-						Owners = node_owners_action(Host, PType, Nidx, O),
-						case lists:member(BJID, Owners) of
-						    true ->
-							node_action(Host, PType,
-							    unsubscribe_node,
-							    [Nidx, Entity, JID, all]);
-						    false ->
-							{result, ok}
-						end;
-					    _ ->
-						{result, ok}
-					end;
-				    (_) ->
-					ok
-				end,
-				Subs)
-		    end,
-		    plugins(Host))
+	    [unsubscribe_user(ServerHost, Entity, Owner) ||
+		ServerHost <- lists:usort(lists:foldl(
+			fun(UserHost, Acc) ->
+				case gen_mod:is_loaded(UserHost, mod_pubsub) of
+				    true -> [UserHost|Acc];
+				    false -> Acc
+				end
+			end, [], [Entity#jid.lserver, Owner#jid.lserver]))]
 	end).
+unsubscribe_user(Host, Entity, Owner) ->
+    BJID = jlib:jid_tolower(jlib:jid_remove_resource(Owner)),
+    lists:foreach(fun (PType) ->
+		{result, Subs} = node_action(Host, PType,
+			get_entity_subscriptions,
+			[Host, Entity]),
+		lists:foreach(fun
+			({#pubsub_node{options = Options,
+				       owners = O,
+				       id = Nidx},
+				       subscribed, _, JID}) ->
+			    Unsubscribe = match_option(Options, access_model, presence)
+				andalso lists:member(BJID, node_owners_action(Host, PType, Nidx, O)),
+			    case Unsubscribe of
+				true ->
+				    node_action(Host, PType,
+					unsubscribe_node, [Nidx, Entity, JID, all]);
+				false ->
+				    ok
+			    end;
+			(_) ->
+			    ok
+		    end,
+		    Subs)
+	end,
+	plugins(Host)).
 
 %% -------
 %% user remove hook handling function
@@ -3633,9 +3637,9 @@ max_items(Host, Options) ->
     case get_option(Options, persist_items) of
 	true ->
 	    case get_option(Options, max_items) of
-		false -> unlimited;
-		Result when Result < 0 -> 0;
-		Result -> Result
+		I when is_integer(I), I < 0 -> 0;
+		I when is_integer(I) -> I;
+		_ -> ?MAXITEMS
 	    end;
 	false ->
 	    case get_option(Options, send_last_published_item) of
@@ -3662,7 +3666,7 @@ max_items(Host, Options) ->
 -define(INTEGER_CONFIG_FIELD(Label, Var),
     ?STRINGXFIELD(Label,
 	<<"pubsub#", (atom_to_binary(Var, latin1))/binary>>,
-	(integer_to_binary(get_option(Options, Var))))).
+	(jlib:integer_to_binary(get_option(Options, Var))))).
 
 -define(JLIST_CONFIG_FIELD(Label, Var, Opts),
     ?LISTXFIELD(Label,
@@ -4343,3 +4347,25 @@ purge_offline(Host, LJID, Node) ->
 	Error ->
 	    Error
     end.
+
+mod_opt_type(access_createnode) ->
+    fun (A) when is_atom(A) -> A end;
+mod_opt_type(db_type) -> fun gen_mod:v_db/1;
+mod_opt_type(host) -> fun iolist_to_binary/1;
+mod_opt_type(ignore_pep_from_offline) ->
+    fun (A) when is_boolean(A) -> A end;
+mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
+mod_opt_type(last_item_cache) ->
+    fun (A) when is_boolean(A) -> A end;
+mod_opt_type(max_items_node) ->
+    fun (A) when is_integer(A) andalso A >= 0 -> A end;
+mod_opt_type(nodetree) ->
+    fun (A) when is_binary(A) -> A end;
+mod_opt_type(pep_mapping) ->
+    fun (A) when is_list(A) -> A end;
+mod_opt_type(plugins) ->
+    fun (A) when is_list(A) -> A end;
+mod_opt_type(_) ->
+    [access_createnode, db_type, host,
+     ignore_pep_from_offline, iqdisc, last_item_cache,
+     max_items_node, nodetree, pep_mapping, plugins].

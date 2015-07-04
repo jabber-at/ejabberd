@@ -54,15 +54,15 @@ SrcDirs = lists:foldl(
                     Acc
             end, [], Cfg),
 
-Deps = [{p1_cache_tab, ".*", {git, "git://github.com/processone/cache_tab", "cca096330ce39e8b56fe0e0c478df1ff452e7751"}},
-        {p1_tls, ".*", {git, "git://github.com/processone/tls", "e231cbde546c2e2200f6dae01d13cf743d253c6d"}},
-        {p1_stringprep, ".*", {git, "git://github.com/processone/stringprep", "3c640237a3a7831dc39de6a6d329d3a9af25c579"}},
-        {p1_xml, ".*", {git, "git://github.com/processone/xml", "3db0b2f2b96c9fa2f601f96794cc6e8a480615b4"}},
-	{esip, ".*", {git, "git://github.com/processone/p1_sip", "a9b725df78ee44c0f118908eef07395654767d62"}},
-	{p1_stun, ".*", {git, "git://github.com/processone/stun", "d98c71e22492bd5cf95f6a3227de302ace0f70b3"}},
-        {p1_yaml, ".*", {git, "git://github.com/processone/p1_yaml", "e1f081e1bbf34c35fc60c1b988d62a07fbead3e8"}},
+Deps = [{p1_cache_tab, ".*", {git, "https://github.com/processone/cache_tab", "cca096330ce39e8b56fe0e0c478df1ff452e7751"}},
+        {p1_tls, ".*", {git, "https://github.com/processone/tls", "b0700041cdce3cc0653e383682156c65ed5f47db"}},
+        {p1_stringprep, ".*", {git, "https://github.com/processone/stringprep", "3c640237a3a7831dc39de6a6d329d3a9af25c579"}},
+        {p1_xml, ".*", {git, "https://github.com/processone/xml", "2c610839f89e41c3aae116d8e594da20067d4051"}},
+        {esip, ".*", {git, "https://github.com/processone/p1_sip", "a9b725df78ee44c0f118908eef07395654767d62"}},
+        {p1_stun, ".*", {git, "https://github.com/processone/stun", "d98c71e22492bd5cf95f6a3227de302ace0f70b3"}},
+        {p1_yaml, ".*", {git, "https://github.com/processone/p1_yaml", "e1f081e1bbf34c35fc60c1b988d62a07fbead3e8"}},
         {ehyperloglog, ".*", {git, "https://github.com/vaxelfel/eHyperLogLog.git", "efd14f262c663cde76d8ed48007826dabe9aca41"}},
-        {p1_utils, ".*", {git, "git://github.com/processone/p1_utils", "1bf99f9c8daed3b03f76e2714ca102c520c88b26"}}],
+        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", "1bf99f9c8daed3b03f76e2714ca102c520c88b26"}}],
 
 ConfigureCmd = fun(Pkg, Flags) ->
                        {'get-deps',
@@ -87,32 +87,32 @@ PostHooks = [ConfigureCmd("p1_tls", ""),
 
 CfgDeps = lists:flatmap(
             fun({mysql, true}) ->
-                    [{p1_mysql, ".*", {git, "git://github.com/processone/mysql", "d568bbe317c4e86ee58a603c46a98809c1279013"}}];
+                    [{p1_mysql, ".*", {git, "https://github.com/processone/mysql", "d568bbe317c4e86ee58a603c46a98809c1279013"}}];
                ({pgsql, true}) ->
-                    [{p1_pgsql, ".*", {git, "git://github.com/processone/pgsql", "a913ce691782fdf52654774313df0a54a743da1f"}}];
+                    [{p1_pgsql, ".*", {git, "https://github.com/processone/pgsql", "e72c03c60bfcb56bbb5d259342021d9cb3581dac"}}];
                ({sqlite, true}) ->
-                    [{sqlite3, ".*", {git, "git://github.com/alexeyr/erlang-sqlite3", "4ce6211e1063fe6e27e6241f6793136a3cc27bf2"}}];
+                    [{sqlite3, ".*", {git, "https://github.com/alexeyr/erlang-sqlite3", "4ce6211e1063fe6e27e6241f6793136a3cc27bf2"}}];
                ({pam, true}) ->
-                    [{p1_pam, ".*", {git, "git://github.com/processone/epam", "d3ce290b7da75d780a03e86e7a8198a80e9826a6"}}];
+                    [{p1_pam, ".*", {git, "https://github.com/processone/epam", "d3ce290b7da75d780a03e86e7a8198a80e9826a6"}}];
                ({zlib, true}) ->
-                    [{p1_zlib, ".*", {git, "git://github.com/processone/zlib", "e3d4222b7aae616d7ef2e7e2fa0bbf451516c602"}}];
+                    [{p1_zlib, ".*", {git, "https://github.com/processone/zlib", "e3d4222b7aae616d7ef2e7e2fa0bbf451516c602"}}];
                ({riak, true}) ->
-                    [{riakc, ".*", {git, "git://github.com/basho/riak-erlang-client", {tag, "1.4.2"}}}];
+                    [{riakc, ".*", {git, "https://github.com/basho/riak-erlang-client", {tag, "1.4.2"}}}];
                ({json, true}) ->
-                    [{jiffy, ".*", {git, "git://github.com/davisp/jiffy", "801f9e72995eb72b303018885137ad8afbf1fb2b"}}];
+                    [{jiffy, ".*", {git, "https://github.com/davisp/jiffy", "446e284bd51013fe2899803b9dcbd162d8b8efb3"}}];
                ({elixir, true}) ->
-                    [{rebar_elixir_plugin, ".*", {git, "git://github.com/yrashk/rebar_elixir_plugin", "7058379b7c7e017555647f6b9cecfd87cd50f884"}},
-                     {elixir, ".*", {git, "git://github.com/elixir-lang/elixir", "cd80994a70afd4d51cd84edbe671cdbca94221bc"}}];
+                    [{rebar_elixir_plugin, ".*", {git, "https://github.com/yrashk/rebar_elixir_plugin", "7058379b7c7e017555647f6b9cecfd87cd50f884"}},
+                     {elixir, ".*", {git, "https://github.com/elixir-lang/elixir", "e12a0c561eeec22ca6d65988375b4251e841e8b2"}}];
                ({iconv, true}) ->
-                    [{p1_iconv, ".*", {git, "git://github.com/processone/eiconv", "64f6db3fd0aa0204ca1af73e5364446c78aa64cb"}}];
+                    [{p1_iconv, ".*", {git, "https://github.com/processone/eiconv", "8b7542b1aaf0a851f335e464956956985af6d9a2"}}];
                ({lager, true}) ->
-                    [{lager, ".*", {git, "git://github.com/basho/lager", "d33ccf3b69de09a628fe38b4d7981bb8671b8a4f"}}];
+                    [{lager, ".*", {git, "https://github.com/basho/lager", "d33ccf3b69de09a628fe38b4d7981bb8671b8a4f"}}];
                ({lager, false}) ->
-                    [{p1_logger, ".*", {git, "git://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
+                    [{p1_logger, ".*", {git, "https://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
                ({tools, true}) ->
-                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "69664df5d0e01a0ae27efb62831d6eea45cc1cd4"}}];
-	       ({redis, true}) ->
-		    [{eredis, ".*", {git, "git://github.com/wooga/eredis", "f6900e2a828430badac173250e00d540c5c5a02f"}}];
+                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "0c1c77730863ff2c15a4199509af256a508b4f54"}}];
+               ({redis, true}) ->
+                    [{eredis, ".*", {git, "https://github.com/wooga/eredis", "770f828918db710d0c0958c6df63e90a4d341ed7"}}];
                (_) ->
                     []
             end, Cfg),

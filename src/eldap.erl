@@ -80,7 +80,6 @@
 
 -export([get_status/1]).
 
-%% gen_fsm callbacks
 -export([init/1, connecting/2, connecting/3,
 	 wait_bind_response/3, active/3, active_bind/3,
 	 handle_event/3, handle_sync_event/4, handle_info/3,
