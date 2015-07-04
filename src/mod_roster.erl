@@ -34,19 +34,23 @@
 
 -module(mod_roster).
 
+-protocol({xep, 237, '1.3'}).
+-protocol({xep, 321, '0.1'}).
+
 -author('alexey@process-one.net').
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, process_iq/3, export/1, import/1,
-	 process_local_iq/3, get_user_roster/2, import/3,
-	 get_subscription_lists/3, get_roster/2,
+-export([start/2, stop/1, process_iq/3, export/1,
+	 import/1, process_local_iq/3, get_user_roster/2,
+	 import/3, get_subscription_lists/3, get_roster/2,
 	 get_in_pending_subscriptions/3, in_subscription/6,
 	 out_subscription/4, set_items/3, remove_user/2,
 	 get_jid_info/4, item_to_xml/1, webadmin_page/3,
 	 webadmin_user/4, get_versioning_feature/2,
 	 roster_versioning_enabled/1, roster_version/2,
-         record_to_string/1, groups_to_string/1]).
+	 record_to_string/1, groups_to_string/1,
+	 mod_opt_type/1]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -100,8 +104,6 @@ start(Host, Opts) ->
 		       webadmin_page, 50),
     ejabberd_hooks:add(webadmin_user, Host, ?MODULE,
 		       webadmin_user, 50),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
-				  ?NS_ROSTER, ?MODULE, process_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
 				  ?NS_ROSTER, ?MODULE, process_iq, IQDisc).
 
@@ -128,7 +130,6 @@ stop(Host) ->
 			  webadmin_page, 50),
     ejabberd_hooks:delete(webadmin_user, Host, ?MODULE,
 			  webadmin_user, 50),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_ROSTER),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
 				     ?NS_ROSTER).
 
@@ -1767,3 +1768,17 @@ import(_LServer, riak, #roster_version{} = RV) ->
     ejabberd_riak:put(RV, roster_version_schema());
 import(_, _, _) ->
     pass.
+
+mod_opt_type(access) ->
+    fun (A) when is_atom(A) -> A end;
+mod_opt_type(db_type) -> fun gen_mod:v_db/1;
+mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
+mod_opt_type(managers) ->
+    fun (B) when is_list(B) -> B end;
+mod_opt_type(store_current_id) ->
+    fun (B) when is_boolean(B) -> B end;
+mod_opt_type(versioning) ->
+    fun (B) when is_boolean(B) -> B end;
+mod_opt_type(_) ->
+    [access, db_type, iqdisc, managers, store_current_id,
+     versioning].
