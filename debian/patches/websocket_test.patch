@@ -1,8 +1,8 @@
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -2009,6 +2009,7 @@ get_auth_tags([], U, P, D, R) ->
+@@ -2037,6 +2037,7 @@
  -record(socket_state, {sockmod, socket, receiver}).
-
+ 
  get_conn_type(StateData) ->
 +    ?INFO_MSG("Will get the conn_type of ~p.", [jlib:jid_to_string(StateData#state.jid)]),
      case (StateData#state.sockmod):get_sockmod(StateData#state.socket) of
