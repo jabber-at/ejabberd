@@ -43,5 +43,5 @@ Description: Fix syntax problems with the example scripts
 -INSTALLUSER={{installuser}}
 +INSTALLUSER=ejabberd
  
- # Compatibility in ZSH
- #setopt shwordsplit 2>/dev/null
+ # check the proper system user is used if defined
+ if [ "$INSTALLUSER" != "" ] ; then
