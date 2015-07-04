@@ -1,5 +1,6 @@
 ejabberd (1:15.06-1) unstable; urgency=low
 
+  * Version bump from upstream.
   * Conflict with ejabberd-mod-multicast, it's included in ejabberd >= 15.04.
   * Remove fix_set_last.patch and no_muc_body_in_subject.patch, applied
     upstream.
