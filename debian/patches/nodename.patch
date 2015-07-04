@@ -14,8 +14,8 @@
  #
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -336,7 +336,7 @@
-         JOT='/usr/bin/jot'
+@@ -346,7 +346,7 @@
+         JOT=/usr/bin/jot
          if [ ! -x "$JOT" ] ; then
              # no flock or jot, simply invoke ctlexec()
 -            CTL_CONN="ctl-${ERLANG_NODE}"

@@ -1,8 +1,6 @@
-diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
-index c762fc0..18c1e75 100644
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -688,6 +688,11 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
+@@ -684,6 +684,11 @@
  		      ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
  					 [false, U, StateData#state.server,
  					  StateData#state.ip]),
@@ -14,7 +12,7 @@ index c762fc0..18c1e75 100644
  		      Err = jlib:make_error_reply(El, ?ERR_NOT_AUTHORIZED),
  		      send_element(StateData, Err),
  		      fsm_next_state(wait_for_auth, StateData)
-@@ -791,6 +796,11 @@ wait_for_feature_request({xmlstreamelement, El},
+@@ -787,6 +792,11 @@
  		ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
  				   [false, Username, StateData#state.server,
  				    StateData#state.ip]),
@@ -26,7 +24,7 @@ index c762fc0..18c1e75 100644
  		send_element(StateData,
  			     #xmlel{name = <<"failure">>,
  				    attrs = [{<<"xmlns">>, ?NS_SASL}],
-@@ -969,6 +979,11 @@ wait_for_sasl_response({xmlstreamelement, El},
+@@ -965,6 +975,11 @@
  		ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
  				   [false, Username, StateData#state.server,
  				    StateData#state.ip]),
@@ -38,7 +36,7 @@ index c762fc0..18c1e75 100644
  		send_element(StateData,
  			     #xmlel{name = <<"failure">>,
  				    attrs = [{<<"xmlns">>, ?NS_SASL}],
-@@ -977,6 +992,12 @@ wait_for_sasl_response({xmlstreamelement, El},
+@@ -973,6 +988,12 @@
  						children = []}]}),
  		fsm_next_state(wait_for_feature_request, StateData);
  	    {error, Error} ->

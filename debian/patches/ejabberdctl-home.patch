@@ -1,10 +1,10 @@
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -114,6 +114,7 @@
+@@ -111,6 +111,7 @@
  SASL_LOG_PATH=$LOGS_DIR/erlang.log
  DATETIME=`date "+%Y%m%d-%H%M%S"`
  ERL_CRASH_DUMP=$LOGS_DIR/erl_crash_$DATETIME.dump
 +HOME=$SPOOL_DIR
  ERL_INETRC=$ETC_DIR/inetrc
  
- # define erl parameters
+ # define mnesia options
