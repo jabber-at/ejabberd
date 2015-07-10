@@ -2,6 +2,7 @@ ejabberd (1:15.06-2) unstable; urgency=low
 
   * Conflict with old ejabberd-mod-mam package.
   * Let systemd restart ejabberd after ~5 seconds.
+  * Remove ejabberd-monit.patch, since systemd now takes care of restarting.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 10 Jul 2015 16:51:20 +0200
 

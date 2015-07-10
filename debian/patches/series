@@ -8,7 +8,6 @@ fix_init.patch
 enable-ipv6.diff
 ejabberdctl-defaults.patch
 ejabberd-config.patch
-ejabberd-monit.patch
 ejabberd-pid.patch
 nodename.patch
 failed_auth.patch
