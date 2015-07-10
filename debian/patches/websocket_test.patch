@@ -8,3 +8,14 @@
      case (StateData#state.sockmod):get_sockmod(StateData#state.socket) of
      gen_tcp -> c2s;
      p1_tls -> c2s_tls;
+@@ -2046,7 +2047,9 @@
+ 	    p1_tls -> c2s_compressed_tls
+ 	end;
+     ejabberd_http_bind -> http_bind;
+-    _ -> unknown
++    Other ->
++       ?INFO_MSG("Unknown conn_type: ~p", [Other]),
++       unknown
+     end.
+ 
+ process_presence_probe(From, To, StateData) ->
