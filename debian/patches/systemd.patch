@@ -1,8 +1,10 @@
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -7,9 +7,9 @@
+@@ -6,10 +6,11 @@
+ User=ejabberd
  Group=ejabberd
  LimitNOFILE=16000
++Restart=on-failure
  RestartSec=5
 -ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
 -ExecStop=@ctlscriptpath@/ejabberdctl stop
