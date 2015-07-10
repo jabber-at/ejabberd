@@ -23,7 +23,7 @@ Provides: xmpp-server
 Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
  monit
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
- ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast
+ ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702)
 Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
  ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
  Its features contain:
