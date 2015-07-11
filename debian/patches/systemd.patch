@@ -1,14 +1,16 @@
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -6,10 +6,11 @@
+@@ -6,10 +6,12 @@
  User=ejabberd
  Group=ejabberd
  LimitNOFILE=16000
-+Restart=on-failure
- RestartSec=5
+-RestartSec=5
 -ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
 -ExecStop=@ctlscriptpath@/ejabberdctl stop
 -ExecReload=@ctlscriptpath@/ejabberdctl reload_config
++Restart=on-failure
++# disabled for now, not compatible with type "oneshot".
++#RestartSec=5
 +ExecStart=/bin/sh /usr/sbin/ejabberdctl start
 +ExecStop=/usr/sbin/ejabberdctl stop
 +ExecReload=/usr/sbin/ejabberdctl reload_config
