@@ -1,7 +1,8 @@
 ejabberd (1:15.06-5) unstable; urgency=low
   
-  * /etc/default/ejabberd now creates a PID file by default.
   * Let systemd-tmpfiles create /run/ejabberd.
+  * /etc/default/ejabberd now creates a PID file by default.
+  * Let systemd know about the PID file ejabberd now creates by default.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 12 Jul 2015 21:03:46 +0200
 
