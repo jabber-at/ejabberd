@@ -14,7 +14,7 @@
 -ExecReload=@ctlscriptpath@/ejabberdctl reload_config
 -Type=oneshot
 -RemainAfterExit=yes
-+ExecStart=/usr/sbin/ejabberdctl start
++ExecStart=/bin/sh /usr/sbin/ejabberdctl start
 +ExecStop=/usr/sbin/ejabberdctl stop
 +ExecReload=/usr/sbin/ejabberdctl reload_config
 +PIDFile=/run/ejabberd/ejabberd.pid
