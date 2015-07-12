@@ -263,7 +263,7 @@
  # If this variable is defined, ejabberd writes the PID file when starts,
 @@ -148,8 +136,7 @@
  #
- #EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
+ EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
  
 -#.
 -#' EJABBERD_CONFIG_PATH: ejabberd configuration file
