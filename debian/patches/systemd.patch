@@ -1,20 +1,22 @@
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -5,11 +5,13 @@
+@@ -5,13 +5,13 @@
  [Service]
  User=ejabberd
  Group=ejabberd
 -LimitNOFILE=16000
 +LimitNOFILE=32768
-+# disabled for now, not compatible with type "oneshot".
-+#Restart=on-failure
++Type=service
++Restart=on-failure
  RestartSec=5
 -ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
 -ExecStop=@ctlscriptpath@/ejabberdctl stop
 -ExecReload=@ctlscriptpath@/ejabberdctl reload_config
-+ExecStart=/bin/sh /usr/sbin/ejabberdctl start
+-Type=oneshot
+-RemainAfterExit=yes
++ExecStart=/usr/sbin/ejabberdctl start
 +ExecStop=/usr/sbin/ejabberdctl stop
 +ExecReload=/usr/sbin/ejabberdctl reload_config
- Type=oneshot
- RemainAfterExit=yes
  
+ [Install]
+ WantedBy=multi-user.target
