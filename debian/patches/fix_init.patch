@@ -16,7 +16,7 @@ Author: Philipp Huebner <debalance@debian.org>
  CTL="$DIR"/ejabberdctl
 -USER=@installuser@
 +USER=ejabberd
-+EJABBERDRUN=/var/run/ejabberd
++EJABBERDRUN=/run/ejabberd
  
  test -x "$CTL" || {
  	echo "ERROR: ejabberd not found: $DIR"
