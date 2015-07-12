@@ -6,7 +6,7 @@
  Group=ejabberd
 -LimitNOFILE=16000
 +LimitNOFILE=32768
-+Type=service
++Type=forking
 +Restart=on-failure
  RestartSec=5
 -ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
