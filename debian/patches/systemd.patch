@@ -1,9 +1,11 @@
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -6,10 +6,12 @@
+@@ -5,11 +5,13 @@
+ [Service]
  User=ejabberd
  Group=ejabberd
- LimitNOFILE=16000
+-LimitNOFILE=16000
++LimitNOFILE=32768
 +# disabled for now, not compatible with type "oneshot".
 +#Restart=on-failure
  RestartSec=5

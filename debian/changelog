@@ -2,6 +2,9 @@ ejabberd (1:15.06-4) unstable; urgency=low
 
   * Fix previous build that commented out the wront line in
     ejabberd.service.template.
+  * Increase LimitNOFILE in service template to the same value as
+    /etc/security/limits.d/ejabberd.conf, since limits.conf is not parsed by
+    systemd.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 12 Jul 2015 11:12:23 +0200
 
