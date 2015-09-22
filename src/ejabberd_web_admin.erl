@@ -167,15 +167,15 @@ process([<<"doc">>, LocalFile], _Request) ->
 	  ?DEBUG("Delivering content.", []),
 	  {200, [{<<"Server">>, <<"ejabberd">>}], FileContents};
       {error, Error} ->
-	  ?DEBUG("Delivering error: ~p", [Error]),
 	  Help = <<" ", FileName/binary,
 		   " - Try to specify the path to ejabberd "
 		   "documentation with the environment variable "
 		   "EJABBERD_DOC_PATH. Check the ejabberd "
 		   "Guide for more information.">>,
+	  ?INFO_MSG("Problem '~p' accessing the local Guide file ~s", [Error, Help]),
 	  case Error of
 	    eacces -> {403, [], <<"Forbidden", Help/binary>>};
-	    enoent -> {404, [], <<"Not found", Help/binary>>};
+	    enoent -> {307, [{<<"Location">>, <<"http://docs.ejabberd.im/admin/guide/configuration/">>}], <<"Not found", Help/binary>>};
 	    _Else ->
 		{404, [], <<(iolist_to_binary(atom_to_list(Error)))/binary, Help/binary>>}
 	  end
@@ -296,7 +296,7 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
      #xmlel{name = <<"html">>,
 	    attrs =
 		[{<<"xmlns">>, <<"http://www.w3.org/1999/xhtml">>},
-		 {<<"xml:lang">>, Lang}, {<<"lang">>, Lang}],
+		 {<<"xml:lang">>, Lang}, {<<"lang">>, Lang}]++direction(Lang),
 	    children =
 		[#xmlel{name = <<"head">>, attrs = [],
 			children =
@@ -340,8 +340,15 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
 				 [{xmlcdata, <<"">>}])]),
 		      ?XAE(<<"div">>, [{<<"id">>, <<"copyrightouter">>}],
 			   [?XAE(<<"div">>, [{<<"id">>, <<"copyright">>}],
-				 [?XC(<<"p">>,
-				      <<"ejabberd (c) 2002-2015 ProcessOne">>)])])])]}}.
+				 [?XE(<<"p">>,
+				  [?AC(<<"https://www.ejabberd.im/">>, <<"ejabberd">>),
+				   ?C(<<" (c) 2002-2015 ">>),
+				   ?AC(<<"https://www.process-one.net/">>, <<"ProcessOne">>)]
+                                 )])])])]}}.
+
+direction(ltr) -> [{<<"dir">>, <<"ltr">>}];
+direction(<<"he">>) -> [{<<"dir">>, <<"rtl">>}];
+direction(_) -> [].
 
 get_base_path(global, cluster) -> <<"/admin/">>;
 get_base_path(Host, cluster) ->
@@ -510,7 +517,7 @@ css(Host) ->
       "0px;\n}\n\nh3 {\n  color: #000044;\n "
       " font-family: Verdana, Arial, Helvetica, "
       "sans-serif; \n  font-size: 10pt;\n  "
-      "font-weight: bold;\n  text-align: left;\n "
+      "font-weight: bold;\n "
       " padding-top: 20px;\n  padding-bottom: "
       "2px;\n  margin-top: 0px;\n  margin-bottom: "
       "0px;\n}\n\n#content a:link {\n  color: "
@@ -590,7 +597,7 @@ logo_fill() ->
 process_admin(global,
 	      #request{path = [], auth = {_, _, AJID},
 		       lang = Lang}) ->
-    make_xhtml((?H1GL((?T(<<"Administration">>)), <<"toc">>,
+    make_xhtml((?H1GL((?T(<<"Administration">>)), <<"">>,
 		      <<"Contents">>))
 		 ++
 		 [?XE(<<"ul">>,
@@ -659,7 +666,7 @@ process_admin(Host,
 				      [{{acl, '$1', '$2'}}]}])),
     {NumLines, ACLsP} = term_to_paragraph(ACLs, 80),
     make_xhtml((?H1GL((?T(<<"Access Control Lists">>)),
-		      <<"ACLDefinition">>, <<"ACL Definition">>))
+		      <<"acl-definition">>, <<"ACL Definition">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -668,7 +675,7 @@ process_admin(Host,
 		 end
 		   ++
 		   [?XAE(<<"form">>,
-			 [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
+			 [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}]++direction(ltr),
 			 [?TEXTAREA(<<"acls">>,
 				    (iolist_to_binary(integer_to_list(lists:max([16,
 										 NumLines])))),
@@ -695,7 +702,7 @@ process_admin(Host,
 				    [{{acl, {'$1', Host}, '$2'}, [],
 				      [{{acl, '$1', '$2'}}]}])),
     make_xhtml((?H1GL((?T(<<"Access Control Lists">>)),
-		      <<"ACLDefinition">>, <<"ACL Definition">>))
+		      <<"acl-definition">>, <<"ACL Definition">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -703,9 +710,9 @@ process_admin(Host,
 		   nothing -> []
 		 end
 		   ++
-		   [?XE(<<"p">>, [?ACT(<<"../acls-raw/">>, <<"Raw">>)])] ++
+		   [?XAE(<<"p">>, direction(ltr), [?ACT(<<"../acls-raw/">>, <<"Raw">>)])] ++
 		     [?XAE(<<"form">>,
-			   [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
+			   [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}]++direction(ltr),
 			   [acls_to_xhtml(ACLs), ?BR,
 			    ?INPUTT(<<"submit">>, <<"delete">>,
 				    <<"Delete Selected">>),
@@ -761,7 +768,7 @@ process_admin(Host,
 			  [{{access, '$1', '$2'}}]}]),
     {NumLines, AccessP} = term_to_paragraph(lists:keysort(2,Access), 80),
     make_xhtml((?H1GL((?T(<<"Access Rules">>)),
-		      <<"AccessRights">>, <<"Access Rights">>))
+		      <<"access-rights">>, <<"Access Rights">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -770,7 +777,7 @@ process_admin(Host,
 		 end
 		   ++
 		   [?XAE(<<"form">>,
-			 [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
+			 [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}]++direction(ltr),
 			 [?TEXTAREA(<<"access">>,
 				    (iolist_to_binary(integer_to_list(lists:max([16,
 										 NumLines])))),
@@ -794,7 +801,7 @@ process_admin(Host,
 			     [{{access, {'$1', Host}, '$2'}, [],
 			       [{{access, '$1', '$2'}}]}]),
     make_xhtml((?H1GL((?T(<<"Access Rules">>)),
-		      <<"AccessRights">>, <<"Access Rights">>))
+		      <<"access-rights">>, <<"Access Rights">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -802,10 +809,10 @@ process_admin(Host,
 		   nothing -> []
 		 end
 		   ++
-		   [?XE(<<"p">>, [?ACT(<<"../access-raw/">>, <<"Raw">>)])]
+		   [?XAE(<<"p">>, direction(ltr), [?ACT(<<"../access-raw/">>, <<"Raw">>)])]
 		     ++
 		     [?XAE(<<"form">>,
-			   [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}],
+			   [{<<"action">>, <<"">>}, {<<"method">>, <<"post">>}]++direction(ltr),
 			   [access_rules_to_xhtml(AccessRules, Lang), ?BR,
 			    ?INPUTT(<<"submit">>, <<"delete">>,
 				    <<"Delete Selected">>)])],
@@ -853,7 +860,7 @@ process_admin(global,
 		       lang = Lang}) ->
     Res = list_vhosts(Lang, AJID),
     make_xhtml((?H1GL((?T(<<"Virtual Hosts">>)),
-		      <<"virtualhost">>, <<"Virtual Hosting">>))
+		      <<"virtual-hosting">>, <<"Virtual Hosting">>))
 		 ++ Res,
 	       global, Lang, AJID);
 process_admin(Host,
@@ -1550,18 +1557,24 @@ user_info(User, Server, Query, Lang) ->
                                                           c2s_compressed_tls ->
                                                               <<"tls+zlib">>;
                                                           http_bind ->
-                                                              <<"http-bind">>
+                                                              <<"http-bind">>;
+                                                          websocket ->
+                                                              <<"websocket">>;
+                                                          _ ->
+                                                              <<"unknown">>
                                                       end,
-                                              <<" (", ConnS/binary,
+                                              <<ConnS/binary,
                                                 "://",
                                                 (jlib:ip_to_list(IP))/binary,
                                                 ":",
                                                 (jlib:integer_to_binary(Port))/binary,
                                                 "#",
-                                                (jlib:atom_to_binary(Node))/binary,
-                                                ")">>
+                                                (jlib:atom_to_binary(Node))/binary>>
                                       end,
-                                ?LI([?C((<<R/binary, FIP/binary>>))])
+                                case direction(Lang) of
+				    [{_, <<"rtl">>}] -> ?LI([?C((<<FIP/binary, " - ", R/binary>>))]);
+				    _ -> ?LI([?C((<<R/binary, " - ", FIP/binary>>))])
+                                end
                         end,
                         lists:sort(Resources))))]
         end,
@@ -1872,9 +1885,7 @@ get_node(global, Node, [<<"backup">>], Query, Lang) ->
 		 [?XRES(<<(?T(<<"Error">>))/binary, ": ",
 			  (list_to_binary(io_lib:format("~p", [Error])))/binary>>)]
 	   end,
-    (?H1GL(list_to_binary(io_lib:format(?T(<<"Backup of ~p">>), [Node])),
-	   <<"list-eja-commands">>,
-	   <<"List of ejabberd Commands">>))
+    [?XC(<<"h1">>, list_to_binary(io_lib:format(?T(<<"Backup of ~p">>), [Node])))]
       ++
       ResS ++
 	[?XCT(<<"p">>,
@@ -2036,7 +2047,7 @@ get_node(global, Node, [<<"ports">>], Query, Lang) ->
                                     []])),
     H1String = <<(?T(<<"Listened Ports at ">>))/binary,
 		 (iolist_to_binary(atom_to_list(Node)))/binary>>,
-    (?H1GL(H1String, <<"listened">>, <<"Listening Ports">>))
+    (?H1GL(H1String, <<"listening-ports">>, <<"Listening Ports">>))
       ++
       case Res of
 	ok -> [?XREST(<<"Submitted">>)];
@@ -2064,7 +2075,7 @@ get_node(Host, Node, [<<"modules">>], Query, Lang)
     NewModules = lists:sort(rpc:call(Node, gen_mod,
 				     loaded_modules_with_opts, [Host])),
     H1String = list_to_binary(io_lib:format(?T(<<"Modules at ~p">>), [Node])),
-    (?H1GL(H1String, <<"modoverview">>,
+    (?H1GL(H1String, <<"modules-overview">>,
 	   <<"Modules Overview">>))
       ++
       case Res of
@@ -2381,18 +2392,18 @@ node_ports_to_xhtml(Ports, Lang) ->
 					  [?INPUTS(<<"text">>,
 						   <<"module", SSPort/binary>>,
 						   SModule, <<"15">>)]),
-				      ?XE(<<"td">>,
+				      ?XAE(<<"td">>, direction(ltr),
 					  [?TEXTAREA(<<"opts", SSPort/binary>>,
 						     (iolist_to_binary(integer_to_list(NumLines))),
 						     <<"35">>, SOptsClean)]),
 				      ?XE(<<"td">>,
 					  [?INPUTT(<<"submit">>,
 						   <<"add", SSPort/binary>>,
-						   <<"Update">>)]),
+						   <<"Restart">>)]),
 				      ?XE(<<"td">>,
 					  [?INPUTT(<<"submit">>,
 						   <<"delete", SSPort/binary>>,
-						   <<"Delete">>)])])
+						   <<"Stop">>)])])
 			 end,
 			 Ports)
 		 ++
@@ -2407,12 +2418,12 @@ node_ports_to_xhtml(Ports, Lang) ->
 		       ?XE(<<"td">>,
 			   [?INPUTS(<<"text">>, <<"modulenew">>, <<"">>,
 				    <<"15">>)]),
-		       ?XE(<<"td">>,
+		       ?XAE(<<"td">>, direction(ltr),
 			   [?TEXTAREA(<<"optsnew">>, <<"2">>, <<"35">>,
 				      <<"[]">>)]),
 		       ?XAE(<<"td">>, [{<<"colspan">>, <<"2">>}],
 			    [?INPUTT(<<"submit">>, <<"addnew">>,
-				     <<"Add New">>)])])]))]).
+				     <<"Start">>)])])]))]).
 
 make_netprot_html(NetProt) ->
     ?XAE(<<"select">>, [{<<"name">>, <<"netprotnew">>}],
@@ -2524,7 +2535,7 @@ node_modules_to_xhtml(Modules, Lang) ->
 								       40),
 				 ?XE(<<"tr">>,
 				     [?XC(<<"td">>, SModule),
-				      ?XE(<<"td">>,
+				      ?XAE(<<"td">>, direction(ltr),
 					  [?TEXTAREA(<<"opts", SModule/binary>>,
 						     (iolist_to_binary(integer_to_list(NumLines))),
 						     <<"40">>, SOpts)]),
@@ -2543,7 +2554,7 @@ node_modules_to_xhtml(Modules, Lang) ->
 		 [?XE(<<"tr">>,
 		      [?XE(<<"td">>,
 			   [?INPUT(<<"text">>, <<"modulenew">>, <<"">>)]),
-		       ?XE(<<"td">>,
+		       ?XAE(<<"td">>, direction(ltr),
 			   [?TEXTAREA(<<"optsnew">>, <<"2">>, <<"40">>,
 				      <<"[]">>)]),
 		       ?XAE(<<"td">>, [{<<"colspan">>, <<"2">>}],
