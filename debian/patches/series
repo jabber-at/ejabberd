@@ -11,5 +11,4 @@ ejabberd-config.patch
 nodename.patch
 failed_auth.patch
 ejabberdctl-home.patch
-module_install.patch
 systemd.patch
