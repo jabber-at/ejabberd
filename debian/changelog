@@ -1,3 +1,9 @@
+ejabberd (1:15.07-1) unstable; urgency=low
+
+  * Add debian/gbp.conf with branch config.
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 22 Sep 2015 19:49:05 +0200
+
 ejabberd (1:15.06-5) unstable; urgency=low
   
   * Let systemd-tmpfiles create /run/ejabberd.
