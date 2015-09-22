@@ -5,7 +5,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/rebar.config.script
 +++ b/rebar.config.script
-@@ -183,9 +183,7 @@
+@@ -182,9 +182,7 @@
            {xref_checks, []},
  	  {xref_queries,
  	   [{"(XC - UC) || (XU - X - B - "
