@@ -1,6 +1,8 @@
 ejabberd (1:15.07-1) unstable; urgency=low
 
   * Add debian/gbp.conf with branch config.
+  * Remove websocket_test.patch, causes crashes and is suspected to have been
+    fixed anyway.
 
  -- Mathias Ertl <mati@jabber.at>  Tue, 22 Sep 2015 19:49:05 +0200
 

@@ -13,4 +13,3 @@ failed_auth.patch
 ejabberdctl-home.patch
 module_install.patch
 systemd.patch
-websocket_test.patch
