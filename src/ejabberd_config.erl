@@ -206,7 +206,7 @@ get_plain_terms_file(File1, Opts) ->
             BinTerms1 = strings_to_binary(Terms),
             ModInc = case proplists:get_bool(include_modules_configs, Opts) of
                          true ->
-                             filelib:wildcard(ext_mod:modules_dir() ++ "/*/conf/*.yaml");
+                             filelib:wildcard(ext_mod:modules_dir() ++ "/*/conf/*.{yml,yaml}");
                          _ ->
                              []
                      end,
@@ -385,18 +385,19 @@ include_config_files(Terms) ->
                        include_config_file(File, Opts)
                end, lists:flatten(FileOpts)),
 
-    SpecialTerms = dict:from_list([{hosts, none}, {listen, none}, {modules, none}]),
+    SpecialTerms = dict:from_list([{hosts, []}, {listen, []}, {modules, []}]),
+    PartDict = dict:store(rest, [], SpecialTerms),
     Partition = fun(L) ->
                         lists:foldr(fun({Name, Val} = Pair, Dict) ->
                                             case dict:find(Name, SpecialTerms) of
                                                 {ok, _} ->
-                                                    dict:store(Name, Val, Dict);
+                                                    dict:append_list(Name, Val, Dict);
                                                 _ ->
-                                                    dict:update(rest, fun(L1) -> [Pair|L1] end, Dict)
+                                                    dict:append(rest, Pair, Dict)
                                             end;
                                        (Tuple, Dict2) ->
-                                            dict:update(rest, fun(L2) -> [Tuple|L2] end, Dict2)
-                                    end, dict:from_list([{rest, []}]), L)
+                                            dict:append(rest, Tuple, Dict2)
+                                    end, PartDict, L)
                 end,
 
     Merged = dict:merge(fun(_Name, V1, V2) -> V1 ++ V2 end,
@@ -718,16 +719,13 @@ get_modules_with_options() ->
     {ok, Mods} = application:get_key(ejabberd, modules),
     lists:foldl(
       fun(Mod, D) ->
-	      Attrs = Mod:module_info(attributes),
-	      Behavs = proplists:get_value(behaviour, Attrs, []),
-	      case lists:member(ejabberd_config, Behavs) or (Mod == ?MODULE) of
-		  true ->
-		      Opts = Mod:opt_type(''),
+	      case catch Mod:opt_type('') of
+		  Opts when is_list(Opts) ->
 		      lists:foldl(
 			fun(Opt, Acc) ->
 				dict:append(Opt, Mod, Acc)
 			end, D, Opts);
-		  false ->
+		  {'EXIT', {undef, _}} ->
 		      D
 	      end
       end, dict:new(), [?MODULE|Mods]).
@@ -1155,7 +1153,8 @@ opt_type(language) ->
 opt_type(_) ->
     [hosts, language].
 
--spec may_hide_data(string()) -> string().
+-spec may_hide_data(string()) -> string();
+                   (binary()) -> binary().
 
 may_hide_data(Data) ->
     case ejabberd_config:get_option(

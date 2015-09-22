@@ -947,20 +947,32 @@ process_groupchat_message(From,
 					      end,
 		 case IsAllowed of
 		   true ->
-			   send_multiple(
-			      jlib:jid_replace_resource(StateData#state.jid, FromNick),
-			      StateData#state.server_host,
-			      StateData#state.users,
-			      Packet),
-		       NewStateData2 = case has_body_or_subject(Packet) of
-			   true ->
-				add_message_to_history(FromNick, From,
-							      Packet,
-							      NewStateData1);
-			   false ->
-				NewStateData1
-			 end,
-		       {next_state, normal_state, NewStateData2};
+		       case
+			 ejabberd_hooks:run_fold(muc_filter_packet,
+						 StateData#state.server_host,
+						 Packet,
+						 [StateData,
+						  StateData#state.jid,
+						  From, FromNick])
+			   of
+			 drop ->
+			     {next_state, normal_state, StateData};
+			 NewPacket ->
+			     send_multiple(jlib:jid_replace_resource(StateData#state.jid,
+								     FromNick),
+					   StateData#state.server_host,
+					   StateData#state.users,
+					   Packet),
+			     NewStateData2 = case has_body_or_subject(Packet) of
+					       true ->
+						   add_message_to_history(FromNick, From,
+									  Packet,
+									  NewStateData1);
+					       false ->
+						   NewStateData1
+					     end,
+			     {next_state, normal_state, NewStateData2}
+		       end;
 		   _ ->
 		       Err = case
 			       (StateData#state.config)#config.allow_change_subj
@@ -1853,31 +1865,6 @@ add_new_user(From, Nick,
 		NewState = add_user_presence(From, Packet,
 					     add_online_user(From, Nick, Role,
 							     StateData)),
-		if not (NewState#state.config)#config.anonymous ->
-		       WPacket = #xmlel{name = <<"message">>,
-					attrs = [{<<"type">>, <<"groupchat">>}],
-					children =
-					    [#xmlel{name = <<"body">>,
-						    attrs = [],
-						    children =
-							[{xmlcdata,
-							  translate:translate(Lang,
-									      <<"This room is not anonymous">>)}]},
-					     #xmlel{name = <<"x">>,
-						    attrs =
-							[{<<"xmlns">>,
-							  ?NS_MUC_USER}],
-						    children =
-							[#xmlel{name =
-								    <<"status">>,
-								attrs =
-								    [{<<"code">>,
-								      <<"100">>}],
-								children =
-								    []}]}]},
-		       ejabberd_router:route(StateData#state.jid, From, WPacket);
-		   true -> ok
-		end,
 		send_existing_presences(From, NewState),
 		send_new_presence(From, NewState),
 		Shift = count_stanza_shift(Nick, Els, NewState),
@@ -3757,6 +3744,7 @@ set_xoption([_ | _Opts], _Config) ->
     {error, ?ERR_BAD_REQUEST}.
 
 change_config(Config, StateData) ->
+    send_config_change_info(Config, StateData),
     NSD = StateData#state{config = Config},
     case {(StateData#state.config)#config.persistent,
 	  Config#config.persistent}
@@ -3776,6 +3764,39 @@ change_config(Config, StateData) ->
 	  NSD1 = remove_nonmembers(NSD), {result, [], NSD1};
       _ -> {result, [], NSD}
     end.
+
+send_config_change_info(Config, #state{config = Config}) -> ok;
+send_config_change_info(New, #state{config = Old} = StateData) ->
+    Codes = case {Old#config.logging, New#config.logging} of
+	      {false, true} -> [<<"170">>];
+	      {true, false} -> [<<"171">>];
+	      _ -> []
+	    end
+	      ++
+	      case {Old#config.anonymous, New#config.anonymous} of
+		{true, false} -> [<<"172">>];
+		{false, true} -> [<<"173">>];
+		_ -> []
+	      end
+		++
+		case Old#config{anonymous = New#config.anonymous,
+				logging = New#config.logging} of
+		  New -> [];
+		  _ -> [<<"104">>]
+		end,
+    StatusEls = [#xmlel{name = <<"status">>,
+			attrs = [{<<"code">>, Code}],
+			children = []} || Code <- Codes],
+    Message = #xmlel{name = <<"message">>,
+		     attrs = [{<<"type">>, <<"groupchat">>},
+			      {<<"id">>, randoms:get_string()}],
+		     children = [#xmlel{name = <<"x">>,
+					attrs = [{<<"xmlns">>, ?NS_MUC_USER}],
+					children = StatusEls}]},
+    send_multiple(StateData#state.jid,
+		  StateData#state.server_host,
+		  StateData#state.users,
+		  Message).
 
 remove_nonmembers(StateData) ->
     lists:foldl(fun ({_LJID, #user{jid = JID}}, SD) ->
