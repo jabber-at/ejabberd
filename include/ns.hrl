@@ -143,6 +143,8 @@
 -define(NS_BOB, <<"urn:xmpp:bob">>).
 -define(NS_MAM_TMP, <<"urn:xmpp:mam:tmp">>).
 -define(NS_MAM_0, <<"urn:xmpp:mam:0">>).
+-define(NS_MAM_1, <<"urn:xmpp:mam:1">>).
+-define(NS_SID_0, <<"urn:xmpp:sid:0">>).
 -define(NS_PING, <<"urn:xmpp:ping">>).
 -define(NS_CARBONS_2, <<"urn:xmpp:carbons:2">>).
 -define(NS_CARBONS_1, <<"urn:xmpp:carbons:1">>).
@@ -150,3 +152,4 @@
 -define(NS_CLIENT_STATE,  <<"urn:xmpp:csi:0">>).
 -define(NS_STREAM_MGMT_2,  <<"urn:xmpp:sm:2">>).
 -define(NS_STREAM_MGMT_3,  <<"urn:xmpp:sm:3">>).
+-define(NS_NICK,  <<"http://jabber.org/protocol/nick">>).

@@ -225,7 +225,7 @@ check_peer_certificate(SockMod, Sock, Peer) ->
       {ok, Cert} ->
 	  case SockMod:get_verify_result(Sock) of
 	    0 ->
-		case idna:domain_utf8_to_ascii(Peer) of
+		case ejabberd_idna:domain_utf8_to_ascii(Peer) of
 		  false ->
 		      {error, <<"Cannot decode remote server name">>};
 		  AsciiPeer ->
@@ -241,8 +241,10 @@ check_peer_certificate(SockMod, Sock, Peer) ->
 	    VerifyRes ->
 		{error, p1_tls:get_cert_verify_string(VerifyRes, Cert)}
 	  end;
+      {error, _Reason} ->
+	    {error, <<"Cannot get peer certificate">>};
       error ->
-	  {error, <<"Cannot get peer certificate">>}
+	    {error, <<"Cannot get peer certificate">>}
     end.
 
 %%====================================================================
@@ -529,6 +531,7 @@ commands() ->
 			desc =
 			    "Number of incoming s2s connections on "
 			    "the node",
+                        policy = admin,
 			module = ?MODULE, function = incoming_s2s_number,
 			args = [], result = {s2s_incoming, integer}},
      #ejabberd_commands{name = outgoing_s2s_number,
@@ -536,6 +539,7 @@ commands() ->
 			desc =
 			    "Number of outgoing s2s connections on "
 			    "the node",
+                        policy = admin,
 			module = ?MODULE, function = outgoing_s2s_number,
 			args = [], result = {s2s_outgoing, integer}}].
 
@@ -718,7 +722,7 @@ get_cert_domains(Cert) ->
 								     lresource =
 									 <<"">>} ->
 								    case
-								      idna:domain_utf8_to_ascii(LD)
+								      ejabberd_idna:domain_utf8_to_ascii(LD)
 									of
 								      false ->
 									  [];

@@ -34,6 +34,7 @@
 	 start_link/7,
 	 start/9,
 	 start/7,
+	 get_role/2,
 	 route/4]).
 
 %% gen_fsm callbacks
@@ -426,56 +427,70 @@ normal_state({route, From, <<"">>,
 	      #xmlel{name = <<"iq">>} = Packet},
 	     StateData) ->
     case jlib:iq_query_info(Packet) of
-      #iq{type = Type, xmlns = XMLNS, lang = Lang,
-	  sub_el = #xmlel{name = SubElName} = SubEl} =
-	  IQ
-	  when (XMLNS == (?NS_MUC_ADMIN)) or
-		 (XMLNS == (?NS_MUC_OWNER))
-		 or (XMLNS == (?NS_DISCO_INFO))
-		 or (XMLNS == (?NS_DISCO_ITEMS))
-	         or (XMLNS == (?NS_VCARD))
-		 or (XMLNS == (?NS_CAPTCHA)) ->
-	  Res1 = case XMLNS of
-		   ?NS_MUC_ADMIN ->
-		       process_iq_admin(From, Type, Lang, SubEl, StateData);
-		   ?NS_MUC_OWNER ->
-		       process_iq_owner(From, Type, Lang, SubEl, StateData);
-		   ?NS_DISCO_INFO ->
-		       process_iq_disco_info(From, Type, Lang, StateData);
-		   ?NS_DISCO_ITEMS ->
-		       process_iq_disco_items(From, Type, Lang, StateData);
-		   ?NS_VCARD ->
-		       process_iq_vcard(From, Type, Lang, SubEl, StateData);
-		   ?NS_CAPTCHA ->
-		       process_iq_captcha(From, Type, Lang, SubEl, StateData)
-		 end,
-	  {IQRes, NewStateData} = case Res1 of
-				    {result, Res, SD} ->
-					{IQ#iq{type = result,
-					       sub_el =
-						   [#xmlel{name = SubElName,
-							   attrs =
-							       [{<<"xmlns">>,
-								 XMLNS}],
-							   children = Res}]},
-					 SD};
-				    {error, Error} ->
-					{IQ#iq{type = error,
-					       sub_el = [SubEl, Error]},
-					 StateData}
-				  end,
-	  ejabberd_router:route(StateData#state.jid, From,
-		       jlib:iq_to_xml(IQRes)),
-	  case NewStateData of
-	    stop -> {stop, normal, StateData};
-	    _ -> {next_state, normal_state, NewStateData}
-	  end;
-      reply -> {next_state, normal_state, StateData};
-      _ ->
-	  Err = jlib:make_error_reply(Packet,
-				      ?ERR_FEATURE_NOT_IMPLEMENTED),
-	  ejabberd_router:route(StateData#state.jid, From, Err),
-	  {next_state, normal_state, StateData}
+	reply ->
+	    {next_state, normal_state, StateData};
+	IQ0 ->
+	    case ejabberd_hooks:run_fold(
+		   muc_process_iq,
+		   StateData#state.server_host,
+		   IQ0, [StateData, From, StateData#state.jid]) of
+		ignore ->
+		    {next_state, normal_state, StateData};
+		#iq{type = T} = IQRes when T == error; T == result ->
+		    ejabberd_router:route(StateData#state.jid, From, jlib:iq_to_xml(IQRes)),
+		    {next_state, normal_state, StateData};
+		#iq{type = Type, xmlns = XMLNS, lang = Lang,
+		    sub_el = #xmlel{name = SubElName, attrs = Attrs} = SubEl} = IQ
+		  when (XMLNS == (?NS_MUC_ADMIN)) or
+		       (XMLNS == (?NS_MUC_OWNER))
+		       or (XMLNS == (?NS_DISCO_INFO))
+		       or (XMLNS == (?NS_DISCO_ITEMS))
+		       or (XMLNS == (?NS_VCARD))
+		       or (XMLNS == (?NS_CAPTCHA)) ->
+		    Res1 = case XMLNS of
+			       ?NS_MUC_ADMIN ->
+				   process_iq_admin(From, Type, Lang, SubEl, StateData);
+			       ?NS_MUC_OWNER ->
+				   process_iq_owner(From, Type, Lang, SubEl, StateData);
+			       ?NS_DISCO_INFO ->
+				   case xml:get_attr(<<"node">>, Attrs) of
+					  false -> process_iq_disco_info(From, Type, Lang, StateData);
+					  {value, _} -> {error, ?ERR_SERVICE_UNAVAILABLE}
+					end;
+			       ?NS_DISCO_ITEMS ->
+				   process_iq_disco_items(From, Type, Lang, StateData);
+			       ?NS_VCARD ->
+				   process_iq_vcard(From, Type, Lang, SubEl, StateData);
+			       ?NS_CAPTCHA ->
+				   process_iq_captcha(From, Type, Lang, SubEl, StateData)
+			   end,
+		    {IQRes, NewStateData} =
+			case Res1 of
+			    {result, Res, SD} ->
+				{IQ#iq{type = result,
+				       sub_el =
+					   [#xmlel{name = SubElName,
+						   attrs =
+						       [{<<"xmlns">>,
+							 XMLNS}],
+						   children = Res}]},
+				 SD};
+			    {error, Error} ->
+				{IQ#iq{type = error,
+				       sub_el = [SubEl, Error]},
+				 StateData}
+			end,
+		    ejabberd_router:route(StateData#state.jid, From, jlib:iq_to_xml(IQRes)),
+		    case NewStateData of
+			stop -> {stop, normal, StateData};
+			_ -> {next_state, normal_state, NewStateData}
+		    end;
+		_ ->
+		    Err = jlib:make_error_reply(Packet,
+						?ERR_FEATURE_NOT_IMPLEMENTED),
+		    ejabberd_router:route(StateData#state.jid, From, Err),
+		    {next_state, normal_state, StateData}
+	    end
     end;
 normal_state({route, From, Nick,
 	      #xmlel{name = <<"presence">>} = Packet},
@@ -948,7 +963,7 @@ process_groupchat_message(From,
 		 case IsAllowed of
 		   true ->
 		       case
-			 ejabberd_hooks:run_fold(muc_filter_packet,
+			 ejabberd_hooks:run_fold(muc_filter_message,
 						 StateData#state.server_host,
 						 Packet,
 						 [StateData,
@@ -957,16 +972,17 @@ process_groupchat_message(From,
 			   of
 			 drop ->
 			     {next_state, normal_state, StateData};
-			 NewPacket ->
+			 NewPacket1 ->
+			     NewPacket = xml:remove_subtags(NewPacket1, <<"nick">>, {<<"xmlns">>, ?NS_NICK}),
 			     send_multiple(jlib:jid_replace_resource(StateData#state.jid,
 								     FromNick),
 					   StateData#state.server_host,
 					   StateData#state.users,
-					   Packet),
+					   NewPacket),
 			     NewStateData2 = case has_body_or_subject(Packet) of
 					       true ->
 						   add_message_to_history(FromNick, From,
-									  Packet,
+									  NewPacket,
 									  NewStateData1);
 					       false ->
 						   NewStateData1
@@ -1035,117 +1051,125 @@ get_participant_data(From, StateData) ->
     end.
 
 process_presence(From, Nick,
-		 #xmlel{name = <<"presence">>, attrs = Attrs} = Packet,
+		 #xmlel{name = <<"presence">>, attrs = Attrs0} = Packet0,
 		 StateData) ->
-    Type = xml:get_attr_s(<<"type">>, Attrs),
-    Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
-    StateData1 = case Type of
-		   <<"unavailable">> ->
-		       case is_user_online(From, StateData) of
-			 true ->
-			     NewPacket = case
-					   {(StateData#state.config)#config.allow_visitor_status,
-					    is_visitor(From, StateData)}
-					     of
-					   {false, true} ->
-					       strip_status(Packet);
-					   _ -> Packet
-					 end,
-			     NewState = add_user_presence_un(From, NewPacket,
-							     StateData),
-			     case (?DICT):find(Nick, StateData#state.nicks) of
-			       {ok, [_, _ | _]} -> ok;
-			       _ -> send_new_presence(From, NewState)
-			     end,
-			     Reason = case xml:get_subtag(NewPacket,
-							  <<"status">>)
-					  of
-					false -> <<"">>;
-					Status_el ->
-					    xml:get_tag_cdata(Status_el)
-				      end,
-			     remove_online_user(From, NewState, Reason);
-			 _ -> StateData
-		       end;
-		   <<"error">> ->
-		       case is_user_online(From, StateData) of
-			 true ->
-			     ErrorText =
-				 <<"This participant is kicked from the "
-				   "room because he sent an error presence">>,
-			     expulse_participant(Packet, From, StateData,
-						 translate:translate(Lang,
-								     ErrorText));
-			 _ -> StateData
-		       end;
-		   <<"">> ->
-		       case is_user_online(From, StateData) of
-			 true ->
-			     case is_nick_change(From, Nick, StateData) of
-			       true ->
-				   case {nick_collision(From, Nick, StateData),
-					 mod_muc:can_use_nick(StateData#state.server_host,
-							      StateData#state.host,
-							      From, Nick),
-					 {(StateData#state.config)#config.allow_visitor_nickchange,
-					  is_visitor(From, StateData)}}
-				       of
-				     {_, _, {false, true}} ->
-					 ErrText =
-					     <<"Visitors are not allowed to change their "
-					       "nicknames in this room">>,
-					 Err = jlib:make_error_reply(Packet,
-								     ?ERRT_NOT_ALLOWED(Lang,
-										       ErrText)),
-					 ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
-										Nick),
-						      From, Err),
-					 StateData;
-				     {true, _, _} ->
-					 Lang = xml:get_attr_s(<<"xml:lang">>,
-							       Attrs),
-					 ErrText =
-					     <<"That nickname is already in use by another "
-					       "occupant">>,
-					 Err = jlib:make_error_reply(Packet,
-								     ?ERRT_CONFLICT(Lang,
-										    ErrText)),
-					 ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
-										Nick), % TODO: s/Nick/""/
-						      From, Err),
-					 StateData;
-				     {_, false, _} ->
-					 ErrText =
-					     <<"That nickname is registered by another "
-					       "person">>,
-					 Err = jlib:make_error_reply(Packet,
-								     ?ERRT_CONFLICT(Lang,
-										    ErrText)),
-					 ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
-										Nick),
-						      From, Err),
-					 StateData;
-				     _ -> change_nick(From, Nick, StateData)
-				   end;
-			       _NotNickChange ->
-				   Stanza = case
-					      {(StateData#state.config)#config.allow_visitor_status,
-					       is_visitor(From, StateData)}
-						of
-					      {false, true} ->
-						  strip_status(Packet);
-					      _Allowed -> Packet
-					    end,
-				   NewState = add_user_presence(From, Stanza,
-								StateData),
-				   send_new_presence(From, NewState),
-				   NewState
-			     end;
-			 _ -> add_new_user(From, Nick, Packet, StateData)
-		       end;
-		   _ -> StateData
-		 end,
-    close_room_if_temporary_and_empty(StateData1).
+    Type0 = xml:get_attr_s(<<"type">>, Attrs0),
+    IsOnline = is_user_online(From, StateData),
+    if Type0 == <<"">>;
+       IsOnline and ((Type0 == <<"unavailable">>) or (Type0 == <<"error">>)) ->
+	   case ejabberd_hooks:run_fold(muc_filter_presence,
+					StateData#state.server_host,
+					Packet0,
+					[StateData,
+					 StateData#state.jid,
+					 From, Nick]) of
+	     drop ->
+		 {next_state, normal_state, StateData};
+	     #xmlel{attrs = Attrs} = Packet ->
+		 Type = xml:get_attr_s(<<"type">>, Attrs),
+		 Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
+		 StateData1 = case Type of
+				<<"unavailable">> ->
+				    NewPacket = case
+						  {(StateData#state.config)#config.allow_visitor_status,
+						   is_visitor(From, StateData)}
+						    of
+						  {false, true} ->
+						      strip_status(Packet);
+						  _ -> Packet
+						end,
+				    NewState = add_user_presence_un(From, NewPacket,
+								    StateData),
+				    case (?DICT):find(Nick, StateData#state.nicks) of
+				      {ok, [_, _ | _]} -> ok;
+				      _ -> send_new_presence(From, NewState)
+				    end,
+				    Reason = case xml:get_subtag(NewPacket,
+								 <<"status">>)
+						 of
+					       false -> <<"">>;
+					       Status_el ->
+						   xml:get_tag_cdata(Status_el)
+					     end,
+				    remove_online_user(From, NewState, Reason);
+				<<"error">> ->
+				    ErrorText =
+					<<"This participant is kicked from the "
+					  "room because he sent an error presence">>,
+				    expulse_participant(Packet, From, StateData,
+							translate:translate(Lang,
+									    ErrorText));
+				<<"">> ->
+				    if not IsOnline ->
+					   add_new_user(From, Nick, Packet, StateData);
+				       true ->
+					   case is_nick_change(From, Nick, StateData) of
+					     true ->
+						 case {nick_collision(From, Nick, StateData),
+						       mod_muc:can_use_nick(StateData#state.server_host,
+									    StateData#state.host,
+									    From, Nick),
+						       {(StateData#state.config)#config.allow_visitor_nickchange,
+							is_visitor(From, StateData)}}
+						     of
+						   {_, _, {false, true}} ->
+						       ErrText =
+							   <<"Visitors are not allowed to change their "
+							     "nicknames in this room">>,
+						       Err = jlib:make_error_reply(Packet,
+										   ?ERRT_NOT_ALLOWED(Lang,
+												     ErrText)),
+						       ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
+											      Nick),
+								    From, Err),
+						       StateData;
+						   {true, _, _} ->
+						       Lang = xml:get_attr_s(<<"xml:lang">>,
+									     Attrs),
+						       ErrText =
+							   <<"That nickname is already in use by another "
+							     "occupant">>,
+						       Err = jlib:make_error_reply(Packet,
+										   ?ERRT_CONFLICT(Lang,
+												  ErrText)),
+						       ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
+											      Nick), % TODO: s/Nick/""/
+								    From, Err),
+						       StateData;
+						   {_, false, _} ->
+						       ErrText =
+							   <<"That nickname is registered by another "
+							     "person">>,
+						       Err = jlib:make_error_reply(Packet,
+										   ?ERRT_CONFLICT(Lang,
+												  ErrText)),
+						       ejabberd_router:route(jlib:jid_replace_resource(StateData#state.jid,
+											      Nick),
+								   From, Err),
+						       StateData;
+						   _ -> change_nick(From, Nick, StateData)
+						 end;
+					     _NotNickChange ->
+						 Stanza = case
+							    {(StateData#state.config)#config.allow_visitor_status,
+							     is_visitor(From, StateData)}
+							      of
+							    {false, true} ->
+								strip_status(Packet);
+							    _Allowed -> Packet
+							  end,
+						 NewState = add_user_presence(From, Stanza,
+									      StateData),
+						 send_new_presence(From, NewState),
+						 NewState
+					   end
+				    end
+			      end,
+		 close_room_if_temporary_and_empty(StateData1)
+	   end;
+       true ->
+	   {next_state, normal_state, StateData}
+    end.
 
 close_room_if_temporary_and_empty(StateData1) ->
     case not (StateData1#state.config)#config.persistent
@@ -3523,6 +3547,13 @@ get_config(Lang, StateData, From) ->
 				   <<"captcha_protected">>,
 				   (Config#config.captcha_protected))];
 		  false -> []
+		end ++
+	        case gen_mod:is_loaded(StateData#state.server_host, mod_mam) of
+		    true ->
+			[?BOOLXFIELD(<<"Enable message archiving">>,
+				     <<"muc#roomconfig_mam">>,
+				     (Config#config.mam))];
+		    false -> []
 		end
 		  ++
 		  [?JIDMULTIXFIELD(<<"Exclude Jabber IDs from CAPTCHA challenge">>,
@@ -3732,6 +3763,8 @@ set_xoption([{<<"muc#roomconfig_enablelogging">>, [Val]}
 	     | Opts],
 	    Config) ->
     ?SET_BOOL_XOPT(logging, Val);
+set_xoption([{<<"muc#roomconfig_mam">>, [Val]}|Opts], Config) ->
+    ?SET_BOOL_XOPT(mam, Val);
 set_xoption([{<<"muc#roomconfig_captcha_whitelist">>,
 	      Vals}
 	     | Opts],
@@ -3894,6 +3927,9 @@ set_opts([{Opt, Val} | Opts], StateData) ->
 		StateData#state{config =
 				    (StateData#state.config)#config{logging =
 									Val}};
+	    mam ->
+		StateData#state{config =
+				    (StateData#state.config)#config{mam = Val}};
 	    captcha_whitelist ->
 		StateData#state{config =
 				    (StateData#state.config)#config{captcha_whitelist
@@ -3950,6 +3986,7 @@ make_opts(StateData) ->
      ?MAKE_CONFIG_OPT(password), ?MAKE_CONFIG_OPT(anonymous),
      ?MAKE_CONFIG_OPT(logging), ?MAKE_CONFIG_OPT(max_users),
      ?MAKE_CONFIG_OPT(allow_voice_requests),
+     ?MAKE_CONFIG_OPT(mam),
      ?MAKE_CONFIG_OPT(voice_request_min_interval),
      ?MAKE_CONFIG_OPT(vcard),
      {captcha_whitelist,
