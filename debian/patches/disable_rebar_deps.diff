@@ -49,13 +49,13 @@ Author: Philipp Huebner <debalance@debian.org>
  	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
 -	# Elixir binaries
 -	[ -d $(BINDIR) ] || $(INSTALL) -d -m 755 $(BINDIR)
--	-[ -f deps/elixir/bin/iex ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/iex $(BINDIR)/iex
--	-[ -f deps/elixir/bin/elixir ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/elixir $(BINDIR)/elixir
--	-[ -f deps/elixir/bin/mix ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/mix $(BINDIR)/mix
+-	[ -f deps/elixir/bin/iex ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/iex $(BINDIR)/iex || true
+-	[ -f deps/elixir/bin/elixir ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/elixir $(BINDIR)/elixir || true
+-	[ -f deps/elixir/bin/mix ] && $(INSTALL) -m 550 $(G_USER) deps/elixir/bin/mix $(BINDIR)/mix || true
  	#
  	# Init script
  	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-@@ -151,29 +129,20 @@
+@@ -151,30 +129,21 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
@@ -76,16 +76,18 @@ Author: Philipp Huebner <debalance@debian.org>
  	$(INSTALL) -m 750 $(O_USER) tools/captcha.sh $(PBINDIR)
  	$(INSTALL) -m 750 $(O_USER) tools/joincluster $(PBINDIR)
  	$(INSTALL) -m 750 $(O_USER) tools/leavecluster $(PBINDIR)
--	-[ -f deps/p1_pam/priv/bin/epam ] \
--		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR)
+-	[ -f deps/p1_pam/priv/bin/epam ] \
+-		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR) \
+-		|| true
  	#
  	# Binary system libraries
  	$(INSTALL) -d $(SODIR)
 -	$(INSTALL) -m 644 $(DLLs) $(SODIR)
- 	-[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true)
- 	-[ -f $(SODIR)/sqlite3_drv.so ] && (cd $(PRIVDIR); ln -s lib/sqlite3_drv.so; true)
++	$(INSTALL) -m 644 $(SODIR)
+ 	[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true) || true
+ 	[ -f $(SODIR)/sqlite3_drv.so ] && (cd $(PRIVDIR); ln -s lib/sqlite3_drv.so; true) || true
  	#
-@@ -239,8 +208,6 @@
+@@ -240,8 +209,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -94,7 +96,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -251,7 +218,6 @@
+@@ -252,7 +219,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
