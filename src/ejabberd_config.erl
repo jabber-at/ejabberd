@@ -120,12 +120,7 @@ read_file(File) ->
                      {include_modules_configs, true}]).
 
 read_file(File, Opts) ->
-    Terms1 = get_plain_terms_file(File, Opts),
-    Terms_macros = case proplists:get_bool(replace_macros, Opts) of
-                       true -> replace_macros(Terms1);
-                       false -> Terms1
-                   end,
-    Terms = transform_terms(Terms_macros),
+    Terms = get_plain_terms_file(File, Opts),
     State = lists:foldl(fun search_hosts/2, #state{}, Terms),
     {Head, Tail} = lists:partition(
                      fun({host_config, _}) -> false;
@@ -206,16 +201,24 @@ get_plain_terms_file(File1, Opts) ->
             BinTerms1 = strings_to_binary(Terms),
             ModInc = case proplists:get_bool(include_modules_configs, Opts) of
                          true ->
-                             filelib:wildcard(ext_mod:modules_dir() ++ "/*/conf/*.{yml,yaml}");
+                            Files = [{filename:rootname(filename:basename(F)), F}
+                                     || F <- filelib:wildcard(ext_mod:config_dir() ++ "/*.{yml,yaml}")
+                                          ++ filelib:wildcard(ext_mod:modules_dir() ++ "/*/conf/*.{yml,yaml}")],
+                            [proplists:get_value(F,Files) || F <- proplists:get_keys(Files)];
                          _ ->
-                             []
+                            []
                      end,
             BinTerms = BinTerms1 ++ [{include_config_file, list_to_binary(V)} || V <- ModInc],
+            BinTerms2 = case proplists:get_bool(replace_macros, Opts) of
+                            true -> replace_macros(BinTerms);
+                            false -> BinTerms
+                        end,
+            BinTerms3 = transform_terms(BinTerms2),
             case proplists:get_bool(include_files, Opts) of
                 true ->
-                    include_config_files(BinTerms);
+                    include_config_files(BinTerms3);
                 false ->
-                    BinTerms
+                    BinTerms3
             end;
 	{error, Reason} ->
 	    ?ERROR_MSG(Reason, []),
@@ -368,6 +371,45 @@ exit_or_halt(ExitText) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Support for 'include_config_file'
 
+get_config_option_key(Name, Val) ->
+    if Name == listen ->
+            [{Key, _, _}] = ejabberd_listener:validate_cfg([Val]),
+            Key;
+       is_tuple(Val) ->
+            element(1, Val);
+       true ->
+            Val
+    end.
+
+maps_to_lists(IMap) ->
+    maps:fold(fun(Name, Map, Res) when Name == host_config orelse Name == append_host_config ->
+                      [{Name, [{Host, maps_to_lists(SMap)} || {Host,SMap} <- maps:values(Map)]} | Res];
+                 (Name, Map, Res) when is_map(Map) ->
+                      [{Name, maps:values(Map)} | Res];
+                 (Name, Val, Res) ->
+                      [{Name, Val} | Res]
+              end, [], IMap).
+
+
+merge_configs(Terms, ResMap) ->
+    lists:foldl(fun({Name, Val}, Map) when is_list(Val) ->
+                        Old = maps:get(Name, Map, #{}),
+                        New = lists:foldl(fun(SVal, OMap) ->
+                                                  NVal = if Name == host_config orelse Name == append_host_config ->
+                                                                 {Host, Opts} = SVal,
+                                                                 {_, SubMap} = maps:get(Host, OMap, {Host, #{}}),
+                                                                 {Host, merge_configs(Opts, SubMap)};
+                                                            true ->
+                                                                 SVal
+                                                         end,
+                                                  maps:put(get_config_option_key(Name, SVal), NVal, OMap)
+                                          end, Old, Val),
+                        maps:put(Name, New, Map);
+                   ({Name, Val}, Map) ->
+                        maps:put(Name, Val, Map)
+                end, ResMap, Terms).
+
+
 %% @doc Include additional configuration files in the list of terms.
 %% @spec ([term()]) -> [term()]
 include_config_files(Terms) ->
@@ -385,25 +427,9 @@ include_config_files(Terms) ->
                        include_config_file(File, Opts)
                end, lists:flatten(FileOpts)),
 
-    SpecialTerms = dict:from_list([{hosts, []}, {listen, []}, {modules, []}]),
-    PartDict = dict:store(rest, [], SpecialTerms),
-    Partition = fun(L) ->
-                        lists:foldr(fun({Name, Val} = Pair, Dict) ->
-                                            case dict:find(Name, SpecialTerms) of
-                                                {ok, _} ->
-                                                    dict:append_list(Name, Val, Dict);
-                                                _ ->
-                                                    dict:append(rest, Pair, Dict)
-                                            end;
-                                       (Tuple, Dict2) ->
-                                            dict:append(rest, Tuple, Dict2)
-                                    end, PartDict, L)
-                end,
-
-    Merged = dict:merge(fun(_Name, V1, V2) -> V1 ++ V2 end,
-                        Partition(Terms1), Partition(Terms2)),
-    Rest = dict:fetch(rest, Merged),
-    dict:to_list(dict:erase(rest, Merged)) ++ Rest.
+    M1 = merge_configs(Terms1, #{}),
+    M2 = merge_configs(Terms2, M1),
+    maps_to_lists(M2).
 
 transform_include_option({include_config_file, File}) when is_list(File) ->
     case is_string(File) of
@@ -717,6 +743,7 @@ get_option(Opt, F, Default) ->
 
 get_modules_with_options() ->
     {ok, Mods} = application:get_key(ejabberd, modules),
+    ExtMods = [Name || {Name, _Details} <- ext_mod:installed()],
     lists:foldl(
       fun(Mod, D) ->
 	      case catch Mod:opt_type('') of
@@ -728,7 +755,7 @@ get_modules_with_options() ->
 		  {'EXIT', {undef, _}} ->
 		      D
 	      end
-      end, dict:new(), [?MODULE|Mods]).
+      end, dict:new(), [?MODULE|ExtMods++Mods]).
 
 validate_opts(#state{opts = Opts} = State) ->
     ModOpts = get_modules_with_options(),
@@ -1141,6 +1168,8 @@ emit_deprecation_warning(Module, NewModule) ->
                          [Module, NewModule])
     end.
 
+opt_type(hide_sensitive_log_data) ->
+    fun (H) when is_boolean(H) -> H end;
 opt_type(hosts) ->
     fun(L) when is_list(L) ->
 	    lists:map(
@@ -1151,7 +1180,7 @@ opt_type(hosts) ->
 opt_type(language) ->
     fun iolist_to_binary/1;
 opt_type(_) ->
-    [hosts, language].
+    [hide_sensitive_log_data, hosts, language].
 
 -spec may_hide_data(string()) -> string();
                    (binary()) -> binary().

@@ -405,7 +405,7 @@ ctl()
 ctlexec()
 {
     CONN_NAME=$1; shift
-    COMMAND=$(echo $@ | sed 's/;/\\;/g')
+    COMMAND=$(echo $@ | sed 's/["&$;\|<>()]/\\&/g')
     $EXEC_CMD "$ERL \
       $NAME ${CONN_NAME} \
       -noinput \
@@ -444,11 +444,11 @@ check_start()
 # cluster setup
 join_cluster()
 {
-    $EJABBERD_BIN_PATH/joincluster $*
+    $EXEC_CMD "$EJABBERD_BIN_PATH/joincluster $*"
 }
 leave_cluster()
 {
-    $EJABBERD_BIN_PATH/leavecluster $*
+    $EXEC_CMD "$EJABBERD_BIN_PATH/leavecluster $*"
 }
 
 # allow sync calls

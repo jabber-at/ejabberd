@@ -467,8 +467,8 @@ presence(Config) ->
 
 presence_broadcast(Config) ->
     Feature = <<"p1:tmp:", (randoms:get_string())/binary>>,
-    Ver = crypto:sha(["client", $/, "bot", $/, "en", $/,
-		      "ejabberd_ct", $<, Feature, $<]),
+    Ver = crypto:hash(sha, ["client", $/, "bot", $/, "en", $/,
+                            "ejabberd_ct", $<, Feature, $<]),
     B64Ver = base64:encode(Ver),
     Node = <<(?EJABBERD_CT_URI)/binary, $#, B64Ver/binary>>,
     Server = ?config(server, Config),
@@ -1688,7 +1688,8 @@ mam_query_all(Config, NS) ->
                                                body = [Text]}]}]}]})
       end, Iter),
     if NS == ?NS_MAM_TMP ->
-	    ?recv1(#iq{type = result, id = I, sub_els = []});
+	    ?recv1(#iq{type = result, id = I,
+		       sub_els = [#mam_query{xmlns = NS, id = QID}]});
        true ->
 	    ?recv1(#message{sub_els = [#mam_fin{complete = true, id = QID}]})
     end.
@@ -1724,7 +1725,8 @@ mam_query_with(Config, JID, NS) ->
                                                body = [Text]}]}]}]})
       end, Iter),
     if NS == ?NS_MAM_TMP ->
-	    ?recv1(#iq{type = result, id = I, sub_els = []});
+	    ?recv1(#iq{type = result, id = I,
+		       sub_els = [#mam_query{xmlns = NS}]});
        true ->
 	    ?recv1(#message{sub_els = [#mam_fin{complete = true}]})
     end.

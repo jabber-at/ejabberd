@@ -3,44 +3,54 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "15.06.0",
+     version: "15.09.0",
      elixir: "~> 1.0",
      elixirc_paths: ["lib"],
      compile_path: ".",
      compilers: [:asn1] ++ Mix.compilers,
      erlc_options: erlc_options,
      erlc_paths: ["asn1", "src"],
+     package: package,
      deps: deps]
   end
 
   def application do
     [mod: {:ejabberd_app, []},
-     applications: [:kernel, :stdlib]]
+     applications: [:ssl],
+     included_applications: [:p1_logger,:p1_yaml,:p1_tls,:p1_xml,:p1_stringprep,:p1_zlib,:p1_cache_tab,:mnesia,:p1_utils,
+                             :p1_iconv,:esip,:p1_stun,:ehyperloglog,:p1_mysql,:p1_pgsql,:eredis]]
   end
-  
+
   defp erlc_options do
-    includes = Path.wildcard(Path.join("..", "/*/include"))
-    [:debug_info, {:d, :NO_EXT_LIB}] ++ Enum.map(includes, fn(path) -> {:i, path} end)
+    # Use our own includes + includes from all dependencies
+    includes = ["include"] ++ Path.wildcard(Path.join("..", "/*/include"))
+    [:debug_info] ++ Enum.map(includes, fn(path) -> {:i, path} end)
   end
-  
+
   defp deps do
-    [
-        {:p1_xml, git: "https://github.com/processone/xml"},
-        {:p1_logger, git: "https://github.com/processone/p1_logger"},
-        {:p1_yaml, git: "https://github.com/processone/p1_yaml"},
-        {:p1_tls, git: "https://github.com/processone/tls"},
-        {:p1_stringprep, git: "https://github.com/processone/stringprep"},
-        {:p1_zlib, git: "https://github.com/processone/zlib"},
-        {:p1_cache_tab, git: "https://github.com/processone/cache_tab"},
-        {:p1_utils, git: "https://github.com/processone/p1_utils"},
-        {:p1_iconv, git: "https://github.com/processone/eiconv"},
-        {:esip, git: "https://github.com/processone/p1_sip"},
-        {:p1_stun, git: "https://github.com/processone/stun"},
-        {:ehyperloglog, git: "https://github.com/vaxelfel/eHyperLogLog"},
-        {:p1_mysql, git: "https://github.com/processone/mysql"},
-        {:p1_pgsql, git: "https://github.com/processone/pgsql"},
-        {:eredis, git: "https://github.com/wooga/eredis"}
-     ]
+    [{:p1_xml, git: "https://github.com/processone/xml"},
+     {:p1_logger, git: "https://github.com/processone/p1_logger"},
+     {:p1_yaml, git: "https://github.com/processone/p1_yaml"},
+     {:p1_tls, git: "https://github.com/processone/tls"},
+     {:p1_stringprep, git: "https://github.com/processone/stringprep"},
+     {:p1_zlib, git: "https://github.com/processone/zlib"},
+     {:p1_cache_tab, git: "https://github.com/processone/cache_tab"},
+     {:p1_utils, git: "https://github.com/processone/p1_utils"},
+     {:p1_iconv, git: "https://github.com/processone/eiconv"},
+     {:esip, git: "https://github.com/processone/p1_sip"},
+     {:p1_stun, git: "https://github.com/processone/stun"},
+     {:ehyperloglog, git: "https://github.com/vaxelfel/eHyperLogLog"},
+     {:p1_mysql, git: "https://github.com/processone/mysql"},
+     {:p1_pgsql, git: "https://github.com/processone/pgsql"},
+     {:eredis, git: "https://github.com/wooga/eredis"},
+     {:exrm, "~> 0.19.2"}]
+  end
+
+  defp package do
+    [licenses: ["GPLv2"],
+     links: %{"Site" => "https://www.ejabberd.im",
+              "Documentation" => "http://docs.ejabberd.im",
+              "Source" => "https://github.com/processone/ejabberd"}]
   end
 end
 

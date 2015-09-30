@@ -12,11 +12,11 @@
 -behaviour(gen_mod).
 
 -export([start/2, stop/1, muc_online_rooms/1,
-	 muc_unregister_nick/1, create_room/3, destroy_room/3,
+	 muc_unregister_nick/1, create_room/3, destroy_room/2,
 	 create_rooms_file/1, destroy_rooms_file/1,
 	 rooms_unused_list/2, rooms_unused_destroy/2,
 	 get_user_rooms/2, get_room_occupants/2,
-	 get_room_occupants_number/2, send_direct_invitation/4,
+	 get_room_occupants_number/2, send_direct_invitation/5,
 	 change_room_option/4, get_room_options/2,
 	 set_room_affiliation/4, get_room_affiliations/2,
 	 web_menu_main/2, web_page_main/2, web_menu_host/3,
@@ -59,6 +59,7 @@ commands() ->
     [
      #ejabberd_commands{name = muc_online_rooms, tags = [muc],
 		       desc = "List existing rooms ('global' to get all vhosts)",
+                       policy = admin,
 		       module = ?MODULE, function = muc_online_rooms,
 		       args = [{host, binary}],
 		       result = {rooms, {list, {room, string}}}},
@@ -77,16 +78,17 @@ commands() ->
      #ejabberd_commands{name = destroy_room, tags = [muc_room],
 		       desc = "Destroy a MUC room",
 		       module = ?MODULE, function = destroy_room,
-		       args = [{name, binary}, {service, binary},
-			       {host, binary}],
+		       args = [{name, binary}, {service, binary}],
 		       result = {res, rescode}},
      #ejabberd_commands{name = create_rooms_file, tags = [muc],
 		       desc = "Create the rooms indicated in file",
+		       longdesc = "Provide one room JID per line. Rooms will be created after restart.",
 		       module = ?MODULE, function = create_rooms_file,
 		       args = [{file, string}],
 		       result = {res, rescode}},
      #ejabberd_commands{name = destroy_rooms_file, tags = [muc],
 		       desc = "Destroy the rooms indicated in file",
+		       longdesc = "Provide one room JID per line.",
 		       module = ?MODULE, function = destroy_rooms_file,
 		       args = [{file, string}],
 		       result = {res, rescode}},
@@ -129,7 +131,7 @@ commands() ->
 			desc = "Send a direct invitation to several destinations",
 			longdesc = "Password and Message can also be: none. Users JIDs are separated with : ",
 			module = ?MODULE, function = send_direct_invitation,
-		        args = [{room, binary}, {password, binary}, {reason, binary}, {users, binary}],
+		        args = [{name, binary}, {service, binary}, {password, binary}, {reason, binary}, {users, binary}],
 		        result = {res, rescode}},
 
      #ejabberd_commands{name = change_room_option, tags = [muc_room],
@@ -444,12 +446,12 @@ muc_create_room(ServerHost, {Name, Host, _}, DefRoomOpts) ->
     io:format("Creating room ~s@~s~n", [Name, Host]),
     mod_muc:store_room(ServerHost, Host, Name, DefRoomOpts).
 
-%% @spec (Name::binary(), Host::binary(), ServerHost::binary()) ->
+%% @spec (Name::binary(), Host::binary()) ->
 %%       ok | {error, room_not_exists}
 %% @doc Destroy the room immediately.
 %% If the room has participants, they are not notified that the room was destroyed;
 %% they will notice when they try to chat and receive an error that the room doesn't exist.
-destroy_room(Name, Service, _Server) ->
+destroy_room(Name, Service) ->
     case mnesia:dirty_read(muc_online_room, {Name, Service}) of
 	[R] ->
 	    Pid = R#muc_online_room.pid,
@@ -461,7 +463,7 @@ destroy_room(Name, Service, _Server) ->
 
 destroy_room({N, H, SH}) ->
     io:format("Destroying room: ~s@~s - vhost: ~s~n", [N, H, SH]),
-    destroy_room(N, H, SH).
+    destroy_room(N, H).
 
 
 %%----------------------------
@@ -503,7 +505,7 @@ split_roomjid(RoomJID) ->
     [Name, Host] = string:tokens(RoomJID, "@"),
     [_MUC_service_name | ServerHostList] = string:tokens(Host, "."),
     ServerHost = join(ServerHostList, "."),
-    {Name, Host, ServerHost}.
+    {list_to_binary(Name), list_to_binary(Host), list_to_binary(ServerHost)}.
 
 %% This function is copied from string:join/2 in Erlang/OTP R12B-1
 %% Note that string:join/2 is not implemented in Erlang/OTP R11B
@@ -689,8 +691,9 @@ get_room_occupants_number(Room, Host) ->
 %%----------------------------
 %% http://xmpp.org/extensions/xep-0249.html
 
-send_direct_invitation(RoomString, Password, Reason, UsersString) ->
-    RoomJid = jlib:string_to_jid(RoomString),
+send_direct_invitation(RoomName, RoomService, Password, Reason, UsersString) ->
+    RoomJid = jlib:make_jid(RoomName, RoomService, <<"">>),
+    RoomString = jlib:jid_to_string(RoomJid),
     XmlEl = build_invitation(Password, Reason, RoomString),
     UsersStrings = get_users_to_invite(RoomJid, binary_to_list(UsersString)),
     [send_direct_invitation(RoomJid, jlib:string_to_jid(list_to_binary(UserStrings)), XmlEl)
@@ -814,8 +817,10 @@ change_option(Option, Value, Config) ->
 %%----------------------------
 
 get_room_options(Name, Service) ->
-    Pid = get_room_pid(Name, Service),
-    get_room_options(Pid).
+    case get_room_pid(Name, Service) of
+        room_not_found -> [];
+        Pid -> get_room_options(Pid)
+    end.
 
 get_room_options(Pid) ->
     Config = get_room_config(Pid),

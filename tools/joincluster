@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 # Add the current ejabberd node in a cluster
 
@@ -15,7 +15,7 @@
 # 30 : network issue
 # 31 : node names incompatibility
 
-function error
+error()
 {
     echo "Error: $1" >&2
     exit $2
@@ -67,7 +67,7 @@ CTL=$(which ejabberdctl)
 echo "Using commands:"
 [ -x "$CTL" ] && echo $CTL || error "can't find ejabberdctl" 10
 
-. $CTL stop 2>/dev/null >/dev/null
+exec $CTL stop 2>/dev/null >/dev/null
 ERLC=${ERL}c
 
 [ -x $ERL ] && echo $ERL || error "can't find erl"  11
@@ -145,7 +145,7 @@ start() ->
 EOF
 
 $ERLC -o $PA $CLUSTERSETUP_ERL
-sh -c "$ERL $NAME $ERLANG_NODE -pa $PA $KERNEL_OPTS -mnesia extra_db_nodes \"['$REMOTE']\" dir \"\\\"$SPOOL_DIR\\\"\" -s mnesia -s $CLUSTERSETUP start"
+$ERL $NAME $ERLANG_NODE -pa $PA $KERNEL_OPTS -mnesia extra_db_nodes "['$REMOTE']" dir "\"$SPOOL_DIR\"" -s mnesia -s $CLUSTERSETUP start
 cd -
 rm -Rf $PA
 
