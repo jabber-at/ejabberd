@@ -55,7 +55,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	#
  	# Init script
  	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-@@ -151,30 +129,21 @@
+@@ -151,30 +129,20 @@
  	$(INSTALL) -d $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
  	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
@@ -83,11 +83,10 @@ Author: Philipp Huebner <debalance@debian.org>
  	# Binary system libraries
  	$(INSTALL) -d $(SODIR)
 -	$(INSTALL) -m 644 $(DLLs) $(SODIR)
-+	$(INSTALL) -m 644 $(SODIR)
  	[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true) || true
  	[ -f $(SODIR)/sqlite3_drv.so ] && (cd $(PRIVDIR); ln -s lib/sqlite3_drv.so; true) || true
  	#
-@@ -240,8 +209,6 @@
+@@ -240,8 +208,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -96,7 +95,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -252,7 +219,6 @@
+@@ -252,7 +218,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
