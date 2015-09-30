@@ -88,12 +88,9 @@
    ## mod_admin_extra: {}
    mod_announce: # recommends mod_adhoc
      access: announce
-@@ -582,12 +589,18 @@
+@@ -582,10 +589,16 @@
    mod_carboncopy: {}
-   mod_client_state:
-     drop_chat_states: true
--    queue_presence: false
-+    queue_presence: true
+   mod_client_state: {}
    mod_configure: {} # requires mod_adhoc
 -  mod_disco: {}
 -  ## mod_echo: {}
@@ -112,7 +109,7 @@
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -599,13 +612,14 @@
+@@ -597,13 +610,14 @@
      access_persistent: muc_create
      access_admin: muc_admin
    ## mod_muc_log: {}
@@ -131,7 +128,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -624,7 +638,7 @@
+@@ -622,7 +636,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -140,7 +137,7 @@
  
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -661,6 +675,7 @@
+@@ -659,6 +673,7 @@
      access: register
    mod_roster: {}
    mod_shared_roster: {}
