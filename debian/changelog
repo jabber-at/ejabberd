@@ -1,5 +1,11 @@
 ejabberd (1:15.09-1) unstable; urgency=low
 
+  * Rebuild with new versions of erlang-p1-* libraries.
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 03 Oct 2015 18:29:31 +0200
+
+ejabberd (1:15.09-1) unstable; urgency=low
+
   * Version bump from upstream.
 
  -- Mathias Ertl <mati@jabber.at>  Wed, 30 Sep 2015 13:15:59 +0200
