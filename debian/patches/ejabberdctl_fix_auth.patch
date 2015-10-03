@@ -1,0 +1,22 @@
+From 24fa95fd60b139d17417aad932c89cf72f28c938 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pawe=C5=82=20Chmielowski?= <pchmielowski@process-one.net>
+Date: Thu, 1 Oct 2015 21:09:03 +0200
+Subject: [PATCH] Fix problem with --auth in ejabberd_ctl:process2/2
+
+---
+ src/ejabberd_ctl.erl | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ejabberd_ctl.erl b/src/ejabberd_ctl.erl
+index 8b6f185..dd25883 100644
+--- a/src/ejabberd_ctl.erl
++++ b/src/ejabberd_ctl.erl
+@@ -209,7 +209,7 @@ process(Args) ->
+ 
+ %% @spec (Args::[string()], AccessCommands) -> {String::string(), Code::integer()}
+ process2(["--auth", User, Server, Pass | Args], AccessCommands) ->
+-    process2(Args, {list_to_binary(User), list_to_binary(Server), list_to_binary(Pass)}, AccessCommands);
++    process2(Args, {list_to_binary(User), list_to_binary(Server), list_to_binary(Pass), true}, AccessCommands);
+ process2(Args, AccessCommands) ->
+     process2(Args, admin, AccessCommands).
+ 

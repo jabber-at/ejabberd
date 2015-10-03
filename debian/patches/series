@@ -13,3 +13,4 @@ failed_auth.patch
 ejabberdctl-home.patch
 systemd.patch
 fix_module_install.patch
+ejabberdctl_fix_auth.patch
