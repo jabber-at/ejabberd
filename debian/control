@@ -21,7 +21,7 @@ Depends: adduser, erlang-base (>= 1:16.b) | ${erlang-abi:Depends}, ${erlang:Depe
                erlang-p1-stun, erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib
 Provides: xmpp-server
 Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
- monit
+ monit, erlang-oauth2, erlang-redis
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
  ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702)
 Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
