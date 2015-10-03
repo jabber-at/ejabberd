@@ -16,7 +16,7 @@ override_dh_auto_configure:
 	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 	# on Debian Wheezy and all Ubuntu distros up to at least Saucy.
 	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
-	    --enable-zlib --enable-json --enable-iconv --enable-lager --enable-stun \
+	    --enable-zlib --enable-iconv --enable-lager --enable-stun \
 	    --enable-transient_supervisors \
 	    --enable-sqlite --enable-nif --enable-transient_supervisors \
 	    --enable-riak --enable-elixir --enable-redis --enable-riak \
