@@ -1,4 +1,4 @@
-ejabberd (1:15.09-1) unstable; urgency=low
+ejabberd (1:15.09-2) unstable; urgency=low
 
   * Rebuild with new versions of erlang-p1-* libraries.
   * Remove --enable-json from configure (gone in upstream).
