@@ -15,3 +15,4 @@ systemd.patch
 fix_module_install.patch
 ejabberdctl_fix_auth.patch
 fix_config_includes.patch
+fix_xmlrpc_includes.patch

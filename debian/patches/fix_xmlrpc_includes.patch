@@ -1,0 +1,59 @@
+From b5ac0db895ba978ad40583d1484e12d9475d70e5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pawe=C5=82=20Chmielowski?= <pchmielowski@process-one.net>
+Date: Thu, 8 Oct 2015 13:07:00 +0200
+Subject: [PATCH] Be able to merge old style configs with {listen,...}
+
+---
+ src/ejabberd_config.erl | 32 +++++++++++++++++++++-----------
+ 1 file changed, 21 insertions(+), 11 deletions(-)
+
+diff --git a/src/ejabberd_config.erl b/src/ejabberd_config.erl
+index 6245179..8553b77 100644
+--- a/src/ejabberd_config.erl
++++ b/src/ejabberd_config.erl
+@@ -372,16 +372,27 @@ exit_or_halt(ExitText) ->
+ 
+ get_config_option_key(Name, Val) ->
+     if Name == listen ->
+-            lists:foldl(
+-              fun({port, Port}, {_, IP, T}) ->
+-                      {Port, IP, T};
+-                 ({ip, IP}, {Port, _, T}) ->
+-                      {Port, IP, T};
+-                 ({transport, T}, {Port, IP, _}) ->
+-                      {Port, IP, T};
+-                 (_, Res) ->
+-                      Res
+-              end, {5222, {0,0,0,0}, tcp}, Val);
++            case Val of
++                {{Port, IP, Trans}, _Mod, _Opts} ->
++                    {Port, IP, Trans};
++                {{Port, Trans}, _Mod, _Opts} when Trans == tcp; Trans == udp ->
++                    {Port, {0,0,0,0}, Trans};
++                {{Port, IP}, _Mod, _Opts} ->
++                    {Port, IP, tcp};
++                {Port, _Mod, _Opts} ->
++                    {Port, {0,0,0,0}, tcp};
++                V when is_list(V) ->
++                    lists:foldl(
++                      fun({port, Port}, {_, IP, T}) ->
++                              {Port, IP, T};
++                         ({ip, IP}, {Port, _, T}) ->
++                              {Port, IP, T};
++                         ({transport, T}, {Port, IP, _}) ->
++                              {Port, IP, T};
++                         (_, Res) ->
++                              Res
++                      end, {5222, {0,0,0,0}, tcp}, Val)
++            end;
+        is_tuple(Val) ->
+             element(1, Val);
+        true ->
+@@ -397,7 +408,6 @@ maps_to_lists(IMap) ->
+                       [{Name, Val} | Res]
+               end, [], IMap).
+ 
+-
+ merge_configs(Terms, ResMap) ->
+     lists:foldl(fun({Name, Val}, Map) when is_list(Val) ->
+                         Old = maps:get(Name, Map, #{}),

@@ -1,3 +1,9 @@
+ejabberd (1:15.09-3) unstable; urgency=low
+
+  * Add fix_xmlrpc_includes.patch.
+
+ -- Mathias Ertl <mati@jabber.at>  Thu, 08 Oct 2015 20:32:47 +0200
+
 ejabberd (1:15.09-2) unstable; urgency=low
 
   * Rebuild with new versions of erlang-p1-* libraries.
