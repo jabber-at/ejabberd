@@ -9,11 +9,9 @@ The erlang-p1-xml package installs xml.hrl into a directory such as
  src/ext_mod.erl | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/src/ext_mod.erl b/src/ext_mod.erl
-index 765d38b..4942011 100644
 --- a/src/ext_mod.erl
 +++ b/src/ext_mod.erl
-@@ -499,12 +499,12 @@ compile(_Module, _Spec, DestDir) ->
+@@ -509,12 +509,12 @@
      filelib:ensure_dir(filename:join(Ebin, ".")),
      EjabBin = filename:dirname(code:which(ejabberd)),
      EjabInc = filename:join(filename:dirname(EjabBin), "include"),

@@ -1,7 +1,7 @@
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -111,6 +111,7 @@
- SASL_LOG_PATH=$LOGS_DIR/erlang.log
+@@ -102,6 +102,7 @@
+ EJABBERD_LOG_PATH=$LOGS_DIR/ejabberd.log
  DATETIME=`date "+%Y%m%d-%H%M%S"`
  ERL_CRASH_DUMP=$LOGS_DIR/erl_crash_$DATETIME.dump
 +HOME=$SPOOL_DIR
