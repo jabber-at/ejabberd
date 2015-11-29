@@ -42,6 +42,6 @@ Description: Fix syntax problems with the example scripts
  EPMD={{bindir}}/epmd
 -INSTALLUSER={{installuser}}
 +INSTALLUSER=ejabberd
+ ERL_LIBS={{libdir}}
  
  # check the proper system user is used if defined
- if [ "$INSTALLUSER" != "" ] ; then

@@ -1,18 +1,18 @@
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -690,6 +690,11 @@
- 		      ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
- 					 [false, U, StateData#state.server,
- 					  StateData#state.ip]),
-+		      ejabberd_hooks:run(failed_auth_hook,
-+				       StateData#state.server,
-+				       [legacy, U,
-+					StateData#state.server,
-+					StateData#state.ip]),
- 		      Err = jlib:make_error_reply(El, ?ERR_NOT_AUTHORIZED),
- 		      send_element(StateData, Err),
- 		      fsm_next_state(wait_for_auth, StateData)
-@@ -793,6 +798,11 @@
+@@ -673,6 +673,11 @@
+ 			    ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
+ 				[false, U, StateData#state.server,
+ 				    StateData#state.ip]),
++                ejabberd_hooks:run(failed_auth_hook,
++                         StateData#state.server,
++                         [legacy, U,
++                     StateData#state.server,
++                     StateData#state.ip]),
+ 			    Err = jlib:make_error_reply(El, ?ERR_NOT_AUTHORIZED),
+ 			    send_element(StateData, Err),
+ 			    fsm_next_state(wait_for_auth, StateData)
+@@ -778,6 +783,11 @@
  		ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
  				   [false, Username, StateData#state.server,
  				    StateData#state.ip]),
@@ -24,7 +24,7 @@
  		send_element(StateData,
  			     #xmlel{name = <<"failure">>,
  				    attrs = [{<<"xmlns">>, ?NS_SASL}],
-@@ -971,6 +981,11 @@
+@@ -958,6 +968,11 @@
  		ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
  				   [false, Username, StateData#state.server,
  				    StateData#state.ip]),
@@ -36,7 +36,7 @@
  		send_element(StateData,
  			     #xmlel{name = <<"failure">>,
  				    attrs = [{<<"xmlns">>, ?NS_SASL}],
-@@ -979,6 +994,12 @@
+@@ -966,6 +981,12 @@
  						children = []}]}),
  		fsm_next_state(wait_for_feature_request, StateData);
  	    {error, Error} ->
