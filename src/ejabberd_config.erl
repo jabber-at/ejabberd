@@ -120,7 +120,12 @@ read_file(File) ->
                      {include_modules_configs, true}]).
 
 read_file(File, Opts) ->
-    Terms = get_plain_terms_file(File, Opts),
+    Terms1 = get_plain_terms_file(File, Opts),
+    Terms_macros = case proplists:get_bool(replace_macros, Opts) of
+                       true -> replace_macros(Terms1);
+                       false -> Terms1
+                   end,
+    Terms = transform_terms(Terms_macros),
     State = lists:foldl(fun search_hosts/2, #state{}, Terms),
     {Head, Tail} = lists:partition(
                      fun({host_config, _}) -> false;
@@ -187,7 +192,6 @@ env_binary_to_list(Application, Parameter) ->
 %% Returns a list of plain terms,
 %% in which the options 'include_config_file' were parsed
 %% and the terms in those files were included.
-%% @spec(string()) -> [term()]
 %% @spec(iolist()) -> [term()]
 get_plain_terms_file(File) ->
     get_plain_terms_file(File, [{include_files, true}]).
@@ -209,16 +213,11 @@ get_plain_terms_file(File1, Opts) ->
                             []
                      end,
             BinTerms = BinTerms1 ++ [{include_config_file, list_to_binary(V)} || V <- ModInc],
-            BinTerms2 = case proplists:get_bool(replace_macros, Opts) of
-                            true -> replace_macros(BinTerms);
-                            false -> BinTerms
-                        end,
-            BinTerms3 = transform_terms(BinTerms2),
             case proplists:get_bool(include_files, Opts) of
                 true ->
-                    include_config_files(BinTerms3);
+                    include_config_files(BinTerms);
                 false ->
-                    BinTerms3
+                    BinTerms
             end;
 	{error, Reason} ->
 	    ?ERROR_MSG(Reason, []),
@@ -373,8 +372,27 @@ exit_or_halt(ExitText) ->
 
 get_config_option_key(Name, Val) ->
     if Name == listen ->
-            [{Key, _, _}] = ejabberd_listener:validate_cfg([Val]),
-            Key;
+            case Val of
+                {{Port, IP, Trans}, _Mod, _Opts} ->
+                    {Port, IP, Trans};
+                {{Port, Trans}, _Mod, _Opts} when Trans == tcp; Trans == udp ->
+                    {Port, {0,0,0,0}, Trans};
+                {{Port, IP}, _Mod, _Opts} ->
+                    {Port, IP, tcp};
+                {Port, _Mod, _Opts} ->
+                    {Port, {0,0,0,0}, tcp};
+                V when is_list(V) ->
+                    lists:foldl(
+                      fun({port, Port}, {_, IP, T}) ->
+                              {Port, IP, T};
+                         ({ip, IP}, {Port, _, T}) ->
+                              {Port, IP, T};
+                         ({transport, T}, {Port, IP, _}) ->
+                              {Port, IP, T};
+                         (_, Res) ->
+                              Res
+                      end, {5222, {0,0,0,0}, tcp}, Val)
+            end;
        is_tuple(Val) ->
             element(1, Val);
        true ->
@@ -389,7 +407,6 @@ maps_to_lists(IMap) ->
                  (Name, Val, Res) ->
                       [{Name, Val} | Res]
               end, [], IMap).
-
 
 merge_configs(Terms, ResMap) ->
     lists:foldl(fun({Name, Val}, Map) when is_list(Val) ->
@@ -834,6 +851,7 @@ replace_module(mod_roster_odbc) -> {mod_roster, odbc};
 replace_module(mod_shared_roster_odbc) -> {mod_shared_roster, odbc};
 replace_module(mod_vcard_odbc) -> {mod_vcard, odbc};
 replace_module(mod_vcard_xupdate_odbc) -> {mod_vcard_xupdate, odbc};
+replace_module(mod_pubsub_odbc) -> {mod_pubsub, odbc};
 replace_module(Module) ->
     case is_elixir_module(Module) of
         true  -> expand_elixir_module(Module);

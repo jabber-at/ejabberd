@@ -57,19 +57,24 @@ SrcDirs = lists:foldl(
 Deps = [{p1_cache_tab, ".*", {git, "https://github.com/processone/cache_tab", "f7ea12b0ba962a3d2f9a406d2954cf7de4e27230"}},
         {p1_tls, ".*", {git, "https://github.com/processone/tls", "e56321afd974e9da33da913cd31beebc8e73e75f"}},
         {p1_stringprep, ".*", {git, "https://github.com/processone/stringprep", "3c640237a3a7831dc39de6a6d329d3a9af25c579"}},
-        {p1_xml, ".*", {git, "https://github.com/processone/xml", "d54ab9ad14f32ef3f087d1c079b789f458b3dd9d"}},
+        {p1_xml, ".*", {git, "https://github.com/processone/xml", "1c8b016b0ac7986efb823baf1682a43565449e65"}},
         {esip, ".*", {git, "https://github.com/processone/p1_sip", "d662d3fe7f6288b444ea321d854de0bd6d40e022"}},
         {p1_stun, ".*", {git, "https://github.com/processone/stun", "061bdae484268cbf0457ad4797e74b8516df3ad1"}},
-        {p1_yaml, ".*", {git, "https://github.com/processone/p1_yaml", "d5dd4019b3096c4bb79f5c723c5e56643e13772a"}},
-        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", "1bf99f9c8daed3b03f76e2714ca102c520c88b26"}},
-        {jiffy, ".*", {git, "https://github.com/davisp/jiffy", "66594cf6f4dc7ecdd17f742d103e55437edea972"}},
+        {p1_yaml, ".*", {git, "https://github.com/processone/p1_yaml", "79f756ba73a235c4d3836ec07b5f7f2b55f49638"}},
+        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", "d7800881e6702723ce58b7646b60c9e4cd25d563"}},
+        {jiffy, ".*", {git, "https://github.com/davisp/jiffy", "cfc61a2e952dc3182e0f9b1473467563699992e2"}},
         {oauth2, ".*", {git, "https://github.com/prefiks/oauth2.git", "e6da9912e5d8f658e7e868f41a102d085bdbef59"}},
         {xmlrpc, ".*", {git, "https://github.com/rds13/xmlrpc.git", "42e6e96a0fe7106830274feed915125feb1056f3"}}],
+
+CFLags = proplists:get_value(cflags, Cfg, ""),
+CPPFLags = proplists:get_value(cppflags, Cfg, ""),
+LDFLags = proplists:get_value(ldflags, Cfg, ""),
 
 ConfigureCmd = fun(Pkg, Flags) ->
                        {'get-deps',
                         "sh -c 'cd deps/" ++ Pkg ++
-                            " && ./configure" ++ Flags ++ "'"}
+                            " && CFLAGS=\""++ CFLags ++"\" CPPFLAGS=\""++ CPPFLags ++"\" LDFLAGS=\""++ LDFLags ++"\"" ++
+                            " ./configure" ++ Flags ++ "'"}
                end,
 
 XMLFlags = lists:foldl(
@@ -106,11 +111,11 @@ CfgDeps = lists:flatmap(
                ({iconv, true}) ->
                     [{p1_iconv, ".*", {git, "https://github.com/processone/eiconv", "8b7542b1aaf0a851f335e464956956985af6d9a2"}}];
                ({lager, true}) ->
-                    [{lager, ".*", {git, "https://github.com/basho/lager", "e82bb13efa32a0de747d7dc0e8c567794965cec2"}}];
+                    [{lager, ".*", {git, "https://github.com/basho/lager", "4d2ec8c701e1fa2d386f92f2b83b23faf8608ac3"}}];
                ({lager, false}) ->
                     [{p1_logger, ".*", {git, "https://github.com/processone/p1_logger", "3e19507fd5606a73694917158767ecb3f5704e3f"}}];
                ({tools, true}) ->
-                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "8433cf2e07862ea8c66e85e2578b7146b4332354"}}];
+                    [{meck, "0.*", {git, "https://github.com/eproxus/meck", "0845277398b8326f9dddddd9fc3cf73467ba6877"}}];
                ({redis, true}) ->
                     [{eredis, ".*", {git, "https://github.com/wooga/eredis", "bf12ecb30253c84a2331f4f0d93fd68856fcb9f4"}}];
                (_) ->

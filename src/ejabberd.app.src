@@ -2,7 +2,7 @@
 
 {application, ejabberd,
  [{description, "ejabberd"},
-  {vsn, "15.09"},
+  {vsn, "15.11"},
   {modules, []},
   {registered, []},
   {applications, [kernel, stdlib]},
