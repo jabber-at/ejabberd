@@ -80,7 +80,7 @@ start() ->
 			     end
 		     end,
 	    Node = list_to_atom(SNode1),
-	    Status = case rpc:call(Node, ?MODULE, process, [Args]) of
+	    Status = case rpc:call(Node, ?MODULE, process, [Args], 60000) of
 			 {badrpc, Reason} ->
 			     print("Failed RPC connection to the node ~p: ~p~n",
 				    [Node, Reason]),
@@ -209,7 +209,7 @@ process(Args) ->
 
 %% @spec (Args::[string()], AccessCommands) -> {String::string(), Code::integer()}
 process2(["--auth", User, Server, Pass | Args], AccessCommands) ->
-    process2(Args, {list_to_binary(User), list_to_binary(Server), list_to_binary(Pass)}, AccessCommands);
+    process2(Args, {list_to_binary(User), list_to_binary(Server), list_to_binary(Pass), true}, AccessCommands);
 process2(Args, AccessCommands) ->
     process2(Args, admin, AccessCommands).
 
@@ -392,7 +392,10 @@ format_result(ElementsTuple, {_Name, {tuple, ElementsDef}}) ->
        fun({Element, ElementDef}) ->
 	       ["\t" | format_result(Element, ElementDef)]
        end,
-       ElementsAndDef)].
+       ElementsAndDef)];
+
+format_result(404, {_Name, _}) ->
+    make_status(not_found).
 
 make_status(ok) -> ?STATUS_SUCCESS;
 make_status(true) -> ?STATUS_SUCCESS;
