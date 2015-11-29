@@ -13,5 +13,4 @@ failed_auth.patch
 ejabberdctl-home.patch
 systemd.patch
 fix_module_install.patch
-fix_config_includes.patch
 fix_xmlrpc_includes.patch

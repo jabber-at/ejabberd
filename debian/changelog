@@ -1,7 +1,8 @@
 ejabberd (1:15.11-1) unstable; urgency=low
 
   * Version bump from upstream.
-  * Remove ejabberdctl_fix_auth.patch (applied upstream).
+  * Remove ejabberdctl_fix_auth.patch and fix_config_includes.patch
+    (applied upstream).
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 29 Nov 2015 17:55:24 +0100
 
