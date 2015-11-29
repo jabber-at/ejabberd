@@ -5,7 +5,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/Makefile.in
 +++ b/Makefile.in
-@@ -74,26 +74,11 @@
+@@ -77,26 +77,11 @@
    INIT_USER=$(INSTALLUSER)
  endif
  
@@ -34,16 +34,7 @@ Author: Philipp Huebner <debalance@debian.org>
  xref: all
  	$(REBAR) skip_deps=true xref
  
-@@ -109,8 +94,6 @@
- 	$(ERL) -noinput +B -pa ebin -pa deps/*/ebin -eval \
- 	'case xml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
- 
--DLLs := $(wildcard deps/*/priv/*.so) $(wildcard deps/*/priv/lib/*.so)
--
- install: all
- 	#
- 	# Configuration files
-@@ -135,11 +118,6 @@
+@@ -161,20 +146,12 @@
  	# Administration script
  	[ -d $(SBINDIR) ] || $(INSTALL) -d -m 755 $(SBINDIR)
  	$(INSTALL) -m 550 $(G_USER) ejabberdctl.example $(SBINDIR)/ejabberdctl
@@ -55,38 +46,16 @@ Author: Philipp Huebner <debalance@debian.org>
  	#
  	# Init script
  	$(SED) -e "s*@ctlscriptpath@*$(SBINDIR)*" \
-@@ -151,30 +129,20 @@
- 	$(INSTALL) -d $(BEAMDIR)
- 	$(INSTALL) -m 644 ebin/*.app $(BEAMDIR)
- 	$(INSTALL) -m 644 ebin/*.beam $(BEAMDIR)
--	$(INSTALL) -m 644 deps/*/ebin/*.app $(BEAMDIR)
--	$(INSTALL) -m 644 deps/*/ebin/*.beam $(BEAMDIR)
+ 		-e "s*@installuser@*$(INIT_USER)*" ejabberd.init.template \
+ 		> ejabberd.init
+ 	chmod 755 ejabberd.init
 -	# Install Elixir and Elixir dependancies
 -	-$(INSTALL) -m 644 deps/*/lib/*/ebin/*.app $(BEAMDIR)
 -	-$(INSTALL) -m 644 deps/*/lib/*/ebin/*.beam $(BEAMDIR)
  	rm -f $(BEAMDIR)/configure.beam
  	#
- 	# ejabberd header files
- 	$(INSTALL) -d $(INCLUDEDIR)
- 	$(INSTALL) -m 644 include/*.hrl $(INCLUDEDIR)
--	$(INSTALL) -m 644 deps/*/include/*.hrl $(INCLUDEDIR)
- 	#
  	# Binary C programs
- 	$(INSTALL) -d $(PBINDIR)
- 	$(INSTALL) -m 750 $(O_USER) tools/captcha.sh $(PBINDIR)
- 	$(INSTALL) -m 750 $(O_USER) tools/joincluster $(PBINDIR)
- 	$(INSTALL) -m 750 $(O_USER) tools/leavecluster $(PBINDIR)
--	[ -f deps/p1_pam/priv/bin/epam ] \
--		&& $(INSTALL) -m 750 $(O_USER) deps/p1_pam/priv/bin/epam $(PBINDIR) \
--		|| true
- 	#
- 	# Binary system libraries
- 	$(INSTALL) -d $(SODIR)
--	$(INSTALL) -m 644 $(DLLs) $(SODIR)
- 	[ -f $(SODIR)/jiffy.so ] && (cd $(PRIVDIR); ln -s lib/jiffy.so; true) || true
- 	[ -f $(SODIR)/sqlite3_drv.so ] && (cd $(PRIVDIR); ln -s lib/sqlite3_drv.so; true) || true
- 	#
-@@ -240,8 +208,6 @@
+@@ -239,8 +216,6 @@
  	rm -rf $(LOGDIR)
  
  clean:
@@ -95,7 +64,7 @@ Author: Philipp Huebner <debalance@debian.org>
  	rm -rf test/*.beam
  	$(REBAR) clean
  
-@@ -252,7 +218,6 @@
+@@ -251,7 +226,6 @@
  	rm -f config.status
  	rm -f config.log
  	rm -rf autom4te.cache
