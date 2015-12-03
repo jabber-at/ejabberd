@@ -15,11 +15,9 @@ Applied in ejabberd 15.11+1.
  src/mod_http_upload_quota.erl | 4 ++--
  2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/src/mod_http_upload.erl b/src/mod_http_upload.erl
-index d3eace3..c51c60e 100644
 --- a/src/mod_http_upload.erl
 +++ b/src/mod_http_upload.erl
-@@ -148,8 +148,8 @@ stop(ServerHost) ->
+@@ -146,8 +146,8 @@
        false -> ok
      end,
      Proc = get_proc_name(ServerHost, ?PROCNAME),
@@ -30,11 +28,9 @@ index d3eace3..c51c60e 100644
  
  -spec mod_opt_type(atom()) -> fun((term()) -> term()) | [atom()].
  
-diff --git a/src/mod_http_upload_quota.erl b/src/mod_http_upload_quota.erl
-index 1b7828a..6ff8c84 100644
 --- a/src/mod_http_upload_quota.erl
 +++ b/src/mod_http_upload_quota.erl
-@@ -75,8 +75,8 @@ start(ServerHost, Opts) ->
+@@ -75,8 +75,8 @@
  
  stop(ServerHost) ->
      Proc = mod_http_upload:get_proc_name(ServerHost, ?PROCNAME),
