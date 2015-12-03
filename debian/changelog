@@ -7,6 +7,8 @@ ejabberd (1:15.11-1) unstable; urgency=low
     * fix_xmlrpc_includes.patch
   * Add dont_announce_ibr.patch, see:
     https://github.com/processone/ejabberd/issues/857
+  * Add fix_thumbnail_option.patch and quiet_http_upload.patch to improve
+    mod_http_upload.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 29 Nov 2015 17:55:24 +0100
 

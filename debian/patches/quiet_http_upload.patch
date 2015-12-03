@@ -1,0 +1,47 @@
+From 4566325241a7c589416d50ebfda4f8ccf1460d8b Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Mon, 2 Nov 2015 23:46:58 +0100
+Subject: [PATCH] mod_http_upload: Don't complain during shutdown
+
+Ignore the case where, for some reason, no process is found to be
+stopped.
+
+Closes #810.
+
+Applied in ejabberd 15.11+1.
+
+---
+ src/mod_http_upload.erl       | 4 ++--
+ src/mod_http_upload_quota.erl | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/mod_http_upload.erl b/src/mod_http_upload.erl
+index d3eace3..c51c60e 100644
+--- a/src/mod_http_upload.erl
++++ b/src/mod_http_upload.erl
+@@ -148,8 +148,8 @@ stop(ServerHost) ->
+       false -> ok
+     end,
+     Proc = get_proc_name(ServerHost, ?PROCNAME),
+-    ok = supervisor:terminate_child(ejabberd_sup, Proc),
+-    ok = supervisor:delete_child(ejabberd_sup, Proc).
++    supervisor:terminate_child(ejabberd_sup, Proc),
++    supervisor:delete_child(ejabberd_sup, Proc).
+ 
+ -spec mod_opt_type(atom()) -> fun((term()) -> term()) | [atom()].
+ 
+diff --git a/src/mod_http_upload_quota.erl b/src/mod_http_upload_quota.erl
+index 1b7828a..6ff8c84 100644
+--- a/src/mod_http_upload_quota.erl
++++ b/src/mod_http_upload_quota.erl
+@@ -75,8 +75,8 @@ start(ServerHost, Opts) ->
+ 
+ stop(ServerHost) ->
+     Proc = mod_http_upload:get_proc_name(ServerHost, ?PROCNAME),
+-    ok = supervisor:terminate_child(ejabberd_sup, Proc),
+-    ok = supervisor:delete_child(ejabberd_sup, Proc).
++    supervisor:terminate_child(ejabberd_sup, Proc),
++    supervisor:delete_child(ejabberd_sup, Proc).
+ 
+ -spec mod_opt_type(atom()) -> fun((term()) -> term()) | [atom()].
+ 
