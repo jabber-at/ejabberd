@@ -5,6 +5,8 @@ ejabberd (1:15.11-1) unstable; urgency=low
     * ejabberdctl_fix_auth.patch 
     * fix_config_includes.patch
     * fix_xmlrpc_includes.patch
+  * Add dont_announce_ibr.patch, see:
+    https://github.com/processone/ejabberd/issues/857
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 29 Nov 2015 17:55:24 +0100
 
