@@ -1,3 +1,7 @@
+This patch adds the access_from option to mod_register that allows ejabberd to stop announcing IBR as a stream feature.
+
+See: https://github.com/processone/ejabberd/issues/857
+
 --- a/src/mod_register.erl
 +++ b/src/mod_register.erl
 @@ -72,8 +72,11 @@
