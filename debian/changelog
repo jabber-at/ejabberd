@@ -1,3 +1,9 @@
+ejabberd (1:15.11-2) unstable; urgency=low
+
+  * Addd ejabberdctl_dump_timeout.patch.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 29 Nov 2015 17:55:24 +0100
+
 ejabberd (1:15.11-1) unstable; urgency=low
 
   * Version bump from upstream.

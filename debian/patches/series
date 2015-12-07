@@ -16,3 +16,4 @@ fix_module_install.patch
 dont_announce_ibr.patch
 fix_thumbnail_option.patch
 quiet_http_upload.patch
+ejabberdctl_dump_timeout.patch
