@@ -17,3 +17,4 @@ dont_announce_ibr.patch
 fix_thumbnail_option.patch
 quiet_http_upload.patch
 no_timeout.patch
+debug_scram.patch

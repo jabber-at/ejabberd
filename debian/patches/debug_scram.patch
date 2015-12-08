@@ -1,0 +1,35 @@
+From d0acae15e87985f452eb938736f88bdb21fef6b4 Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Mon, 8 Dec 2014 21:35:01 +0100
+Subject: [PATCH] Add debug output to trace conversion to SCRAM
+
+---
+ src/ejabberd_auth_internal.erl | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/src/ejabberd_auth_internal.erl b/src/ejabberd_auth_internal.erl
+index 48bd6bd..ac36369 100644
+--- a/src/ejabberd_auth_internal.erl
++++ b/src/ejabberd_auth_internal.erl
+@@ -429,9 +429,18 @@ scram_passwords() ->
+     ?INFO_MSG("Converting the stored passwords into "
+ 	      "SCRAM bits",
+ 	      []),
+-    Fun = fun (#passwd{password = Password} = P) ->
+-		  Scram = password_to_scram(Password),
+-		  P#passwd{password = Scram}
++    Fun = fun (#passwd{us = {U, S}, password = Password} = P) ->
++		  ?INFO_MSG("SCRAM: Trying to hash password of ~s@~s", [U, S]),
++		  try password_to_scram(Password) of
++		      Scram ->
++			  ?INFO_MSG("SCRAM: Hashed password of ~s@~s", [U, S]),
++			  P#passwd{password = Scram}
++		  catch
++		      Exception:Reason ->
++			  ?WARNING_MSG("SCRAM: Cannot hash password of ~s@~s: ~s:~p",
++				       [U, S, Exception, Reason]),
++			  P
++		  end
+ 	  end,
+     Fields = record_info(fields, passwd),
+     mnesia:transform_table(passwd, Fun, Fields).
