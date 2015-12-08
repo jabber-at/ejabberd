@@ -1,6 +1,12 @@
+ejabberd (1:15.11-3) unstable; urgency=low
+
+  * Remove ejabberdctl_dump_timeout.patch, add no_timeout.patch instead.
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 08 Dec 2015 14:23:04 +0100
+
 ejabberd (1:15.11-2) unstable; urgency=low
 
-  * Addd ejabberdctl_dump_timeout.patch.
+  * Add ejabberdctl_dump_timeout.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 07 Dec 2015 09:59:06 +0100
 

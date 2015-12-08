@@ -1,0 +1,116 @@
+From 7a69dab5963b13953c5fb08fdb2b39635c1c8992 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pawe=C5=82=20Chmielowski?= <pchmielowski@process-one.net>
+Date: Tue, 8 Dec 2015 11:25:26 +0100
+Subject: [PATCH] Add ability to disable timeout for ejabberdctl command
+
+---
+ ejabberdctl.template |  3 ++-
+ src/ejabberd_ctl.erl | 67 +++++++++++++++++++++++++++-------------------------
+ 2 files changed, 37 insertions(+), 33 deletions(-)
+
+diff --git a/ejabberdctl.template b/ejabberdctl.template
+index bd791ce..5fbcf94 100755
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -48,6 +48,7 @@ while [ $# -ne 0 ] ; do
+     shift
+     case $PARAM in
+         --) break ;;
++        --no-timeout) EJABBERD_NO_TIMEOUT="--no-timeout" ;;
+         --node) ERLANG_NODE_ARG=$1 ; shift ;;
+         --config-dir) ETC_DIR="$1" ; shift ;;
+         --config) EJABBERD_CONFIG_PATH="$1" ; shift ;;
+@@ -418,7 +419,7 @@ ctlexec()
+       -hidden \
+       -pa $EJABBERD_EBIN_PATH \
+       $KERNEL_OPTS \
+-      -s ejabberd_ctl -extra $ERLANG_NODE $COMMAND"
++      -s ejabberd_ctl -extra $ERLANG_NODE $EJABBERD_NO_TIMEOUT $COMMAND"
+ }
+ 
+ # stop epmd if there is no other running node
+diff --git a/src/ejabberd_ctl.erl b/src/ejabberd_ctl.erl
+index ec916b3..b0a1069 100644
+--- a/src/ejabberd_ctl.erl
++++ b/src/ejabberd_ctl.erl
+@@ -63,37 +63,40 @@
+ %%-----------------------------
+ 
+ start() ->
+-    case init:get_plain_arguments() of
+-	[SNode | Args] ->
+-	    SNode1 = case string:tokens(SNode, "@") of
+-			 [_Node, _Server] ->
+-			     SNode;
+-			 _ ->
+-			     case net_kernel:longnames() of
+-				 true ->
+-				     lists:flatten([SNode, "@", inet_db:gethostname(),
+-                                                    ".", inet_db:res_option(domain)]);
+-				 false ->
+-                                     lists:flatten([SNode, "@", inet_db:gethostname()]);
+-				 _ ->
+-				     SNode
+-			     end
+-		     end,
+-	    Node = list_to_atom(SNode1),
+-	    Status = case rpc:call(Node, ?MODULE, process, [Args], 60000) of
+-			 {badrpc, Reason} ->
+-			     print("Failed RPC connection to the node ~p: ~p~n",
+-				    [Node, Reason]),
+-			     %% TODO: show minimal start help
+-			     ?STATUS_BADRPC;
+-			 S ->
+-			     S
+-		     end,
+-	    halt(Status);
+-	_ ->
+-	    print_usage(),
+-	    halt(?STATUS_USAGE)
+-    end.
++    [SNode, Timeout, Args] = case init:get_plain_arguments() of
++                                 [SNode2, "--no-timeout" | Args2] ->
++                                     [SNode2, infinity, Args2];
++                                 [SNode3 | Args3] ->
++                                     [SNode3, 10000, Args3];
++                                 _ ->
++                                     print_usage(),
++                                     halt(?STATUS_USAGE)
++                             end,
++    SNode1 = case string:tokens(SNode, "@") of
++                 [_Node, _Server] ->
++                     SNode;
++                 _ ->
++                     case net_kernel:longnames() of
++                         true ->
++                             lists:flatten([SNode, "@", inet_db:gethostname(),
++                                            ".", inet_db:res_option(domain)]);
++                         false ->
++                             lists:flatten([SNode, "@", inet_db:gethostname()]);
++                         _ ->
++                             SNode
++                     end
++             end,
++    Node = list_to_atom(SNode1),
++    Status = case rpc:call(Node, ?MODULE, process, [Args], Timeout) of
++                 {badrpc, Reason} ->
++                     print("Failed RPC connection to the node ~p: ~p~n",
++                           [Node, Reason]),
++                     %% TODO: show minimal start help
++                     ?STATUS_BADRPC;
++                 S ->
++                     S
++             end,
++    halt(Status).
+ 
+ init() ->
+     ets:new(ejabberd_ctl_cmds, [named_table, set, public]),
+@@ -470,7 +473,7 @@ print_usage(HelpMode, MaxC, ShCode) ->
+ 	get_list_ctls(),
+ 
+     print(
+-       ["Usage: ", ?B("ejabberdctl"), " [--node ", ?U("nodename"), "] [--auth ",
++       ["Usage: ", ?B("ejabberdctl"), " [--no-timeout] [--node ", ?U("nodename"), "] [--auth ",
+ 	?U("user"), " ", ?U("host"), " ", ?U("password"), "] ",
+ 	?U("command"), " [", ?U("options"), "]\n"
+ 	"\n"
