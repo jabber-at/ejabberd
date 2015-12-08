@@ -7,11 +7,9 @@ Subject: [PATCH] Add debug output to trace conversion to SCRAM
  src/ejabberd_auth_internal.erl | 15 ++++++++++++---
  1 file changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/src/ejabberd_auth_internal.erl b/src/ejabberd_auth_internal.erl
-index 48bd6bd..ac36369 100644
 --- a/src/ejabberd_auth_internal.erl
 +++ b/src/ejabberd_auth_internal.erl
-@@ -429,9 +429,18 @@ scram_passwords() ->
+@@ -430,9 +430,18 @@
      ?INFO_MSG("Converting the stored passwords into "
  	      "SCRAM bits",
  	      []),
