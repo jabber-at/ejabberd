@@ -1,3 +1,10 @@
+ejabberd (1:15.11-4) unstable; urgency=low
+
+  * add ejabberdctl-create-run.patch, creates /run/ejabberd in ejabberdctl,
+    fixes github-issue #9.
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 09 Jan 2016 10:29:00 +0100
+
 ejabberd (1:15.11-3) unstable; urgency=low
 
   * Remove ejabberdctl_dump_timeout.patch, add no_timeout.patch instead.

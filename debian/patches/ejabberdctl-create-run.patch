@@ -1,0 +1,24 @@
+--- a/ejabberdctl.template
++++ b/ejabberdctl.template
+@@ -165,10 +165,21 @@
+ export CONTRIB_MODULES_CONF_DIR
+ export ERL_LIBS
+ 
++mkrundir()
++{
++    EJABBERD_PID_DIR=`dirname $EJABBERD_PID_PATH`
++
++    if [ `id -u` -eq 1000 -a -n "$EJABBERD_PID_DIR" -a ! -e $EJABBERD_PID_DIR ]; then
++        mkdir -p $EJABBERD_PID_DIR
++        chown $INSTALLUSER:$INSTALLUSER $EJABBERD_PID_DIR
++    fi
++}
++
+ # start server
+ start()
+ {
+     check_start
++    mkrundir
+     $EXEC_CMD "$ERL \
+       $NAME $ERLANG_NODE \
+       -noinput -detached \
