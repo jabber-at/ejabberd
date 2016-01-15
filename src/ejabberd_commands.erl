@@ -230,7 +230,36 @@
 
 init() ->
     ets:new(ejabberd_commands, [named_table, set, public,
-				{keypos, #ejabberd_commands.name}]).
+				{keypos, #ejabberd_commands.name}]),
+    register_commands([
+        #ejabberd_commands{name = gen_html_doc_for_commands, tags = [documentation],
+                           desc = "Generates html documentation for ejabberd_commands",
+                           module = ejabberd_commands_doc, function = generate_html_output,
+                           args = [{file, binary}, {regexp, binary}, {examples, binary}],
+                           result = {res, rescode},
+                           args_desc = ["Path to file where generated "
+                                        "documentation should be stored",
+                                        "Regexp matching names of commands or modules "
+                                        "that will be included inside generated document",
+                                        "Comma separated list of languages (choosen from java, perl, xmlrpc, json)"
+                                        "that will have example invocation include in markdown document"],
+                           result_desc = "0 if command failed, 1 when succedded",
+                           args_example = ["/home/me/docs/api.html", "mod_admin", "java,json"],
+                           result_example = ok},
+        #ejabberd_commands{name = gen_markdown_doc_for_commands, tags = [documentation],
+                           desc = "Generates markdown documentation for ejabberd_commands",
+                           module = ejabberd_commands_doc, function = generate_md_output,
+                           args = [{file, binary}, {regexp, binary}, {examples, binary}],
+                           result = {res, rescode},
+                           args_desc = ["Path to file where generated "
+                                        "documentation should be stored",
+                                        "Regexp matching names of commands or modules "
+                                        "that will be included inside generated document",
+                                        "Comma separated list of languages (choosen from java, perl, xmlrpc, json)"
+                                        "that will have example invocation include in markdown document"],
+                           result_desc = "0 if command failed, 1 when succedded",
+                           args_example = ["/home/me/docs/api.html", "mod_admin", "java,json"],
+                           result_example = ok}]).
 
 -spec register_commands([ejabberd_commands()]) -> ok.
 
@@ -514,7 +543,7 @@ check_access2(?POLICY_ACCESS, _User, _Server) ->
     true;
 check_access2(Access, User, Server) ->
     %% Check this user has access permission
-    case acl:match_rule(Server, Access, jlib:make_jid(User, Server, <<"">>)) of
+    case acl:match_rule(Server, Access, jid:make(User, Server, <<"">>)) of
 	allow -> true;
 	deny -> false
     end.
@@ -597,7 +626,7 @@ is_admin(Name, {User, Server, _, true} = Auth) ->
                     fun(A) when is_atom(A) -> A end,
                     none),
     case acl:match_rule(Server, AdminAccess,
-                        jlib:make_jid(User, Server, <<"">>)) of
+                        jid:make(User, Server, <<"">>)) of
         allow ->
             case catch check_auth(get_command_definition(Name), Auth) of
                 {ok, _, _} -> true;

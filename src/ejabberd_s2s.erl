@@ -35,8 +35,8 @@
 
 %% API
 -export([start_link/0, route/3, have_connection/1,
-	 has_key/2, get_connections_pids/1, try_register/1,
-	 remove_connection/3, find_connection/2,
+	 make_key/2, get_connections_pids/1, try_register/1,
+	 remove_connection/2, find_connection/2,
 	 dirty_get_connections/0, allow_host/2,
 	 incoming_s2s_number/0, outgoing_s2s_number/0,
 	 clean_temporarily_blocked_table/0,
@@ -75,13 +75,12 @@
 %% once a server is temporarly blocked, it stay blocked for 60 seconds
 
 -record(s2s, {fromto = {<<"">>, <<"">>} :: {binary(), binary()} | '_',
-              pid = self()              :: pid() | '_' | '$1',
-              key = <<"">>              :: binary() | '_'}).
+              pid = self()              :: pid() | '_' | '$1'}).
 
 -record(state, {}).
 
 -record(temporarily_blocked, {host = <<"">>     :: binary(),
-                              timestamp = now() :: erlang:timestamp()}).
+                              timestamp         :: integer()}).
 
 -type temporarily_blocked() :: #temporarily_blocked{}.
 
@@ -114,9 +113,9 @@ external_host_overloaded(Host) ->
 	      "seconds",
 	      [Host, ?S2S_OVERLOAD_BLOCK_PERIOD]),
     mnesia:transaction(fun () ->
+                               Time = p1_time_compat:monotonic_time(),
 			       mnesia:write(#temporarily_blocked{host = Host,
-								 timestamp =
-								     now()})
+								 timestamp = Time})
 		       end).
 
 -spec is_temporarly_blocked(binary()) -> boolean().
@@ -125,7 +124,8 @@ is_temporarly_blocked(Host) ->
     case mnesia:dirty_read(temporarily_blocked, Host) of
       [] -> false;
       [#temporarily_blocked{timestamp = T} = Entry] ->
-	  case timer:now_diff(now(), T) of
+          Diff = p1_time_compat:monotonic_time() - T,
+	  case p1_time_compat:convert_time_unit(Diff, native, micro_seconds) of
 	    N when N > (?S2S_OVERLOAD_BLOCK_PERIOD) * 1000 * 1000 ->
 		mnesia:dirty_delete_object(Entry), false;
 	    _ -> true
@@ -133,19 +133,15 @@ is_temporarly_blocked(Host) ->
     end.
 
 -spec remove_connection({binary(), binary()},
-                        pid(), binary()) -> {atomic, ok} |
-                                            ok |
-                                            {aborted, any()}.
+                        pid()) -> {atomic, ok} | ok | {aborted, any()}.
 
-remove_connection(FromTo, Pid, Key) ->
+remove_connection(FromTo, Pid) ->
     case catch mnesia:dirty_match_object(s2s,
-					 #s2s{fromto = FromTo, pid = Pid,
-					      _ = '_'})
+					 #s2s{fromto = FromTo, pid = Pid})
 	of
-      [#s2s{pid = Pid, key = Key}] ->
+      [#s2s{pid = Pid}] ->
 	  F = fun () ->
-		      mnesia:delete_object(#s2s{fromto = FromTo, pid = Pid,
-						key = Key})
+		      mnesia:delete_object(#s2s{fromto = FromTo, pid = Pid})
 	      end,
 	  mnesia:transaction(F);
       _ -> ok
@@ -161,19 +157,6 @@ have_connection(FromTo) ->
             false
     end.
 
--spec has_key({binary(), binary()}, binary()) -> boolean().
-
-has_key(FromTo, Key) ->
-    case mnesia:dirty_select(s2s,
-			     [{#s2s{fromto = FromTo, key = Key, _ = '_'},
-			       [],
-			       ['$_']}]) of
-	[] ->
-	    false;
-	_ ->
-	    true
-    end.
-
 -spec get_connections_pids({binary(), binary()}) -> [pid()].
 
 get_connections_pids(FromTo) ->
@@ -184,10 +167,9 @@ get_connections_pids(FromTo) ->
 	    []
     end.
 
--spec try_register({binary(), binary()}) -> {key, binary()} | false.
+-spec try_register({binary(), binary()}) -> boolean().
 
 try_register(FromTo) ->
-    Key = randoms:get_string(),
     MaxS2SConnectionsNumber = max_s2s_connections_number(FromTo),
     MaxS2SConnectionsNumberPerNode =
 	max_s2s_connections_number_per_node(FromTo),
@@ -197,9 +179,8 @@ try_register(FromTo) ->
 							      MaxS2SConnectionsNumber,
 							      MaxS2SConnectionsNumberPerNode),
 		if NeededConnections > 0 ->
-		       mnesia:write(#s2s{fromto = FromTo, pid = self(),
-					 key = Key}),
-		       {key, Key};
+		       mnesia:write(#s2s{fromto = FromTo, pid = self()}),
+		       true;
 		   true -> false
 		end
 	end,
@@ -239,6 +220,12 @@ check_peer_certificate(SockMod, Sock, Peer) ->
       error ->
 	    {error, <<"Cannot get peer certificate">>}
     end.
+
+make_key({From, To}, StreamID) ->
+    Secret = ejabberd_config:get_option(shared_key, fun(V) -> V end),
+    p1_sha:to_hexlist(
+      crypto:hmac(sha256, p1_sha:to_hexlist(crypto:hash(sha256, Secret)),
+		  [To, " ", From, " ", StreamID])).
 
 %%====================================================================
 %% gen_server callbacks
@@ -311,8 +298,8 @@ do_route(From, To, Packet) ->
 	  #xmlel{name = Name, attrs = Attrs, children = Els} =
 	      Packet,
 	  NewAttrs =
-	      jlib:replace_from_to_attrs(jlib:jid_to_string(From),
-					 jlib:jid_to_string(To), Attrs),
+	      jlib:replace_from_to_attrs(jid:to_string(From),
+					 jid:to_string(To), Attrs),
 	  #jid{lserver = MyServer} = From,
 	  ejabberd_hooks:run(s2s_send_packet, MyServer,
 			     [From, To, Packet]),
@@ -386,7 +373,7 @@ choose_pid(From, Pids) ->
 	      Ps -> Ps
 	    end,
     Pid =
-	lists:nth(erlang:phash(jlib:jid_remove_resource(From),
+	lists:nth(erlang:phash(jid:remove_resource(From),
 			       length(Pids1)),
 		  Pids1),
     ?DEBUG("Using ejabberd_s2s_out ~p~n", [Pid]),
@@ -406,17 +393,15 @@ open_several_connections(N, MyServer, Server, From,
 
 new_connection(MyServer, Server, From, FromTo,
 	       MaxS2SConnectionsNumber, MaxS2SConnectionsNumberPerNode) ->
-    Key = randoms:get_string(),
     {ok, Pid} = ejabberd_s2s_out:start(
-		  MyServer, Server, {new, Key}),
+		  MyServer, Server, new),
     F = fun() ->
 		L = mnesia:read({s2s, FromTo}),
 		NeededConnections = needed_connections_number(L,
 							      MaxS2SConnectionsNumber,
 							      MaxS2SConnectionsNumberPerNode),
 		if NeededConnections > 0 ->
-		       mnesia:write(#s2s{fromto = FromTo, pid = Pid,
-					 key = Key}),
+		       mnesia:write(#s2s{fromto = FromTo, pid = Pid}),
 		       ?INFO_MSG("New s2s connection started ~p", [Pid]),
 		       Pid;
 		   true -> choose_connection(From, L)
@@ -431,7 +416,7 @@ new_connection(MyServer, Server, From, FromTo,
 
 max_s2s_connections_number({From, To}) ->
     case acl:match_rule(From, max_s2s_connections,
-			jlib:make_jid(<<"">>, To, <<"">>))
+			jid:make(<<"">>, To, <<"">>))
 	of
       Max when is_integer(Max) -> Max;
       _ -> ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER
@@ -439,7 +424,7 @@ max_s2s_connections_number({From, To}) ->
 
 max_s2s_connections_number_per_node({From, To}) ->
     case acl:match_rule(From, max_s2s_connections_per_node,
-			jlib:make_jid(<<"">>, To, <<"">>))
+			jid:make(<<"">>, To, <<"">>))
 	of
       Max when is_integer(Max) -> Max;
       _ -> ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER_PER_NODE
@@ -519,9 +504,12 @@ update_tables() ->
     end,
     case catch mnesia:table_info(s2s, attributes) of
       [fromto, node, key] ->
-	  mnesia:transform_table(s2s, ignore, [fromto, pid, key]),
+	  mnesia:transform_table(s2s, ignore, [fromto, pid]),
 	  mnesia:clear_table(s2s);
-      [fromto, pid, key] -> ok;
+      [fromto, pid, key] ->
+	  mnesia:transform_table(s2s, ignore, [fromto, pid]),
+	  mnesia:clear_table(s2s);
+      [fromto, pid] -> ok;
       {'EXIT', _} -> ok
     end,
     case lists:member(local_s2s, mnesia:system_info(tables)) of
@@ -550,7 +538,7 @@ allow_host1(MyHost, S2SHost) ->
              s2s_access,
              fun(A) when is_atom(A) -> A end,
              all),
-    JID = jlib:make_jid(<<"">>, S2SHost, <<"">>),
+    JID = jid:make(<<"">>, S2SHost, <<"">>),
     case acl:match_rule(MyHost, Rule, JID) of
         deny -> false;
         allow ->
@@ -639,7 +627,7 @@ get_cert_domains(Cert) ->
 				       true -> error
 				    end,
 				if D /= error ->
-				       case jlib:string_to_jid(D) of
+				       case jid:from_string(D) of
 					 #jid{luser = <<"">>, lserver = LD,
 					      lresource = <<"">>} ->
 					     [LD];
@@ -675,7 +663,7 @@ get_cert_domains(Cert) ->
 							      when
 								is_binary(D) ->
 							      case
-								jlib:string_to_jid((D))
+								jid:from_string((D))
 								  of
 								#jid{luser =
 									 <<"">>,
@@ -698,7 +686,7 @@ get_cert_domains(Cert) ->
 						    ({dNSName, D})
 							when is_list(D) ->
 							case
-							  jlib:string_to_jid(list_to_binary(D))
+							  jid:from_string(list_to_binary(D))
 							    of
 							  #jid{luser = <<"">>,
 							       lserver = LD,
