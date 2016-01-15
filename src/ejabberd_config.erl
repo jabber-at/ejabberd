@@ -69,8 +69,7 @@ start() ->
     State0 = read_file(Config),
     State = validate_opts(State0),
     %% This start time is used by mod_last:
-    {MegaSecs, Secs, _} = now(),
-    UnixTime = MegaSecs*1000000 + Secs,
+    UnixTime = p1_time_compat:system_time(seconds),
     SharedKey = case erlang:get_cookie() of
                     nocookie ->
                         p1_sha:sha(randoms:get_string());
@@ -306,7 +305,7 @@ normalize_hosts(Hosts) ->
 normalize_hosts([], PrepHosts) ->
     lists:reverse(PrepHosts);
 normalize_hosts([Host|Hosts], PrepHosts) ->
-    case jlib:nodeprep(iolist_to_binary(Host)) of
+    case jid:nodeprep(iolist_to_binary(Host)) of
 	error ->
 	    ?ERROR_MSG("Can't load config file: "
 		       "invalid host name [~p]", [Host]),
@@ -426,7 +425,6 @@ merge_configs(Terms, ResMap) ->
                         maps:put(Name, Val, Map)
                 end, ResMap, Terms).
 
-
 %% @doc Include additional configuration files in the list of terms.
 %% @spec ([term()]) -> [term()]
 include_config_files(Terms) ->
@@ -444,8 +442,8 @@ include_config_files(Terms) ->
                        include_config_file(File, Opts)
                end, lists:flatten(FileOpts)),
 
-    M1 = merge_configs(Terms1, #{}),
-    M2 = merge_configs(Terms2, M1),
+    M1 = merge_configs(transform_terms(Terms1), #{}),
+    M2 = merge_configs(transform_terms(Terms2), M1),
     maps_to_lists(M2).
 
 transform_include_option({include_config_file, File}) when is_list(File) ->

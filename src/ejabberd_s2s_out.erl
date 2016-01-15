@@ -56,6 +56,7 @@
 -record(state,
 	{socket                           :: ejabberd_socket:socket_state(),
          streamid = <<"">>                :: binary(),
+	 remote_streamid = <<"">>         :: binary(),
          use_v10 = true                   :: boolean(),
          tls = false                      :: boolean(),
 	 tls_required = false             :: boolean(),
@@ -69,7 +70,7 @@
          server = <<"">>                  :: binary(),
 	 queue = queue:new()              :: ?TQUEUE,
          delay_to_retry = undefined_delay :: undefined_delay | non_neg_integer(),
-         new = false                      :: false | binary(),
+         new = false                      :: boolean(),
 	 verify = false                   :: false | {pid(), binary(), binary()},
          bridge                           :: {atom(), atom()},
          timer = make_ref()               :: reference()}).
@@ -84,15 +85,6 @@
 
 -define(FSMOPTS, []).
 
--endif.
-
-%% Module start with or without supervisor:
--ifdef(NO_TRANSIENT_SUPERVISORS).
--define(SUPERVISOR_START, p1_fsm:start(ejabberd_s2s_out, [From, Host, Type],
-				       fsm_limit_opts() ++ ?FSMOPTS)).
--else.
--define(SUPERVISOR_START, supervisor:start_child(ejabberd_s2s_out_sup,
-						 [From, Host, Type])).
 -endif.
 
 -define(FSMTIMEOUT, 30000).
@@ -127,7 +119,8 @@
 %%% API
 %%%----------------------------------------------------------------------
 start(From, Host, Type) ->
-    ?SUPERVISOR_START.
+    supervisor:start_child(ejabberd_s2s_out_sup,
+			   [From, Host, Type]).
 
 start_link(From, Host, Type) ->
     p1_fsm:start_link(ejabberd_s2s_out, [From, Host, Type],
@@ -204,7 +197,7 @@ init([From, Server, Type]) ->
                   true -> TLSOpts4
               end,
     {New, Verify} = case Type of
-		      {new, Key} -> {Key, false};
+		      new -> {true, false};
 		      {verify, Pid, Key, SID} ->
 			  start_connection(self()), {false, {Pid, Key, SID}}
 		    end,
@@ -318,7 +311,7 @@ open_socket2(Type, Addr, Port) ->
 
 wait_for_stream({xmlstreamstart, _Name, Attrs},
 		StateData) ->
-    {CertCheckRes, CertCheckMsg, NewStateData} =
+    {CertCheckRes, CertCheckMsg, StateData0} =
 	if StateData#state.tls_certverify, StateData#state.tls_enabled ->
 	       {Res, Msg} =
 		   ejabberd_s2s:check_peer_certificate(ejabberd_socket,
@@ -330,6 +323,8 @@ wait_for_stream({xmlstreamstart, _Name, Attrs},
 	   true ->
 	       {no_verify, <<"Not verified">>, StateData}
 	end,
+    RemoteStreamID = xml:get_attr_s(<<"id">>, Attrs),
+    NewStateData = StateData0#state{remote_streamid = RemoteStreamID},
     case {xml:get_attr_s(<<"xmlns">>, Attrs),
 	  xml:get_attr_s(<<"xmlns:db">>, Attrs),
 	  xml:get_attr_s(<<"version">>, Attrs) == <<"1.0">>}
@@ -966,10 +961,10 @@ terminate(Reason, StateName, StateData) ->
     ?DEBUG("terminated: ~p", [{Reason, StateName}]),
     case StateData#state.new of
       false -> ok;
-      Key ->
+      true ->
 	  ejabberd_s2s:remove_connection({StateData#state.myname,
 					  StateData#state.server},
-					 self(), Key)
+					 self())
     end,
     bounce_queue(StateData#state.queue,
 		 ?ERR_REMOTE_SERVER_NOT_FOUND),
@@ -1007,9 +1002,9 @@ bounce_element(El, Error) ->
       <<"result">> -> ok;
       _ ->
 	  Err = jlib:make_error_reply(El, Error),
-	  From = jlib:string_to_jid(xml:get_tag_attr_s(<<"from">>,
+	  From = jid:from_string(xml:get_tag_attr_s(<<"from">>,
 						       El)),
-	  To = jlib:string_to_jid(xml:get_tag_attr_s(<<"to">>,
+	  To = jid:from_string(xml:get_tag_attr_s(<<"to">>,
 						     El)),
 	  ejabberd_router:route(To, From, Err)
     end.
@@ -1037,19 +1032,18 @@ bounce_messages(Error) ->
 send_db_request(StateData) ->
     Server = StateData#state.server,
     New = case StateData#state.new of
-	    false ->
-		case ejabberd_s2s:try_register({StateData#state.myname,
-						Server})
-		    of
-		  {key, Key} -> Key;
-		  false -> false
-		end;
-	    Key -> Key
+	      false ->
+		  ejabberd_s2s:try_register({StateData#state.myname, Server});
+	      true ->
+		  true
 	  end,
     NewStateData = StateData#state{new = New},
     try case New of
-	  false -> ok;
-	  Key1 ->
+	    false -> ok;
+	    true ->
+	      Key1 = ejabberd_s2s:make_key(
+		       {StateData#state.myname, Server},
+		       StateData#state.remote_streamid),
 	      send_element(StateData,
 			   #xmlel{name = <<"db:result">>,
 				  attrs =
@@ -1105,8 +1099,7 @@ get_addr_port(Server) ->
 	  ?DEBUG("srv lookup of '~s': ~p~n",
 		 [Server, HEnt#hostent.h_addr_list]),
 	  AddrList = HEnt#hostent.h_addr_list,
-	  {A1, A2, A3} = now(),
-	  random:seed(A1, A2, A3),
+	  random:seed(p1_time_compat:timestamp()),
 	  case catch lists:map(fun ({Priority, Weight, Port,
 				     Host}) ->
 				       N = case Weight of
@@ -1281,7 +1274,7 @@ wait_before_reconnect(StateData) ->
     cancel_timer(StateData#state.timer),
     Delay = case StateData#state.delay_to_retry of
 	      undefined_delay ->
-		  {_, _, MicroSecs} = now(), MicroSecs rem 14000 + 1000;
+		  {_, _, MicroSecs} = p1_time_compat:timestamp(), MicroSecs rem 14000 + 1000;
 	      D1 -> lists:min([D1 * 2, get_max_retry_delay()])
 	    end,
     Timer = erlang:start_timer(Delay, self(), []),
