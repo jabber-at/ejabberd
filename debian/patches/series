@@ -1,6 +1,5 @@
 Makefile.in.diff
 rebar.config.diff
-disable_test.diff
 fix_includes.diff
 captcha.patch
 fix_examples.patch
