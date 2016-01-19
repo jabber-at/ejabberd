@@ -7,6 +7,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Remove disable_rebar_deps.diff and disable_test.diff.
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
+  * Remove captcha.patch (fixed upstream).
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 15 Jan 2016 09:30:22 +0100
 
