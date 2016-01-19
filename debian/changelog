@@ -1,6 +1,7 @@
 ejabberd (1:16.01-1) unstable; urgency=low
 
   * Version bump from upstream.
+  * Replace remove_deps.diff with rebar.config.diff.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 15 Jan 2016 09:30:22 +0100
 

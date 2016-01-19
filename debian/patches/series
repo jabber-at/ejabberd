@@ -1,4 +1,4 @@
-remove_deps.diff
+rebar.config.diff
 disable_rebar_deps.diff
 disable_test.diff
 fix_includes.diff
