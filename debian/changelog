@@ -3,6 +3,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
   * Version bump from upstream.
   * Merge patches from upstream:
     * Replace remove_deps.diff with rebar.config.diff.
+    * Replace fix_includes.diff with src.includes.patch.
     * Add Makefile.in.diff.
     * Remove disable_rebar_deps.diff and disable_test.diff.
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam

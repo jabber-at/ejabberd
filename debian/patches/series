@@ -1,6 +1,6 @@
 Makefile.in.diff
 rebar.config.diff
-fix_includes.diff
+src.includes.patch
 fix_examples.patch
 fix_init.patch
 enable-ipv6.diff

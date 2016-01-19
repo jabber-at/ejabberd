@@ -1,11 +1,13 @@
-Description: correct include
+Description: correct includes
  This part of the code was moved into it's own project and was packaged
  separately by me. To make the build process work, this small fix is
  necessary.
 Author: Philipp Huebner <debalance@debian.org>
 
---- a/src/mod_sip_proxy.erl
-+++ b/src/mod_sip_proxy.erl
+Index: ejabberd/src/mod_sip_proxy.erl
+===================================================================
+--- ejabberd.orig/src/mod_sip_proxy.erl
++++ ejabberd/src/mod_sip_proxy.erl
 @@ -40,7 +40,7 @@
  
  -include("ejabberd.hrl").
@@ -15,8 +17,10 @@ Author: Philipp Huebner <debalance@debian.org>
  
  -define(SIGN_LIFETIME, 300). %% in seconds.
  
---- a/src/mod_sip.erl
-+++ b/src/mod_sip.erl
+Index: ejabberd/src/mod_sip.erl
+===================================================================
+--- ejabberd.orig/src/mod_sip.erl
++++ ejabberd/src/mod_sip.erl
 @@ -38,7 +38,7 @@
  
  -include("ejabberd.hrl").
@@ -26,8 +30,10 @@ Author: Philipp Huebner <debalance@debian.org>
  
  %%%===================================================================
  %%% API
---- a/src/mod_sip_registrar.erl
-+++ b/src/mod_sip_registrar.erl
+Index: ejabberd/src/mod_sip_registrar.erl
+===================================================================
+--- ejabberd.orig/src/mod_sip_registrar.erl
++++ ejabberd/src/mod_sip_registrar.erl
 @@ -37,7 +37,7 @@
  
  -include("ejabberd.hrl").
