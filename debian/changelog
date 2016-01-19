@@ -4,6 +4,8 @@ ejabberd (1:16.01-1) unstable; urgency=low
   * Merge patches from upstream:
     * Replace remove_deps.diff with rebar.config.diff.
     * Add Makefile.in.diff.
+  * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
+    (already applied in upstream master).
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 15 Jan 2016 09:30:22 +0100
 

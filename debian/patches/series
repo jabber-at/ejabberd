@@ -20,3 +20,4 @@ quiet_http_upload.patch
 no_timeout.patch
 debug_scram.patch
 ejabberdctl-create-run.patch
+ejabberd-16.01-mam.diff
