@@ -7,6 +7,9 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Add Makefile.in.diff.
     * Remove disable_rebar_deps.diff and disable_test.diff.
     * Rename fix_module_install.patch to src.ext_mod.erl.patch.
+    * Rename fix_examples.patch to ejabberdctl.template.patch, absorbs
+      nodename.patch, ejabberdctl-home.patch and parts of
+      ejabberdctl-defaults.patch.
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch

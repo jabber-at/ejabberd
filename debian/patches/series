@@ -2,14 +2,12 @@ Makefile.in.diff
 rebar.config.diff
 src.includes.patch
 src.ext_mod.erl.patch
-fix_examples.patch
+ejabberdctl.template.patch
 fix_init.patch
 enable-ipv6.diff
 ejabberdctl-defaults.patch
 ejabberd-config.patch
-nodename.patch
 failed_auth.patch
-ejabberdctl-home.patch
 systemd.patch
 debug_scram.patch
 ejabberdctl-create-run.patch
