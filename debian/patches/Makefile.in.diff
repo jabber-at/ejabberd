@@ -1,0 +1,15 @@
+Description: adjust Makefile.in for Debian packaging
+ ejabberd's makefile needs to be altered in order to be compatible to
+ Debian's package building process.
+Author: Philipp Huebner <debalance@debian.org>
+
+Index: ejabberd/Makefile.in
+===================================================================
+--- ejabberd.orig/Makefile.in
++++ ejabberd/Makefile.in
+@@ -1,4 +1,4 @@
+-REBAR = @ESCRIPT@ rebar
++REBAR = rebar
+ INSTALL = @INSTALL@
+ SED = @SED@
+ ERL = @ERL@
