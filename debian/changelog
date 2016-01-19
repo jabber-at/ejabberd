@@ -6,6 +6,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Replace fix_includes.diff with src.includes.patch.
     * Add Makefile.in.diff.
     * Remove disable_rebar_deps.diff and disable_test.diff.
+    * Rename fix_module_install.patch to src.ext_mod.erl.patch.
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
   * Remove captcha.patch (fixed upstream).
