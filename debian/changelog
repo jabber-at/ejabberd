@@ -12,6 +12,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * quiet_http_upload.patch
     * no_timeout.patch
     * dont_announce_ibr.patch
+    * fix_thumbnail_option.patch
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
 
