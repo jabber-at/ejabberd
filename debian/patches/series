@@ -3,7 +3,7 @@ rebar.config.diff
 src.includes.patch
 src.ext_mod.erl.patch
 ejabberdctl.template.patch
-fix_init.patch
+ejabberd.init.template.patch
 enable-ipv6.diff
 ejabberdctl-defaults.patch
 ejabberd-config.patch
