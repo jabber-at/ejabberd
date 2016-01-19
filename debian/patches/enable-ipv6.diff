@@ -21,8 +21,8 @@ Author: Philipp Huebner <debalance@debian.org>
      module: ejabberd_s2s_in
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
-@@ -169,6 +171,7 @@
-   ##   module: ejabberd_xmlrpc
+@@ -170,6 +172,7 @@
+   ##   access_commands: {}
    - 
      port: 5280
 +    ip: "::"

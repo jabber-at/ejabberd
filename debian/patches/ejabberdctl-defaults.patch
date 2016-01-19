@@ -13,7 +13,7 @@ Last-Update: 2014-07-11
          EXEC_CMD="sh -c"
      fi
      if [ "$EXEC_CMD" = "false" ] ; then
-@@ -51,7 +51,8 @@
+@@ -52,7 +52,8 @@
          --node) ERLANG_NODE_ARG=$1 ; shift ;;
          --config-dir) ETC_DIR="$1" ; shift ;;
          --config) EJABBERD_CONFIG_PATH="$1" ; shift ;;
@@ -22,8 +22,8 @@ Last-Update: 2014-07-11
 +        --default-dir) DEFAULTDIR="$1" ; shift ;;
          --logs) LOGS_DIR="$1" ; shift ;;
          --spool) SPOOL_DIR="$1" ; shift ;;
-         *) ARGS="$ARGS $PARAM" ;;
-@@ -62,8 +63,11 @@
+         *) ARGS=("${ARGS[@]}" "$PARAM") ;;
+@@ -63,8 +64,11 @@
  if [ "$ETC_DIR" = "" ] ; then
      ETC_DIR={{sysconfdir}}/ejabberd
  fi
@@ -36,7 +36,7 @@ Last-Update: 2014-07-11
  fi
  if [ -f "$EJABBERDCTL_CONFIG_PATH" ] ; then
      . "$EJABBERDCTL_CONFIG_PATH"
-@@ -309,7 +313,8 @@
+@@ -337,7 +341,8 @@
      echo "Optional parameters when starting an ejabberd node:"
      echo "  --config-dir dir   Config ejabberd:    $ETC_DIR"
      echo "  --config file      Config ejabberd:    $EJABBERD_CONFIG_PATH"
