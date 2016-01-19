@@ -13,7 +13,6 @@ ejabberdctl-home.patch
 systemd.patch
 dont_announce_ibr.patch
 fix_thumbnail_option.patch
-no_timeout.patch
 debug_scram.patch
 ejabberdctl-create-run.patch
 ejabberd-16.01-mam.diff

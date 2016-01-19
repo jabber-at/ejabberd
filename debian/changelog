@@ -10,6 +10,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch
+    * no_timeout.patch
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
 
