@@ -11,7 +11,6 @@ nodename.patch
 failed_auth.patch
 ejabberdctl-home.patch
 systemd.patch
-dont_announce_ibr.patch
 fix_thumbnail_option.patch
 debug_scram.patch
 ejabberdctl-create-run.patch
