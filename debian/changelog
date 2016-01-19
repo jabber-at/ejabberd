@@ -1,15 +1,17 @@
 ejabberd (1:16.01-1) unstable; urgency=low
 
   * Version bump from upstream.
-  * Merge patches from upstream:
+  * Merge patches from upstream Debian package:
     * Replace remove_deps.diff with rebar.config.diff.
     * Replace fix_includes.diff with src.includes.patch.
     * Add Makefile.in.diff.
     * Remove disable_rebar_deps.diff and disable_test.diff.
     * Rename fix_module_install.patch to src.ext_mod.erl.patch.
+  * Remove patches applied upstream:
+    * captcha.patch
+    * quiet_http_upload.patch
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
-  * Remove captcha.patch (fixed upstream).
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 15 Jan 2016 09:30:22 +0100
 
