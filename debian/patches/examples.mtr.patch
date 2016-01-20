@@ -1,0 +1,32 @@
+Author: Gerfried Fuchs <rhonda@debian.at>	vim:ft=diff:
+Description: Fix syntax problems with the example scripts
+
+Index: VCS/examples/mtr/ejabberd
+===================================================================
+--- VCS.orig/examples/mtr/ejabberd
++++ VCS/examples/mtr/ejabberd
+@@ -44,9 +44,8 @@ force*)
+         ;;
+ esac
+ 
+-if checkyesno ${rcvar}
++if ! checkyesno ${rcvar}
+ then
+-else
+     exit 0
+ fi
+ 
+Index: VCS/examples/mtr/ejabberd-netbsd.sh
+===================================================================
+--- VCS.orig/examples/mtr/ejabberd-netbsd.sh
++++ VCS/examples/mtr/ejabberd-netbsd.sh
+@@ -8,8 +8,7 @@ if [ ! pkg_info erlang 1>/dev/null 2>&1
+     make
+     make install
+ fi
+-if pkg_info erlang | grep -q erlang-9.1nb1; then
+-else
++if ! pkg_info erlang | grep -q erlang-9.1nb1; then
+     echo "erlang-9.1nb1 not installed" 1>&2
+     exit 1
+ fi

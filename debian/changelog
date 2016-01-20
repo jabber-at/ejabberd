@@ -9,7 +9,8 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Rename fix_module_install.patch to src.ext_mod.erl.patch.
     * Rename fix_examples.patch to ejabberdctl.template.patch, absorbs
       nodename.patch, ejabberdctl-home.patch and parts of
-      ejabberdctl-defaults.patch.
+      ejabberdctl-defaults.patch. Parts of fix_examples.patch are now in
+      examples.mtr.patch.
     * Replace fix_init.patch with fix_init.patch - essentially the same except
       for a few minor LSB tweaks.
     * Replace enable-ipv6.diff with ejabberd.yml.example.diff. Also merges

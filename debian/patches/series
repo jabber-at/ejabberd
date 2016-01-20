@@ -6,6 +6,7 @@ ejabberdctl.template.patch
 ejabberd.init.template.patch
 ejabberd.service.template.patch
 ejabberd.service.template-local.patch
+examples.mtr.patch
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 ejabberdctl-defaults.patch
