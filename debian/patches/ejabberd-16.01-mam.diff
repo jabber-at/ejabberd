@@ -1,8 +1,6 @@
-diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
-index c21683f..2ff72e3 100644
 --- a/src/ejabberd_c2s.erl
 +++ b/src/ejabberd_c2s.erl
-@@ -2878,7 +2878,16 @@ handle_unacked_stanzas(StateData)
+@@ -2899,7 +2899,16 @@
  		      ?DEBUG("Dropping forwarded message stanza from ~s",
  			     [xml:get_attr_s(<<"from">>, El#xmlel.attrs)]);
  		  false ->
@@ -20,8 +18,6 @@ index c21683f..2ff72e3 100644
  		end
  	end,
      handle_unacked_stanzas(StateData, F);
-diff --git a/src/mod_mam.erl b/src/mod_mam.erl
-index f334152..15d0ebe 100644
 --- a/src/mod_mam.erl
 +++ b/src/mod_mam.erl
 @@ -36,12 +36,23 @@
@@ -49,7 +45,7 @@ index f334152..15d0ebe 100644
  
  -record(archive_msg,
  	{us = {<<"">>, <<"">>}                :: {binary(), binary()} | '$2',
-@@ -94,6 +105,18 @@ start(Host, Opts) ->
+@@ -94,6 +105,18 @@
  		       remove_user, 50),
      ejabberd_hooks:add(anonymous_purge_hook, Host, ?MODULE,
  		       remove_user, 50),
@@ -68,7 +64,7 @@ index f334152..15d0ebe 100644
      ok.
  
  init_db(mnesia, _Host) ->
-@@ -138,6 +161,18 @@ stop(Host) ->
+@@ -138,6 +161,18 @@
  			  remove_user, 50),
      ejabberd_hooks:delete(anonymous_purge_hook, Host,
  			  ?MODULE, remove_user, 50),
@@ -87,7 +83,7 @@ index f334152..15d0ebe 100644
      ok.
  
  remove_user(User, Server) ->
-@@ -208,11 +243,15 @@ muc_filter_message(Pkt, #state{config = Config} = MUCState,
+@@ -208,11 +243,15 @@
  	    NewPkt = strip_my_archived_tag(Pkt, LServer),
  	    case store_muc(MUCState, NewPkt, RoomJID, From, FromNick) of
  		{ok, ID} ->
@@ -104,7 +100,7 @@ index f334152..15d0ebe 100644
                      NewPkt#xmlel{children = NewEls};
  		_ ->
  		    NewPkt
-@@ -225,20 +264,7 @@ muc_filter_message(Pkt, #state{config = Config} = MUCState,
+@@ -225,20 +264,7 @@
  process_iq_v0_2(#jid{lserver = LServer} = From,
  	       #jid{lserver = LServer} = To,
  	       #iq{type = get, sub_el = #xmlel{name = <<"query">>} = SubEl} = IQ) ->
@@ -126,7 +122,7 @@ index f334152..15d0ebe 100644
      process_iq(LServer, From, To, IQ, SubEl, Fs, chat);
  process_iq_v0_2(From, To, IQ) ->
      process_iq(From, To, IQ).
-@@ -248,35 +274,33 @@ process_iq_v0_3(#jid{lserver = LServer} = From,
+@@ -248,35 +274,33 @@
  		#jid{lserver = LServer} = To,
  		#iq{type = set, sub_el = #xmlel{name = <<"query">>} = SubEl} = IQ) ->
      process_iq(LServer, From, To, IQ, SubEl, get_xdata_fields(SubEl), chat);
@@ -181,7 +177,7 @@ index f334152..15d0ebe 100644
  	_ ->
  	    IQ
      end;
-@@ -305,10 +329,119 @@ disco_sm_features({result, OtherFeatures},
+@@ -305,10 +329,119 @@
  disco_sm_features(Acc, _From, _To, _Node, _Lang) ->
      Acc.
  
@@ -301,7 +297,7 @@ index f334152..15d0ebe 100644
  % Preference setting (both v0.2 & v0.3)
  process_iq(#jid{luser = LUser, lserver = LServer},
  	   #jid{lserver = LServer},
-@@ -360,7 +493,13 @@ process_iq(#jid{luser = LUser, lserver = LServer},
+@@ -360,7 +493,13 @@
  process_iq(_, _, #iq{sub_el = SubEl} = IQ) ->
      IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]}.
  
@@ -316,7 +312,7 @@ index f334152..15d0ebe 100644
      case catch lists:foldl(
  		 fun({<<"start">>, [Data|_]}, {_, End, With, RSM}) ->
  			 {{_, _, _} = jlib:datetime_string_to_timestamp(Data),
-@@ -380,11 +519,46 @@ process_iq(LServer, From, To, IQ, SubEl, Fs, MsgType) ->
+@@ -380,11 +519,46 @@
  		 end, {none, [], none, none}, Fs) of
  	{'EXIT', _} ->
  	    IQ#iq{type = error, sub_el = [SubEl, ?ERR_BAD_REQUEST]};
@@ -364,7 +360,7 @@ index f334152..15d0ebe 100644
  should_archive(#xmlel{name = <<"message">>} = Pkt, LServer) ->
      case xml:get_attr_s(<<"type">>, Pkt#xmlel.attrs) of
  	<<"error">> ->
-@@ -461,9 +635,30 @@ should_archive_peer(C2SState,
+@@ -461,9 +635,30 @@
  	    end
      end.
  
@@ -398,7 +394,7 @@ index f334152..15d0ebe 100644
  
  check_store_hint(Pkt) ->
      case has_store_hint(Pkt) of
-@@ -517,7 +712,7 @@ store_msg(C2SState, Pkt, LUser, LServer, Peer, Dir) ->
+@@ -517,7 +712,7 @@
      end.
  
  store_muc(MUCState, Pkt, RoomJID, Peer, Nick) ->
@@ -407,7 +403,7 @@ index f334152..15d0ebe 100644
  	true ->
  	    LServer = MUCState#state.server_host,
  	    {U, S, _} = jid:tolower(RoomJID),
-@@ -620,13 +815,21 @@ get_prefs(LUser, LServer) ->
+@@ -620,13 +815,21 @@
  	{ok, Prefs} ->
  	    Prefs;
  	error ->
@@ -436,7 +432,7 @@ index f334152..15d0ebe 100644
      end.
  
  get_prefs(LUser, LServer, mnesia) ->
-@@ -654,6 +857,34 @@ get_prefs(LUser, LServer, odbc) ->
+@@ -654,6 +857,34 @@
  	    error
      end.
  
@@ -471,7 +467,7 @@ index f334152..15d0ebe 100644
  select_and_send(LServer, From, To, Start, End, With, RSM, IQ, MsgType) ->
      DBType = case gen_mod:db_type(LServer, ?MODULE) of
  		 odbc -> {odbc, LServer};
-@@ -717,7 +948,8 @@ select(_LServer, #jid{luser = LUser, lserver = LServer} = JidRequestor,
+@@ -717,7 +948,8 @@
         Start, End, With, RSM, MsgType, mnesia) ->
      MS = make_matchspec(LUser, LServer, Start, End, With),
      Msgs = mnesia:dirty_select(archive_msg, MS),
@@ -481,7 +477,7 @@ index f334152..15d0ebe 100644
      Count = length(Msgs),
      {lists:map(
         fun(Msg) ->
-@@ -733,12 +965,12 @@ select(LServer, #jid{luser = LUser} = JidRequestor,
+@@ -733,12 +965,12 @@
  	   end,
      {Query, CountQuery} = make_sql_query(User, LServer,
  					 Start, End, With, RSM),
@@ -500,7 +496,7 @@ index f334152..15d0ebe 100644
      case {ejabberd_odbc:sql_query(Host, Query),
  	  ejabberd_odbc:sql_query(Host, CountQuery)} of
  	{{selected, _, Res}, {selected, _, [[Count]]}} ->
-@@ -789,27 +1021,14 @@ select(LServer, #jid{luser = LUser} = JidRequestor,
+@@ -789,27 +1021,14 @@
      end.
  
  msg_to_el(#archive_msg{timestamp = TS, packet = Pkt1, nick = Nick, peer = Peer},
@@ -514,7 +510,14 @@ index f334152..15d0ebe 100644
 -				       {<<"stamp">>, Delay}]},
 -		       xml:replace_tag_attr(
 -			 <<"xmlns">>, <<"jabber:client">>, Pkt)]}.
--
++	  MsgType, #jid{lserver = LServer} = JidRequestor) ->
++    Pkt2 = maybe_update_from_to(Pkt1, JidRequestor, Peer, MsgType, Nick),
++    Pkt3 = #xmlel{name = <<"forwarded">>,
++		  attrs = [{<<"xmlns">>, ?NS_FORWARD}],
++		  children = [xml:replace_tag_attr(
++				<<"xmlns">>, <<"jabber:client">>, Pkt2)]},
++    jlib:add_delay_info(Pkt3, LServer, TS).
+ 
 -maybe_update_from_to(Pkt, JidRequestor, Peer, chat, _Nick) ->
 -    case xml:get_attr_s(<<"type">>, Pkt#xmlel.attrs) of
 -	<<"groupchat">> when Peer /= undefined ->
@@ -525,18 +528,10 @@ index f334152..15d0ebe 100644
 -				 Pkt2);
 -	_ -> Pkt
 -    end;
-+	  MsgType, #jid{lserver = LServer} = JidRequestor) ->
-+    Pkt2 = maybe_update_from_to(Pkt1, JidRequestor, Peer, MsgType, Nick),
-+    Pkt3 = #xmlel{name = <<"forwarded">>,
-+		  attrs = [{<<"xmlns">>, ?NS_FORWARD}],
-+		  children = [xml:replace_tag_attr(
-+				<<"xmlns">>, <<"jabber:client">>, Pkt2)]},
-+    jlib:add_delay_info(Pkt3, LServer, TS).
-+
  maybe_update_from_to(#xmlel{children = Els} = Pkt, JidRequestor,
  		     Peer, {groupchat, Role, _MUCState}, Nick) ->
      Items = case Role of
-@@ -825,7 +1044,9 @@ maybe_update_from_to(#xmlel{children = Els} = Pkt, JidRequestor,
+@@ -825,7 +1044,9 @@
  	    end,
      Pkt1 = Pkt#xmlel{children = Items ++ Els},
      Pkt2 = jlib:replace_from(jid:replace_resource(JidRequestor, Nick), Pkt1),
@@ -547,7 +542,7 @@ index f334152..15d0ebe 100644
  
  is_bare_copy(#jid{luser = U, lserver = S, lresource = R}, To) ->
      PrioRes = ejabberd_sm:get_user_present_resources(U, S),
-@@ -926,11 +1147,12 @@ filter_by_rsm(Msgs, #rsm_in{max = Max, direction = Direction, id = ID}) ->
+@@ -926,11 +1147,12 @@
  		  aft when ID /= <<"">> ->
  		      lists:filter(
  			fun(#archive_msg{id = I}) ->
@@ -562,7 +557,7 @@ index f334152..15d0ebe 100644
  				[Msg|Acc];
  			   (_, Acc) ->
  				Acc
-@@ -949,6 +1171,15 @@ filter_by_max(Msgs, Len) when is_integer(Len), Len >= 0 ->
+@@ -949,6 +1171,15 @@
  filter_by_max(_Msgs, _Junk) ->
      {[], true}.
  
@@ -578,7 +573,7 @@ index f334152..15d0ebe 100644
  match_interval(Now, Start, End) ->
      (Now >= Start) and (Now =< End).
  
-@@ -1120,6 +1351,20 @@ update(LServer, Table, Fields, Vals, Where) ->
+@@ -1120,6 +1351,20 @@
  join([], _Sep) -> [];
  join([H | T], Sep) -> [H, [[Sep, X] || X <- T]].
  
@@ -599,7 +594,7 @@ index f334152..15d0ebe 100644
  mod_opt_type(cache_life_time) ->
      fun (I) when is_integer(I), I > 0 -> I end;
  mod_opt_type(cache_size) ->
-@@ -1131,8 +1376,8 @@ mod_opt_type(default) ->
+@@ -1131,8 +1376,8 @@
  	(roster) -> roster
      end;
  mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
@@ -611,11 +606,9 @@ index f334152..15d0ebe 100644
 -     store_body_only].
 +    [assume_mam_usage, cache_life_time, cache_size, db_type, default, iqdisc,
 +     request_activates_archiving].
-diff --git a/src/mod_muc.erl b/src/mod_muc.erl
-index b03dde3..3765f8e 100644
 --- a/src/mod_muc.erl
 +++ b/src/mod_muc.erl
-@@ -756,6 +756,8 @@ iq_disco_info(ServerHost, Lang) ->
+@@ -756,6 +756,8 @@
  	case gen_mod:is_loaded(ServerHost, mod_mam) of
  	    true ->
  		[#xmlel{name = <<"feature">>,
@@ -624,11 +617,9 @@ index b03dde3..3765f8e 100644
  			attrs = [{<<"var">>, ?NS_MAM_0}]},
  		 #xmlel{name = <<"feature">>,
  			attrs = [{<<"var">>, ?NS_MAM_1}]}];
-diff --git a/src/mod_muc_room.erl b/src/mod_muc_room.erl
-index 6dfda26..b9c8b71 100644
 --- a/src/mod_muc_room.erl
 +++ b/src/mod_muc_room.erl
-@@ -4152,7 +4152,9 @@ process_iq_disco_info(_From, get, Lang, StateData) ->
+@@ -4152,7 +4152,9 @@
         ++ case {gen_mod:is_loaded(StateData#state.server_host, mod_mam),
  		Config#config.mam} of
  	    {true, true} ->
