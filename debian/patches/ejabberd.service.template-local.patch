@@ -1,0 +1,17 @@
+--- a/ejabberd.service.template
++++ b/ejabberd.service.template
+@@ -1,5 +1,5 @@
+ [Unit]
+-Description=A distributed, fault-tolerant Jabber/XMPP serve
++Description=A distributed, fault-tolerant Jabber/XMPP server
+ After=epmd.service network.target
+ Requires=epmd.service
+ 
+@@ -10,6 +10,7 @@
+ RestartSec=5
+ ExecStart=/usr/sbin/ejabberdctl start
+ ExecStop=/usr/sbin/ejabberdctl stop
++ExecReload=/usr/sbin/ejabberdctl reload_config
+ Type=forking
+ Restart=on-failure
+ PIDFile=/run/ejabberd/ejabberd.pid
