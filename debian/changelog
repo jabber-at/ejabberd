@@ -14,6 +14,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
       for a few minor LSB tweaks.
     * Replace enable-ipv6.diff with ejabberd.yml.example.diff. Also merges
       most of ejabberd-config.patch, which is now ejabberd.yml.example-local.diff
+    * Rename systemd.patch to ejabberd.service.template.patch.
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch

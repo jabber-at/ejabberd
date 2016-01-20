@@ -1,0 +1,36 @@
+Description: populate ejabberd.service.template
+ Turn the service template into an actual service file for systemd
+Author: Mathias Ertl <mati@jabber.at>
+
+Index: ejabberd/ejabberd.service.template
+===================================================================
+--- ejabberd.orig/ejabberd.service.template
++++ ejabberd/ejabberd.service.template
+@@ -1,17 +1,19 @@
+ [Unit]
+-Description=XMPP Server
+-After=network.target
++Description=A distributed, fault-tolerant Jabber/XMPP serve
++After=epmd.service network.target
++Requires=epmd.service
+ 
+ [Service]
+ User=ejabberd
+ Group=ejabberd
+-LimitNOFILE=16000
++LimitNOFILE=32768
+ RestartSec=5
+-ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
+-ExecStop=@ctlscriptpath@/ejabberdctl stop
+-ExecReload=@ctlscriptpath@/ejabberdctl reload_config
+-Type=oneshot
+-RemainAfterExit=yes
++ExecStart=/usr/sbin/ejabberdctl start
++ExecStop=/usr/sbin/ejabberdctl stop
++Type=forking
++Restart=on-failure
++PIDFile=/run/ejabberd/ejabberd.pid
+ 
+ [Install]
+ WantedBy=multi-user.target
++Alias=ejabberd.service
