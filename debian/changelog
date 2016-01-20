@@ -12,6 +12,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
       ejabberdctl-defaults.patch.
     * Replace fix_init.patch with fix_init.patch - essentially the same except
       for a few minor LSB tweaks.
+    * Replace enable-ipv6.diff with ejabberd.yml.example.diff.
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch
