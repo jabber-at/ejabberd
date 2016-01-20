@@ -7,9 +7,9 @@ ejabberd.init.template.patch
 ejabberd.service.template.patch
 ejabberd.service.template-local.patch
 examples.mtr.patch
+ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
-ejabberdctl-defaults.patch
 failed_auth.patch
 debug_scram.patch
 ejabberdctl-create-run.patch

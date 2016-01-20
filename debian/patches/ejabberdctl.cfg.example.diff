@@ -1,0 +1,55 @@
+Description: adjust ejabberdctl.cfg.example to create a PID file
+ ejabberd's default control config doesn't create a PID file upon start,
+ so change it
+Author: Philipp Huebner <debalance@debian.org>
+
+Index: ejabberd/ejabberdctl.cfg.example
+===================================================================
+--- ejabberd.orig/ejabberdctl.cfg.example
++++ ejabberd/ejabberdctl.cfg.example
+@@ -132,9 +132,9 @@
+ #   The same as previous, but erlang will use long hostname
+ #   (see erl (1) manual for details)
+ #
+-# Default: ejabberd@localhost
++# Default: ejabberd
+ #
+-#ERLANG_NODE=ejabberd@localhost
++#ERLANG_NODE=ejabberd
+ 
+ #.
+ #' EJABBERD_PID_PATH: ejabberd PID file
+@@ -146,7 +146,7 @@
+ #
+ # Default: don't write PID file
+ #
+-#EJABBERD_PID_PATH=/var/run/ejabberd/ejabberd.pid
++EJABBERD_PID_PATH=/run/ejabberd/ejabberd.pid
+ 
+ #.
+ #' EJABBERD_CONFIG_PATH: ejabberd configuration file
+@@ -157,13 +157,14 @@
+ #
+ # Default: $ETC_DIR/ejabberd.yml
+ #
+-#EJABBERD_CONFIG_PATH=/etc/ejabberd/ejabberd.yml
++EJABBERD_CONFIG_PATH=/etc/ejabberd/ejabberd.yml
+ 
+ #.
+ #' CONTRIB_MODULES_PATH: contributed ejabberd modules path
+ #
+ # Specify the full path to the contributed ejabberd modules. If the path is not
+ # defined, ejabberd will use ~/.ejabberd-modules in home of user running ejabberd.
++# Note: this is not needed for the ejabberd-mod-* packages
+ #
+ # Default: $HOME/.ejabberd-modules
+ #
+@@ -179,7 +180,7 @@
+ #
+ # Default: $CONTRIB_MODULES_PATH/conf
+ #
+-#CONTRIB_MODULES_CONF_DIR=/etc/ejabberd/modules
++CONTRIB_MODULES_CONF_DIR=/etc/ejabberd/modules.d
+ 
+ #.
+ #'
