@@ -24,6 +24,8 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * no_timeout.patch
     * dont_announce_ibr.patch
     * fix_thumbnail_option.patch
+  * Remove ejabberdctl-create-run.patch (already fixed by the upstream
+    ejabberd.init.template.patch).
   * Add ejabberd-16.01-mam.diff, bringing several improvements in mod_mam
     (already applied in upstream master).
 
