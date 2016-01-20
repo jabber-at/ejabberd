@@ -21,7 +21,7 @@
  ##
 -s2s_use_starttls: optional
 +s2s_use_starttls: required
-
+ 
  ##
  ## s2s_certfile: Specify a certificate file.
 @@ -550,7 +550,7 @@
@@ -30,7 +30,7 @@
  ##
 -## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
 +## captcha_cmd: "/usr/lib/ejabberd/priv/bin/captcha.sh"
-
+ 
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
 @@ -580,8 +580,10 @@
@@ -47,7 +47,7 @@
    ##   docroot: "/var/www"
    ##   accesslog: "/var/log/ejabberd/access.log"
 @@ -598,9 +600,9 @@
-   mod_offline:
+   mod_offline: 
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
 -  ## mod_pres_counter:
@@ -65,7 +65,7 @@
      ##
 -    ## captcha_protected: true
 +    captcha_protected: true
-
+ 
      ##
      ## Set the minimum informational entropy for passwords.
 @@ -656,6 +658,7 @@
