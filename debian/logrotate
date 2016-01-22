@@ -9,6 +9,6 @@
 	create 640 ejabberd adm
 	sharedscripts
 	postrotate
-		su ejabberd -c '/usr/sbin/ejabberdctl reopen-log' > /dev/null
+		/usr/sbin/ejabberdctl status > /dev/null && /usr/sbin/ejabberdctl reopen-log
 	endscript
 }

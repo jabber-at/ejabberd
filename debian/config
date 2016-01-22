@@ -30,7 +30,24 @@ get_credentials()
   db_go || true
   db_get ejabberd/user
   if [ -n "$RET" ]; then
-    get_passwd
+    NEWUSER="$RET"
+
+    # Strip the ejabberd hostname
+    STRIPDOMAIN=$(echo "$NEWUSER" | awk -v host="@$HOST" 'host{ print $0 }')
+    if [ -n "$STRIPDOMAIN" ]; then
+      NEWUSER=$(echo "$NEWUSER" | awk -v host="@$HOST" '{ sub(host, ""); print}')
+      db_set ejabberd/user "$NEWUSER"
+    fi
+
+    # Check for invalid characters
+    INVALID=$(echo "$NEWUSER" | awk '/[[:cntrl:]]|[[:space:]]|@|<|>|:|\/|&|\"|\x27/{ print $0 }')
+    if [ -n "$INVALID" ]; then
+      db_input medium ejabberd/invaliduser || true
+      db_go || true
+      get_credentials
+    else
+      get_passwd
+    fi
   fi
 }
 

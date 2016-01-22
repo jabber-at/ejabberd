@@ -4,11 +4,11 @@ Upstream-Contact: Alexey Shchepin <alexey@process-one.net>
 Source: https://github.com/processone/ejabberd
 
 Files: *
-Copyright: 2002-2014, ProcessOne
+Copyright: 2002-2016, ProcessOne
 License: GPL-2+ with OpenSSL exception
 
 Files: src/node* src/p* src/*_pubsub_* include/pubsub.hrl
-Copyright: 2002-2014, ProcessOne
+Copyright: 2002-2016, ProcessOne
 License: EPL-1.1
 
 Files: configure
@@ -22,14 +22,14 @@ Copyright: 1994 X Consortium
 License: MIT
 
 Files: debian/*
-Copyright: 2014, Philipp Hübner <debalance@debian.org>
+Copyright: 2014-2016, Philipp Hübner <debalance@debian.org>
+           2006-2015, Mathias Ertl <mati@jabber.at>
            2010-2013, Konstantin Khomoutov <flatworm@users.sourceforge.net>
            2009-2013, Gerfried Fuchs <rhonda@debian.org>
            2009, Hideki Yamane <henrich@debian.or.jp>
            2006-2009, Torsten Werner <twerner@debian.org>
            2006, Miroslav Kure <kurem@upcase.inf.upol.cz>
            2004-2008, Sergei Golovan <sgolovan@nes.ru>
-           2006-2015, Mathias Ertl <mati@jabber.at>
 License: GPL-2+ with OpenSSL exception
 
 License: GPL-2+ with OpenSSL exception
