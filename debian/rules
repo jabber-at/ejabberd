@@ -8,7 +8,7 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 
 
 %:
-	dh $@
+	dh $@ --with=systemd
 
 
 .PHONY: override_dh_auto_configure

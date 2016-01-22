@@ -1,0 +1,5 @@
+# Create /run/ejabberd before ejabberd starts
+
+# See tmpfiles.d(5) for details
+
+d /run/ejabberd 0755 ejabberd ejabberd -

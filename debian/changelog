@@ -21,6 +21,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
   * Merge other changes from the upstream package:
     * Update translations, logrotate, copyright, config, templates, NEWS,
       TODO, control, postrm/prerm and ejabberdctl manpage.
+    * Install systemd-tmpfiles using debhelper.
     * Add dirs amd ufw profile.
     * Remove redundant gbp.conf.
   * Remove patches applied upstream:
