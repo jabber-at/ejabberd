@@ -1,3 +1,23 @@
+ejabberd (15.09-2) unstable; urgency=medium
+
+  ejabberd now installs an AppArmor profile which is set to "enforce" by
+  default, so make sure to check /var/log/syslog for AppArmor audit lines if
+  you're using AppArmor and have trouble getting ejabberd to work.
+
+ -- Philipp Huebner <debalance@debian.org>  Fri, 09 Oct 2015 23:55:05 +0200
+
+ejabberd (15.09-1) unstable; urgency=medium
+
+  Starting with ejabberd 15.04, the modules mod_admin_extra and mod_muc_admin
+  that where previously shipped with ejabberd-contrib (= 0.2014.*) are now part
+  of ejabberd, hence there's now an incompatibility with the old
+  ejabberd-contrib package.
+  ejabberd-contrib (>= 0.2015.*) is a pure metapackage that depends on all the
+  modules now shipped separately as ejabberd-mod-<modulename> and can be
+  safely removed.
+
+ -- Philipp Huebner <debalance@debian.org>  Wed, 07 Oct 2015 12:34:14 +0200
+
 ejabberd (14.07-1) unstable; urgency=low
 
   This is the first release after a rather long time. A lot has changed, many

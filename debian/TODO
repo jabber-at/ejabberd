@@ -1,25 +1,10 @@
-* Add a debconf check for the config change to YAML / add info to Jessie release notes
-
-* Update ejabberd.8
-
 * Update ejabberdctl.8
-
-* In debconf code, check if the user name contains
-  the "@" character and if it is, does the part of
-  the username to the right of it equals to the
-  provided hostname. If both conditions hold,
-  extract the real username and proceed, otherwise
-  complain. At the current state it's possible to
-  enter an invalid username and several users
-  tripped over this issue.
-
-* In debconf code, make sure username contains only valid characters (e.g. no / )
-
+* Test and possibly improve the maintainer-scripts (dpkg-reconfigure, removal/purge)
 
 
 ejabberdctl.8 tasks
 ===================
-* needs to be updated for current release (14.05)
+* needs to be updated for current release (15.09)
 
 * It seems (from the stop-kindly command) that ejabberdctl
   assumes all strings it is passed are encoded in UTF-8

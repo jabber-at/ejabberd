@@ -19,7 +19,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Replace ejabberdctl-defaults.patch with ejabberdctl.cfg.example.diff
       (which also brings some minor other improvements).
   * Merge other changes from the upstream package:
-    * Update translations.
+    * Update translations, NEWS, TODO and ejabberdctl manpage.
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch

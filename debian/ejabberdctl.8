@@ -290,9 +290,7 @@ Print the log level (an integer number) ejabberd is operating on.
 The commands described in this section require availability of the
 \fBexmpp\fR library which is not shipped with ejabberd.
 Your can download its source code from \fIhttp://exmpp.org\fP.
-.PP
-The \fBexmpp\fR library is also available as a Debian package with the same
-name in the custom repository you retrieved this package from.
+
 .TP
 .BI export\-piefxis " dir"
 Export data of all users registered on all virtual hosts of the server
@@ -314,18 +312,447 @@ Import users' data from a PIEFXIS file \fIfile\fR.
 .IP
 The file \fIfile\fR must be readable by the user "ejabberd".
 
-.SH ADDITIONAL MODULES
+.SH EXTRA OPTIONS
 .PP
-Many additional modules are available. Some are available as packages in the
-Debian repository you retrieved this package from, try \fBapt-cache search -n
-ejabberd\fR. The packages ship with the upstream documentation on how to enable
-these modules.
+An optional module \fBmod_admin_extra\fP adds a number of other commands.
+.PP
+While it is enabled by default, you might want to check it is actually
+enabled in the configuration file (especially if you're upgrading
+from pre-2.1 series of ejabberd).
+.PP
+To enable these additional commands add mod_admin_extra to the
+\fB{modules}\fP section of ejabberd config file and make it
+looking as the following:
+.sp
+.nf
+{modules,
+ [
+  ...
+  {mod_admin_extra, []},
+  ...
+ ]}.
+.fi
 
 .PP
-Especially try out the \fBmod_admin_extra\fR package, available as 
-\fBejabberd-mod-admin-extra\fR. The module is also included in the ejabberd
-package that ships in the official Debian/Ubuntu repositories. It provides
-dozens of new commands for \fBejabberdctl\fR.
+Most of additional commands possess extended descriptions
+which can be printed using
+\fBejabberdctl help\fR \fIcommand\fP
+
+.PP
+The new commands are:
+
+.TP
+.BI add\-rosteritem " localuser localserver user server nick group subscription"
+Add to the roster of the user \fIlocaluser\fP
+registered on the virtual host \fIlocalserver\fP
+a new entry for the user \fIuser\fP on the server \fIserver\fP,
+assign the nickname \fInick\fP to it,
+place this entry to the group \fIgroup\fP
+and set its subscription type to \fIsubscription\fP
+which is one of "none", "from", "to" or "both".
+
+.TP
+.BI delete\-rosteritem " localuser localserver user server"
+Delete from the roster of the user \fIlocaluser\fP on the server
+\fIlocalserver\fP an entry for the JID \fIuser\fP@\fIserver\fP.
+
+.TP
+.BI ban\-account " user host reason"
+Ban the user \fIuser\fP registered on the virtual host \fIhost\fP.
+This is done by kicking their active sessions with the reason
+\fIreason\fP and replacing their password with a randomly
+generated one.
+
+.TP
+.BI kick\-session " user host resource reason"
+Kick the session opened by the user \fIuser\fP registered
+on the virtual host \fIhost\fP
+and having the resource \fIresource\fP bound to it
+providing the reason \fIreason\fP.
+
+.TP
+.BI change\-password " user host newpass"
+Change password of the user \fIuser\fP registered on the
+virtual host \fIhost\fP to \fInewpass\fP.
+
+.TP
+.BI check\-account " user host"
+Exit with code 0 if the user \fIuser\fP is registered
+on the virtual host \fIhost\fP,
+exit with code 1 otherwise.
+
+.TP
+.BI check\-password " user host password"
+Exit with code 0 the user \fIuser\fP registered on the
+virtual host \fIhost\fP has password \fIpassword\fP,
+exit with code 1 otherwise.
+
+.TP
+.BI check\-password\-hash " user host passwordhash hashmethod"
+Exit with code 0 if the user \fIuser\fP registered on the
+virtual host \fIhost\fP has a password, the hash of which,
+calculated using the \fIhashmethod\fP is equal
+to the hash \fIpasswordhash\fP;
+exit with code 1 otherwise.
+.IP
+Allowed hashing methods are "md5" and "sha" (for SHA-1).
+
+.TP
+.BI compile " file"
+Compile and reload the Erlang source code file \fIfile\fP.
+.IP
+The file \fIfile\fR must be readable by the user "ejabberd".
+
+.TP
+.BI load\-config " file"
+Load ejabberd configuration from the file \fIfile\fP.
+.IP
+The file \fIfile\fR must be readable by the user "ejabberd".
+.IP
+Note that loading config to a database does not mean
+reloading the server \(em for example it's impossible
+to add/remove virtual hosts without server restart.
+In fact, only ACLs, access rules and a few global options
+are applied upon reloading.
+
+.TP
+.BI delete\-old\-users " days"
+Delete accounts and all related data of users who did not
+log on the server for \fIdays\fP days.
+
+.TP
+.BI delete\-old\-users\-vhost " host days"
+Delete accounts and all related data of users
+registered on the virtual host \fIhost\fP
+who did not log on the server for \fIdays\fP days.
+
+.TP
+.BI export2odbc " host path"
+Export Mnesia database tables keeping the data for the virtual
+host \fIhost\fP to a set of text files created under
+the specified directory \fIpath\fP, which must exist and must be
+writable by the user "ejabberd".
+
+.TP
+.BI get\-cookie
+Print the cookie used by the Erlang node which runs ejabberd
+instance \fBejabberdctl\fR controls.
+
+.TP
+.BI get\-roster " user host"
+Print the roster of the user \fIuser\fP registered
+on the virtual host \fIhost\fP.
+.IP
+The information printed is a series of lines each representing
+one roster entry; each line consist of four fields separated
+by tab characters representing, in this order:
+the JID of an entry, its nickname, subscription type
+and group.
+
+.TP
+.BI push\-roster " file user host"
+Push items from the file \fIfile\fP to the roster
+of the user \fIuser\fP
+registered on the virtual host \fIhost\fP.
+.IP
+The format of file containing roster items is the same
+as used for output by the \fBget\-roster\fR command.
+
+.TP
+.BI push\-roster\-all " file"
+.IP
+The format of file containing roster items is the same
+as used for output by the \fBget\-roster\fR command.
+
+.TP
+.BI push\-alltoall " host group"
+All entries for all the users registered on the virtual host \fIhost\fP
+to the rosters of all the users registered on this virtual host.
+The created entries are assigned to the roster group \fIgroup\fP.
+
+.TP
+.BI process\-rosteritems " action subs asks users contacts"
+\fBFIXME\fP no information available. Do not use.
+
+.TP
+.BI get\-vcard " user host name"
+Print the contents of the field \fIname\fP
+of a vCard belonging to the user \fIuser\fP
+registered on the virtual host \fIhost\fP.
+If this field is not set of the user did not create
+their vCard, and empty string is printed (that is,
+containing only the line break).
+.IP
+For example \fIname\fP can be "FN" or "NICKNAME"
+For retrieving email address use "EMAIL USERID".
+Names and descriptions of other supported fields
+can be obtained from the XEP-0054 document
+(http://www.xmpp.org/extensions/xep\-0054.html).
+
+.TP
+.BI get\-vcard2 " user host name subname"
+Print the contents of the subfield \fIsubname\fP
+of the field \fIname\fP
+of a vCard belonging to the user \fIuser\fP
+registered on the virtual host \fIhost\fP.
+If this field is not set of the user did not create
+their vCard, and empty string is printed (that is,
+containing only the line break).
+
+.TP
+.BI set\-vcard " user host name content"
+Set the field \fIname\fP to the string \fIcontent\fP
+in the vCard of the user \fIuser\fP
+registered on the virtual host \fIhost\fP.
+
+.TP
+.BI set\-vcard2 " user host name subname content"
+Set the subfield \fIsubname\fP
+of the field \fIname\fP to the string \fIcontent\fP
+in the vCard of the user \fIuser\fP
+registered on the virtual host \fIhost\fP.
+
+.TP
+.BI set\-nickname " user host nickname"
+Set the "nickname" field in the vCard of the user \fIuser\fP
+registered on the virtual host \fIhost\fP to \fInickname\fP.
+
+.TP
+.BI num\-active\-users " host days"
+Print number of users registered on the virtual host \fIhost\fP
+who logged on the server at least once during the last
+\fIdays\fP days.
+
+.TP
+.BI num\-resources " user host"
+Print the number of resources (that is, active sessions)
+the user \fIuser\fP registered on the virtual host \fIhost\fP
+currently has.
+If the specified user has no active sessions,
+print the string "0".
+
+.TP
+.BI resource\-num " user host num"
+Print the resource of a session number \fInum\fP
+the user \fIuser\fP registered on the virtual host \fIhost\fP
+has currently open.
+\fInum\fP must be a positive integer, greater than or equal to 1.
+.IP
+If the session number specified is less than 1 or greater than
+the number of sessions opened by the user, an error message
+is printed.
+
+.TP
+.BI remove\-node " node"
+Remove the Erlang node \fInode\fP from the Mnesia
+database cluster.
+
+.TP
+.BI send\-message\-chat " from to body"
+Send a message of type "chat" from the JID \fIfrom\fP
+to the (local or remote) JID \fIto\fP containing
+the body \fIbody\fP.
+Both bare and full JIDs are supported.
+
+.TP
+.BI send\-message\-headline " from to subject body"
+Send a message of type "headline" from the JID \fIfrom\fP
+to the (local or remote) JID \fIto\fP containing
+the body \fIbody\fP and subject \fIsubject\fP.
+Both bare and full JIDs are supported.
+
+.TP
+.BI send\-stanza\-c2s " user server resource stanza"
+Send XML string \fIstanza\fP to the stream to which the
+session \fIuser@server/resource\fP is bound.
+The stanza must be well-formed (according to RFC 3920)
+and the session must be active.
+.IP
+For example:
+.nf
+ejabberdctl send-stanza-c2s john_doe example.com Bahamas \\
+  '<message id="1" type="chat"><body>How goes?</body></message>'
+.fi
+
+.TP
+.BI srg\-create " group host name description display"
+Create a new shared roster group \fIgroup\fP
+on the virtual host \fIhost\fP
+with displayed name \fIname\fP,
+description \fIdescription\fP and displayed groups \fIdisplay\fP.
+
+.TP
+.BI srg\-delete " group host"
+Delete the shared roster group \fIgroup\fP
+from the virtual host \fIhost\fP.
+
+.TP
+.BI srg\-user\-add " user server group host"
+Add an entry for the JID \fIuser\fP@\fIserver\fP
+to the group \fIgroup\fP on the virtual host \fIhost\fP.
+
+.TP
+.BI srg\-user\-del " user server group host"
+Delete an entry for the JID \fIuser\fP@\fIserver\fP
+from the group \fIgroup\fP on the virtual host \fIhost\fP.
+
+.TP
+.BI srg\-list " host"
+List the shared roster groups on the virtual host \fIhost\fP.
+
+.TP
+.BI srg\-get\-info " group host"
+Print info on the shared roster group \fIgroup\fP
+on the virtual host \fIhost\fP.
+
+.TP
+.BI srg\-get\-members " group host"
+Print members of the shared roster group \fIgroup\fP
+on the virtual host \fIhost\fP.
+
+.TP
+.BI private\-get " user server element namespace"
+Prints an XML stanza which would be sent by the server
+it it received an IQ-request of type "get" with the
+.nf
+<\fIelement\fP xmlns="\fInamespace\fP"/>
+.fi
+payload from \fIuser@server\fP.
+.IP
+For example:
+.nf
+ejabberdctl private-get john_doe example.com \\
+  storage storage:bookmarks
+.fi
+would return user's bookmarks, managed according to XEP-0048.
+
+.TP
+.BI private\-set " user server element"
+Allows one to simulate \fIuser@server\fP sending an IQ-request
+of type "set" containing \fIelement\fP as its payload;
+the payload is processed by the code managing users' private storage
+(XEP-0049 "Private XML Storage").
+.IP
+The string \fIelement\fP must be a well-formed XML obeying the
+rules defined for IQ-request payloads in RFC 3920.
+
+.TP
+.BI privacy\-set " user server element"
+Allows one to simulate \fIuser@server\fP sending an IQ-request
+of type "set" containing \fIelement\fP as its payload;
+this payload is processed by the code managing privacy lists
+(XEP-0016 "Privacy lists").
+.IP
+The string \fIelement\fP must be a well-formed XML obeying the
+rules defined for IQ-request payloads in RFC 3920.
+
+.TP 
+.BI stats " topic"
+Print statistics on the topic \fItopic\fP.
+The valid topics and their meaning are:
+.IP
+.BI registeredusers
+Print the number of users registered on the server.
+.IP
+.BI onlineusers
+Print the number of users currently logged into the server.
+.IP
+.BI onlineusersnode
+Print the number of users logged into the server
+which are served by the current ejabberd Erlang node.
+.IP
+.BI uptimeseconds
+Print the uptime of the current ejabberd Erlang node, in seconds.
+
+.TP
+.BI stats\-host " host topic"
+Print statistics on the topic \fItopic\fP
+for the virtual host \fIhost\fP.
+The valid topics and their meaning are:
+.IP
+.BI registeredusers
+Print the number of users registered on the host \fIhost\fP.
+.IP
+.BI onlineusers
+Print the number of users currently logged into the server,
+which are registered on the host \fIhost\fP.
+
+.TP
+.BI status\-list " status"
+Print the users currently logged into the server
+and having the presence status \fIstatus\fP.
+The entries are printed one per line;
+each entry consists of the four fields separated by
+tab characters, in this order: the node part of the
+user's JID, the host part of the user's JID,
+the user's session resource,
+the priority of the user's session
+and the user's status description.
+.IP
+The \fIstatus\fP parameter can take the following values:
+"available", "away", "xa", "dnd" and "chat".
+
+.TP
+.BI status\-list\-host " host status"
+Print the users currently logged into the server
+which are registered on the virtual host \fIhost\fP
+and have the presence status \fIstatus\fP.
+.IP
+The available values for the \fIstatus\fP parameter
+and the format of the output data are the same
+as of the \fBstatus\-list\fR subcommand.
+
+.TP
+.BI status\-num " status"
+Print the number of users currently logged into the server
+and having the presence status \fIstatus\fP.
+.IP
+The available values for the \fIstatus\fP parameter
+are the same as of the \fBstatus\-list\fR subcommand.
+
+.TP
+.BI status\-num\-host " host status"
+Print the number of users currently logged into the server
+which are registered on the virtual host \fIhost\fP
+and have the presence status \fIstatus\fP.
+.IP
+The available values for the \fIstatus\fP parameter
+are the same as of the \fBstatus\-list\fR subcommand.
+
+.TP
+.BI user\-sessions\-info " user server"
+Print detailed information on all sessions currently established
+by \fIuser@server\fP.
+For each session, one line of output is generated, containing the
+following fields separated by tab characters: connection string
+(such as "c2s", "c2s_tls" etc), remote IP address, remote port number,
+priority of the resource bound to this session, name of an Erlang node
+serving the session, session uptime (in seconds), resource string.
+
+\" .TP
+\" .BI muc\-purge " days"
+\" Destroy MUC rooms with zero activity (no messages in history) in the last
+\" \fIdays\fP days.
+\" .TP
+\" .BI muc\-online\-rooms
+\" Print the list of existing MUC rooms.
+
+\" entries related to mod_ctlextra (2.0.x series):
+
+\".TP
+\".BI pushroster " file user server"
+\"Push template roster in file \fIfile\fP to \fIuser@server\fP. The file contents
+\"must use the following format:
+\".sp
+\".nf
+\"[{"bob", "example.org", "Bob's group", "Bob's nickname"},
+\" {"mart", "example.org", "workers", "Mart"},
+\" {"Rich", "example.org", "bosses", "Rich"}].
+\".fi
+\".TP
+\".BI pushroster\-all " file"
+\"Push template roster in file to all users listed in the file \fIfile\fP itself.
+\"The file contents must be in the same format as for \fBpushroster\fP command.
 
 .SH NOTES
 
