@@ -1,14 +1,14 @@
 # Czech translation of ejabberd debconf messages
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the ejabberd package.
-# Miroslav Kure <kurem@debian.cz>, 2006, 2008.
+# Miroslav Kure <kurem@debian.cz>, 2006-2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
-"Report-Msgid-Bugs-To: twerner@debian.org\n"
-"POT-Creation-Date: 2008-02-15 10:37+0300\n"
-"PO-Revision-Date: 2008-07-26 18:50+0200\n"
+"Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
+"POT-Creation-Date: 2015-07-22 19:04+0200\n"
+"PO-Revision-Date: 2015-10-23 15:24+0200\n"
 "Last-Translator: Miroslav Kure <kurem@debian.cz>\n"
 "Language-Team: Czech <debian-l10n-czech@lists.debian.org>\n"
 "Language: cs\n"
@@ -18,85 +18,133 @@ msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid "The name of the host ejabberd will serve:"
-msgstr "Jméno počítače, na kterém bude ejabberd sloužit:"
-
-#. Type: string
-#. Description
-#: ../templates:1001
-msgid "Please enter the hostname of your Jabber server (in lowercase)."
-msgstr ""
-"Zadejte prosím jméno počítače vašeho jabberového serveru (malými písmeny)."
+#: ../templates:2001
+msgid "Host name for this Jabber server:"
+msgstr "Jméno počítače tohoto Jabber serveru:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "The username of an admin account for ejabberd:"
-msgstr "Jméno administrátorského účtu pro ejabberd:"
+msgid "Please enter the host name of this Jabber server (lowercase)."
+msgstr "Zadejte prosím jméno počítače tohoto Jabber serveru (malými písmeny)."
 
 #. Type: string
 #. Description
-#: ../templates:2001
+#: ../templates:3001
+msgid "Jabber server administrator username:"
+msgstr "Uživatelské jméno správce Jabber serveru:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to http://"
+"any Jabber client to do administrative tasks or go to https://"
 "${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface. Enter the username part here (e.g. ${user}), but use the full "
-"Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
-"otherwise it will fail."
+"interface."
 msgstr ""
 "Zadejte prosím jméno účtu, který bude spravovat ejabberd server. Po "
 "instalaci serveru ejabberd se můžete pomocí tohoto účtu přihlásit z "
 "libovolného jabberového klienta a vzdáleně tak provádět správcovské úkony. "
-"Jinou možností je webové rozhraní na http://${hostname}:5280/admin/, kde se "
-"s tímto účtem (např. „${user}@${hostname}“) taktéž můžete přihlásit do "
-"správcovského rozhraní. (Zde zadejte pouze uživatelskou část (např. "
-"${user}), ale pro přihlášení do webového rozhraní používejte kompletní ID "
-"včetně jména serveru.)"
+"Další možností je webové rozhraní na https://${hostname}:5280/admin/, kde se "
+"s tímto účtem taktéž můžete přihlásit do správcovského rozhraní."
 
 #. Type: string
 #. Description
-#: ../templates:2001
-msgid "Leave empty if you don't want to create an admin account automatically."
+#: ../templates:3001
+msgid ""
+"You only need to enter the username part here (such as ${user}), but the "
+"full Jabber ID (such as ${user}@${hostname}) is required to access the "
+"ejabberd web interface."
 msgstr ""
-"Jestliže nechcete automaticky vytvořit správcovský účet, ponechte prázdné."
+"Zde stačí zadat pouze uživatelskou část (např. ${user}), ale pro přihlášení "
+"do webového rozhraní používejte kompletní Jabber ID včetně jména serveru "
+"(např. ${user}@${hostname})."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid ""
+"Please leave this field empty if you don't want to create an administrator "
+"account automatically."
+msgstr ""
+"Jestliže nechcete automaticky vytvořit správcovský účet, ponechte pole "
+"prázdné."
 
 #. Type: password
 #. Description
-#: ../templates:3001
-msgid "The password for the admin account:"
-msgstr "Heslo správcovského účtu:"
+#: ../templates:4001
+msgid "Jabber server administrator password:"
+msgstr "Heslo správce Jabber serveru:"
 
 #. Type: password
 #. Description
-#: ../templates:3001
+#: ../templates:4001
 msgid "Please enter the password for the administrative user."
 msgstr "Zadejte prosím heslo uživatele se správcovskými oprávněními."
 
 #. Type: password
 #. Description
-#: ../templates:4001
-msgid "The password for the admin account again for verification:"
-msgstr "Ověření hesla správcovského účtu:"
+#: ../templates:5001
+msgid "Re-enter password to verify:"
+msgstr "Znovu zadejte heslo pro ověření:"
 
 #. Type: password
 #. Description
-#: ../templates:4001
+#: ../templates:5001
 msgid ""
-"Please reenter the password for the administrative user for verification."
+"Please enter the same administrator password again to verify that you have "
+"typed it correctly."
 msgstr ""
-"Pro ověření prosím zopakujte heslo uživatele se správcovskými oprávněními."
+"Zadejte prosím správcovské heslo ještě jednou pro ověření, že jste ho "
+"zadali správně."
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords do not match!"
-msgstr "Hesla nesouhlasí!"
+#: ../templates:6001
+msgid "Password input error"
+msgstr "Chyba při zadávání hesla"
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords you have typed do not match. Please try again."
+#: ../templates:6001
+msgid "The two passwords you entered were not the same. Please try again."
 msgstr "Zadaná hesla nesouhlasí. Zkuste to prosím znovu."
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid "Invalid administrator account username"
+msgstr "Neplatné jméno správcovského účtu"
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid ""
+"The username you have typed contains forbidden characters. Please respect "
+"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
+"used a full JID (e.g. user@hostname), you have to use the same host name you "
+"typed into the host name configuration step."
+msgstr ""
+"Zadané uživatelské jméno obsahuje zakázané znaky. Respektujte prosím "
+"syntaxi (http://tools.ietf.org/html/rfc6122#appendix-A.5). Jestliže jste "
+"použili úplné JID (např. uzivatel@pocitac), musíte použít stejné jméno "
+"počítače, které jste zadali dříve v kroku „jméno počítače“."
+
+#~ msgid "The username of an admin account for ejabberd:"
+#~ msgstr "Jméno administrátorského účtu pro ejabberd:"
+
+#~ msgid "The password for the admin account:"
+#~ msgstr "Heslo správcovského účtu:"
+
+#~ msgid "The password for the admin account again for verification:"
+#~ msgstr "Ověření hesla správcovského účtu:"
+
+#~ msgid ""
+#~ "Please reenter the password for the administrative user for verification."
+#~ msgstr ""
+#~ "Pro ověření prosím zopakujte heslo uživatele se správcovskými oprávněními."
+
+#~ msgid "The passwords do not match!"
+#~ msgstr "Hesla nesouhlasí!"

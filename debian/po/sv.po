@@ -1,100 +1,133 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+# Translation of ejabberd debconf template to Swedish
+# Copyright (C) 2015 Martin Bagge <brother@bsnet.se>
+# This file is distributed under the same license as the XX package.
+#
+# Martin Bagge <brother@bsnet.se>, 2008, 2015
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: twerner@debian.org\n"
-"POT-Creation-Date: 2008-02-15 10:37+0300\n"
-"PO-Revision-Date: 2008-07-13 18:03+0100\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
+"POT-Creation-Date: 2015-07-22 19:04+0200\n"
+"PO-Revision-Date: 2015-07-24 12:50+0200\n"
 "Last-Translator: Martin Bagge <brother@bsnet.se>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"Language-Team: Swedish <debian-l10n-swedish@lists.debian.org>\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.8.2\n"
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid "The name of the host ejabberd will serve:"
-msgstr "Värdnamnet som ejabberd ska arbeta för:"
+#: ../templates:2001
+msgid "Host name for this Jabber server:"
+msgstr "Värdnamnet för jabber-servern:"
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid "Please enter the hostname of your Jabber server (in lowercase)."
+#: ../templates:2001
+msgid "Please enter the host name of this Jabber server (lowercase)."
 msgstr "Ange värdnamnet på din jabber-server (endast gemener)."
 
 #. Type: string
 #. Description
-#: ../templates:2001
-msgid "The username of an admin account for ejabberd:"
-msgstr "Användarnamnet för administratörskontot för ejabberd:"
+#: ../templates:3001
+msgid "Jabber server administrator username:"
+msgstr "Användarnamn för jabber-serverns administratör:"
 
 #. Type: string
 #. Description
-#: ../templates:2001
+#: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to http://"
+"any Jabber client to do administrative tasks or go to https://"
 "${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface. Enter the username part here (e.g. ${user}), but use the full "
-"Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
-"otherwise it will fail."
+"interface."
 msgstr ""
 "Ange användarnamnet för ett administratörskonto för ejabberd-servern. Efter "
-"att installationen är klar kan du använda detta kontot för att logga in med "
+"att installationen är klar kan du använda detta konto för att logga in med "
 "en Jabber-klient för att utföra administrativa uppgifter, alternativt så kan "
-"du besöka http://${hostname}:5280/admin/ och logga in med kontot där för att "
-"komma åt administrationsgränssnittet. Ange användanamnet här (t.ex. "
-"${user}), men kom ihåg att använda det fullständiga Jabber ID:t (t.ex. "
-"${user}@${hostname}) för att logga in i ejabberd:s webbgränssnitt."
+"du besöka https://${hostname}:5280/admin/ och logga in med kontot där för att "
+"komma åt administrationsgränssnittet."
 
 #. Type: string
 #. Description
-#: ../templates:2001
-msgid "Leave empty if you don't want to create an admin account automatically."
+#: ../templates:3001
+msgid ""
+"You only need to enter the username part here (such as ${user}), but the "
+"full Jabber ID (such as ${user}@${hostname}) is required to access the "
+"ejabberd web interface."
+msgstr ""
+"Du behöver endast ange användardelen här (exempelvis ${user}), komplett "
+"Jabber ID (ex. ${user}@${hostname}) krävs för att komma åt webbgränssnittet "
+"för ejabberd."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid ""
+"Please leave this field empty if you don't want to create an administrator "
+"account automatically."
 msgstr ""
 "Lämna fältet tomt om du inte vill skapa ett administrationskonto automatiskt."
 
 #. Type: password
 #. Description
-#: ../templates:3001
-msgid "The password for the admin account:"
-msgstr "Lösenord för administrationskontot:"
+#: ../templates:4001
+msgid "Jabber server administrator password:"
+msgstr "Administrationslösenord för jabber-servern:"
 
 #. Type: password
 #. Description
-#: ../templates:3001
+#: ../templates:4001
 msgid "Please enter the password for the administrative user."
 msgstr "Ange lösenordet för administratörskontot."
 
 #. Type: password
 #. Description
-#: ../templates:4001
-msgid "The password for the admin account again for verification:"
-msgstr "Upprepa lösenordet för administratörskontot:"
+#: ../templates:5001
+msgid "Re-enter password to verify:"
+msgstr "Upprepa för verifikation:"
 
 #. Type: password
 #. Description
-#: ../templates:4001
+#: ../templates:5001
 msgid ""
-"Please reenter the password for the administrative user for verification."
+"Please enter the same administrator password again to verify that you have "
+"typed it correctly."
 msgstr ""
-"För att kontrollera att du angivit rätt lösenord ska du upprepa det här."
+"Ange administratörens lösenord en gång till för att bekräfta att det är "
+"korrekt angivet."
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords do not match!"
-msgstr "Lösenorden var inte likadana!"
+#: ../templates:6001
+msgid "Password input error"
+msgstr "Fel vid inmatning av lösenord"
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords you have typed do not match. Please try again."
-msgstr "Lösenorden du angav är inte likadana. Vänligen försök igen."
+#: ../templates:6001
+msgid "The two passwords you entered were not the same. Please try again."
+msgstr "De båda lösenorden du angav är inte likadana. Vänligen försök igen."
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid "Invalid administrator account username"
+msgstr "Ogiltigt användarnamn för administrationskontot"
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid ""
+"The username you have typed contains forbidden characters. Please respect "
+"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
+"used a full JID (e.g. user@hostname), you have to use the same host name you "
+"typed into the host name configuration step."
+msgstr ""
+"Användarnamnet du angav innehåller otillåtna tecken. JID är standardiserat "
+"(http://tools.ietf.org/html/rfc6122#appendix-A.5) och behöver efterlevas. Om "
+"du använder ett komplett JID (ex. anv@example.com) måste du också ange samma "
+"värdnamn som angavs i inställningen för värdnamn."

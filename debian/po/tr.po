@@ -2,101 +2,157 @@
 # Copyright (C) 2008
 # This file is distributed under the same license as the ejabberd package.
 # Mert Dirik <mertdirik@gmail.com>, 2008.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
-"Report-Msgid-Bugs-To: twerner@debian.org\n"
-"POT-Creation-Date: 2008-02-15 10:37+0300\n"
-"PO-Revision-Date: 2008-07-20 00:41+0200\n"
+"Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
+"POT-Creation-Date: 2015-07-22 19:04+0200\n"
+"PO-Revision-Date: 2015-07-29 22:24+0300\n"
 "Last-Translator: Mert Dirik <mertdirik@gmail.com>\n"
 "Language-Team: Debian L10n Turkish <debian-l10n-turkish@lists.debian.org>\n"
-"Language: \n"
+"Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Poedit-Language: Turkish\n"
-
-#. Type: string
-#. Description
-#: ../templates:1001
-msgid "The name of the host ejabberd will serve:"
-msgstr "ejabberd hizmeti verecek olan makinenin adı:"
-
-#. Type: string
-#. Description
-#: ../templates:1001
-msgid "Please enter the hostname of your Jabber server (in lowercase)."
-msgstr "Lütfen Jabber sunucunuzun makine adını girin (küçük harflerle)."
+"X-Generator: Poedit 1.8.2\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "The username of an admin account for ejabberd:"
-msgstr "ejabberd yönetici hesabının kullanıcı adı:"
+msgid "Host name for this Jabber server:"
+msgstr "Bu Jabber sunucusunun makine adı:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
+msgid "Please enter the host name of this Jabber server (lowercase)."
+msgstr "Lütfen bu Jabber sunucusunun makine adını (küçük harflerle) girin."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Jabber server administrator username:"
+msgstr "Jabber sunucu yöneticisinin kullanıcı adı:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to http://"
+"any Jabber client to do administrative tasks or go to https://"
 "${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface. Enter the username part here (e.g. ${user}), but use the full "
-"Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
-"otherwise it will fail."
+"interface."
 msgstr ""
 "Lütfen ejabberd sunucusunu yönetecek olan hesabın adını girin. Kurulum "
 "bittikten sonra yönetimsel görevleri yerine getirmek için herhangi bir "
-"Jabber istemcisini kullanarak bu hesapla oturum açabilir ya da http://"
+"Jabber istemcisini kullanarak bu hesapla oturum açabilir veya https://"
 "${hostname}:5280/admin/ adresine gidip bu hesapla oturum açarak yönetim "
-"arayüzüne girebilirsiniz. Buraya kullanıcı adı kısmını girin (ör. ${user}), "
-"ama ejabberd web arayüzüne erişmek için tam Jabber kimliğini (ör. ${user}@"
-"${hostname}) kullanın, aksi takdirde oturum açamazsınız."
+"arayüzüne girebilirsiniz."
 
 #. Type: string
 #. Description
-#: ../templates:2001
-msgid "Leave empty if you don't want to create an admin account automatically."
+#: ../templates:3001
+msgid ""
+"You only need to enter the username part here (such as ${user}), but the "
+"full Jabber ID (such as ${user}@${hostname}) is required to access the "
+"ejabberd web interface."
+msgstr ""
+"Buraya yalnızca kullanıcı adı kısmını girmeniz yeterlidir (ör. ${user}); ama "
+"ejabberd web arayüzüne erişmek için tam Jabber kimliğini (ör. ${user}@"
+"${hostname}) kullanmanız gerekmektedir."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid ""
+"Please leave this field empty if you don't want to create an administrator "
+"account automatically."
 msgstr ""
 "Yönetici hesabını otomatik olarak oluşturmak istemiyorsanız bu alanı boş "
 "bırakın."
 
 #. Type: password
 #. Description
-#: ../templates:3001
-msgid "The password for the admin account:"
-msgstr "Yönetici hesabının parolası:"
+#: ../templates:4001
+msgid "Jabber server administrator password:"
+msgstr "Jabber sunucusunun yönetici parolası:"
 
 #. Type: password
 #. Description
-#: ../templates:3001
+#: ../templates:4001
 msgid "Please enter the password for the administrative user."
 msgstr "Lütfen yönetimsel kullanıcı için bir parola girin."
 
 #. Type: password
 #. Description
-#: ../templates:4001
-msgid "The password for the admin account again for verification:"
-msgstr "Yönetici hesabının parolası, doğrulama için tekrardan:"
+#: ../templates:5001
+msgid "Re-enter password to verify:"
+msgstr "Doğrulamak için parolayı tekrar girin:"
 
 #. Type: password
 #. Description
-#: ../templates:4001
+#: ../templates:5001
 msgid ""
-"Please reenter the password for the administrative user for verification."
-msgstr "Lütfen yönetimsel kullanıcının parolasını doğrulama için tekrar girin."
+"Please enter the same administrator password again to verify that you have "
+"typed it correctly."
+msgstr ""
+"Lütfen doğru yazıldığından emin olmak için aynı yönetici parolasını tekrar "
+"girin."
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords do not match!"
-msgstr "Parolalar eşleşmedi!"
+#: ../templates:6001
+msgid "Password input error"
+msgstr "Parola girişi hatası"
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords you have typed do not match. Please try again."
+#: ../templates:6001
+msgid "The two passwords you entered were not the same. Please try again."
 msgstr "Girdiğiniz parolalar eşleşmedi. Lütfen tekrar deneyin."
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid "Invalid administrator account username"
+msgstr "Yönetici hesabı adı geçersiz"
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid ""
+"The username you have typed contains forbidden characters. Please respect "
+"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
+"used a full JID (e.g. user@hostname), you have to use the same host name you "
+"typed into the host name configuration step."
+msgstr ""
+"Girdiğiniz kullanıcı adı kullanımına izin verilmeyen karakterler içeriyor. "
+"Lütfen JID sözdizimine dikkat edin (http://tools.ietf.org/html/"
+"rfc6122#appendix-A.5). Eğer tam bir JID kullandıysanız (örneğin "
+"kullanıcı@makineadı), makine adı kısmı yapılandırma adımında belirttiğiniz "
+"makine adıyla aynı olmalıdır."
+
+#~ msgid "The username of an admin account for ejabberd:"
+#~ msgstr "ejabberd yönetici hesabının kullanıcı adı:"
+
+#~ msgid "The password for the admin account:"
+#~ msgstr "Yönetici hesabının parolası:"
+
+#~ msgid "The password for the admin account again for verification:"
+#~ msgstr "Yönetici hesabının parolası, doğrulama için tekrardan:"
+
+#~ msgid ""
+#~ "Please reenter the password for the administrative user for verification."
+#~ msgstr ""
+#~ "Lütfen yönetimsel kullanıcının parolasını doğrulama için tekrar girin."
+
+#~ msgid "The passwords do not match!"
+#~ msgstr "Parolalar eşleşmedi!"
+
+#, fuzzy
+#~| msgid "The username of an admin account for ejabberd:"
+#~ msgid "The username of the admin account is invalid!"
+#~ msgstr "ejabberd yönetici hesabının kullanıcı adı:"

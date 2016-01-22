@@ -1,13 +1,13 @@
 # Italian translation of ejabberd debconf messages.
 # Copyright (C) 2012, ejabberd package copyright holder.
 # This file is distributed under the same license as the ejabberd package.
-# Beatrice Torracca <beatricet@libero.it>, 2012.
+# Beatrice Torracca <beatricet@libero.it>, 2012, 2015.
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
-"Report-Msgid-Bugs-To: twerner@debian.org\n"
-"POT-Creation-Date: 2008-02-15 10:37+0300\n"
-"PO-Revision-Date: 2012-07-22 13:11+0200\n"
+"Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
+"POT-Creation-Date: 2015-07-22 19:04+0200\n"
+"PO-Revision-Date: 2015-08-05 19:01+0200\n"
 "Last-Translator: Beatrice Torracca <beatricet@libero.it>\n"
 "Language-Team: Italian <debian-l10n-italian@lists.debian.org>\n"
 "Language: it\n"
@@ -19,86 +19,140 @@ msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid "The name of the host ejabberd will serve:"
-msgstr "Il nome dell'host per cui ejabberd farà da server:"
-
-#. Type: string
-#. Description
-#: ../templates:1001
-msgid "Please enter the hostname of your Jabber server (in lowercase)."
-msgstr "Inserire il nome host del server Jabber (in lettere minuscole)."
+#: ../templates:2001
+msgid "Host name for this Jabber server:"
+msgstr "Nome host per questo server Jabber:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "The username of an admin account for ejabberd:"
-msgstr "Il nome utente di un account di amministrazione per ejabberd:"
+msgid "Please enter the host name of this Jabber server (lowercase)."
+msgstr "Inserire il nome host di questo server Jabber (in lettere minuscole)."
 
 #. Type: string
 #. Description
-#: ../templates:2001
+#: ../templates:3001
+msgid "Jabber server administrator username:"
+msgstr "Nome utente dell'amministratore del server Jabber:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to http://"
+"any Jabber client to do administrative tasks or go to https://"
 "${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface. Enter the username part here (e.g. ${user}), but use the full "
-"Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
-"otherwise it will fail."
+"interface."
 msgstr ""
 "Inserire il nome di un account per amministrare il server ejabberd. Dopo "
 "l'installazione di ejabberd sarà possibile usare questo account per fare il "
 "login con qualsiasi client Jabber per svolgere compiti di amministrazione "
-"oppure si potrà andare all'indirizzo http://${hostname}:5280/admin/ e fare "
-"il login con questo account per entrare nell'interfaccia di amministrazione. "
-"Inserire qui la parte del nome utente (ad esempio ${user}), ma usare l'ID "
-"Jabber completo (ad esempio ${user}@${hostname}) per fare il login "
-"nell'interfaccia web, altrimenti non riuscirà."
+"oppure si potrà andare all'indirizzo https://${hostname}:5280/admin/ e fare "
+"il login con questo account per entrare nell'interfaccia di amministrazione."
 
 #. Type: string
 #. Description
-#: ../templates:2001
-msgid "Leave empty if you don't want to create an admin account automatically."
+#: ../templates:3001
+msgid ""
+"You only need to enter the username part here (such as ${user}), but the "
+"full Jabber ID (such as ${user}@${hostname}) is required to access the "
+"ejabberd web interface."
+msgstr ""
+"È necessario inserire solo la parte del nome utente (ad esempio ${user}), ma "
+"è richiesto l'ID Jabber completo (ad esempio ${user}@${hostname}) per "
+"accedere all'interfaccia web di ejabberd."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid ""
+"Please leave this field empty if you don't want to create an administrator "
+"account automatically."
 msgstr ""
 "Lasciare vuoto se non si desidera creare automaticamente un account di "
 "amministrazione."
 
 #. Type: password
 #. Description
-#: ../templates:3001
-msgid "The password for the admin account:"
-msgstr "La password per l'account di amministrazione:"
+#: ../templates:4001
+msgid "Jabber server administrator password:"
+msgstr "Password dell'amministratore del server Jabber:"
 
 #. Type: password
 #. Description
-#: ../templates:3001
+#: ../templates:4001
 msgid "Please enter the password for the administrative user."
 msgstr "Inserire la password dell'utente amministratore."
 
 #. Type: password
 #. Description
-#: ../templates:4001
-msgid "The password for the admin account again for verification:"
-msgstr ""
-"Inserire nuovamente la password per l'account di amministrazione per "
-"verifica:"
+#: ../templates:5001
+msgid "Re-enter password to verify:"
+msgstr "Inserire nuovamente la password per verifica:"
 
 #. Type: password
 #. Description
-#: ../templates:4001
+#: ../templates:5001
 msgid ""
-"Please reenter the password for the administrative user for verification."
-msgstr "Reinserire la password per l'utente amministratore per verifica."
+"Please enter the same administrator password again to verify that you have "
+"typed it correctly."
+msgstr ""
+"Inserire nuovamente la stessa password dell'amministratore per verificare di "
+"averla digitata correttamente."
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords do not match!"
-msgstr "Le password non corrispondono."
+#: ../templates:6001
+msgid "Password input error"
+msgstr "Errore nell'inserimento della password"
 
 #. Type: error
 #. Description
-#: ../templates:5001
-msgid "The passwords you have typed do not match. Please try again."
-msgstr "Le password inserite non corrispondono. Riprovare."
+#: ../templates:6001
+msgid "The two passwords you entered were not the same. Please try again."
+msgstr "Le due password inserite non erano identiche. Riprovare."
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid "Invalid administrator account username"
+msgstr "Nome utente per l'account amministratore non valido"
+
+#. Type: error
+#. Description
+#: ../templates:7001
+msgid ""
+"The username you have typed contains forbidden characters. Please respect "
+"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
+"used a full JID (e.g. user@hostname), you have to use the same host name you "
+"typed into the host name configuration step."
+msgstr ""
+"Il nome utente che è stato inserito contiene caratteri non permessi. "
+"Rispettare la sintassi JID (http://tools.ietf.org/html/rfc6122#appendix-"
+"A.5). Se è stato usato un JID completo (ad esempio utente@homehost) è "
+"necessario usare lo stesso nome host che è stato inserito durante la "
+"configurazione del nome host."
+
+#~ msgid "The username of an admin account for ejabberd:"
+#~ msgstr "Il nome utente di un account di amministrazione per ejabberd:"
+
+#~ msgid "The password for the admin account:"
+#~ msgstr "La password per l'account di amministrazione:"
+
+#~ msgid "The password for the admin account again for verification:"
+#~ msgstr ""
+#~ "Inserire nuovamente la password per l'account di amministrazione per "
+#~ "verifica:"
+
+#~ msgid ""
+#~ "Please reenter the password for the administrative user for verification."
+#~ msgstr "Reinserire la password per l'utente amministratore per verifica."
+
+#~ msgid "The passwords do not match!"
+#~ msgstr "Le password non corrispondono."
+
+#, fuzzy
+#~| msgid "The username of an admin account for ejabberd:"
+#~ msgid "The username of the admin account is invalid!"
+#~ msgstr "Il nome utente di un account di amministrazione per ejabberd:"
