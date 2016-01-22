@@ -5,16 +5,6 @@
 
 set -e
 
-# summary of how this script can be called:
-#        * <prerm> `remove'
-#        * <old-prerm> `upgrade' <new-version>
-#        * <new-prerm> `failed-upgrade' <old-version>
-#        * <conflictor's-prerm> `remove' `in-favour' <package> <new-version>
-#        * <deconfigured's-prerm> `deconfigure' `in-favour'
-#          <package-being-installed> <version> `removing'
-#          <conflicting-package> <version>
-# for details, see /usr/doc/packaging-manual/
-
 ctl() {
 	local cmd='/usr/sbin/ejabberdctl'
 	for arg in "$@"; do
@@ -54,17 +44,13 @@ case "$1" in
     ;;
 esac
 
+#DEBHELPER#
+
 case "$1" in
     remove|purge)
-        if ejabberdctl status >/dev/null || test $? = 1 ; then
-            # Ejabberd is starting ($? = 1) or running ($? = 0)
-	    invoke-rc.d ejabberd stop
-	    pkill -u ejabberd
-	fi
+	pkill -u ejabberd || true
     ;;
 esac
 
-#DEBHELPER#
 
 exit 0
-

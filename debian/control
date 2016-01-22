@@ -2,42 +2,82 @@ Source: ejabberd
 Section: net
 Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
-Build-Depends: debhelper (>= 9),
-               erlang-asn1, erlang-base, erlang-crypto, erlang-dev (>= 1:16.b), erlang-eunit, erlang-inets, erlang-lager, erlang-jiffy, erlang-mnesia, erlang-parsetools,
-               erlang-p1-cache-tab, erlang-p1-iconv, erlang-p1-mysql, erlang-p1-pam, erlang-p1-pgsql, erlang-p1-sip, erlang-p1-stringprep, erlang-p1-stun,
-               erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib,
-               erlang-ssl, erlang-xmlrpc,
-               hevea, po-debconf, rebar,
-               libsqlite3-dev, dpkg-dev (>= 1.16.1~)
+XSBC-Orig-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
+Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-dev, po-debconf, rebar,
+ 		erlang-asn1,
+ 		erlang-base,
+ 		erlang-crypto,
+ 		erlang-dev (>= 1:17),
+ 		erlang-eunit,
+ 		erlang-inets,
+ 		erlang-lager,
+ 		erlang-mnesia,
+ 		erlang-oauth2,
+ 		erlang-p1-cache-tab  (>= 1.0.1),
+ 		erlang-p1-iconv      (>= 0.2016.01.05),
+ 		erlang-p1-mysql      (>= 1.0.0),
+ 		erlang-p1-pam        (>= 1.0.0),
+ 		erlang-p1-pgsql      (>= 1.0.0),
+ 		erlang-p1-sip        (>= 1.0.0),
+ 		erlang-p1-stringprep (>= 1.0.0),
+ 		erlang-p1-stun       (>= 0.2016.01.05),
+ 		erlang-p1-tls        (>= 1.0.0),
+ 		erlang-p1-utils      (>= 1.0.3),
+ 		erlang-p1-xml        (>= 1.1.1),
+ 		erlang-p1-yaml       (>= 1.0.0),
+ 		erlang-p1-zlib       (>= 1.0.0),
+ 		erlang-parsetools,
+ 		erlang-redis-client,
+ 		erlang-sqlite3,
+ 		erlang-ssl,
+ 		erlang-xmerl
 Standards-Version: 3.9.6
-Homepage: http://www.process-one.net/en/projects/ejabberd/
+Homepage: https://www.ejabberd.im
 Vcs-Git: https://github.com/jabber-at/ejabberd.git
 Vcs-Browser: https://github.com/jabber-at/ejabberd/
 
 Package: ejabberd
 Architecture: any
-Depends: adduser, erlang-base (>= 1:16.b) | ${erlang-abi:Depends}, ${erlang:Depends}, openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
-               erlang-lager, erlang-jiffy, erlang-p1-cache-tab, erlang-p1-iconv, erlang-p1-mysql, erlang-p1-pam, erlang-p1-pgsql, erlang-p1-sip, erlang-p1-stringprep,
-               erlang-p1-stun, erlang-p1-tls, erlang-p1-utils, erlang-p1-xml, erlang-p1-yaml, erlang-p1-zlib
-Provides: xmpp-server
-Suggests: libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
- monit, erlang-oauth2, erlang-redis
+Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
+ 		erlang-base (>= 1:17) | ${erlang-abi:Depends}, ${erlang:Depends},
+ 		erlang-lager,
+ 		erlang-p1-cache-tab  (>= 1.0.1),
+ 		erlang-p1-iconv      (>= 0.2016.01.05),
+ 		erlang-p1-stringprep (>= 1.0.0),
+ 		erlang-p1-tls        (>= 1.0.0),
+ 		erlang-p1-utils      (>= 1.0.3),
+ 		erlang-p1-xml        (>= 1.1.1),
+ 		erlang-p1-yaml       (>= 1.0.0),
+ 		erlang-p1-zlib       (>= 1.0.0),
+ 		erlang-xmerl
+Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
+ 		ejabberd-contrib     (>> 0.2015.08),
+ 		erlang-oauth2,
+ 		erlang-p1-mysql      (>= 1.0.0),
+ 		erlang-p1-pam        (>= 1.0.0),
+ 		erlang-p1-pgsql      (>= 1.0.0),
+ 		erlang-p1-sip        (>= 1.0.0),
+ 		erlang-p1-stun       (>= 0.2016.01.05),
+ 		erlang-sqlite3,
+ 		erlang-redis-client
+Breaks: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
+Replaces: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
+Provides: xmpp-server, stun-server, turn-server
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
  ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702),
  ejabberd-mod-http-upload
-Description: distributed, fault-tolerant Jabber/XMPP server written in Erlang
- ejabberd is a distributed, fault-tolerant Jabber/XMPP server written in Erlang.
- Its features contain:
-  - XMPP-compliant
-  - Web based administration
-  - Load balancing: can run in a cluster of machines
-  - Fault-tolerance: database can be replicated and stored on multiple
-    nodes (nodes can be added or replaced 'on the fly')
-  - Virtual hosting: several virtual domains can be served using single ejabberd
-    instance
-  - SSL/TLS support
-  - Multi-User Chat (MUC/conference)
-  - IRC transport
-  - Jabber Users Directory, based on users vCards
-  - Service Discovery
-  - Shared roster
+Description: distributed, fault-tolerant Jabber/XMPP server
+ ejabberd is a Jabber/XMPP server written in Erlang, featuring:
+  * distributed operation with load-balancing across a cluster;
+  * fault-tolerant database replication and storage on multiple nodes,
+    allowing nodes to be added or replaced "on the fly";
+  * virtual hosting (several virtual domains can be served using a single
+    ejabberd instance);
+  * XMPP compliance;
+  * web-based administration;
+  * SSL/TLS support;
+  * conferencing via Multi-User Chat;
+  * IRC transport;
+  * Jabber Users Directory, based on users' vCards;
+  * service discovery;
+  * shared roster.

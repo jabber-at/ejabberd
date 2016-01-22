@@ -1,34 +1,54 @@
+# These templates have been reviewed by the debian-l10n-english
+# team
+#
+# If modifications/additions/rewording are needed, please ask
+# debian-l10n-english@lists.debian.org for advice.
+#
+# Even minor modifications require translation updates and such
+# changes should be coordinated with translators and reviewers.
+
 Template: ejabberd/hostname
 Type: string
 Default: localhost
-_Description: The name of the host ejabberd will serve:
- Please enter the hostname of your Jabber server (in lowercase).
+_Description: Host name for this Jabber server:
+ Please enter the host name of this Jabber server (lowercase).
 
 Template: ejabberd/user
 Type: string
-_Description: The username of an admin account for ejabberd:
+_Description: Jabber server administrator username:
  Please provide the name of an account to administrate the ejabberd server.
  After the installation of ejabberd you can use this account to log in with any
  Jabber client to do administrative tasks or go to
- http://${hostname}:5280/admin/ and log in with this account to enter the admin
- interface. Enter the username part here (e.g. ${user}), but use the full Jabber
- ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; otherwise it
- will fail.
+ https://${hostname}:5280/admin/ and log in with this account to enter the admin
+ interface.
  .
- Leave empty if you don't want to create an admin account automatically.
+ You only need to enter the username part here (such as ${user}), but
+ the full Jabber ID (such as ${user}@${hostname}) is required to
+ access the ejabberd web interface.
+ .
+ Please leave this field empty if you don't want to create an
+ administrator account automatically.
 
 Template: ejabberd/password
 Type: password
-_Description: The password for the admin account:
+_Description: Jabber server administrator password:
  Please enter the password for the administrative user.
 
 Template: ejabberd/verify
 Type: password
-_Description: The password for the admin account again for verification:
- Please reenter the password for the administrative user for verification.
+_Description: Re-enter password to verify:
+ Please enter the same administrator password again to verify that you have typed it
+ correctly.
 
 Template: ejabberd/nomatch
 Type: error
-_Description: The passwords do not match!
- The passwords you have typed do not match. Please try again.
+_Description: Password input error
+ The two passwords you entered were not the same. Please try again.
 
+Template: ejabberd/invaliduser
+Type: error
+_Description: Invalid administrator account username
+ The username you have typed contains forbidden characters. Please respect the 
+ JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you used
+ a full JID (e.g. user@hostname), you have to use the same host name
+ you typed into the host name configuration step.
