@@ -1,0 +1,6 @@
+etc/apparmor.d
+etc/default
+etc/ejabberd/modules.d
+etc/init.d
+etc/ufw/applications.d
+usr/share/ejabberd
