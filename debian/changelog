@@ -22,6 +22,7 @@ ejabberd (1:16.01-1) unstable; urgency=low
     * Update translations, logrotate, copyright, config, templates, NEWS,
       TODO, control, postrm/prerm and ejabberdctl manpage.
     * Add dirs amd ufw profile.
+    * Remove redundant gbp.conf.
   * Remove patches applied upstream:
     * captcha.patch
     * quiet_http_upload.patch
