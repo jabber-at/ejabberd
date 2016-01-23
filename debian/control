@@ -30,6 +30,7 @@ Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-de
  		erlang-redis-client,
  		erlang-sqlite3,
  		erlang-ssl,
+ 		erlang-riak,
  		erlang-xmerl
 Standards-Version: 3.9.6
 Homepage: https://www.ejabberd.im
@@ -58,6 +59,7 @@ Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsm
  		erlang-p1-pgsql      (>= 1.0.0),
  		erlang-p1-sip        (>= 1.0.0),
  		erlang-p1-stun       (>= 0.2016.01.05),
+ 		erlang-riak,
  		erlang-sqlite3,
  		erlang-redis-client
 Breaks: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
