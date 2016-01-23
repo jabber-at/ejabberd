@@ -38,9 +38,6 @@ override_dh_auto_install:
 	# ejabberdctl.cfg goes into /etc/default/
 	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
 	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
-	# TODO: Are these two lines needed? why not in upstream package?
-	#rm -rf $(DESTDIR)/usr/lib/$(DPKG_CACHE_DEB_BUILD_MULTIARCH)/ejabberd/priv/lib
-	#rm $(DESTDIR)/usr/share/doc/ejabberd/COPYING
 	
 	# install ufw profile
 	install -m 644 debian/ejabberd.ufw.profile $(DESTDIR)/etc/ufw/applications.d/ejabberd
