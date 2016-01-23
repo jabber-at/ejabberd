@@ -1,0 +1,5 @@
+# This directory may contain configuration files for additional ejabberd modules
+# but they must be named mod_foo.yml, where mod_foo is the module they configure.
+#
+# For example the config file of any ejabberd-mod-* package can be placed
+# here.
