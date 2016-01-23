@@ -47,7 +47,7 @@ override_dh_auto_install:
 	dh_apparmor --profile-name=usr.sbin.ejabberdctl
 	
 	# make symlink
-	ln -s $(DESTDIR)/usr/lib/ejabberd-16.01 $(DESTDIR)/usr/lib/ejabberd
+	ln -s /usr/lib/ejabberd-16.01 $(DESTDIR)/usr/lib/ejabberd
 	
 .PHONY: override_dh_installinit
 override_dh_installinit:
