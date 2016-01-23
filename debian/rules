@@ -17,7 +17,7 @@ override_dh_auto_configure:
 	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
 	# on Debian Wheezy.
 	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
-			--libdir=/usr/lib \
+			--enable-riak --libdir=/usr/lib \
 			--enable-zlib --enable-iconv --enable-lager --enable-redis --enable-sqlite
 
 .PHONY: override_dh_auto_install
