@@ -1,5 +1,5 @@
 #!/usr/bin/make -f
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
 
 DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
@@ -13,46 +13,68 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
+	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
 	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
-	# on Debian Wheezy and all Ubuntu distros up to at least Saucy.
+	# on Debian Wheezy.
 	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
-	    --enable-zlib --enable-iconv --enable-lager --enable-stun \
-	    --enable-transient_supervisors \
-	    --enable-sqlite --enable-nif --enable-transient_supervisors \
-	    --enable-riak --enable-elixir --enable-redis --enable-riak \
-	    --libdir=/usr/lib
-
-.PHONY: override_dh_auto_build
-override_dh_auto_build:
-	dh_auto_build
+			--enable-riak --enable-elixir --libdir=/usr/lib \
+			--enable-zlib --enable-iconv --enable-lager --enable-redis --enable-sqlite
 
 .PHONY: override_dh_auto_install
 override_dh_auto_install:
 	dh_auto_install
+	
+	# install init script and service file
+	install -m 755 $(CURDIR)/ejabberd.init $(CURDIR)/debian/
+	install -m 644 $(CURDIR)/ejabberd.service.template $(CURDIR)/debian/ejabberd.service
+	
+	# ejabberd.yml is generated from the template through debconf
 	rm $(DESTDIR)/etc/ejabberd/ejabberd.yml
-	mkdir $(DESTDIR)/etc/init.d $(DESTDIR)/etc/default
-	cp ejabberd.init $(DESTDIR)/etc/init.d/ejabberd
-	install -Dm 0644 ejabberd.service.template $(DESTDIR)/lib/systemd/system/ejabberd.service
+	install -m 644 ejabberd.yml.example $(DESTDIR)/usr/share/ejabberd/ejabberd.yml.example
+	
+	# set up /etc/ejabberd/modules.d
+	cp -v $(CURDIR)/debian/README.modules $(DESTDIR)/etc/ejabberd/modules.d/
+	
+	# ejabberdctl.cfg goes into /etc/default/
 	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
 	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
-	rm -r $(DESTDIR)/var/lock
-	rm -rf $(DESTDIR)/usr/lib/$(DPKG_CACHE_DEB_BUILD_MULTIARCH)/ejabberd/priv/lib
-	rm $(DESTDIR)/usr/share/doc/ejabberd/COPYING
-	mkdir $(DESTDIR)/usr/share/ejabberd
-	cp ejabberd.yml.example $(DESTDIR)/usr/share/ejabberd/ejabberd.yml.example
+	# TODO: Are these two lines needed? why not in upstream package?
+	#rm -rf $(DESTDIR)/usr/lib/$(DPKG_CACHE_DEB_BUILD_MULTIARCH)/ejabberd/priv/lib
+	#rm $(DESTDIR)/usr/share/doc/ejabberd/COPYING
+	
+	# install ufw profile
+	install -m 644 debian/ejabberd.ufw.profile $(DESTDIR)/etc/ufw/applications.d/ejabberd
+	
+	# install AppArmor profile
+	install -m 644 debian/usr.sbin.ejabberdctl $(DESTDIR)/etc/apparmor.d/usr.sbin.ejabberdctl
+	dh_apparmor --profile-name=usr.sbin.ejabberdctl
+	
+.PHONY: override_dh_installinit
+override_dh_installinit:
+	dh_installinit -vR
+
+.PHONY: override_dh_systemd_start
+override_dh_systemd_start:
+	dh_systemd_start --restart-after-upgrade
 
 .PHONY: override_dh_compress
 override_dh_compress:
 	dh_compress --exclude=ejabberd.yml
 
+.PHONY: override_dh_auto_test
+override_dh_auto_test:
+
 .PHONY: override_dh_installdeb
 override_dh_installdeb:
 	erlang-depends
+	rm -rf $(DESTDIR)/var/lock $(DESTDIR)/usr/bin
+	rm -f $(DESTDIR)/usr/share/doc/ejabberd/COPYING.gz
 	dh_installdeb
 
 .PHONY: override_dh_auto_clean
 override_dh_auto_clean:
-	rm -rf Makefile config.log config.status src/ejabberd.app.src vars.config ebin \
-		ejabberd.init ejabberdctl.example include/XmppAddr.hrl src/XmppAddr.asn1db \
-		src/XmppAddr.erl src/eldap_filter_yecc.erl
+	rm -f Makefile config.log config.status vars.config priv/sql
+	rm -rf .rebar deps ebin include/XmppAddr.hrl src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
+	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example
 	dh_auto_clean
+	debconf-updatepo
