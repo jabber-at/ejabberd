@@ -50,6 +50,8 @@ Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
  		erlang-p1-xml        (>= 1.1.1),
  		erlang-p1-yaml       (>= 1.0.0),
  		erlang-p1-zlib       (>= 1.0.0),
+ 		erlang-p1-sip        (>= 1.0.0),
+ 		erlang-p1-stun       (>= 0.2016.01.05),
  		erlang-xmerl
 Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
  		ejabberd-contrib     (>> 0.2015.08),
@@ -57,8 +59,6 @@ Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsm
  		erlang-p1-mysql      (>= 1.0.0),
  		erlang-p1-pam        (>= 1.0.0),
  		erlang-p1-pgsql      (>= 1.0.0),
- 		erlang-p1-sip        (>= 1.0.0),
- 		erlang-p1-stun       (>= 0.2016.01.05),
  		erlang-riak,
  		erlang-sqlite3,
  		erlang-redis-client
