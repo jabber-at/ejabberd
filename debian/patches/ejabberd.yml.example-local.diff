@@ -29,7 +29,7 @@
  ## Full path to a script that generates the image.
  ##
 -## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
-+## captcha_cmd: "/usr/lib/ejabberd/priv/bin/captcha.sh"
++## captcha_cmd: "/usr/share/ejabberd/captcha.sh"
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.

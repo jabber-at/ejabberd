@@ -46,8 +46,8 @@ override_dh_auto_install:
 	install -m 644 debian/usr.sbin.ejabberdctl $(DESTDIR)/etc/apparmor.d/usr.sbin.ejabberdctl
 	dh_apparmor --profile-name=usr.sbin.ejabberdctl
 	
-	# make symlink
-	ln -s /usr/lib/ejabberd-16.01 $(DESTDIR)/usr/lib/ejabberd
+	# move captcha.sh to /usr/share/ejabberd
+	mv $(DESTDIR)/usr/lib/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin/captcha.sh $(DESTDIR)/usr/share/ejabberd/
 	
 .PHONY: override_dh_installinit
 override_dh_installinit:

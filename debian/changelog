@@ -1,3 +1,9 @@
+ejabberd (1:16.01-2) unstable; urgency=low
+
+  * Install the captcha script to /usr/share/ejabberd.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 31 Jan 2016 13:35:52 +0100
+
 ejabberd (1:16.01-1) unstable; urgency=low
 
   * Version bump from upstream.
