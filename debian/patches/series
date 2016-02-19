@@ -13,3 +13,4 @@ ejabberd.yml.example-local.diff
 failed_auth.patch
 debug_scram.patch
 ejabberd-16.01-mam.diff
+fix-muc-status.patch
