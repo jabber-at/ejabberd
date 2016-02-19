@@ -1,6 +1,7 @@
 ejabberd (1:16.01-3) unstable; urgency=low
 
   * Add fix-muc-status.patch.
+  * Remove debug_scram.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 19 Feb 2016 20:39:29 +0100
 
