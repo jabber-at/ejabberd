@@ -1,3 +1,9 @@
+ejabberd (1:16.02-1) unstable; urgency=low
+
+  * Version bump from upstream.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 06 Mar 2016 17:29:33 +0100
+
 ejabberd (1:16.01-3) unstable; urgency=low
 
   * Add fix-muc-status.patch.
