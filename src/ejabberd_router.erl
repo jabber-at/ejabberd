@@ -5,7 +5,7 @@
 %%% Created : 27 Nov 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -86,7 +86,7 @@ route(From, To, Packet) ->
 
 route_error(From, To, ErrPacket, OrigPacket) ->
     #xmlel{attrs = Attrs} = OrigPacket,
-    case <<"error">> == xml:get_attr_s(<<"type">>, Attrs) of
+    case <<"error">> == fxml:get_attr_s(<<"type">>, Attrs) of
       false -> route(From, To, ErrPacket);
       true -> ok
     end.
@@ -344,8 +344,8 @@ do_route(OrigFrom, OrigTo, OrigPacket) ->
 		end;
 	    Rs ->
 		Value = case
-			  ejabberd_config:get_local_option({domain_balancing,
-							    LDstDomain}, fun(D) when is_atom(D) -> D end)
+			  ejabberd_config:get_option({domain_balancing,
+						      LDstDomain}, fun(D) when is_atom(D) -> D end)
 			    of
 			  undefined -> p1_time_compat:monotonic_time();
 			  random -> p1_time_compat:monotonic_time();
@@ -408,7 +408,13 @@ update_tables() ->
       false -> ok
     end.
 
-
+opt_type(domain_balancing) ->
+    fun (random) -> random;
+	(source) -> source;
+	(destination) -> destination;
+	(bare_source) -> bare_source;
+	(bare_destination) -> bare_destination
+    end;
 opt_type(domain_balancing_component_number) ->
     fun (N) when is_integer(N), N > 1 -> N end;
-opt_type(_) -> [domain_balancing_component_number].
+opt_type(_) -> [domain_balancing, domain_balancing_component_number].

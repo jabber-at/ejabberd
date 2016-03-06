@@ -32,7 +32,7 @@
 -include("ejabberd_commands.hrl").
 -include("ejabberd.hrl").
 
--define(RAW(V), if HTMLOutput -> xml:crypt(iolist_to_binary(V)); true -> iolist_to_binary(V) end).
+-define(RAW(V), if HTMLOutput -> fxml:crypt(iolist_to_binary(V)); true -> iolist_to_binary(V) end).
 -define(TAG(N), if HTMLOutput -> [<<"<", ??N, "/>">>]; true -> md_tag(N, <<"">>) end).
 -define(TAG(N, V), if HTMLOutput -> [<<"<", ??N, ">">>, V, <<"</", ??N, ">">>]; true -> md_tag(N, V) end).
 -define(TAG(N, C, V), if HTMLOutput -> [<<"<", ??N, " class='", C, "'>">>, V, <<"</", ??N, ">">>]; true -> md_tag(N, V) end).
@@ -75,13 +75,13 @@ md_tag(dd, V) ->
 md_tag(li, V) ->
     [<<"- ">>, V, <<"\n">>];
 md_tag(pre, V) ->
-    [<<"\n">>, V, <<"\n">>];
+    [V, <<"\n">>];
 md_tag(p, V) ->
     [<<"\n\n">>, V, <<"\n">>];
 md_tag(h1, V) ->
-    [<<"\n## ">>, V, <<"\n">>];
+    [<<"\n\n## ">>, V, <<"\n">>];
 md_tag(h2, V) ->
-    [<<"\n### ">>, V, <<"\n">>];
+    [<<"\n\n### ">>, V, <<"\n">>];
 md_tag(strong, V) ->
     [<<"*">>, V, <<"*">>];
 md_tag(_, V) ->
@@ -111,7 +111,7 @@ perl_gen({Name, {list, ElDesc}}, List, Indent, HTMLOutput) ->
     [?ARG(Name), ?OP_L(" => ["), list_join_with(Res, [?OP_L(", ")]), ?OP_L("]")].
 
 perl_call(Name, ArgsDesc, Values, HTMLOutput) ->
-    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"    #!perl\n">>} end,
+    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"~~~ perl\n">>} end,
     [Preamble,
      Indent, ?ID_L("XMLRPC::Lite"), ?OP_L("->"), ?ID_L("proxy"), ?OP_L("("), ?ID_L("$url"), ?OP_L(")->"),
      ?ID_L("call"), ?OP_L("("), ?STR_A(Name), ?OP_L(", {"), ?BR, Indent, <<"  ">>,
@@ -150,7 +150,7 @@ java_gen({Name, {list, ElDesc}}, List, Indent, HTMLOutput) ->
      list_join_with(Res, [?OP_L(","), NI]), NI2, ?OP_L("});")].
 
 java_call(Name, ArgsDesc, Values, HTMLOutput) ->
-    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"    #!java\n">>} end,
+    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"~~~ java\n">>} end,
     [Preamble,
      Indent, ?ID_L("XmlRpcClientConfigImpl config"), ?OP_L(" = "), ?KW_L("new "), ?ID_L("XmlRpcClientConfigImpl"), ?OP_L("();"), ?BR,
      Indent, ?ID_L("config"), ?OP_L("."), ?ID_L("setServerURL"), ?OP_L("("), ?ID_L("url"), ?OP_L(");"), ?BR, Indent, ?BR,
@@ -158,7 +158,7 @@ java_call(Name, ArgsDesc, Values, HTMLOutput) ->
      Indent, ?ID_L("client"), ?OP_L("."), ?ID_L("setConfig"), ?OP_L("("), ?ID_L("config"), ?OP_L(");"), ?BR, Indent, ?BR,
      Indent, ?ID_L("client"), ?OP_L("."), ?ID_L("execute"), ?OP_L("("), ?STR_A(Name), ?OP_L(", "),
      java_gen_map(lists:map(fun({A,B})->java_gen(A, B, Indent, HTMLOutput) end, lists:zip(ArgsDesc, Values)), Indent, HTMLOutput),
-     ?OP_L(");"), ?BR].
+     ?OP_L(");")].
 
 -define(XML_S(N, V), ?OP_L("<"), ?FIELD_L(??N), ?OP_L(">"), V).
 -define(XML_E(N), ?OP_L("</"), ?FIELD_L(??N), ?OP_L(">")).
@@ -202,7 +202,7 @@ xml_gen({Name, {list, ElDesc}}, List, Indent, HTMLOutput) ->
           ?XML(value, Indent, 1, [?XML(array, Indent, 2, [?XML(data, Indent, 3, Res)])])])].
 
 xml_call(Name, ArgsDesc, Values, HTMLOutput) ->
-    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"    #!xml">>} end,
+    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"~~~ xml">>} end,
     Res = lists:map(fun({A, B}) -> xml_gen(A, B, <<Indent/binary, "          ">>, HTMLOutput) end, lists:zip(ArgsDesc, Values)),
     [Preamble,
      ?XML(methodCall, Indent,
@@ -241,7 +241,7 @@ json_gen({_Name, {list, ElDesc}}, List, Indent, HTMLOutput) ->
     [?OP_L("["), ?BR, Indent2, list_join_with(Res, [?OP_L(","), ?BR, Indent2]), ?BR, Indent, ?OP_L("]")].
 
 json_call(Name, ArgsDesc, Values, ResultDesc, Result, HTMLOutput) ->
-    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"    #!json\n">>} end,
+    {Indent, Preamble} = if HTMLOutput -> {<<"">>, []}; true -> {<<"    ">>, <<"~~~ json\n">>} end,
     {Code, ResultStr} = case {ResultDesc, Result} of
                             {{_, rescode}, V} when V == true; V == ok ->
                                 {200, [?STR_L("")]};
@@ -324,10 +324,16 @@ gen_calls(#ejabberd_commands{args_example=Values, args=ArgsDesc,
                    case lists:member(<<"xmlrpc">>, Langs) of true -> ?TAG(li, ?TAG(pre, XML)); _ -> [] end,
                    case lists:member(<<"json">>, Langs) of true -> ?TAG(li, ?TAG(pre, JSON)); _ -> [] end])];
        true ->
-            [case lists:member(<<"java">>, Langs) of true -> [<<"Java example\n\n">>, ?TAG(pre, Java)]; _ -> [] end,
-             case lists:member(<<"perl">>, Langs) of true -> [<<"Perl example\n\n">>, ?TAG(pre, Perl)]; _ -> [] end,
-             case lists:member(<<"xmlrpc">>, Langs) of true -> [<<"XmlRPC example\n\n">>, ?TAG(pre, XML)]; _ -> [] end,
-             case lists:member(<<"json">>, Langs) of true -> [<<"JSON example\n\n">>, ?TAG(pre, JSON)]; _ -> [] end]
+            [<<"\n">>, case lists:member(<<"java">>, Langs) of true -> <<"* Java\n">>; _ -> [] end,
+             case lists:member(<<"perl">>, Langs) of true -> <<"* Perl\n">>; _ -> [] end,
+             case lists:member(<<"xmlrpc">>, Langs) of true -> <<"* XmlRPC\n">>; _ -> [] end,
+             case lists:member(<<"json">>, Langs) of true -> <<"* JSON\n">>; _ -> [] end,
+             <<"{: .code-samples-labels}\n">>,
+             case lists:member(<<"java">>, Langs) of true -> [<<"\n* ">>, ?TAG(pre, Java), <<"~~~\n">>]; _ -> [] end,
+             case lists:member(<<"perl">>, Langs) of true -> [<<"\n* ">>, ?TAG(pre, Perl), <<"~~~\n">>]; _ -> [] end,
+             case lists:member(<<"xmlrpc">>, Langs) of true -> [<<"\n* ">>, ?TAG(pre, XML), <<"~~~\n">>]; _ -> [] end,
+             case lists:member(<<"json">>, Langs) of true -> [<<"\n* ">>, ?TAG(pre, JSON), <<"~~~\n">>]; _ -> [] end,
+             <<"{: .code-samples-tabs}\n\n">>]
     end.
 
 gen_doc(#ejabberd_commands{name=Name, tags=_Tags, desc=Desc, longdesc=LongDesc,
@@ -354,8 +360,9 @@ gen_doc(#ejabberd_commands{name=Name, tags=_Tags, desc=Desc, longdesc=LongDesc,
                      none ->
                          [?RAW(io_lib:format("~p", [Result]))];
                      _ ->
-                         [?RAW(io_lib:format("~p", [Result])),
-                          ?TAG_R(p, ResultDesc)]
+                         [?TAG(dl, [
+			       ?TAG(dt, io_lib:format("~p", [Result])),
+			       ?TAG_R(dd, ResultDesc)])]
                  end,
 
     [?TAG(h1, [?TAG(strong, atom_to_list(Name)), <<" - ">>, ?RAW(Desc)]),
@@ -367,10 +374,27 @@ gen_doc(#ejabberd_commands{name=Name, tags=_Tags, desc=Desc, longdesc=LongDesc,
      ?TAG(h2, <<"Examples:">>),
      gen_calls(Cmd, HTMLOutput, Langs)].
 
+find_commands_definitions() ->
+    case code:lib_dir(ejabberd, ebin) of
+        {error, _} ->
+            lists:map(fun({N, _, _}) ->
+                              ejabberd_commands:get_command_definition(N)
+                      end, ejabberd_commands:list_commands());
+        Path ->
+            lists:flatmap(fun(P) ->
+                                  Mod = list_to_atom(filename:rootname(P)),
+                                  code:ensure_loaded(Mod),
+                                  case erlang:function_exported(Mod, get_commands_spec, 0) of
+                                      true ->
+                                          apply(Mod, get_commands_spec, []);
+                                      _ ->
+                                          []
+                                  end
+                          end, filelib:wildcard("*.beam", Path))
+    end.
+
 generate_html_output(File, RegExp, Languages) ->
-    Cmds = lists:map(fun({N, _, _}) ->
-                             ejabberd_commands:get_command_definition(N)
-                     end, ejabberd_commands:list_commands()),
+    Cmds = find_commands_definitions(),
     {ok, RE} = re:compile(RegExp),
     Cmds2 = lists:filter(fun(#ejabberd_commands{name=Name, module=Module}) ->
                                  re:run(atom_to_list(Name), RE, [{capture, none}]) == match orelse
@@ -387,9 +411,7 @@ generate_html_output(File, RegExp, Languages) ->
     ok.
 
 generate_md_output(File, RegExp, Languages) ->
-    Cmds = lists:map(fun({N, _, _}) ->
-                             ejabberd_commands:get_command_definition(N)
-                     end, ejabberd_commands:list_commands()),
+    Cmds = find_commands_definitions(),
     {ok, RE} = re:compile(RegExp),
     Cmds2 = lists:filter(fun(#ejabberd_commands{name=Name, module=Module}) ->
                                  re:run(atom_to_list(Name), RE, [{capture, none}]) == match orelse
@@ -399,9 +421,10 @@ generate_md_output(File, RegExp, Languages) ->
                                N1 =< N2
                        end, Cmds2),
     Langs = binary:split(Languages, <<",">>, [global]),
+    Header = <<"---\ntitle: Administration API reference\nbodyclass: nocomment\n---">>,
     Out = lists:map(fun(C) -> gen_doc(C, false, Langs) end, Cmds3),
     {ok, Fh} = file:open(File, [write]),
-    io:format(Fh, "~s", [[Out]]),
+    io:format(Fh, "~s~s", [Header, Out]),
     file:close(Fh),
     ok.
 

@@ -3,10 +3,10 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 2.1.0-alpha\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2015-09-07 14:13+0100\n"
+"PO-Revision-Date: 2016-01-15 12:25+0100\n"
 "Last-Translator: Badlop <badlop@process-one.net>\n"
-"Language-Team: American English <kde-i18n-doc@kde.org>\n"
-"Language: en_US\n"
+"Language-Team: \n"
+"Language: ca\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -32,13 +32,13 @@ msgstr "Reemplaçat per una nova connexió"
 msgid "has been kicked"
 msgstr "Has sigut expulsat"
 
-#: ejabberd_c2s.erl:2112
+#: ejabberd_c2s.erl:2114
 msgid "Your active privacy list has denied the routing of this stanza."
 msgstr ""
 "La teva llista de privacitat activa ha denegat l'encaminament d'aquesta "
 "stanza."
 
-#: ejabberd_c2s.erl:2427
+#: ejabberd_c2s.erl:2429
 msgid "Too many unacked stanzas"
 msgstr "Massa missatges sense haver reconegut la seva recepció"
 
@@ -69,9 +69,8 @@ msgid "User"
 msgstr "Usuari"
 
 #: ejabberd_oauth.erl:256
-#, fuzzy
 msgid "Server"
-msgstr "Servidor:"
+msgstr "Servidor"
 
 #: ejabberd_oauth.erl:259 ejabberd_web_admin.erl:1408 mod_configure.erl:1398
 #: mod_configure.erl:1485 mod_configure.erl:1889 mod_configure.erl:2123
@@ -81,7 +80,7 @@ msgstr "Contrasenya"
 
 #: ejabberd_oauth.erl:267
 msgid "Accept"
-msgstr ""
+msgstr "Acceptar"
 
 #: ejabberd_web_admin.erl:202 ejabberd_web_admin.erl:214
 #: ejabberd_web_admin.erl:234 ejabberd_web_admin.erl:246
@@ -248,9 +247,8 @@ msgid "Outgoing s2s Connections:"
 msgstr "Connexions d'eixida s2s"
 
 #: ejabberd_web_admin.erl:1559
-#, fuzzy
 msgid "Incoming s2s Connections:"
-msgstr "Connexions d'eixida s2s"
+msgstr "Connexions s2s d'entrada"
 
 #: ejabberd_web_admin.erl:1595 ejabberd_web_admin.erl:1794
 #: ejabberd_web_admin.erl:1804 ejabberd_web_admin.erl:2214 mod_roster.erl:1429
@@ -849,13 +847,13 @@ msgstr ""
 "Massa autenticacions (~p) han fallat des d'aquesta adreça IP (~s). L'adreça "
 "serà desbloquejada en ~s UTC"
 
-#: mod_http_upload.erl:593
+#: mod_http_upload.erl:586
 msgid "Please specify file size."
-msgstr ""
+msgstr "Per favor especifica la mida del fitxer."
 
-#: mod_http_upload.erl:597
+#: mod_http_upload.erl:590
 msgid "Please specify file name."
-msgstr ""
+msgstr "Per favor especifica el nom del fitxer."
 
 #: mod_ip_blacklist.erl:121
 msgid "This IP address is blacklisted in ~s"
@@ -973,10 +971,9 @@ msgstr "Codificació pel servidor ~b"
 msgid "Server ~b"
 msgstr "Servidor ~b"
 
-#: mod_mam.erl:270
-#, fuzzy
-msgid "Only members are allowed to query archives of this room"
-msgstr "Només els moderadors poden canviar l'assumpte d'aquesta sala"
+#: mod_mam.erl:541
+msgid "Only members may query archives of this room"
+msgstr "Només membres poden consultar l'arxiu de missatges d'aquesta sala"
 
 #: mod_muc.erl:585
 msgid "Only service administrators are allowed to send service messages"
@@ -996,37 +993,37 @@ msgstr "La sala de conferències no existeix"
 msgid "Chatrooms"
 msgstr "Sales de xat"
 
-#: mod_muc.erl:779
+#: mod_muc.erl:781
 msgid "Empty Rooms"
-msgstr ""
+msgstr "Sales buides "
 
-#: mod_muc.erl:931
+#: mod_muc.erl:933
 msgid "You need a client that supports x:data to register the nickname"
 msgstr ""
 "Necessites un client amb suport x:data per a poder registrar el sobrenom"
 
-#: mod_muc.erl:941
+#: mod_muc.erl:943
 msgid "Nickname Registration at "
 msgstr "Registre del sobrenom en "
 
-#: mod_muc.erl:947
+#: mod_muc.erl:949
 msgid "Enter nickname you want to register"
 msgstr "Introdueix el sobrenom que vols registrar"
 
-#: mod_muc.erl:948 mod_muc_room.erl:4351 mod_roster.erl:1435 mod_vcard.erl:490
+#: mod_muc.erl:950 mod_muc_room.erl:4353 mod_roster.erl:1435 mod_vcard.erl:490
 #: mod_vcard.erl:621
 msgid "Nickname"
 msgstr "Sobrenom"
 
-#: mod_muc.erl:1060 mod_muc_room.erl:1104 mod_muc_room.erl:1843
+#: mod_muc.erl:1062 mod_muc_room.erl:1104 mod_muc_room.erl:1843
 msgid "That nickname is registered by another person"
 msgstr "El nickname ja està registrat per una altra persona"
 
-#: mod_muc.erl:1088
+#: mod_muc.erl:1090
 msgid "You must fill in field \"Nickname\" in the form"
 msgstr "Deus d'omplir el camp \"Nickname\" al formulari"
 
-#: mod_muc.erl:1111
+#: mod_muc.erl:1113
 msgid "ejabberd MUC module"
 msgstr "mòdul ejabberd MUC"
 
@@ -1193,9 +1190,11 @@ msgstr "El llímit de tràfic ha sigut sobrepassat"
 
 #: mod_muc_room.erl:230 mod_muc_room.erl:518 mod_muc_room.erl:1059
 msgid ""
-"It is not allowed to send error messages to the room. This participant (~s) "
-"sent an error message (~s) and gets kicked from the room"
+"It is not allowed to send error messages to the room. The participant (~s) "
+"has sent an error message (~s) and got kicked from the room"
 msgstr ""
+"No està permés enviar missatges d'error a la sala. El participant (~s) ha "
+"enviat un missatge d'error (~s) i ha sigut expulsat de la sala"
 
 #: mod_muc_room.erl:241
 msgid "It is not allowed to send private messages to the conference"
@@ -1233,7 +1232,7 @@ msgstr "El receptor no està en la sala de conferència"
 msgid "It is not allowed to send private messages"
 msgstr "No està permés enviar missatges privats"
 
-#: mod_muc_room.erl:588 mod_muc_room.erl:983 mod_muc_room.erl:4592
+#: mod_muc_room.erl:588 mod_muc_room.erl:983 mod_muc_room.erl:4594
 msgid "Only occupants are allowed to send messages to the conference"
 msgstr "Sols els ocupants poden enviar missatges a la sala"
 
@@ -1317,7 +1316,7 @@ msgstr "Afiliació invàlida: ~s"
 msgid "Invalid role: ~s"
 msgstr "Rol invàlid: ~s"
 
-#: mod_muc_room.erl:3155 mod_muc_room.erl:3187 mod_muc_room.erl:4234
+#: mod_muc_room.erl:3155 mod_muc_room.erl:3187 mod_muc_room.erl:4236
 msgid "Owner privileges required"
 msgstr "Es requerixen privilegis de propietari de la sala"
 
@@ -1329,7 +1328,7 @@ msgstr "Configuració de la sala ~s"
 msgid "Room title"
 msgstr "Títol de la sala"
 
-#: mod_muc_room.erl:3361 mod_muc_room.erl:4188
+#: mod_muc_room.erl:3361 mod_muc_room.erl:4190
 msgid "Room description"
 msgstr "Descripció de la sala:"
 
@@ -1371,20 +1370,19 @@ msgstr "qualsevol"
 
 #: mod_muc_room.erl:3471
 msgid "Roles for which Presence is Broadcasted"
-msgstr ""
+msgstr "Rols per als que sí se difon la seua presencia"
 
 #: mod_muc_room.erl:3486
-#, fuzzy
 msgid "Moderator"
-msgstr "només moderadors"
+msgstr "Moderador"
 
 #: mod_muc_room.erl:3496
 msgid "Participant"
-msgstr ""
+msgstr "Participant"
 
 #: mod_muc_room.erl:3506
 msgid "Visitor"
-msgstr ""
+msgstr "Visitant"
 
 #: mod_muc_room.erl:3513
 msgid "Make room members-only"
@@ -1460,35 +1458,35 @@ msgstr "Habilitar el registre de la conversa"
 msgid "You need an x:data capable client to configure room"
 msgstr "Necessites un client amb suport x:data per a configurar la sala"
 
-#: mod_muc_room.erl:4190
+#: mod_muc_room.erl:4192
 msgid "Number of occupants"
 msgstr "Número d'ocupants"
 
-#: mod_muc_room.erl:4260
+#: mod_muc_room.erl:4262
 msgid "private, "
 msgstr "privat"
 
-#: mod_muc_room.erl:4324
+#: mod_muc_room.erl:4326
 msgid "Voice request"
 msgstr "Petició de veu"
 
-#: mod_muc_room.erl:4329
+#: mod_muc_room.erl:4331
 msgid "Either approve or decline the voice request."
 msgstr "Aprova o denega la petició de veu"
 
-#: mod_muc_room.erl:4349
+#: mod_muc_room.erl:4351
 msgid "User JID"
 msgstr "JID del usuari "
 
-#: mod_muc_room.erl:4353
+#: mod_muc_room.erl:4355
 msgid "Grant voice to this person?"
 msgstr "Concedir veu a aquesta persona?"
 
-#: mod_muc_room.erl:4496
+#: mod_muc_room.erl:4498
 msgid "~s invites you to the room ~s"
 msgstr "~s et convida a la sala ~s"
 
-#: mod_muc_room.erl:4507
+#: mod_muc_room.erl:4509
 msgid "the password is"
 msgstr "la contrasenya és"
 

@@ -5,7 +5,7 @@
 %%% Created : 31 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -252,11 +252,11 @@ start_apps() ->
     crypto:start(),
     ejabberd:start_app(sasl),
     ejabberd:start_app(ssl),
-    ejabberd:start_app(p1_yaml),
-    ejabberd:start_app(p1_tls),
-    ejabberd:start_app(p1_xml),
-    ejabberd:start_app(p1_stringprep),
-    ejabberd:start_app(p1_zlib),
+    ejabberd:start_app(fast_yaml),
+    ejabberd:start_app(fast_tls),
+    ejabberd:start_app(fast_xml),
+    ejabberd:start_app(stringprep),
+    ejabberd:start_app(ezlib),
     ejabberd:start_app(cache_tab).
 
 opt_type(net_ticktime) ->

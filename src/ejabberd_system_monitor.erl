@@ -5,7 +5,7 @@
 %%% Created : 21 Mar 2007 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -71,7 +71,7 @@ process_command(From, To, Packet) ->
 		    jid:tolower(jid:remove_resource(From)),
 		case lists:member(LFrom, get_admin_jids()) of
 		  true ->
-		      Body = xml:get_path_s(Packet,
+		      Body = fxml:get_path_s(Packet,
 					    [{elem, <<"body">>}, cdata]),
 		      spawn(fun () ->
 				    process_flag(priority, high),

@@ -5,7 +5,7 @@
 %%% Created : 26 Apr 2008 by Evgeniy Khramtsov <xramtsov@gmail.com>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -320,7 +320,7 @@ build_captcha_html(Id, Lang) ->
 -spec process_reply(xmlel()) -> ok | {error, bad_match | not_found | malformed}.
 
 process_reply(#xmlel{} = El) ->
-    case xml:get_subtag(El, <<"x">>) of
+    case fxml:get_subtag(El, <<"x">>) of
       false -> {error, malformed};
       Xdata ->
 	  Fields = jlib:parse_xdata_submit(Xdata),

@@ -5,7 +5,7 @@
 %%% Created : 29 May 2009 by Brian Cully <bjc@kublai.com>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -126,7 +126,7 @@ get_options_xform(Lang, Options) ->
 	    ++ XFields}}.
 
 parse_options_xform(XFields) ->
-    case xml:remove_cdata(XFields) of
+    case fxml:remove_cdata(XFields) of
 	[#xmlel{name = <<"x">>} = XEl] ->
 	    case jlib:parse_xdata_submit(XEl) of
 		XData when is_list(XData) ->

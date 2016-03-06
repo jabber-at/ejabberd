@@ -5,7 +5,7 @@
 %%% Created :  5 Mar 2005 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -206,11 +206,11 @@ get_rosteritem_name([ModVcard], U, S) ->
 
 get_rosteritem_name_vcard([]) -> <<"">>;
 get_rosteritem_name_vcard([Vcard]) ->
-    case xml:get_path_s(Vcard,
+    case fxml:get_path_s(Vcard,
 			[{elem, <<"NICKNAME">>}, cdata])
 	of
       <<"">> ->
-	  xml:get_path_s(Vcard, [{elem, <<"FN">>}, cdata]);
+	  fxml:get_path_s(Vcard, [{elem, <<"FN">>}, cdata]);
       Nickname -> Nickname
     end.
 
@@ -1160,7 +1160,7 @@ list_shared_roster_groups(Host, Query, Lang) ->
 				      [?INPUTT(<<"submit">>, <<"addnew">>,
 					       <<"Add New">>)])])]))])),
     (?H1GL((?T(<<"Shared Roster Groups">>)),
-	   <<"modsharedroster">>, <<"mod_shared_roster">>))
+	   <<"mod_shared_roster">>, <<"mod_shared_roster">>))
       ++
       case Res of
 	ok -> [?XREST(<<"Submitted">>)];
@@ -1254,7 +1254,7 @@ shared_roster_group(Host, Group, Query, Lang) ->
 					     <<"20">>,
 					     list_to_binary(FDisplayedGroups))])])])])),
     (?H1GL((?T(<<"Shared Roster Groups">>)),
-	   <<"modsharedroster">>, <<"mod_shared_roster">>))
+	   <<"mod_shared_roster">>, <<"mod_shared_roster">>))
       ++
       [?XC(<<"h2">>, <<(?T(<<"Group ">>))/binary, Group/binary>>)] ++
 	case Res of

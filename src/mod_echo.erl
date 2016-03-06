@@ -5,7 +5,7 @@
 %%% Created : 15 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -182,7 +182,7 @@ do_client_version(enabled, From, To) ->
     Els = receive
 	    {route, To, From2, IQ} ->
 		#xmlel{name = <<"query">>, children = List} =
-		    xml:get_subtag(IQ, <<"query">>),
+		    fxml:get_subtag(IQ, <<"query">>),
 		List
 	    after 5000 -> % Timeout in miliseconds: 5 seconds
 		      []

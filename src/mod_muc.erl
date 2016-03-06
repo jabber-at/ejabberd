@@ -5,7 +5,7 @@
 %%% Created : 19 Mar 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -58,19 +58,7 @@
 -include("logger.hrl").
 
 -include("jlib.hrl").
-
--record(muc_room, {name_host = {<<"">>, <<"">>} :: {binary(), binary()} |
-                                                   {'_', binary()},
-                   opts = [] :: list() | '_'}).
-
--record(muc_online_room,
-        {name_host = {<<"">>, <<"">>} :: {binary(), binary()} | '$1' |
-                                         {'_', binary()} | '_',
-         pid = self() :: pid() | '$2' | '_' | '$1'}).
-
--record(muc_registered,
-        {us_host = {{<<"">>, <<"">>}, <<"">>} :: {{binary(), binary()}, binary()} | '$1',
-         nick = <<"">> :: binary()}).
+-include("mod_muc.hrl").
 
 -record(state,
 	{host = <<"">> :: binary(),
@@ -234,7 +222,7 @@ remove_room_mam(LServer, Host, Name) ->
 process_iq_disco_items(Host, From, To,
 		       #iq{lang = Lang} = IQ) ->
     Rsm = jlib:rsm_decode(IQ),
-    DiscoNode = xml:get_tag_attr_s(<<"node">>, IQ#iq.sub_el),
+    DiscoNode = fxml:get_tag_attr_s(<<"node">>, IQ#iq.sub_el),
     Res = IQ#iq{type = result,
 		sub_el =
 		    [#xmlel{name = <<"query">>,
@@ -463,7 +451,7 @@ do_route(Host, ServerHost, Access, HistorySize, RoomShaper,
 		From, To, Packet, DefRoomOpts);
 	_ ->
 	    #xmlel{attrs = Attrs} = Packet,
-	    Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
+	    Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
 	    ErrText = <<"Access denied by service policy">>,
 	    Err = jlib:make_error_reply(Packet,
 		    ?ERRT_FORBIDDEN(Lang, ErrText)),
@@ -569,18 +557,18 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
 			_ -> ok
 		      end;
 		  <<"message">> ->
-		      case xml:get_attr_s(<<"type">>, Attrs) of
+		      case fxml:get_attr_s(<<"type">>, Attrs) of
 			<<"error">> -> ok;
 			_ ->
 			    case acl:match_rule(ServerHost, AccessAdmin, From)
 				of
 			      allow ->
-				  Msg = xml:get_path_s(Packet,
+				  Msg = fxml:get_path_s(Packet,
 						       [{elem, <<"body">>},
 							cdata]),
 				  broadcast_service_message(Host, Msg);
 			      _ ->
-				  Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
+				  Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
 				  ErrText =
 				      <<"Only service administrators are allowed "
 					"to send service messages">>,
@@ -593,7 +581,7 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
 		  <<"presence">> -> ok
 		end;
 	    _ ->
-		case xml:get_attr_s(<<"type">>, Attrs) of
+		case fxml:get_attr_s(<<"type">>, Attrs) of
 		  <<"error">> -> ok;
 		  <<"result">> -> ok;
 		  _ ->
@@ -605,11 +593,12 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
       _ ->
 	    case mnesia:dirty_read(muc_online_room, {Room, Host}) of
 		[] ->
-		    Type = xml:get_attr_s(<<"type">>, Attrs),
+		    Type = fxml:get_attr_s(<<"type">>, Attrs),
 		    case {Name, Type} of
 			{<<"presence">>, <<"">>} ->
 			    case check_user_can_create_room(ServerHost,
-				    AccessCreate, From, Room) of
+				    AccessCreate, From, Room) and
+				check_create_roomid(ServerHost, Room) of
 				true ->
 				    {ok, Pid} = start_new_room(Host, ServerHost, Access,
 					    Room, HistorySize,
@@ -618,14 +607,14 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
 				    mod_muc_room:route(Pid, From, Nick, Packet),
 				    ok;
 				false ->
-				    Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
+				    Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
 				    ErrText = <<"Room creation is denied by service policy">>,
 				    Err = jlib:make_error_reply(
 					    Packet, ?ERRT_FORBIDDEN(Lang, ErrText)),
 				    ejabberd_router:route(To, From, Err)
 			    end;
 			_ ->
-			    Lang = xml:get_attr_s(<<"xml:lang">>, Attrs),
+			    Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
 			    ErrText = <<"Conference room does not exist">>,
 			    Err = jlib:make_error_reply(Packet,
 				    ?ERRT_ITEM_NOT_FOUND(Lang, ErrText)),
@@ -640,16 +629,21 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
     end.
 
 check_user_can_create_room(ServerHost, AccessCreate,
-			   From, RoomID) ->
+			   From, _RoomID) ->
     case acl:match_rule(ServerHost, AccessCreate, From) of
-      allow ->
-	  byte_size(RoomID) =<
-	    gen_mod:get_module_opt(ServerHost, ?MODULE, max_room_id,
-                                   fun(infinity) -> infinity;
-                                      (I) when is_integer(I), I>0 -> I
-                                   end, infinity);
+      allow -> true;
       _ -> false
     end.
+
+check_create_roomid(ServerHost, RoomID) ->
+    Max = gen_mod:get_module_opt(ServerHost, ?MODULE, max_room_id,
+				 fun(infinity) -> infinity;
+				    (I) when is_integer(I), I>0 -> I
+				 end, infinity),
+    Regexp = gen_mod:get_module_opt(ServerHost, ?MODULE, regexp_room_id,
+				    fun iolist_to_binary/1, ""),
+    (byte_size(RoomID) =< Max) and
+    (re:run(RoomID, Regexp, [unicode, {capture, none}]) == match).
 
 get_rooms(ServerHost, Host) ->
     LServer = jid:nameprep(ServerHost),
@@ -756,6 +750,8 @@ iq_disco_info(ServerHost, Lang) ->
 	case gen_mod:is_loaded(ServerHost, mod_mam) of
 	    true ->
 		[#xmlel{name = <<"feature">>,
+			attrs = [{<<"var">>, ?NS_MAM_TMP}]},
+		 #xmlel{name = <<"feature">>,
 			attrs = [{<<"var">>, ?NS_MAM_0}]},
 		 #xmlel{name = <<"feature">>,
 			attrs = [{<<"var">>, ?NS_MAM_1}]}];
@@ -1066,12 +1062,12 @@ iq_set_register_info(ServerHost, Host, From, Nick,
 process_iq_register_set(ServerHost, Host, From, SubEl,
 			Lang) ->
     #xmlel{children = Els} = SubEl,
-    case xml:get_subtag(SubEl, <<"remove">>) of
+    case fxml:get_subtag(SubEl, <<"remove">>) of
       false ->
-	  case xml:remove_cdata(Els) of
+	  case fxml:remove_cdata(Els) of
 	    [#xmlel{name = <<"x">>} = XEl] ->
-		case {xml:get_tag_attr_s(<<"xmlns">>, XEl),
-		      xml:get_tag_attr_s(<<"type">>, XEl)}
+		case {fxml:get_tag_attr_s(<<"xmlns">>, XEl),
+		      fxml:get_tag_attr_s(<<"type">>, XEl)}
 		    of
 		  {?NS_XDATA, <<"cancel">>} -> {result, []};
 		  {?NS_XDATA, <<"submit">>} ->
@@ -1109,7 +1105,7 @@ iq_get_vcard(Lang) ->
 		[{xmlcdata,
 		  <<(translate:translate(Lang,
 					 <<"ejabberd MUC module">>))/binary,
-		    "\nCopyright (c) 2003-2015 ProcessOne">>}]}].
+		    "\nCopyright (c) 2003-2016 ProcessOne">>}]}].
 
 broadcast_service_message(Host, Msg) ->
     lists:foreach(
@@ -1327,6 +1323,8 @@ mod_opt_type(max_room_id) ->
     fun (infinity) -> infinity;
 	(I) when is_integer(I), I > 0 -> I
     end;
+mod_opt_type(regexp_room_id) ->
+    fun iolist_to_binary/1;
 mod_opt_type(max_room_name) ->
     fun (infinity) -> infinity;
 	(I) when is_integer(I), I > 0 -> I
@@ -1352,7 +1350,7 @@ mod_opt_type(user_presence_shaper) ->
 mod_opt_type(_) ->
     [access, access_admin, access_create, access_persistent,
      db_type, default_room_options, history_size, host,
-     max_room_desc, max_room_id, max_room_name,
+     max_room_desc, max_room_id, max_room_name, regexp_room_id,
      max_user_conferences, max_users,
      max_users_admin_threshold, max_users_presence,
      min_message_interval, min_presence_interval,

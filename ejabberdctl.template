@@ -31,14 +31,14 @@ if [ "$INSTALLUSER" != "" ] ; then
         fi
     done
     if [ `id -g` -eq `id -g $INSTALLUSER` ] ; then
-        EXEC_CMD="sh -c"
+        EXEC_CMD="bash -c"
     fi
     if [ "$EXEC_CMD" = "false" ] ; then
         echo "This command can only be run by root or the user $INSTALLUSER" >&2
         exit 4
     fi
 else
-    EXEC_CMD="sh -c"
+    EXEC_CMD="bash -c"
 fi
 
 # parse command line parameters
@@ -104,7 +104,6 @@ ERL_INETRC=$ETC_DIR/inetrc
 # define mnesia options
 MNESIA_OPTS="-mnesia dir \"\\\"$SPOOL_DIR\\\"\" $MNESIA_OPTIONS"
 # define erl parameters
-ERL_OPTIONS=$(echo $ERL_OPTIONS | sed 's/ /\\ /g')
 ERLANG_OPTS="+K $POLL -smp $SMP +P $ERL_PROCESSES $ERL_OPTIONS"
 KERNEL_OPTS=""
 if [ "$FIREWALL_WINDOW" != "" ] ; then
@@ -164,7 +163,11 @@ shell_escape()
 {
     local RES=()
     for i in "$@"; do
-        printf '%q ' "$i"
+        if test -z "$i"; then
+            printf '"" '
+        else
+            printf '%q ' "$i"
+        fi
     done
 }
 

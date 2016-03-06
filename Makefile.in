@@ -110,7 +110,7 @@ edoc:
 
 spec:
 	$(ERL) -noinput +B -pa ebin -pa deps/*/ebin -eval \
-	'case xml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
+	'case fxml_gen:compile("tools/xmpp_codec.spec") of ok -> halt(0); _ -> halt(1) end.'
 
 JOIN_PATHS=$(if $(wordlist 2,1000,$(1)),$(firstword $(1))/$(call JOIN_PATHS,$(wordlist 2,1000,$(1))),$(1))
 
@@ -137,7 +137,7 @@ MAIN_FILES=$(filter-out %/configure.beam,$(call FILES_WILDCARD,ebin/*.beam ebin/
 MAIN_DIRS=$(sort $(dir $(MAIN_FILES)) priv/bin priv/sql)
 
 define DEP_VERSION_template
-DEP_$(1)_VERSION:=$(shell $(SED) -e '/vsn/!d;s/.*,"/$(1)-/;s/".*//' $(2) 2>/dev/null)
+DEP_$(1)_VERSION:=$(shell $(SED) -e '/vsn/!d;s/.*, *"/$(1)-/;s/".*//' $(2) 2>/dev/null)
 endef
 
 $(foreach DEP,$(DEPS),$(eval $(call DEP_VERSION_template,$(DEP),deps/$(DEP)/ebin/$(DEP).app)))

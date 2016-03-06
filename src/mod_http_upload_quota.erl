@@ -5,7 +5,7 @@
 %%% Created : 15 Oct 2015 by Holger Weiss <holger@zedat.fu-berlin.de>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2015   ProcessOne
+%%% ejabberd, Copyright (C) 2015-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -62,7 +62,7 @@
 	 access_hard_quota              :: atom(),
 	 max_days                       :: pos_integer() | infinity,
 	 docroot                        :: binary(),
-	 disk_usage = dict:new()        :: term(),
+	 disk_usage = #{}               :: map(),
 	 timers                         :: [timer:tref()]}).
 
 -type state() :: #state{}.
@@ -132,6 +132,7 @@ init({ServerHost, Opts}) ->
 				      fun iolist_to_binary/1,
 				      <<"@HOME@/upload">>),
     DocRoot2 = mod_http_upload:expand_home(str:strip(DocRoot1, right, $/)),
+    DocRoot3 = mod_http_upload:expand_host(DocRoot2, ServerHost),
     Timers = if MaxDays == infinity -> [];
 		true ->
 		     {ok, T1} = timer:send_after(?INITIAL_TIMEOUT, sweep),
@@ -144,7 +145,7 @@ init({ServerHost, Opts}) ->
 		access_soft_quota = AccessSoftQuota,
 		access_hard_quota = AccessHardQuota,
 		max_days = MaxDays,
-		docroot = DocRoot2,
+		docroot = DocRoot3,
 		timers = Timers}}.
 
 -spec handle_call(_, {pid(), _}, state()) -> {noreply, state()}.
@@ -172,7 +173,7 @@ handle_cast({handle_slot_request, #jid{user = U, server = S} = JID, Path, Size},
 		    _ ->
 			0
 		end,
-    OldSize = case dict:find({U, S}, DiskUsage) of
+    OldSize = case maps:find({U, S}, DiskUsage) of
 		  {ok, Value} ->
 		      Value;
 		  error ->
@@ -202,7 +203,7 @@ handle_cast({handle_slot_request, #jid{user = U, server = S} = JID, Path, Size},
 		      enforce_quota(Path, Size, OldSize, SoftQuota, HardQuota)
 	      end,
     NewDiskUsage = if is_integer(NewSize) ->
-			   dict:store({U, S}, NewSize, DiskUsage);
+			   maps:put({U, S}, NewSize, DiskUsage);
 		      true ->
 			   DiskUsage
 		   end,

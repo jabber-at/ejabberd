@@ -5,7 +5,7 @@
 %%% Created : 20 Aug 2015 by Holger Weiss <holger@zedat.fu-berlin.de>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2015   ProcessOne
+%%% ejabberd, Copyright (C) 2015-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -86,7 +86,8 @@
 
 %% Utility functions.
 -export([get_proc_name/2,
-	 expand_home/1]).
+	 expand_home/1,
+	 expand_host/2]).
 
 -include("ejabberd.hrl").
 -include("ejabberd_http.hrl").
@@ -108,7 +109,7 @@
 	 get_url                :: binary(),
 	 service_url            :: binary() | undefined,
 	 thumbnail              :: boolean(),
-	 slots = dict:new()     :: term()}). % dict:dict() requires Erlang 17.
+	 slots = #{}            :: map()}).
 
 -record(media_info,
 	{type   :: binary(),
@@ -273,6 +274,8 @@ init({ServerHost, Opts}) ->
     Thumbnail = gen_mod:get_opt(thumbnail, Opts,
 				fun(B) when is_boolean(B) -> B end,
 				true),
+    DocRoot1 = expand_home(str:strip(DocRoot, right, $/)),
+    DocRoot2 = expand_host(DocRoot1, ServerHost),
     case ServiceURL of
 	undefined ->
 	    ok;
@@ -289,7 +292,7 @@ init({ServerHost, Opts}) ->
 	undefined ->
 	    ok;
 	Mode ->
-	    file:change_mode(DocRoot, Mode)
+	    file:change_mode(DocRoot2, Mode)
     end,
     case Thumbnail of
 	true ->
@@ -309,7 +312,7 @@ init({ServerHost, Opts}) ->
 		secret_length = SecretLength, jid_in_url = JIDinURL,
 		file_mode = FileMode, dir_mode = DirMode,
 		thumbnail = Thumbnail,
-		docroot = expand_home(str:strip(DocRoot, right, $/)),
+		docroot = DocRoot2,
 		put_url = expand_host(str:strip(PutURL, right, $/), ServerHost),
 		get_url = expand_host(str:strip(GetURL, right, $/), ServerHost),
 		service_url = ServiceURL}}.
@@ -509,6 +512,12 @@ expand_home(Subject) ->
     Parts = binary:split(Subject, <<"@HOME@">>, [global]),
     str:join(Parts, list_to_binary(Home)).
 
+-spec expand_host(binary(), binary()) -> binary().
+
+expand_host(Subject, Host) ->
+    Parts = binary:split(Subject, <<"@HOST@">>, [global]),
+    str:join(Parts, Host).
+
 %%--------------------------------------------------------------------
 %% Internal functions.
 %%--------------------------------------------------------------------
@@ -572,12 +581,12 @@ process_iq(_From, invalid, _State) ->
       -> {ok, binary(), pos_integer(), binary()} | {error, xmlel()}.
 
 parse_request(#xmlel{name = <<"request">>, attrs = Attrs} = Request, Lang) ->
-    case xml:get_attr(<<"xmlns">>, Attrs) of
+    case fxml:get_attr(<<"xmlns">>, Attrs) of
 	{value, XMLNS} when XMLNS == ?NS_HTTP_UPLOAD;
 			    XMLNS == ?NS_HTTP_UPLOAD_OLD ->
-	    case {xml:get_subtag_cdata(Request, <<"filename">>),
-		  xml:get_subtag_cdata(Request, <<"size">>),
-		  xml:get_subtag_cdata(Request, <<"content-type">>)} of
+	    case {fxml:get_subtag_cdata(Request, <<"filename">>),
+		  fxml:get_subtag_cdata(Request, <<"size">>),
+		  fxml:get_subtag_cdata(Request, <<"content-type">>)} of
 		{File, SizeStr, ContentType} when byte_size(File) > 0 ->
 		    case catch jlib:binary_to_integer(SizeStr) of
 			Size when is_integer(Size), Size > 0 ->
@@ -676,18 +685,18 @@ create_slot(#state{service_url = ServiceURL},
 -spec add_slot(slot(), pos_integer(), timer:tref(), state()) -> state().
 
 add_slot(Slot, Size, Timer, #state{slots = Slots} = State) ->
-    NewSlots = dict:store(Slot, {Size, Timer}, Slots),
+    NewSlots = maps:put(Slot, {Size, Timer}, Slots),
     State#state{slots = NewSlots}.
 
 -spec get_slot(slot(), state()) -> {ok, {pos_integer(), timer:tref()}} | error.
 
 get_slot(Slot, #state{slots = Slots}) ->
-    dict:find(Slot, Slots).
+    maps:find(Slot, Slots).
 
 -spec del_slot(slot(), state()) -> state().
 
 del_slot(Slot, #state{slots = Slots} = State) ->
-    NewSlots = dict:erase(Slot, Slots),
+    NewSlots = maps:remove(Slot, Slots),
     State#state{slots = NewSlots}.
 
 -spec slot_el(slot() | binary(), state() | binary(), binary()) -> xmlel().
@@ -736,12 +745,6 @@ make_rand_char() ->
 map_int_to_char(N) when N =<  9 -> N + 48; % Digit.
 map_int_to_char(N) when N =< 35 -> N + 55; % Upper-case character.
 map_int_to_char(N) when N =< 61 -> N + 61. % Lower-case character.
-
--spec expand_host(binary(), binary()) -> binary().
-
-expand_host(Subject, Host) ->
-    Parts = binary:split(Subject, <<"@HOST@">>, [global]),
-    str:join(Parts, Host).
 
 -spec yield_content_type(binary()) -> binary().
 
@@ -796,7 +799,7 @@ store_file(Path, Data, FileMode, DirMode, GetPrefix, Slot, Thumbnail) ->
 			    {ok,
 			     [{<<"Content-Type">>,
 			       <<"text/xml; charset=utf-8">>}],
-			     xml:element_to_binary(ThumbEl)};
+			     fxml:element_to_binary(ThumbEl)};
 			pass ->
 			    ok
 		    end;
@@ -974,8 +977,9 @@ remove_user(User, Server) ->
 					 (node) -> node
 				      end,
 				      sha1),
+    DocRoot1 = expand_host(expand_home(DocRoot), ServerHost),
     UserStr = make_user_string(jid:make(User, Server, <<"">>), JIDinURL),
-    UserDir = str:join([expand_home(DocRoot), UserStr], <<$/>>),
+    UserDir = str:join([DocRoot1, UserStr], <<$/>>),
     case del_tree(UserDir) of
 	ok ->
 	    ?INFO_MSG("Removed HTTP upload directory of ~s@~s", [User, Server]);

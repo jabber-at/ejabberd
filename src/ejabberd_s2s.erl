@@ -5,7 +5,7 @@
 %%% Created :  7 Dec 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -42,7 +42,8 @@
 	 clean_temporarily_blocked_table/0,
 	 list_temporarily_blocked_hosts/0,
 	 external_host_overloaded/1, is_temporarly_blocked/1,
-	 check_peer_certificate/3]).
+	 check_peer_certificate/3,
+	 get_commands_spec/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2,
@@ -213,7 +214,7 @@ check_peer_certificate(SockMod, Sock, Peer) ->
 		      end
 		end;
 	    VerifyRes ->
-		{error, p1_tls:get_cert_verify_string(VerifyRes, Cert)}
+		{error, fast_tls:get_cert_verify_string(VerifyRes, Cert)}
 	  end;
       {error, _Reason} ->
 	    {error, <<"Cannot get peer certificate">>};
@@ -239,7 +240,7 @@ init([]) ->
 			 {attributes, record_info(fields, s2s)}]),
     mnesia:add_table_copy(s2s, node(), ram_copies),
     mnesia:subscribe(system),
-    ejabberd_commands:register_commands(commands()),
+    ejabberd_commands:register_commands(get_commands_spec()),
     mnesia:create_table(temporarily_blocked,
 			[{ram_copies, [node()]},
 			 {attributes, record_info(fields, temporarily_blocked)}]),
@@ -265,7 +266,7 @@ handle_info({route, From, To, Packet}, State) ->
 handle_info(_Info, State) -> {noreply, State}.
 
 terminate(_Reason, _State) ->
-    ejabberd_commands:unregister_commands(commands()),
+    ejabberd_commands:unregister_commands(get_commands_spec()),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -307,7 +308,7 @@ do_route(From, To, Packet) ->
 		       #xmlel{name = Name, attrs = NewAttrs, children = Els}),
 	  ok;
       {aborted, _Reason} ->
-	  case xml:get_tag_attr_s(<<"type">>, Packet) of
+	  case fxml:get_tag_attr_s(<<"type">>, Packet) of
 	    <<"error">> -> ok;
 	    <<"result">> -> ok;
 	    _ ->
@@ -469,7 +470,7 @@ send_element(Pid, El) ->
 %%%----------------------------------------------------------------------
 %%% ejabberd commands
 
-commands() ->
+get_commands_spec() ->
     [#ejabberd_commands{name = incoming_s2s_number,
 			tags = [stats, s2s],
 			desc =

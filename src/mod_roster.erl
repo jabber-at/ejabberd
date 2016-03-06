@@ -5,7 +5,7 @@
 %%% Created : 11 Dec 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -50,7 +50,7 @@
 	 webadmin_user/4, get_versioning_feature/2,
 	 roster_versioning_enabled/1, roster_version/2,
 	 record_to_string/1, groups_to_string/1,
-	 mod_opt_type/1]).
+	 mod_opt_type/1, set_roster/1]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -267,7 +267,7 @@ process_iq_get(From, To, #iq{sub_el = SubEl} = IQ) ->
     LServer = From#jid.lserver,
     US = {LUser, LServer},
     try {ItemsToSend, VersionToSend} = case
-					 {xml:get_tag_attr(<<"ver">>, SubEl),
+					 {fxml:get_tag_attr(<<"ver">>, SubEl),
 					  roster_versioning_enabled(LServer),
 					  roster_version_on_db(LServer)}
 					   of
@@ -411,6 +411,13 @@ get_roster(LUser, LServer, odbc) ->
       _ -> []
     end.
 
+set_roster(#roster{us = {LUser, LServer}, jid = LJID} = Item) ->
+    transaction(
+      LServer,
+      fun() ->
+	      roster_subscribe_t(LUser, LServer, LJID, Item)
+      end).
+
 item_to_xml(Item) ->
     Attrs1 = [{<<"jid">>,
 	       jid:to_string(Item#roster.jid)}],
@@ -509,7 +516,7 @@ process_iq_set(From, To, #iq{sub_el = SubEl, id = Id} = IQ) ->
 
 process_item_set(From, To,
 		 #xmlel{attrs = Attrs, children = Els}, Managed) ->
-    JID1 = jid:from_string(xml:get_attr_s(<<"jid">>,
+    JID1 = jid:from_string(fxml:get_attr_s(<<"jid">>,
 					     Attrs)),
     #jid{user = User, luser = LUser, lserver = LServer} =
 	From,
@@ -578,10 +585,10 @@ process_item_els(Item,
 		  | Els]) ->
     case Name of
       <<"group">> ->
-	  Groups = [xml:get_cdata(SEls) | Item#roster.groups],
+	  Groups = [fxml:get_cdata(SEls) | Item#roster.groups],
 	  process_item_els(Item#roster{groups = Groups}, Els);
       _ ->
-	  case xml:get_attr_s(<<"xmlns">>, Attrs) of
+	  case fxml:get_attr_s(<<"xmlns">>, Attrs) of
 	    <<"">> -> process_item_els(Item, Els);
 	    _ ->
 		XEls = [#xmlel{name = Name, attrs = Attrs,
@@ -1082,7 +1089,7 @@ del_roster_t(LUser, LServer, LJID, riak) ->
 
 process_item_set_t(LUser, LServer,
 		   #xmlel{attrs = Attrs, children = Els}) ->
-    JID1 = jid:from_string(xml:get_attr_s(<<"jid">>,
+    JID1 = jid:from_string(fxml:get_attr_s(<<"jid">>,
 					     Attrs)),
     case JID1 of
       error -> ok;
@@ -1383,7 +1390,7 @@ update_roster_table() ->
                              groups = [iolist_to_binary(G) || G <- Gs],
                              askmessage = try iolist_to_binary(Ask)
 					  catch _:_ -> <<"">> end,
-                             xs = [xml:to_xmlel(X) || X <- Xs]}
+                             xs = [fxml:to_xmlel(X) || X <- Xs]}
             end);
       _ ->
 	  ?INFO_MSG("Recreating roster table", []),

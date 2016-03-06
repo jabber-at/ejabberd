@@ -5,7 +5,7 @@
 %%% Created : 23 Sep 2010 by Ahmed Omar
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -52,7 +52,7 @@ check_packet(_, _User, Server, _PrivacyList,
 	     {From, To, #xmlel{name = Name, attrs = Attrs}}, Dir) ->
     case Name of
       <<"presence">> ->
-	  IsSubscription = case xml:get_attr_s(<<"type">>, Attrs)
+	  IsSubscription = case fxml:get_attr_s(<<"type">>, Attrs)
 			       of
 			     <<"subscribe">> -> true;
 			     <<"subscribed">> -> true;

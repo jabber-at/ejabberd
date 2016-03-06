@@ -5,7 +5,7 @@
 %%% Created :  8 Mar 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -111,12 +111,12 @@ register_mechanism(Mechanism, Module, PasswordType) ->
 %%-include("ejabberd.hrl").
 %%-include("jlib.hrl").
 %%check_authzid(_State, Props) ->
-%%    AuthzId = xml:get_attr_s(authzid, Props),
+%%    AuthzId = fxml:get_attr_s(authzid, Props),
 %%    case jid:from_string(AuthzId) of
 %%	error ->
 %%	    {error, "invalid-authzid"};
 %%	JID ->
-%%	    LUser = jid:nodeprep(xml:get_attr_s(username, Props)),
+%%	    LUser = jid:nodeprep(fxml:get_attr_s(username, Props)),
 %%	    {U, S, R} = jid:tolower(JID),
 %%	    case R of
 %%		"" ->

@@ -5,7 +5,7 @@
 %%% Created :  1 Dec 2007 by Christophe Romain <christophe.romain@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -482,7 +482,7 @@ send_loop(State) ->
     -> [xmlel()]
     ).
 disco_local_identity(Acc, _From, To, <<>>, _Lang) ->
-    case lists:member(?PEPNODE, plugins(To#jid.lserver)) of
+    case lists:member(?PEPNODE, plugins(host(To#jid.lserver))) of
 	true ->
 	    [#xmlel{name = <<"identity">>,
 		    attrs = [{<<"category">>, <<"pubsub">>},
@@ -951,7 +951,7 @@ do_route(ServerHost, Access, Plugins, Host, From, To, Packet) ->
 		    case jlib:iq_query_info(Packet) of
 			#iq{type = get, xmlns = ?NS_DISCO_INFO, sub_el = SubEl, lang = Lang} = IQ ->
 			    #xmlel{attrs = QAttrs} = SubEl,
-			    Node = xml:get_attr_s(<<"node">>, QAttrs),
+			    Node = fxml:get_attr_s(<<"node">>, QAttrs),
 			    Info = ejabberd_hooks:run_fold(disco_info, ServerHost,
 				    [],
 				    [ServerHost, ?MODULE, <<>>, <<>>]),
@@ -968,7 +968,7 @@ do_route(ServerHost, Access, Plugins, Host, From, To, Packet) ->
 			    ejabberd_router:route(To, From, Res);
 			#iq{type = get, xmlns = ?NS_DISCO_ITEMS, sub_el = SubEl} = IQ ->
 			    #xmlel{attrs = QAttrs} = SubEl,
-			    Node = xml:get_attr_s(<<"node">>, QAttrs),
+			    Node = fxml:get_attr_s(<<"node">>, QAttrs),
 			    Res = case iq_disco_items(Host, Node, From, jlib:rsm_decode(IQ)) of
 				{result, IQRes} ->
 				    jlib:iq_to_xml(IQ#iq{type = result,
@@ -1022,7 +1022,7 @@ do_route(ServerHost, Access, Plugins, Host, From, To, Packet) ->
 			    ok
 		    end;
 		<<"message">> ->
-		    case xml:get_attr_s(<<"type">>, Attrs) of
+		    case fxml:get_attr_s(<<"type">>, Attrs) of
 			<<"error">> ->
 			    ok;
 			_ ->
@@ -1040,7 +1040,7 @@ do_route(ServerHost, Access, Plugins, Host, From, To, Packet) ->
 		    ok
 	    end;
 	_ ->
-	    case xml:get_attr_s(<<"type">>, Attrs) of
+	    case fxml:get_attr_s(<<"type">>, Attrs) of
 		<<"error">> ->
 		    ok;
 		<<"result">> ->
@@ -1220,7 +1220,7 @@ iq_get_vcard(Lang) ->
 	#xmlel{name = <<"DESC">>, attrs = [],
 	    children = [{xmlcdata,
 		    <<(translate:translate(Lang, <<"ejabberd Publish-Subscribe module">>))/binary,
-			"\nCopyright (c) 2004-2015 ProcessOne">>}]}].
+			"\nCopyright (c) 2004-2016 ProcessOne">>}]}].
 
 -spec(iq_pubsub/6 ::
     (
@@ -1236,7 +1236,7 @@ iq_get_vcard(Lang) ->
     ).
 
 iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang) ->
-    iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, all, plugins(ServerHost)).
+    iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, all, plugins(Host)).
 
 -spec(iq_pubsub/8 ::
     (
@@ -1255,16 +1255,16 @@ iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang) ->
 
 iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, Access, Plugins) ->
     #xmlel{children = SubEls} = SubEl,
-    case xml:remove_cdata(SubEls) of
+    case fxml:remove_cdata(SubEls) of
 	[#xmlel{name = Name, attrs = Attrs, children = Els} | Rest] ->
-	    Node = xml:get_attr_s(<<"node">>, Attrs),
+	    Node = fxml:get_attr_s(<<"node">>, Attrs),
 	    case {IQType, Name} of
 		{set, <<"create">>} ->
 		    Config = case Rest of
 			[#xmlel{name = <<"configure">>, children = C}] -> C;
 			_ -> []
 		    end,
-		    Type = case xml:get_attr_s(<<"type">>, Attrs) of
+		    Type = case fxml:get_attr_s(<<"type">>, Attrs) of
 			<<>> -> hd(Plugins);
 			T -> T
 		    end,
@@ -1276,10 +1276,10 @@ iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, Access, Plugins) ->
 			    create_node(Host, ServerHost, Node, From, Type, Access, Config)
 		    end;
 		{set, <<"publish">>} ->
-		    case xml:remove_cdata(Els) of
+		    case fxml:remove_cdata(Els) of
 			[#xmlel{name = <<"item">>, attrs = ItemAttrs,
 					children = Payload}] ->
-			    ItemId = xml:get_attr_s(<<"id">>, ItemAttrs),
+			    ItemId = fxml:get_attr_s(<<"id">>, ItemAttrs),
 			    publish_item(Host, ServerHost, Node, From, ItemId, Payload, Access);
 			[] ->
 			    {error,
@@ -1289,14 +1289,14 @@ iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, Access, Plugins) ->
 				extended_error(?ERR_BAD_REQUEST, <<"invalid-payload">>)}
 		    end;
 		{set, <<"retract">>} ->
-		    ForceNotify = case xml:get_attr_s(<<"notify">>, Attrs) of
+		    ForceNotify = case fxml:get_attr_s(<<"notify">>, Attrs) of
 			<<"1">> -> true;
 			<<"true">> -> true;
 			_ -> false
 		    end,
-		    case xml:remove_cdata(Els) of
+		    case fxml:remove_cdata(Els) of
 			[#xmlel{name = <<"item">>, attrs = ItemAttrs}] ->
-			    ItemId = xml:get_attr_s(<<"id">>, ItemAttrs),
+			    ItemId = fxml:get_attr_s(<<"id">>, ItemAttrs),
 			    delete_item(Host, Node, From, ItemId, ForceNotify);
 			_ ->
 			    {error,
@@ -1307,37 +1307,37 @@ iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, Access, Plugins) ->
 			[#xmlel{name = <<"options">>, children = C}] -> C;
 			_ -> []
 		    end,
-		    JID = xml:get_attr_s(<<"jid">>, Attrs),
+		    JID = fxml:get_attr_s(<<"jid">>, Attrs),
 		    subscribe_node(Host, Node, From, JID, Config);
 		{set, <<"unsubscribe">>} ->
-		    JID = xml:get_attr_s(<<"jid">>, Attrs),
-		    SubId = xml:get_attr_s(<<"subid">>, Attrs),
+		    JID = fxml:get_attr_s(<<"jid">>, Attrs),
+		    SubId = fxml:get_attr_s(<<"subid">>, Attrs),
 		    unsubscribe_node(Host, Node, From, JID, SubId);
 		{get, <<"items">>} ->
-		    MaxItems = xml:get_attr_s(<<"max_items">>, Attrs),
-		    SubId = xml:get_attr_s(<<"subid">>, Attrs),
+		    MaxItems = fxml:get_attr_s(<<"max_items">>, Attrs),
+		    SubId = fxml:get_attr_s(<<"subid">>, Attrs),
 		    ItemIds = lists:foldl(fun
 				(#xmlel{name = <<"item">>, attrs = ItemAttrs}, Acc) ->
-				    case xml:get_attr_s(<<"id">>, ItemAttrs) of
+				    case fxml:get_attr_s(<<"id">>, ItemAttrs) of
 					<<>> -> Acc;
 					ItemId -> [ItemId | Acc]
 				    end;
 				(_, Acc) ->
 				    Acc
 			    end,
-			    [], xml:remove_cdata(Els)),
+			    [], fxml:remove_cdata(Els)),
 		    get_items(Host, Node, From, SubId, MaxItems, ItemIds, jlib:rsm_decode(SubEl));
 		{get, <<"subscriptions">>} ->
 		    get_subscriptions(Host, Node, From, Plugins);
 		{get, <<"affiliations">>} ->
 		    get_affiliations(Host, Node, From, Plugins);
 		{get, <<"options">>} ->
-		    SubId = xml:get_attr_s(<<"subid">>, Attrs),
-		    JID = xml:get_attr_s(<<"jid">>, Attrs),
+		    SubId = fxml:get_attr_s(<<"subid">>, Attrs),
+		    JID = fxml:get_attr_s(<<"jid">>, Attrs),
 		    get_options(Host, Node, JID, SubId, Lang);
 		{set, <<"options">>} ->
-		    SubId = xml:get_attr_s(<<"subid">>, Attrs),
-		    JID = xml:get_attr_s(<<"jid">>, Attrs),
+		    SubId = fxml:get_attr_s(<<"subid">>, Attrs),
+		    JID = fxml:get_attr_s(<<"jid">>, Attrs),
 		    set_options(Host, Node, JID, SubId, Els);
 		_ ->
 		    {error, ?ERR_FEATURE_NOT_IMPLEMENTED}
@@ -1362,10 +1362,10 @@ iq_pubsub(Host, ServerHost, From, IQType, SubEl, Lang, Access, Plugins) ->
     ).
 iq_pubsub_owner(Host, ServerHost, From, IQType, SubEl, Lang) ->
     #xmlel{children = SubEls} = SubEl,
-    Action = xml:remove_cdata(SubEls),
+    Action = fxml:remove_cdata(SubEls),
     case Action of
 	[#xmlel{name = Name, attrs = Attrs, children = Els}] ->
-	    Node = xml:get_attr_s(<<"node">>, Attrs),
+	    Node = fxml:get_attr_s(<<"node">>, Attrs),
 	    case {IQType, Name} of
 		{get, <<"configure">>} ->
 		    get_configure(Host, ServerHost, Node, From, Lang);
@@ -1380,11 +1380,11 @@ iq_pubsub_owner(Host, ServerHost, From, IQType, SubEl, Lang) ->
 		{get, <<"subscriptions">>} ->
 		    get_subscriptions(Host, Node, From);
 		{set, <<"subscriptions">>} ->
-		    set_subscriptions(Host, Node, From, xml:remove_cdata(Els));
+		    set_subscriptions(Host, Node, From, fxml:remove_cdata(Els));
 		{get, <<"affiliations">>} ->
 		    get_affiliations(Host, Node, From);
 		{set, <<"affiliations">>} ->
-		    set_affiliations(Host, Node, From, xml:remove_cdata(Els));
+		    set_affiliations(Host, Node, From, fxml:remove_cdata(Els));
 		_ ->
 		    {error, ?ERR_FEATURE_NOT_IMPLEMENTED}
 	    end;
@@ -1597,9 +1597,9 @@ find_authorization_response(Packet) ->
     #xmlel{children = Els} = Packet,
     XData1 = lists:map(fun
 		(#xmlel{name = <<"x">>, attrs = XAttrs} = XEl) ->
-		    case xml:get_attr_s(<<"xmlns">>, XAttrs) of
+		    case fxml:get_attr_s(<<"xmlns">>, XAttrs) of
 			?NS_XDATA ->
-			    case xml:get_attr_s(<<"type">>, XAttrs) of
+			    case fxml:get_attr_s(<<"type">>, XAttrs) of
 				<<"cancel">> -> none;
 				_ -> jlib:parse_xdata_submit(XEl)
 			    end;
@@ -1609,7 +1609,7 @@ find_authorization_response(Packet) ->
 		(_) ->
 		    none
 	    end,
-	    xml:remove_cdata(Els)),
+	    fxml:remove_cdata(Els)),
     XData = lists:filter(fun (E) -> E /= none end, XData1),
     case XData of
 	[invalid] ->
@@ -1808,7 +1808,7 @@ create_node(Host, ServerHost, <<>>, Owner, Type, Access, Configuration) ->
     end;
 create_node(Host, ServerHost, Node, Owner, GivenType, Access, Configuration) ->
     Type = select_type(ServerHost, Host, Node, GivenType),
-    ParseOptions = case xml:remove_cdata(Configuration) of
+    ParseOptions = case fxml:remove_cdata(Configuration) of
 	[] ->
 	    {result, node_options(Host, Type)};
 	[#xmlel{name = <<"x">>} = XEl] ->
@@ -2668,8 +2668,8 @@ set_affiliations(Host, Node, From, EntitiesEls) ->
 		(El, Acc) ->
 		    case El of
 			#xmlel{name = <<"affiliation">>, attrs = Attrs} ->
-			    JID = jid:from_string(xml:get_attr_s(<<"jid">>, Attrs)),
-			    Affiliation = string_to_affiliation(xml:get_attr_s(<<"affiliation">>, Attrs)),
+			    JID = jid:from_string(fxml:get_attr_s(<<"jid">>, Attrs)),
+			    Affiliation = string_to_affiliation(fxml:get_attr_s(<<"affiliation">>, Attrs)),
 			    if (JID == error) or (Affiliation == false) -> error;
 				true -> [{jid:tolower(JID), Affiliation} | Acc]
 			    end
@@ -2998,9 +2998,9 @@ set_subscriptions(Host, Node, From, EntitiesEls) ->
 		(El, Acc) ->
 		    case El of
 			#xmlel{name = <<"subscription">>, attrs = Attrs} ->
-			    JID = jid:from_string(xml:get_attr_s(<<"jid">>, Attrs)),
-			    Sub = string_to_subscription(xml:get_attr_s(<<"subscription">>, Attrs)),
-			    SubId = xml:get_attr_s(<<"subid">>, Attrs),
+			    JID = jid:from_string(fxml:get_attr_s(<<"jid">>, Attrs)),
+			    Sub = string_to_subscription(fxml:get_attr_s(<<"subscription">>, Attrs)),
+			    SubId = fxml:get_attr_s(<<"subid">>, Attrs),
 			    if (JID == error) or (Sub == false) -> error;
 				true -> [{jid:tolower(JID), Sub, SubId} | Acc]
 			    end
@@ -3170,17 +3170,15 @@ sub_option_can_deliver(_, _, _) -> true.
 presence_can_deliver(_, false) ->
     true;
 presence_can_deliver({User, Server, Resource}, true) ->
-    case mnesia:dirty_match_object({session, '_', '_', {User, Server}, '_', '_'}) of
+    case ejabberd_sm:get_user_present_resources(User, Server) of
 	[] ->
 	    false;
 	Ss ->
 	    lists:foldl(fun
 		    (_, true) ->
 			true;
-		    ({session, _, _, _, undefined, _}, _Acc) ->
-			false;
-		    ({session, {_, _, R}, _, _, _Priority, _}, _Acc) ->
-			case Resource of
+		    ({_, R}, _Acc) ->
+		    	case Resource of
 			    <<>> -> true;
 			    R -> true;
 			    _ -> false
@@ -3294,9 +3292,14 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, From, Payloa
 		true -> Payload;
 		false -> []
 	    end,
+	    Attrs = case get_option(NodeOptions, itemreply, none) of
+		owner -> itemAttr(ItemId);  %% owner not supported
+		publisher -> itemAttr(ItemId, {<<"publisher">>, jid:to_string(From)});
+		none -> itemAttr(ItemId)
+	    end,
 	    Stanza = event_stanza(
 		    [#xmlel{name = <<"items">>, attrs = nodeAttr(Node),
-			    children = [#xmlel{name = <<"item">>, attrs = itemAttr(ItemId),
+			    children = [#xmlel{name = <<"item">>, attrs = Attrs,
 				    children = Content}]}]),
 	    broadcast_stanza(Host, From, Node, Nidx, Type,
 		NodeOptions, SubsByDepth, items, Stanza, true),
@@ -3777,7 +3780,9 @@ get_configure_xfields(_Type, Options, Lang, Groups) ->
 	?BOOL_CONFIG_FIELD(<<"Only deliver notifications to available users">>,
 	    presence_based_delivery),
 	?NLIST_CONFIG_FIELD(<<"The collections with which a node is affiliated">>,
-	    collection)].
+	    collection),
+	?ALIST_CONFIG_FIELD(<<"Whether owners or publisher should receive replies to items">>,
+	    itemreply, [none, owner, publisher])].
 
 %%<p>There are several reasons why the node configuration request might fail:</p>
 %%<ul>
@@ -3788,9 +3793,9 @@ get_configure_xfields(_Type, Options, Lang, Groups) ->
 %%<li>The specified node does not exist.</li>
 %%</ul>
 set_configure(Host, Node, From, Els, Lang) ->
-    case xml:remove_cdata(Els) of
+    case fxml:remove_cdata(Els) of
 	[#xmlel{name = <<"x">>} = XEl] ->
-	    case {xml:get_tag_attr_s(<<"xmlns">>, XEl), xml:get_tag_attr_s(<<"type">>, XEl)} of
+	    case {fxml:get_tag_attr_s(<<"xmlns">>, XEl), fxml:get_tag_attr_s(<<"type">>, XEl)} of
 		{?NS_XDATA, <<"cancel">>} ->
 		    {result, []};
 		{?NS_XDATA, <<"submit">>} ->
@@ -3931,6 +3936,8 @@ set_xoption(Host, [{<<"pubsub#collection">>, Value} | Opts], NewOpts) ->
 set_xoption(Host, [{<<"pubsub#node">>, [Value]} | Opts], NewOpts) ->
     %    NewValue = string_to_node(Value),
     ?SET_LIST_XOPT(node, Value);
+set_xoption(Host, [{<<"pubsub#itemreply">>, [Val]} | Opts], NewOpts) ->
+    ?SET_ALIST_XOPT(itemreply, Val, [none, owner, publisher]);
 set_xoption(Host, [_ | Opts], NewOpts) ->
     set_xoption(Host, Opts, NewOpts).
 
@@ -3999,16 +4006,11 @@ get_cached_item(Host, Nidx) ->
 host(ServerHost) ->
     config(ServerHost, host, <<"pubsub.", ServerHost/binary>>).
 
-serverhost({_U, Server, _R})->
-    Server;
+serverhost({_U, ServerHost, _R})->
+    ServerHost;
 serverhost(Host) ->
-    case binary:match(Host, <<"pubsub.">>) of
-	{0,7} ->
-	    [_,ServerHost] = binary:split(Host, <<".">>),
-	    ServerHost;
-	_ ->
-	    Host
-    end.
+    [_, ServerHost] = binary:split(Host, <<".">>),
+    ServerHost.
 
 tree(Host) ->
     case config(serverhost(Host), nodetree) of
@@ -4064,14 +4066,14 @@ select_type(ServerHost, Host, Node, Type) ->
 	_ ->
 	    Type
     end,
-    ConfiguredTypes = plugins(ServerHost),
+    ConfiguredTypes = plugins(Host),
     case lists:member(SelectedType, ConfiguredTypes) of
 	true -> SelectedType;
 	false -> hd(ConfiguredTypes)
     end.
 
 select_type(ServerHost, Host, Node) ->
-    select_type(ServerHost, Host, Node, hd(plugins(ServerHost))).
+    select_type(ServerHost, Host, Node, hd(plugins(Host))).
 
 feature(<<"rsm">>) -> ?NS_RSM;
 feature(Feature) -> <<(?NS_PUBSUB)/binary, "#", Feature/binary>>.
@@ -4273,6 +4275,7 @@ nodeAttr(Node) -> [{<<"node">>, Node}].
 
 itemAttr([]) -> [];
 itemAttr(ItemId) -> [{<<"id">>, ItemId}].
+itemAttr(ItemId, From) -> [{<<"id">>, ItemId}, From].
 
 itemsEls(Items) ->
     [#xmlel{name = <<"item">>, attrs = itemAttr(ItemId), children = Payload}
