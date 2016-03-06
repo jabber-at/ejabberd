@@ -5,7 +5,7 @@
 %%% Created :  8 Dec 2004 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -125,7 +125,7 @@ start_link(Host, StartInterval) ->
 -spec sql_query(binary(), sql_query()) -> sql_query_result().
 
 sql_query(Host, Query) ->
-    sql_call(Host, {sql_query, Query}).
+    check_error(sql_call(Host, {sql_query, Query}), Query).
 
 %% SQL transaction based on a list of queries
 %% This function automatically
@@ -618,7 +618,7 @@ mysql_connect(Server, Port, DB, Username, Password) ->
 	of
 	{ok, Ref} ->
 	    p1_mysql_conn:fetch(
-		Ref, [<<"set names 'utf8';">>], self()),
+		Ref, [<<"set names 'utf8mb4' collate 'utf8mb4_bin';">>], self()),
 	    {ok, Ref};
 	Err -> Err
     end.
@@ -799,6 +799,12 @@ fsm_limit_opts() ->
       N when is_integer(N) -> [{max_queue, N}];
       _ -> []
     end.
+
+check_error({error, Why} = Err, Query) ->
+    ?ERROR_MSG("SQL query '~s' failed: ~p", [Query, Why]),
+    Err;
+check_error(Result, _Query) ->
+    Result.
 
 opt_type(max_fsm_queue) ->
     fun (N) when is_integer(N), N > 0 -> N end;

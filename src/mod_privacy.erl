@@ -5,7 +5,7 @@
 %%% Created : 21 Jul 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -35,7 +35,8 @@
 	 process_iq_set/4, process_iq_get/5, get_user_list/3,
 	 check_packet/6, remove_user/2, item_to_raw/1,
 	 raw_to_item/1, is_list_needdb/1, updated_list/3,
-         item_to_xml/1, get_user_lists/2, import/3]).
+         item_to_xml/1, get_user_lists/2, import/3,
+	 set_privacy_list/1]).
 
 -export([sql_add_privacy_list/2,
 	 sql_get_default_privacy_list/2,
@@ -108,12 +109,12 @@ process_iq_get(_, From, _To, #iq{sub_el = SubEl},
 	       #userlist{name = Active}) ->
     #jid{luser = LUser, lserver = LServer} = From,
     #xmlel{children = Els} = SubEl,
-    case xml:remove_cdata(Els) of
+    case fxml:remove_cdata(Els) of
       [] -> process_lists_get(LUser, LServer, Active);
       [#xmlel{name = Name, attrs = Attrs}] ->
 	  case Name of
 	    <<"list">> ->
-		ListName = xml:get_attr(<<"name">>, Attrs),
+		ListName = fxml:get_attr(<<"name">>, Attrs),
 		process_list_get(LUser, LServer, ListName);
 	    _ -> {error, ?ERR_BAD_REQUEST}
 	  end;
@@ -342,14 +343,14 @@ list_to_action(S) ->
 process_iq_set(_, From, _To, #iq{sub_el = SubEl}) ->
     #jid{luser = LUser, lserver = LServer} = From,
     #xmlel{children = Els} = SubEl,
-    case xml:remove_cdata(Els) of
+    case fxml:remove_cdata(Els) of
       [#xmlel{name = Name, attrs = Attrs,
 	      children = SubEls}] ->
-	  ListName = xml:get_attr(<<"name">>, Attrs),
+	  ListName = fxml:get_attr(<<"name">>, Attrs),
 	  case Name of
 	    <<"list">> ->
 		process_list_set(LUser, LServer, ListName,
-				 xml:remove_cdata(SubEls));
+				 fxml:remove_cdata(SubEls));
 	    <<"active">> ->
 		process_active_set(LUser, LServer, ListName);
 	    <<"default">> ->
@@ -529,6 +530,35 @@ remove_privacy_list(LUser, LServer, Name, odbc) ->
 	end,
     odbc_queries:sql_transaction(LServer, F).
 
+set_privacy_list(#privacy{us = {_, LServer}} = Privacy) ->
+    DBType = gen_mod:db_type(LServer, ?MODULE),
+    set_privacy_list(Privacy, DBType).
+
+set_privacy_list(Privacy, mnesia) ->
+    mnesia:dirty_write(Privacy);
+set_privacy_list(Privacy, riak) ->
+    ejabberd_riak:put(Privacy, privacy_schema());
+set_privacy_list(#privacy{us = {LUser, LServer},
+			  default = Default,
+			  lists = Lists}, odbc) ->
+    F = fun() ->
+		lists:foreach(
+		  fun({Name, List}) ->
+			  sql_add_privacy_list(LUser, Name),
+			  {selected, [<<"id">>], [[I]]} =
+			      sql_get_privacy_list_id_t(LUser, Name),
+			  RItems = lists:map(fun item_to_raw/1, List),
+			  sql_set_privacy_list(I, RItems),
+			  if is_binary(Default) ->
+				  sql_set_default_privacy_list(LUser, Default),
+				  ok;
+			     true ->
+				  ok
+			  end
+		  end, Lists)
+	end,
+    odbc_queries:sql_transaction(LServer, F).
+
 set_privacy_list(LUser, LServer, Name, List, mnesia) ->
     F = fun () ->
 		case mnesia:wread({privacy, {LUser, LServer}}) of
@@ -621,10 +651,10 @@ parse_items([#xmlel{name = <<"item">>, attrs = Attrs,
 		    children = SubEls}
 	     | Els],
 	    Res) ->
-    Type = xml:get_attr(<<"type">>, Attrs),
-    Value = xml:get_attr(<<"value">>, Attrs),
-    SAction = xml:get_attr(<<"action">>, Attrs),
-    SOrder = xml:get_attr(<<"order">>, Attrs),
+    Type = fxml:get_attr(<<"type">>, Attrs),
+    Value = fxml:get_attr(<<"value">>, Attrs),
+    SAction = fxml:get_attr(<<"action">>, Attrs),
+    SOrder = fxml:get_attr(<<"order">>, Attrs),
     Action = case catch list_to_action(element(2, SAction))
 		 of
 	       {'EXIT', _} -> false;
@@ -674,7 +704,7 @@ parse_items([#xmlel{name = <<"item">>, attrs = Attrs,
 	   case I2 of
 	     false -> false;
 	     _ ->
-		 case parse_matches(I2, xml:remove_cdata(SubEls)) of
+		 case parse_matches(I2, fxml:remove_cdata(SubEls)) of
 		   false -> false;
 		   I3 -> parse_items(Els, [I3 | Res])
 		 end
@@ -852,7 +882,7 @@ check_packet(_, User, Server,
 		    <<"message">> -> message;
 		    <<"iq">> -> iq;
 		    <<"presence">> ->
-			case xml:get_attr_s(<<"type">>, Attrs) of
+			case fxml:get_attr_s(<<"type">>, Attrs) of
 			  %% notification
 			  <<"">> -> presence;
 			  <<"unavailable">> -> presence;

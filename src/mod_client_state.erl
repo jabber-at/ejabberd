@@ -5,7 +5,7 @@
 %%% Created : 11 Sep 2014 by Holger Weiss <holger@zedat.fu-berlin.de>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2014-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2014-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -80,7 +80,7 @@ add_stream_feature(Features, _Host) ->
     [Feature | Features].
 
 filter_presence(_Action, #xmlel{name = <<"presence">>, attrs = Attrs}) ->
-    case xml:get_attr(<<"type">>, Attrs) of
+    case fxml:get_attr(<<"type">>, Attrs) of
       {value, Type} when Type /= <<"unavailable">> ->
 	  ?DEBUG("Got important presence stanza", []),
 	  {stop, send};

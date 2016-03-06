@@ -5,7 +5,7 @@
 %%% Created : 14 Dec 2002 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -162,7 +162,7 @@ convert_to_yaml(File, Output) ->
                          fun({Host, Opts1}) ->
                                  {host_config, [{Host, Opts1}]}
                          end, HOpts),
-    Data = p1_yaml:encode(lists:reverse(NewOpts)),
+    Data = fast_yaml:encode(lists:reverse(NewOpts)),
     case Output of
         stdout ->
             io:format("~s~n", [Data]);
@@ -226,14 +226,14 @@ get_plain_terms_file(File1, Opts) ->
 consult(File) ->
     case filename:extension(File) of
         Ex when (Ex == ".yml") or (Ex == ".yaml") ->
-            case p1_yaml:decode_from_file(File, [plain_as_atom]) of
+            case fast_yaml:decode_from_file(File, [plain_as_atom]) of
                 {ok, []} ->
                     {ok, []};
                 {ok, [Document|_]} ->
                     {ok, parserl(Document)};
                 {error, Err} ->
                     Msg1 = "Cannot load " ++ File ++ ": ",
-                    Msg2 = p1_yaml:format_error(Err),
+                    Msg2 = fast_yaml:format_error(Err),
                     {error, Msg1 ++ Msg2}
             end;
         _ ->

@@ -5,7 +5,7 @@
 %%% Created :  9 Apr 2004 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -342,7 +342,7 @@ make_xhtml(Els, Host, Node, Lang, JID) ->
 			   [?XAE(<<"div">>, [{<<"id">>, <<"copyright">>}],
 				 [?XE(<<"p">>,
 				  [?AC(<<"https://www.ejabberd.im/">>, <<"ejabberd">>),
-				   ?C(<<" (c) 2002-2015 ">>),
+				   ?C(<<" (c) 2002-2016 ">>),
 				   ?AC(<<"https://www.process-one.net/">>, <<"ProcessOne, leader in messaging and push solutions">>)]
                                  )])])])]}}.
 
@@ -382,6 +382,9 @@ css(Host) ->
     "  height: 100%;\n"
     "  background: #f9f9f9;\n"
     "  font-family: sans-serif;\n"
+    "}\n"
+    "body {\n"
+    "  min-width: 990px;\n"
     "}\n"
     "a {\n"
     "  text-decoration: none;\n"
@@ -461,13 +464,15 @@ css(Host) ->
     "  font-size: 0.75em;\n"
     "  text-align: center;\n"
     "}\n"
+    "#navigation {\n"
+    "  display: inline-block;\n"
+    "  vertical-align: top;\n"
+    "  width: 30%;\n"
+    "}\n"
     "#navigation ul {\n"
-    "  position: absolute;\n"
-    "  top: 75px;\n"
-    "  left: 0;\n"
     "  padding: 0;\n"
     "  margin: 0;\n"
-    "  width: 17em;\n"
+    "  width: 90%;\n"
     "  background: #fff;\n"
     "}\n"
     "#navigation ul li {\n"
@@ -510,6 +515,9 @@ css(Host) ->
     "}\n"
     "thead tr td {\n"
     "  background: #3eaffa;\n"
+    "  color: #fff;\n"
+    "}\n"
+    "thead tr td a {\n"
     "  color: #fff;\n"
     "}\n"
     "td.copy {\n"
@@ -592,8 +600,10 @@ css(Host) ->
     "  list-style-type: none;\n"
     "}\n"
     "#content {\n"
-    "  padding-left: 19em;\n"
+    "  display: inline-block;\n"
+    "  vertical-align: top;\n"
     "  padding-top: 25px;\n"
+    "  width: 70%;\n"
     "}\n"
     "div.guidelink,\n"
     "p[dir=ltr] {\n"
@@ -735,7 +745,7 @@ process_admin(Host,
 				      [{{acl, '$1', '$2'}}]}])),
     {NumLines, ACLsP} = term_to_paragraph(ACLs, 80),
     make_xhtml((?H1GL((?T(<<"Access Control Lists">>)),
-		      <<"acl-definition">>, <<"ACL Definition">>))
+		      <<"acldefinition">>, <<"ACL Definition">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -771,7 +781,7 @@ process_admin(Host,
 				    [{{acl, {'$1', Host}, '$2'}, [],
 				      [{{acl, '$1', '$2'}}]}])),
     make_xhtml((?H1GL((?T(<<"Access Control Lists">>)),
-		      <<"acl-definition">>, <<"ACL Definition">>))
+		      <<"acldefinition">>, <<"ACL Definition">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -837,7 +847,7 @@ process_admin(Host,
 			  [{{access, '$1', '$2'}}]}]),
     {NumLines, AccessP} = term_to_paragraph(lists:keysort(2,Access), 80),
     make_xhtml((?H1GL((?T(<<"Access Rules">>)),
-		      <<"access-rights">>, <<"Access Rights">>))
+		      <<"accessrights">>, <<"Access Rights">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -870,7 +880,7 @@ process_admin(Host,
 			     [{{access, {'$1', Host}, '$2'}, [],
 			       [{{access, '$1', '$2'}}]}]),
     make_xhtml((?H1GL((?T(<<"Access Rules">>)),
-		      <<"access-rights">>, <<"Access Rights">>))
+		      <<"accessrights">>, <<"Access Rights">>))
 		 ++
 		 case Res of
 		   ok -> [?XREST(<<"Submitted">>)];
@@ -929,7 +939,7 @@ process_admin(global,
 		       lang = Lang}) ->
     Res = list_vhosts(Lang, AJID),
     make_xhtml((?H1GL((?T(<<"Virtual Hosts">>)),
-		      <<"virtual-hosting">>, <<"Virtual Hosting">>))
+		      <<"virtualhosting">>, <<"Virtual Hosting">>))
 		 ++ Res,
 	       global, Lang, AJID);
 process_admin(Host,
@@ -2114,7 +2124,7 @@ get_node(global, Node, [<<"ports">>], Query, Lang) ->
                                     []])),
     H1String = <<(?T(<<"Listened Ports at ">>))/binary,
 		 (iolist_to_binary(atom_to_list(Node)))/binary>>,
-    (?H1GL(H1String, <<"listening-ports">>, <<"Listening Ports">>))
+    (?H1GL(H1String, <<"listeningports">>, <<"Listening Ports">>))
       ++
       case Res of
 	ok -> [?XREST(<<"Submitted">>)];
@@ -2142,7 +2152,7 @@ get_node(Host, Node, [<<"modules">>], Query, Lang)
     NewModules = lists:sort(ejabberd_cluster:call(Node, gen_mod,
 				     loaded_modules_with_opts, [Host])),
     H1String = list_to_binary(io_lib:format(?T(<<"Modules at ~p">>), [Node])),
-    (?H1GL(H1String, <<"modules-overview">>,
+    (?H1GL(H1String, <<"modulesoverview">>,
 	   <<"Modules Overview">>))
       ++
       case Res of
@@ -2722,14 +2732,14 @@ pretty_print_xml(#xmlel{name = Name, attrs = Attrs,
        [{Attr, Val} | RestAttrs] ->
 	   AttrPrefix = [Prefix,
 			 str:copies(<<" ">>, byte_size(Name) + 2)],
-	   [$\s, Attr, $=, $', xml:crypt(Val) | [$',
+	   [$\s, Attr, $=, $', fxml:crypt(Val) | [$',
                                                  lists:map(fun ({Attr1,
                                                                  Val1}) ->
                                                                    [$\n,
                                                                     AttrPrefix,
                                                                     Attr1, $=,
                                                                     $',
-                                                                    xml:crypt(Val1),
+                                                                    fxml:crypt(Val1),
                                                                     $']
                                                            end,
                                                            RestAttrs)]]
@@ -2741,7 +2751,7 @@ pretty_print_xml(#xmlel{name = Name, attrs = Attrs,
 				  end,
 				  Els),
 	    if OnlyCData ->
-		   [$>, xml:get_cdata(Els), $<, $/, Name, $>, $\n];
+		   [$>, fxml:get_cdata(Els), $<, $/, Name, $>, $\n];
 	       true ->
 		   [$>, $\n,
 		    lists:map(fun (E) ->

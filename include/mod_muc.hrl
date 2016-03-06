@@ -1,4 +1,5 @@
 %%%----------------------------------------------------------------------
+%%% File    : mod_muc.hrl
 %%%
 %%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
@@ -17,20 +18,16 @@
 %%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %%%
 %%%----------------------------------------------------------------------
--define(PRINT(Format, Args), io:format(Format, Args)).
--compile([{parse_transform, lager_transform}]).
 
--define(DEBUG(Format, Args),
-	lager:debug(Format, Args)).
+-record(muc_room, {name_host = {<<"">>, <<"">>} :: {binary(), binary()} |
+                                                   {'_', binary()},
+                   opts = [] :: list() | '_'}).
 
--define(INFO_MSG(Format, Args),
-	lager:info(Format, Args)).
+-record(muc_online_room,
+        {name_host = {<<"">>, <<"">>} :: {binary(), binary()} | '$1' |
+                                         {'_', binary()} | '_',
+         pid = self() :: pid() | '$2' | '_' | '$1'}).
 
--define(WARNING_MSG(Format, Args),
-	lager:warning(Format, Args)).
-
--define(ERROR_MSG(Format, Args),
-	lager:error(Format, Args)).
-
--define(CRITICAL_MSG(Format, Args),
-	lager:critical(Format, Args)).
+-record(muc_registered,
+        {us_host = {{<<"">>, <<"">>}, <<"">>} :: {{binary(), binary()}, binary()} | '$1',
+         nick = <<"">> :: binary()}).

@@ -5,7 +5,7 @@
 %%% Created :  1 Dec 2007 by Christophe Romain <christophe.romain@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -257,7 +257,7 @@ complain_if_modcaps_disabled(ServerHost) ->
 	false ->
 	    ?WARNING_MSG("The PEP plugin is enabled in mod_pubsub "
 		"of host ~p. This plugin requires mod_caps "
-		"to be enabled, but it isn't.",
+		"but it does not seems enabled, please check config.",
 		[ServerHost]);
 	true -> ok
     end.

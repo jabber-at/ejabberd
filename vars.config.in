@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author Evgeniy Khramtsov <ekhramtsov@process-one.net>
-%%% @copyright (C) 2013, Evgeniy Khramtsov
+%%% @copyright (C) 2013-2016, Evgeniy Khramtsov
 %%% @doc
 %%%
 %%% @end
@@ -27,7 +27,6 @@
 {riak, @riak@}.
 {redis, @redis@}.
 {elixir, @elixir@}.
-{lager, @lager@}.
 {iconv, @iconv@}.
 
 %% Version

@@ -5,7 +5,7 @@
 %%% Created : 11 Jan 2004 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -324,7 +324,7 @@ format_args(Args, ArgsFormat) ->
 format_arg(Arg, integer) ->
     format_arg2(Arg, "~d");
 format_arg(Arg, binary) ->
-    list_to_binary(format_arg(Arg, string));
+    unicode:characters_to_binary(Arg, utf8);
 format_arg("", string) ->
     "";
 format_arg(Arg, string) ->
@@ -349,7 +349,7 @@ format_result(Atom, {_Name, atom}) ->
 format_result(Int, {_Name, integer}) ->
     io_lib:format("~p", [Int]);
 
-format_result(String, {_Name, string}) when is_list(String) ->
+format_result([A|_]=String, {_Name, string}) when is_list(String) and is_integer(A) ->
     io_lib:format("~s", [String]);
 
 format_result(Binary, {_Name, string}) when is_binary(Binary) ->

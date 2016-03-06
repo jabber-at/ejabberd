@@ -5,7 +5,7 @@
 %%% Created : 12 Mar 2006 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -47,12 +47,8 @@
 -include("logger.hrl").
 
 -include("jlib.hrl").
-
+-include("mod_muc.hrl").
 -include("mod_muc_room.hrl").
-
-%% Copied from mod_muc/mod_muc.erl
--record(muc_online_room, {name_host = {<<>>, <<>>} :: {binary(), binary()},
-                          pid = self() :: pid()}).
 
 -define(T(Text), translate:translate(Lang, Text)).
 -define(PROCNAME, ejabberd_mod_muc_log).
@@ -197,15 +193,15 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 add_to_log2(text, {Nick, Packet}, Room, Opts, State) ->
     case has_no_permanent_store_hint(Packet) of
 	false ->
-	    case {xml:get_subtag(Packet, <<"subject">>),
-		    xml:get_subtag(Packet, <<"body">>)}
+	    case {fxml:get_subtag(Packet, <<"subject">>),
+		    fxml:get_subtag(Packet, <<"body">>)}
 	    of
 		{false, false} -> ok;
 		{false, SubEl} ->
-		    Message = {body, xml:get_tag_cdata(SubEl)},
+		    Message = {body, fxml:get_tag_cdata(SubEl)},
 		    add_message_to_log(Nick, Message, Room, Opts, State);
 		{SubEl, _} ->
-		    Message = {subject, xml:get_tag_cdata(SubEl)},
+		    Message = {subject, fxml:get_tag_cdata(SubEl)},
 		    add_message_to_log(Nick, Message, Room, Opts, State)
 	    end;
 	true -> ok
@@ -1205,13 +1201,13 @@ fjoin(FileList) ->
     list_to_binary(filename:join([binary_to_list(File) || File <- FileList])).
 
 has_no_permanent_store_hint(Packet) ->
-    xml:get_subtag_with_xmlns(Packet, <<"no-store">>, ?NS_HINTS)
+    fxml:get_subtag_with_xmlns(Packet, <<"no-store">>, ?NS_HINTS)
       =/= false orelse
-    xml:get_subtag_with_xmlns(Packet, <<"no-storage">>, ?NS_HINTS)
+    fxml:get_subtag_with_xmlns(Packet, <<"no-storage">>, ?NS_HINTS)
       =/= false orelse
-    xml:get_subtag_with_xmlns(Packet, <<"no-permanent-store">>, ?NS_HINTS)
+    fxml:get_subtag_with_xmlns(Packet, <<"no-permanent-store">>, ?NS_HINTS)
       =/= false orelse
-    xml:get_subtag_with_xmlns(Packet, <<"no-permanent-storage">>, ?NS_HINTS)
+    fxml:get_subtag_with_xmlns(Packet, <<"no-permanent-storage">>, ?NS_HINTS)
       =/= false.
 
 mod_opt_type(access_log) ->

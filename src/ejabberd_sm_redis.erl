@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author Evgeny Khramtsov <ekhramtsov@process-one.net>
-%%% @copyright (C) 2015, Evgeny Khramtsov
+%%% @copyright (C) 2015-2016, Evgeny Khramtsov
 %%% @doc
 %%%
 %%% @end
@@ -107,7 +107,7 @@ get_sessions() ->
     lists:flatmap(
       fun(LServer) ->
 	      get_sessions(LServer)
-      end, ?MYHOSTS).
+      end, ejabberd_sm:get_vh_by_backend(?MODULE)).
 
 -spec get_sessions(binary()) -> [#session{}].
 get_sessions(LServer) ->
@@ -204,7 +204,7 @@ clean_table() ->
 		      ?ERROR_MSG("failed to clean redis table for "
 				 "server ~s: ~p", [LServer, Err])
 	      end
-      end, ?MYHOSTS).
+      end, ejabberd_sm:get_vh_by_backend(?MODULE)).
 
 opt_type(redis_connect_timeout) ->
     fun (I) when is_integer(I), I > 0 -> I end;

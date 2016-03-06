@@ -5,7 +5,7 @@
 %%% Created :  7 May 2006 by Mickael Remond <mremond@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2015   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -51,7 +51,8 @@
 	 install_fallback_mnesia/1,
 	 dump_to_textfile/1, dump_to_textfile/2,
 	 mnesia_change_nodename/4,
-	 restore/1 % Still used by some modules
+	 restore/1, % Still used by some modules
+	 get_commands_spec/0
 	]).
 
 -include("ejabberd.hrl").
@@ -59,16 +60,16 @@
 -include("ejabberd_commands.hrl").
 
 start() ->
-    ejabberd_commands:register_commands(commands()).
+    ejabberd_commands:register_commands(get_commands_spec()).
 
 stop() ->
-    ejabberd_commands:unregister_commands(commands()).
+    ejabberd_commands:unregister_commands(get_commands_spec()).
 
 %%%
 %%% ejabberd commands
 %%%
 
-commands() ->
+get_commands_spec() ->
     [
      %% The commands status, stop and restart are implemented also in ejabberd_ctl
      %% They are defined here so that other interfaces can use them too
@@ -199,6 +200,11 @@ commands() ->
 			desc = "Convert the passwords in 'users' ODBC table to SCRAM",
 			module = ejabberd_auth_odbc, function = convert_to_scram,
 			args = [{host, binary}], result = {res, rescode}},
+
+     #ejabberd_commands{name = import_prosody, tags = [mnesia, odbc, riak],
+			desc = "Import data from Prosody",
+			module = prosody2ejabberd, function = from_dir,
+			args = [{dir, string}], result = {res, rescode}},
 
      #ejabberd_commands{name = convert_to_yaml, tags = [config],
                         desc = "Convert the input file from Erlang to YAML format",
