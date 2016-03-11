@@ -41,7 +41,7 @@ override_dh_auto_install:
 	
 	# move captcha.sh to /usr/share/ejabberd
 	mv -v $(DESTDIR)/usr/lib/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin/captcha.sh $(DESTDIR)/usr/share/ejabberd/
-	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin
+	rmdir $(DESTDIR)/usr/lib/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin
 	
 	# install ufw profile
 	install -m 644 debian/ejabberd.ufw.profile $(DESTDIR)/etc/ufw/applications.d/ejabberd
