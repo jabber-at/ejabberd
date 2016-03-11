@@ -1,3 +1,0 @@
-# This version only existed in the main debian repository and isn't mentioned
-# in this changelog. To keep changes minimal, we do not remove the news entry.
-ejabberd: debian-news-entry-has-unknown-version
