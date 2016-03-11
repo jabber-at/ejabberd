@@ -11,5 +11,3 @@ ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 failed_auth.patch
-ejabberd-16.01-mam.diff
-fix-muc-status.patch
