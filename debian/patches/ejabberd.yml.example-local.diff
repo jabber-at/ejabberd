@@ -24,15 +24,6 @@
  
  ##
  ## s2s_certfile: Specify a certificate file.
-@@ -550,7 +550,7 @@
- ##
- ## Full path to a script that generates the image.
- ##
--## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
-+## captcha_cmd: "/usr/share/ejabberd/captcha.sh"
- 
- ##
- ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
 @@ -580,8 +580,10 @@
    mod_configure: {} # requires mod_adhoc
    mod_disco: {}

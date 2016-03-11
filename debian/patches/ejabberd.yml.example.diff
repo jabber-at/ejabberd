@@ -124,6 +124,15 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
+@@ -552,7 +550,7 @@ language: "en"
+ ##
+ ## Full path to a script that generates the image.
+ ##
+-## captcha_cmd: "/lib/ejabberd/priv/bin/captcha.sh"
++## captcha_cmd: "/usr/share/ejabberd/captcha.sh"
+ 
+ ##
+ ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
 @@ -572,7 +570,7 @@ language: "en"
  ##
  modules: 
