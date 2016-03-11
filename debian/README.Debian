@@ -149,6 +149,8 @@ such as user accounts, rosters, offline messages, pubsub storage etc.
 Starting with ejabberd 14.07-1, all officially supported DBMS engines
 are supported through the Debian package, as ejabberd is now compiled
 and installed with support for ODBC, MySQL and PostgreSQL.
+You have to install the according erlang-* package listed in the
+"Suggests" section of ejabberd though.
 
 Note that it appears that currently the only way to use Microsoft SQL
 Server as a database backend is via ODBC (and the FreeTDS ODBC driver).
@@ -325,4 +327,4 @@ Sergei Golovan <sgolovan@debian.org>
 Konstantin Khomoutov <flatworm@users.sourceforge.net>
 Philipp Huebner <debalance@debian.org>
 
-Wed, 01 Oct 2014 14:52:33 +0200
+Thu, 18 Feb 2016 08:24:33 +0100

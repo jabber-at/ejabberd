@@ -1,8 +1,33 @@
+ejabberd (16.01-2) unstable; urgency=medium
+
+  Because ejabberd now installs its libraries the Erlang-ish way into a
+  folder that contains the version number, the captcha.sh script was moved
+  to /usr/share/ejabberd/ to make upgrades easier.
+
+ -- Philipp Huebner <debalance@debian.org>  Thu, 18 Feb 2016 08:04:56 +0100
+
+ejabberd (16.01-1) unstable; urgency=medium
+
+  ejabberd now installs the directory /etc/ejabberd/modules.d/
+  where you can place configuration files for additional ejabberd modules.
+  They must be in YAML syntax and named mod_foo.yml, where mod_foo is the
+  module they configure.
+
+  For example the config file of any ejabberd-mod-* package can be placed
+  here.
+
+ -- Philipp Huebner <debalance@debian.org>  Mon, 18 Jan 2016 16:32:25 +0100
+
 ejabberd (15.09-2) unstable; urgency=medium
 
   ejabberd now installs an AppArmor profile which is set to "enforce" by
   default, so make sure to check /var/log/syslog for AppArmor audit lines if
   you're using AppArmor and have trouble getting ejabberd to work.
+
+  You can put your own extensions for the AppArmor profile into
+  /etc/apparmor.d/local/usr.sbin.ejabberdctl .
+  If you have changes which might be useful for the default profile please
+  get in touch with me!
 
  -- Philipp Huebner <debalance@debian.org>  Fri, 09 Oct 2015 23:55:05 +0200
 

@@ -1,54 +1,44 @@
 # Copyright (C) 2009 Torsten Werner <twerner@debian.org>
 # This file is distributed under the same license as ejabberd package.
 # Hideki Yamane (Debian-JP) <henrich@debian.or.jp>, 2009.
-# 
+# Takuma Yamada <tyamada@takumayamada.com>, 2016.
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd 2.0.5-1.1\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
 "POT-Creation-Date: 2015-07-22 19:04+0200\n"
-"PO-Revision-Date: 2009-11-07 14:26+0900\n"
-"Last-Translator: Hideki Yamane (Debian-JP) <henrich@debian.or.jp>\n"
-"Language-Team: Japanese <debian-japanese@lists.debian.org>\n"
+"PO-Revision-Date: 2016-02-22 12:08+0900\n"
+"Last-Translator: Takuma Yamada <tyamada@takumayamada.com>\n"
+"Language-Team: 日本語 <debian-japanese@lists.debian.org>\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Gtranslator 2.91.6\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "The name of the host ejabberd will serve:"
 msgid "Host name for this Jabber server:"
-msgstr "ejabberd が動作するホスト名:"
+msgstr "この Jabber サーバのホスト名:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "Please enter the hostname of your Jabber server (in lowercase)."
 msgid "Please enter the host name of this Jabber server (lowercase)."
-msgstr "Jabber サーバのホスト名を入力してください (小文字)。"
+msgstr "Jabber サーバのホスト名 (小文字) を入力してください。"
 
 #. Type: string
 #. Description
 #: ../templates:3001
 msgid "Jabber server administrator username:"
-msgstr ""
+msgstr "Jabber サーバ管理者ユーザ名:"
 
 #. Type: string
 #. Description
 #: ../templates:3001
-#, fuzzy
-#| msgid ""
-#| "Please provide the name of an account to administrate the ejabberd "
-#| "server. After the installation of ejabberd you can use this account to "
-#| "log in with any Jabber client to do administrative tasks or go to https://"
-#| "${hostname}:5280/admin/ and log in with this account to enter the admin "
-#| "interface. Enter the username part here (e.g. ${user}), but use the full "
-#| "Jabber ID (e.g. ${user}@${hostname}) to log into ejabberd web interface; "
-#| "otherwise it will fail."
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd you can use this account to log in with "
@@ -58,11 +48,8 @@ msgid ""
 msgstr ""
 "ejabberd サーバを管理するアカウントの名前を入力してください。ejabberd のイン"
 "ストール後は、どの Jabber クライアントからでも、このアカウントを使って管理作"
-"業を実施することができますし、https://${hostname}:5280/admin/ からこのアカウン"
-"トでログインして管理画面に入れます。ここでユーザ名の部分 (例: ${user}) を入力"
-"するわけですが、ejabberd のウェブインターフェイスでは、ログインするのに完全"
-"な Jabber ID (例: ${user}@${hostname}) を使ってください。それ以外はログインに"
-"失敗します。"
+"業を実施することができますし、https://${hostname}:5280/admin/ からこのアカウ"
+"ントでログインして管理画面に入れます。"
 
 #. Type: string
 #. Description
@@ -72,36 +59,37 @@ msgid ""
 "full Jabber ID (such as ${user}@${hostname}) is required to access the "
 "ejabberd web interface."
 msgstr ""
+"ここで (${user} のような) ユーザ名の部分のみ入力する必要があります。しかし、"
+"ejabberd ウェブインターフェースにアクセスするには (${user}@${hostname} のよう"
+"な) 完全な Jabber ID が必要です。"
 
 #. Type: string
 #. Description
 #: ../templates:3001
-#, fuzzy
-#| msgid ""
-#| "Leave empty if you don't want to create an admin account automatically."
 msgid ""
 "Please leave this field empty if you don't want to create an administrator "
 "account automatically."
 msgstr ""
-"自動的に管理者アカウントを作りたくない場合は空のままにしておいてください。"
+"自動的に管理者アカウントを作りたくない場合は、このフィールドを空のままにして"
+"おいてください。"
 
 #. Type: password
 #. Description
 #: ../templates:4001
 msgid "Jabber server administrator password:"
-msgstr ""
+msgstr "Jabber サーバ管理者パスワード:"
 
 #. Type: password
 #. Description
 #: ../templates:4001
 msgid "Please enter the password for the administrative user."
-msgstr "管理者権限ユーザのパスワードを入力してください。"
+msgstr "管理用のユーザのパスワードを入力してください。"
 
 #. Type: password
 #. Description
 #: ../templates:5001
 msgid "Re-enter password to verify:"
-msgstr ""
+msgstr "確認のためパスワードを再入力してください:"
 
 #. Type: password
 #. Description
@@ -110,26 +98,26 @@ msgid ""
 "Please enter the same administrator password again to verify that you have "
 "typed it correctly."
 msgstr ""
+"正しく入力されたことを確認するため、もう一度同じ管理者パスワードを入力してく"
+"ださい。"
 
 #. Type: error
 #. Description
 #: ../templates:6001
 msgid "Password input error"
-msgstr ""
+msgstr "パスワード入力エラー"
 
 #. Type: error
 #. Description
 #: ../templates:6001
-#, fuzzy
-#| msgid "The passwords you have typed do not match. Please try again."
 msgid "The two passwords you entered were not the same. Please try again."
-msgstr "入力されたパスワードが一致しません。再入力してください。"
+msgstr "入力した 2 つのパスワードが一致しません。もう一度やり直してください。"
 
 #. Type: error
 #. Description
 #: ../templates:7001
 msgid "Invalid administrator account username"
-msgstr ""
+msgstr "無効な管理者アカウントユーザ名"
 
 #. Type: error
 #. Description
@@ -140,24 +128,7 @@ msgid ""
 "used a full JID (e.g. user@hostname), you have to use the same host name you "
 "typed into the host name configuration step."
 msgstr ""
-
-#~ msgid "The username of an admin account for ejabberd:"
-#~ msgstr "ejabberd 管理者アカウントのユーザ名:"
-
-#~ msgid "The password for the admin account:"
-#~ msgstr "管理者アカウントのパスワード:"
-
-#~ msgid "The password for the admin account again for verification:"
-#~ msgstr "確認のため、管理者アカウントのパスワードの再入力:"
-
-#~ msgid ""
-#~ "Please reenter the password for the administrative user for verification."
-#~ msgstr "管理者権限ユーザのパスワードを確認のため再入力してください。"
-
-#~ msgid "The passwords do not match!"
-#~ msgstr "パスワードが一致しません!"
-
-#, fuzzy
-#~| msgid "The username of an admin account for ejabberd:"
-#~ msgid "The username of the admin account is invalid!"
-#~ msgstr "ejabberd 管理者アカウントのユーザ名:"
+"入力したユーザ名には禁止されている文字が含まれています。JID 構文を尊重してく"
+"ださい (http://tools.ietf.org/html/rfc6122#appendix-A.5)。完全な JID (例えば"
+"user@hostname) を使う場合は、ホスト名の設定手順で入力したものと同じホスト名を"
+"使う必要があります。"

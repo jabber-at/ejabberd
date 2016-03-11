@@ -43,3 +43,16 @@ Index: ejabberd/src/mod_sip_registrar.erl
  
  -define(CALL_TIMEOUT, timer:seconds(30)).
  -define(DEFAULT_EXPIRES, 3600).
+Index: ejabberd/include/jlib.hrl
+===================================================================
+--- ejabberd.orig/include/jlib.hrl
++++ ejabberd/include/jlib.hrl
+@@ -22,7 +22,7 @@
+ -ifdef(NO_EXT_LIB).
+ -include("fxml.hrl").
+ -else.
+--include_lib("fast_xml/include/fxml.hrl").
++-include_lib("p1_xml/include/fxml.hrl").
+ -endif.
+ 
+ -define(STANZA_ERROR(Code, Type, Condition),
