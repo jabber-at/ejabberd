@@ -5,6 +5,7 @@ ejabberd (1:16.02-1) unstable; urgency=low
   * Remove ejabberd-16.01-mam.diff and fix-muc-status.patch, applied upstream.
   * ejabberd.yml.example-local.diff no longer patches captcha_cmd, now done
     by upstream ejabberd.yml.example.diff.
+  * No longer install monit config file.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 06 Mar 2016 17:29:33 +0100
 
