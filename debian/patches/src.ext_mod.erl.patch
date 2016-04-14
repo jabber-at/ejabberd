@@ -5,25 +5,22 @@ Description: search for include files in /usr/lib/erlang/lib
  are found and considered/used.
 Author: Holger Weiss <holger@zedat.fu-berlin.de>
 
-Index: ejabberd/src/ext_mod.erl
-===================================================================
---- ejabberd.orig/src/ext_mod.erl
-+++ ejabberd/src/ext_mod.erl
-@@ -509,12 +509,12 @@ compile(_Module, _Spec, DestDir) ->
+--- a/src/ext_mod.erl
++++ b/src/ext_mod.erl
+@@ -509,11 +509,11 @@
      filelib:ensure_dir(filename:join(Ebin, ".")),
      EjabBin = filename:dirname(code:which(ejabberd)),
      EjabInc = filename:join(filename:dirname(EjabBin), "include"),
--    XmlHrl = filename:join(EjabInc, "xml.hrl"),
-+    ExtIncs = filelib:wildcard("/usr/lib/erlang/lib/*/include"),
-+    IncOpts = [{i, "include"}, {i, EjabInc} | [{i, Dir} || Dir <- ExtIncs]],
-     Logger = [{d, 'P1LOGGER'} || code:is_loaded(lager)==false],
+-    XmlHrl = filename:join(EjabInc, "fxml.hrl"),
 -    ExtLib = [{d, 'NO_EXT_LIB'} || filelib:is_file(XmlHrl)],
 -    Options = [{outdir, Ebin}, {i, "include"}, {i, EjabInc},
 -               verbose, report_errors, report_warnings]
--              ++ Logger ++ ExtLib,
+-              ++ ExtLib,
++    ExtIncs = filelib:wildcard("/usr/lib/erlang/lib/*/include"),
++    IncOpts = [{i, "include"}, {i, EjabInc} | [{i, Dir} || Dir <- ExtIncs]],
 +    Options = [{outdir, Ebin} | IncOpts]
 +              ++ [verbose, report_errors, report_warnings]
-+              ++ [{d, 'NO_EXT_LIB'} | Logger],
++              ++ [{d, 'NO_EXT_LIB'}],
      [file:copy(App, Ebin) || App <- filelib:wildcard("src/*.app")],
      Result = [case compile:file(File, Options) of
              {ok, _} -> ok;
