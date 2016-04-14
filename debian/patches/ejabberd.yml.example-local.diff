@@ -54,13 +54,13 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
--    ## captcha_protected: true
+-    ##   captcha_protected: true
 +    captcha_protected: true
- 
      ##
      ## Set the minimum informational entropy for passwords.
-@@ -656,6 +658,7 @@
-     access: register
+     ##
+@@ -650,6 +652,7 @@
+     ##   access: register
    mod_roster: {}
    mod_shared_roster: {}
 +  mod_sic: {}

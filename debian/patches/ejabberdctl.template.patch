@@ -62,7 +62,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ERL_INETRC=$ETC_DIR/inetrc
  
  # define mnesia options
-@@ -340,7 +345,8 @@
+@@ -357,7 +362,8 @@
      echo "Optional parameters when starting an ejabberd node:"
      echo "  --config-dir dir   Config ejabberd:    $ETC_DIR"
      echo "  --config file      Config ejabberd:    $EJABBERD_CONFIG_PATH"
@@ -72,7 +72,7 @@ Author: Philipp Huebner <debalance@debian.org>
      echo "  --logs dir         Directory for logs: $LOGS_DIR"
      echo "  --spool dir        Database spool dir: $SPOOL_DIR"
      echo "  --node nodename    ejabberd node name: $ERLANG_NODE"
-@@ -360,7 +366,7 @@
+@@ -377,7 +383,7 @@
          JOT=/usr/bin/jot
          if [ ! -x "$JOT" ] ; then
              # no flock or jot, simply invoke ctlexec()

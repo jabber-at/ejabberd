@@ -2,10 +2,8 @@ Description: populate ejabberd.service.template
  Turn the service template into an actual service file for systemd
 Author: Mathias Ertl <mati@jabber.at>
 
-Index: ejabberd/ejabberd.service.template
-===================================================================
---- ejabberd.orig/ejabberd.service.template
-+++ ejabberd/ejabberd.service.template
+--- a/ejabberd.service.template
++++ b/ejabberd.service.template
 @@ -1,17 +1,19 @@
  [Unit]
 -Description=XMPP Server
@@ -20,7 +18,7 @@ Index: ejabberd/ejabberd.service.template
 -LimitNOFILE=16000
 +LimitNOFILE=32768
  RestartSec=5
--ExecStart=/bin/sh @ctlscriptpath@/ejabberdctl start
+-ExecStart=@ctlscriptpath@/ejabberdctl start
 -ExecStop=@ctlscriptpath@/ejabberdctl stop
 -ExecReload=@ctlscriptpath@/ejabberdctl reload_config
 -Type=oneshot
