@@ -264,7 +264,7 @@ get_auth_admin(Auth, HostHTTP, RPath, Method) ->
 
 get_auth_account(HostOfRule, AccessRule, User, Server,
 		 Pass) ->
-    case ejabberd_auth:check_password(User, Server, Pass) of
+    case ejabberd_auth:check_password(User, <<"">>, Server, Pass) of
       true ->
 	  case is_acl_match(HostOfRule, AccessRule,
 			    jid:make(User, Server, <<"">>))
@@ -1520,8 +1520,7 @@ get_offlinemsg_length(ModOffline, User, Server) ->
     case ModOffline of
       none -> <<"disabled">>;
       _ ->
-	  pretty_string_int(ModOffline:get_queue_length(User,
-							Server))
+	  pretty_string_int(ModOffline:count_offline_messages(User,Server))
     end.
 
 get_offlinemsg_module(Server) ->

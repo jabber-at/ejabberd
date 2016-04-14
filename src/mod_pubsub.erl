@@ -63,7 +63,7 @@
 %% exports for console debug manual use
 -export([create_node/5, create_node/7, delete_node/3,
     subscribe_node/5, unsubscribe_node/5, publish_item/6,
-    delete_item/4, send_items/7, get_items/2, get_item/3,
+    delete_item/4, delete_item/5, send_items/7, get_items/2, get_item/3,
     get_cached_item/2, get_configure/5, set_configure/5,
     tree_action/3, node_action/4, node_call/4]).
 
@@ -241,6 +241,7 @@ stop(Host) ->
 init([ServerHost, Opts]) ->
     ?DEBUG("pubsub init ~p ~p", [ServerHost, Opts]),
     Host = gen_mod:get_opt_host(ServerHost, Opts, <<"pubsub.@HOST@">>),
+    ejabberd_router:register_route(Host, ServerHost),
     Access = gen_mod:get_opt(access_createnode, Opts,
 	    fun(A) when is_atom(A) -> A end, all),
     PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts,
@@ -256,22 +257,26 @@ init([ServerHost, Opts]) ->
     DefaultNodeCfg = gen_mod:get_opt(default_node_config, Opts,
 	    fun(A) when is_list(A) -> filter_node_options(A) end, []),
     pubsub_index:init(Host, ServerHost, Opts),
-    ets:new(gen_mod:get_module_proc(ServerHost, config), [set, named_table]),
     {Plugins, NodeTree, PepMapping} = init_plugins(Host, ServerHost, Opts),
     mnesia:create_table(pubsub_last_item,
 	[{ram_copies, [node()]},
 	    {attributes, record_info(fields, pubsub_last_item)}]),
     mod_disco:register_feature(ServerHost, ?NS_PUBSUB),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {nodetree, NodeTree}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {plugins, Plugins}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {last_item_cache, LastItemCache}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {max_items_node, MaxItemsNode}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {max_subscriptions_node, MaxSubsNode}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {default_node_config, DefaultNodeCfg}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {pep_mapping, PepMapping}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {ignore_pep_from_offline, PepOffline}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {host, Host}),
-    ets:insert(gen_mod:get_module_proc(ServerHost, config), {access, Access}),
+    lists:foreach(
+      fun(H) ->
+	      T = gen_mod:get_module_proc(H, config),
+	      ets:new(T, [set, named_table]),
+	      ets:insert(T, {nodetree, NodeTree}),
+	      ets:insert(T, {plugins, Plugins}),
+	      ets:insert(T, {last_item_cache, LastItemCache}),
+	      ets:insert(T, {max_items_node, MaxItemsNode}),
+	      ets:insert(T, {max_subscriptions_node, MaxSubsNode}),
+	      ets:insert(T, {default_node_config, DefaultNodeCfg}),
+	      ets:insert(T, {pep_mapping, PepMapping}),
+	      ets:insert(T, {ignore_pep_from_offline, PepOffline}),
+	      ets:insert(T, {host, Host}),
+	      ets:insert(T, {access, Access})
+      end, [Host, ServerHost]),
     ejabberd_hooks:add(sm_remove_connection_hook, ServerHost,
 	?MODULE, on_user_offline, 75),
     ejabberd_hooks:add(disco_local_identity, ServerHost,
@@ -309,7 +314,6 @@ init([ServerHost, Opts]) ->
 	false ->
 	    ok
     end,
-    ejabberd_router:register_route(Host),
     pubsub_migrate:update_node_database(Host, ServerHost),
     pubsub_migrate:update_state_database(Host, ServerHost),
     pubsub_migrate:update_lastitem_database(Host, ServerHost),
@@ -504,7 +508,7 @@ disco_local_identity(Acc, _From, _To, _Node, _Lang) ->
     -> [binary(),...]
     ).
 disco_local_features(Acc, _From, To, <<>>, _Lang) ->
-    Host = To#jid.lserver,
+    Host = host(To#jid.lserver),
     Feats = case Acc of
 	{result, I} -> I;
 	_ -> []
@@ -873,7 +877,6 @@ handle_info(_Info, State) ->
 %% @private
 terminate(_Reason,
 	    #state{host = Host, server_host = ServerHost, nodetree = TreePlugin, plugins = Plugins}) ->
-    ejabberd_router:unregister_route(Host),
     case lists:member(?PEPNODE, Plugins) of
 	true ->
 	    ejabberd_hooks:delete(caps_add, ServerHost,
@@ -918,7 +921,8 @@ terminate(_Reason,
 	Pid ->
 	    Pid ! stop
     end,
-    terminate_plugins(Host, ServerHost, Plugins, TreePlugin).
+    terminate_plugins(Host, ServerHost, Plugins, TreePlugin),
+    ejabberd_router:unregister_route(Host).
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -1775,6 +1779,20 @@ update_auth(Host, Node, Type, Nidx, Subscriber, Allow, Subs) ->
 %%<li>nodetree create_node checks if nodeid already exists</li>
 %%<li>node plugin create_node just sets default affiliation/subscription</li>
 %%</ul>
+-spec(create_node/5 ::
+    (
+	Host          :: mod_pubsub:host(),
+	ServerHost    :: binary(),
+	Node        :: <<>> | mod_pubsub:nodeId(),
+	Owner         :: jid(),
+	Type          :: binary())
+    -> {result, [xmlel(),...]}
+    %%%
+    | {error, xmlel()}
+    ).
+create_node(Host, ServerHost, Node, Owner, Type) ->
+    create_node(Host, ServerHost, Node, Owner, Type, all, []).
+
 -spec(create_node/7 ::
     (
 	Host          :: mod_pubsub:host(),
@@ -1788,8 +1806,6 @@ update_auth(Host, Node, Type, Nidx, Subscriber, Allow, Subs) ->
     %%%
     | {error, xmlel()}
     ).
-create_node(Host, ServerHost, Node, Owner, Type) ->
-    create_node(Host, ServerHost, Node, Owner, Type, all, []).
 create_node(Host, ServerHost, <<>>, Owner, Type, Access, Configuration) ->
     case lists:member(<<"instant-nodes">>, plugin_features(Host, Type)) of
 	true ->
@@ -3629,7 +3645,7 @@ get_option(Options, Var, Def) ->
     end.
 
 node_options(Host, Type) ->
-    case config(serverhost(Host), default_node_config) of
+    case config(Host, default_node_config) of
 	undefined -> node_plugin_options(Host, Type);
 	[] -> node_plugin_options(Host, Type);
 	Config -> Config
@@ -3941,22 +3957,16 @@ set_xoption(Host, [{<<"pubsub#itemreply">>, [Val]} | Opts], NewOpts) ->
 set_xoption(Host, [_ | Opts], NewOpts) ->
     set_xoption(Host, Opts, NewOpts).
 
-get_max_items_node({_, ServerHost, _}) ->
-    get_max_items_node(ServerHost);
 get_max_items_node(Host) ->
-    config(serverhost(Host), max_items_node, undefined).
+    config(Host, max_items_node, undefined).
 
-get_max_subscriptions_node({_, ServerHost, _}) ->
-    get_max_subscriptions_node(ServerHost);
 get_max_subscriptions_node(Host) ->
-    config(serverhost(Host), max_subscriptions_node, undefined).
+    config(Host, max_subscriptions_node, undefined).
 
 %%%% last item cache handling
 
-is_last_item_cache_enabled({_, ServerHost, _}) ->
-    is_last_item_cache_enabled(ServerHost);
 is_last_item_cache_enabled(Host) ->
-    config(serverhost(Host), last_item_cache, false).
+    config(Host, last_item_cache, false).
 
 set_cached_item({_, ServerHost, _}, Nidx, ItemId, Publisher, Payload) ->
     set_cached_item(ServerHost, Nidx, ItemId, Publisher, Payload);
@@ -4007,13 +4017,12 @@ host(ServerHost) ->
     config(ServerHost, host, <<"pubsub.", ServerHost/binary>>).
 
 serverhost({_U, ServerHost, _R})->
-    ServerHost;
+    serverhost(ServerHost);
 serverhost(Host) ->
-    [_, ServerHost] = binary:split(Host, <<".">>),
-    ServerHost.
+    ejabberd_router:host_of_route(Host).
 
 tree(Host) ->
-    case config(serverhost(Host), nodetree) of
+    case config(Host, nodetree) of
 	undefined -> tree(Host, ?STDTREE);
 	Tree -> Tree
     end.
@@ -4035,7 +4044,7 @@ plugin(Host, Name) ->
     end.
 
 plugins(Host) ->
-    case config(serverhost(Host), plugins) of
+    case config(Host, plugins) of
 	undefined -> [?STDNODE];
 	[] -> [?STDNODE];
 	Plugins -> Plugins
@@ -4050,6 +4059,9 @@ subscription_plugin(Host) ->
 
 config(ServerHost, Key) ->
     config(ServerHost, Key, undefined).
+
+config({_User, Host, _Resource}, Key, Default) ->
+    config(Host, Key, Default);
 config(ServerHost, Key, Default) ->
     case catch ets:lookup(gen_mod:get_module_proc(ServerHost, config), Key) of
 	[{Key, Value}] -> Value;

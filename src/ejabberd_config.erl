@@ -38,6 +38,8 @@
          convert_to_yaml/1, convert_to_yaml/2,
          env_binary_to_list/2, opt_type/1, may_hide_data/1]).
 
+-export([start/2]).
+
 -include("ejabberd.hrl").
 -include("logger.hrl").
 -include("ejabberd_config.hrl").
@@ -52,8 +54,48 @@
 
 %% @type macro_value() = term().
 
-
 start() ->
+    mnesia_init(),
+    Config = get_ejabberd_config_path(),
+    State0 = read_file(Config),
+    State1 = hosts_to_start(State0),
+    State2 = validate_opts(State1),
+    %% This start time is used by mod_last:
+    UnixTime = p1_time_compat:system_time(seconds),
+    SharedKey = case erlang:get_cookie() of
+                    nocookie ->
+                        p1_sha:sha(randoms:get_string());
+                    Cookie ->
+                        p1_sha:sha(jlib:atom_to_binary(Cookie))
+                end,
+    State3 = set_option({node_start, global}, UnixTime, State2),
+    State4 = set_option({shared_key, global}, SharedKey, State3),
+    set_opts(State4).
+
+%% When starting ejabberd for testing, we sometimes want to start a
+%% subset of hosts from the one define in the config file.
+%% This function override the host list read from config file by the
+%% one we provide.
+%% Hosts to start are defined in an ejabberd application environment
+%% variable 'hosts' to make it easy to ignore some host in config
+%% file.
+hosts_to_start(State) ->
+    case application:get_env(ejabberd, hosts) of
+        undefined ->
+            %% Start all hosts as defined in config file
+            State;
+        {ok, Hosts} ->
+            set_hosts_in_options(Hosts, State)
+    end.
+
+%% @private
+%% At the moment, these functions are mainly used to setup unit tests.
+-spec(start/2 :: (Hosts :: [binary()], Opts :: [acl:acl() | local_config()]) -> ok).
+start(Hosts, Opts) ->
+    mnesia_init(),
+    set_opts(#state{hosts = Hosts, opts = Opts}).
+
+mnesia_init() ->
     case catch mnesia:table_info(local_config, storage_type) of
         disc_copies ->
             mnesia:delete_table(local_config);
@@ -64,21 +106,7 @@ start() ->
 			[{ram_copies, [node()]},
 			 {local_content, true},
 			 {attributes, record_info(fields, local_config)}]),
-    mnesia:add_table_copy(local_config, node(), ram_copies),
-    Config = get_ejabberd_config_path(),
-    State0 = read_file(Config),
-    State = validate_opts(State0),
-    %% This start time is used by mod_last:
-    UnixTime = p1_time_compat:system_time(seconds),
-    SharedKey = case erlang:get_cookie() of
-                    nocookie ->
-                        p1_sha:sha(randoms:get_string());
-                    Cookie ->
-                        p1_sha:sha(jlib:atom_to_binary(Cookie))
-                end,
-    State1 = set_option({node_start, global}, UnixTime, State),
-    State2 = set_option({shared_key, global}, SharedKey, State1),
-    set_opts(State2).
+    mnesia:add_table_copy(local_config, node(), ram_copies).
 
 %% @doc Get the filename of the ejabberd configuration file.
 %% The filename can be specified with: erl -config "/path/to/ejabberd.yml".
@@ -112,7 +140,7 @@ get_env_config() ->
 %% @doc Read the ejabberd configuration file.
 %% It also includes additional configuration files and replaces macros.
 %% This function will crash if finds some error in the configuration file.
-%% @spec (File::string()) -> #state{}.
+%% @spec (File::string()) -> #state{}
 read_file(File) ->
     read_file(File, [{replace_macros, true},
                      {include_files, true},
@@ -277,7 +305,7 @@ search_hosts(Term, State) ->
 	{host, Host} ->
 	    if
 		State#state.hosts == [] ->
-		    add_hosts_to_option([Host], State);
+		    set_hosts_in_options([Host], State);
 		true ->
 		    ?ERROR_MSG("Can't load config file: "
 			       "too many hosts definitions", []),
@@ -286,7 +314,7 @@ search_hosts(Term, State) ->
 	{hosts, Hosts} ->
 	    if
 		State#state.hosts == [] ->
-		    add_hosts_to_option(Hosts, State);
+		    set_hosts_in_options(Hosts, State);
 		true ->
 		    ?ERROR_MSG("Can't load config file: "
 			       "too many hosts definitions", []),
@@ -296,9 +324,12 @@ search_hosts(Term, State) ->
 	    State
     end.
 
-add_hosts_to_option(Hosts, State) ->
+set_hosts_in_options(Hosts, State) ->
     PrepHosts = normalize_hosts(Hosts),
-    set_option({hosts, global}, PrepHosts, State#state{hosts = PrepHosts}).
+    NewOpts = lists:filter(fun({local_config,{hosts,global},_}) -> false;
+                               (_) -> true
+                            end, State#state.opts),
+    set_option({hosts, global}, PrepHosts, State#state{hosts = PrepHosts, opts = NewOpts}).
 
 normalize_hosts(Hosts) ->
     normalize_hosts(Hosts,[]).
@@ -408,7 +439,7 @@ maps_to_lists(IMap) ->
               end, [], IMap).
 
 merge_configs(Terms, ResMap) ->
-    lists:foldl(fun({Name, Val}, Map) when is_list(Val) ->
+    lists:foldl(fun({Name, Val}, Map) when is_list(Val), Name =/= auth_method ->
                         Old = maps:get(Name, Map, #{}),
                         New = lists:foldl(fun(SVal, OMap) ->
                                                   NVal = if Name == host_config orelse Name == append_host_config ->

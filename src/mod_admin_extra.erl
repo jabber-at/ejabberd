@@ -531,7 +531,7 @@ get_commands_spec() ->
 			tags = [offline],
 			desc = "Get the number of unread offline messages",
                         policy = user,
-			module = mod_offline, function = get_queue_length,
+			module = mod_offline, function = count_offline_messages,
 			args = [],
 			result = {res, integer}},
      #ejabberd_commands{name = send_message, tags = [stanza],
@@ -748,21 +748,7 @@ kick_sessions(User, Server, Reason) ->
       fun(Resource) ->
 	      kick_this_session(User, Server, Resource, Reason)
       end,
-      get_resources(User, Server)).
-
-get_resources(User, Server) ->
-    lists:map(
-      fun(Session) ->
-	      element(3, Session#session.usr)
-      end,
-      get_sessions(User, Server)).
-
-get_sessions(User, Server) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
-    Sessions =  mnesia:dirty_index_read(session, {LUser, LServer}, #session.us),
-    true = is_list(Sessions),
-    Sessions.
+      ejabberd_sm:get_user_resources(User, Server)).
 
 set_random_password(User, Server, Reason) ->
     NewPass = build_random_password(Reason),
@@ -861,7 +847,8 @@ connected_users_info() ->
 			      PI when is_integer(PI) -> PI;
 			      _ -> nil
 			  end,
-	      {[U, $@, S, $/, R], atom_to_list(Conn), IPS, Port, PriorityI, NodeS, Uptime}
+	      {binary_to_list(<<U/binary, $@, S/binary, $/, R/binary>>),
+	       atom_to_list(Conn), IPS, Port, PriorityI, NodeS, Uptime}
       end,
       USRIs).
 
@@ -1193,7 +1180,7 @@ push_roster_item(LU, LS, R, U, S, Action) ->
     ejabberd_sm:route(LJID, LJID, BroadcastEl),
     Item = build_roster_item(U, S, Action),
     ResIQ = build_iq_roster_push(Item),
-    ejabberd_router:route(LJID, LJID, ResIQ).
+    ejabberd_router:route(jid:remove_resource(LJID), LJID, ResIQ).
 
 build_roster_item(U, S, {add, Nick, Subs, Group}) ->
     {xmlel, <<"item">>,

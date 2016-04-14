@@ -139,8 +139,8 @@
 -define(STREAM_HEADER,
 	<<"<?xml version='1.0'?><stream:stream "
 	  "xmlns='jabber:client' xmlns:stream='http://et"
-	  "herx.jabber.org/streams' id='~s' from='~s'~s~"
-	  "s>">>).
+	  "herx.jabber.org/streams' id='~s' from='~s'~s"
+	  "~s>">>).
 
 -define(STREAM_TRAILER, <<"</stream:stream>">>).
 
@@ -382,13 +382,13 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 						    ejabberd_auth:get_password_with_authmodule(
 							U, Server)
 					    end,
-					    fun (U, P) ->
+					  fun(U, AuthzId, P) ->
 						    ejabberd_auth:check_password_with_authmodule(
-							U, Server, P)
+						    U, AuthzId, Server, P)
 					    end,
-					    fun (U, P, D, DG) ->
+					  fun(U, AuthzId, P, D, DG) ->
 						    ejabberd_auth:check_password_with_authmodule(
-							U, Server, P, D, DG)
+						    U, AuthzId, Server, P, D, DG)
 					    end),
 				    Mechs =
 					case TLSEnabled or not TLSRequired of
@@ -634,7 +634,7 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 		    DGen = fun (PW) ->
 			    p1_sha:sha(<<(StateData#state.streamid)/binary, PW/binary>>)
 		    end,
-		    case ejabberd_auth:check_password_with_authmodule(U,
+		case ejabberd_auth:check_password_with_authmodule(U, U,
 			    StateData#state.server,
 			    P, D, DGen)
 		    of
@@ -752,9 +752,7 @@ wait_for_feature_request({xmlstreamelement, El},
 	      of
 	    {ok, Props} ->
 		(StateData#state.sockmod):reset_stream(StateData#state.socket),
-		%U = fxml:get_attr_s(username, Props),
-		U = proplists:get_value(username, Props, <<>>),
-		%AuthModule = fxml:get_attr_s(auth_module, Props),
+		U = identity(Props),
 		AuthModule = proplists:get_value(auth_module, Props, undefined),
 		?INFO_MSG("(~w) Accepted authentication for ~s "
 			  "by ~p from ~s",
@@ -876,9 +874,7 @@ wait_for_sasl_response({xmlstreamelement, El},
 	    {ok, Props} ->
 		catch
 		  (StateData#state.sockmod):reset_stream(StateData#state.socket),
-%		U = fxml:get_attr_s(username, Props),
-		U = proplists:get_value(username, Props, <<>>),
-%		AuthModule = fxml:get_attr_s(auth_module, Props),
+		U = identity(Props),
 		AuthModule = proplists:get_value(auth_module, Props, <<>>),
 		?INFO_MSG("(~w) Accepted authentication for ~s "
 			  "by ~p from ~s",
@@ -899,9 +895,7 @@ wait_for_sasl_response({xmlstreamelement, El},
 						user = U});
 	    {ok, Props, ServerOut} ->
 		(StateData#state.sockmod):reset_stream(StateData#state.socket),
-%		U = fxml:get_attr_s(username, Props),
-		U = proplists:get_value(username, Props, <<>>),
-%		AuthModule = fxml:get_attr_s(auth_module, Props),
+		U = identity(Props),
 		AuthModule = proplists:get_value(auth_module, Props, undefined),
 		?INFO_MSG("(~w) Accepted authentication for ~s "
 			  "by ~p from ~s",
@@ -999,7 +993,7 @@ resource_conflict_action(U, S, R) ->
       acceptnew -> {accept_resource, R};
       closenew -> closenew;
       setresource ->
-	  Rnew = iolist_to_binary([randoms:get_string(),randoms:get_string(),randoms:get_string()]),
+	  Rnew = new_uniq_id(),
 	  {accept_resource, Rnew}
     end.
 
@@ -1026,8 +1020,7 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 			      [{elem, <<"resource">>}, cdata]),
 	  R = case jid:resourceprep(R1) of
 		error -> error;
-		<<"">> ->
-                      iolist_to_binary([randoms:get_string(),randoms:get_string(),randoms:get_string()]);
+		<<"">> -> new_uniq_id();
 		Resource -> Resource
 	      end,
 	  case R of
@@ -1912,6 +1905,10 @@ send_trailer(StateData) ->
     send_text(StateData, ?STREAM_TRAILER).
 
 new_id() -> randoms:get_string().
+
+new_uniq_id() ->
+    iolist_to_binary([randoms:get_string(),
+		      jlib:integer_to_binary(p1_time_compat:unique_integer([positive]))]).
 
 is_auth_packet(El) ->
     case jlib:iq_query_info(El) of
@@ -3125,6 +3122,12 @@ pack_string(String, Pack) ->
 
 transform_listen_option(Opt, Opts) ->
     [Opt|Opts].
+
+identity(Props) ->
+    case proplists:get_value(authzid, Props, <<>>) of
+	<<>> -> proplists:get_value(username, Props, <<>>);
+	AuthzId -> AuthzId
+    end.
 
 opt_type(domain_certfile) -> fun iolist_to_binary/1;
 opt_type(max_fsm_queue) ->
