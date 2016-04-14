@@ -1,6 +1,7 @@
 ejabberd (1:16.03-1) unstable; urgency=low
 
   * Version bump from upstream.
+  * Add fix-anon-auth.patch to fix anonymous authentication.
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 14 Apr 2016 12:38:59 +0200
 
