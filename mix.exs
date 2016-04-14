@@ -3,9 +3,9 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "16.01.0-beta1",
+     version: "16.02.0",
      description: description,
-     elixir: "~> 1.1",
+     elixir: "~> 1.2",
      elixirc_paths: ["lib"],
      compile_path: ".",
      compilers: [:asn1] ++ Mix.compilers,

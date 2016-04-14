@@ -50,6 +50,7 @@
 %% "ejabberd.log" in current directory.
 %% Note: If the directory where to place the ejabberd log file to not exist,
 %% it is not created and no log file will be generated.
+%% @spec () -> string()
 get_log_path() ->
     case ejabberd_config:env_binary_to_list(ejabberd, log_path) of
 	{ok, Path} ->
@@ -99,7 +100,33 @@ get_string_env(Name, Default) ->
             Default
     end.
 
+%% @spec () -> ok
 start() ->
+    StartedApps = application:which_applications(5000),
+    case lists:keyfind(logger, 1, StartedApps) of
+        %% Elixir logger is started. We assume everything is in place
+        %% to use lager to Elixir logger bridge.
+        {logger, _, _} ->
+            error_logger:info_msg("Ignoring ejabberd logger options, using Elixir Logger.", []),
+            %% Do not start lager, we rely on Elixir Logger
+            do_start_for_logger();
+        _ ->
+            do_start()
+    end.
+
+do_start_for_logger() ->
+    application:load(sasl),
+    application:set_env(sasl, sasl_error_logger, false),
+    application:load(lager),
+    application:set_env(lager, error_logger_redirect, false),
+    application:set_env(lager, error_logger_whitelist, ['Elixir.Logger.ErrorHandler']),
+    application:set_env(lager, crash_log, false),
+    application:set_env(lager, handlers, [{elixir_logger_backend, [{level, info}]}]),
+    ejabberd:start_app(lager),
+    ok.
+
+%% Start lager
+do_start() ->
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
     application:load(lager),
@@ -126,10 +153,12 @@ start() ->
     ejabberd:start_app(lager),
     ok.
 
+%% @spec () -> ok
 reopen_log() ->
     %% Lager detects external log rotation automatically.
     ok.
 
+%% @spec () -> ok
 rotate_log() ->
     lager_crash_log ! rotate,
     lists:foreach(
@@ -139,8 +168,9 @@ rotate_log() ->
               ok
       end, gen_event:which_handlers(lager_event)).
 
+%% @spec () -> {loglevel(), atom(), string()}
 get() ->
-    case lager:get_loglevel(lager_console_backend) of
+    case get_lager_loglevel() of
         none -> {0, no_log, "No log"};
         emergency -> {1, critical, "Critical"};
         alert -> {1, critical, "Critical"};
@@ -152,6 +182,7 @@ get() ->
         debug -> {5, debug, "Debug"}
     end.
 
+%% @spec (loglevel() | {loglevel(), list()}) -> {module, module()}
 set(LogLevel) when is_integer(LogLevel) ->
     LagerLogLevel = case LogLevel of
                         0 -> none;
@@ -162,7 +193,7 @@ set(LogLevel) when is_integer(LogLevel) ->
                         5 -> debug;
 			E ->  throw({wrong_loglevel, E})
                     end,
-    case lager:get_loglevel(lager_console_backend) of
+    case get_lager_loglevel() of
         LagerLogLevel ->
             ok;
         _ ->
@@ -172,6 +203,8 @@ set(LogLevel) when is_integer(LogLevel) ->
                       lager:set_loglevel(H, LagerLogLevel);
                  (lager_console_backend = H) ->
                       lager:set_loglevel(H, LagerLogLevel);
+                 (elixir_logger_backend = H) ->
+                      lager:set_loglevel(H, LagerLogLevel);
                  (_) ->
                       ok
               end, gen_event:which_handlers(lager_event))
@@ -180,3 +213,22 @@ set(LogLevel) when is_integer(LogLevel) ->
 set({_LogLevel, _}) ->
     error_logger:error_msg("custom loglevels are not supported for 'lager'"),
     {module, lager}.
+
+get_lager_loglevel() ->
+    Handlers = get_lager_handlers(),
+    lists:foldl(fun(lager_console_backend, _Acc) ->
+                        lager:get_loglevel(lager_console_backend);
+                   (elixir_logger_backend, _Acc) ->
+                        lager:get_loglevel(elixir_logger_backend);
+                   (_, Acc) ->
+                        Acc
+                end,
+                none, Handlers).
+
+get_lager_handlers() ->
+    case catch gen_event:which_handlers(lager_event) of
+        {'EXIT',noproc} ->
+            [];
+        Result ->
+            Result
+    end.

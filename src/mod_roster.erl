@@ -203,11 +203,9 @@ read_roster_version(LUser, LServer, mnesia) ->
       [] -> error
     end;
 read_roster_version(LUser, LServer, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    case odbc_queries:get_roster_version(LServer, Username)
-	of
-      {selected, [<<"version">>], [[Version]]} -> Version;
-      {selected, [<<"version">>], []} -> error
+    case odbc_queries:get_roster_version(LServer, LUser) of
+      {selected, [{Version}]} -> Version;
+      {selected, []} -> error
     end;
 read_roster_version(LServer, LUser, riak) ->
     case ejabberd_riak:get(roster_version, roster_version_schema(),
@@ -369,46 +367,37 @@ get_roster(LUser, LServer, riak) ->
         _Err -> []
     end;
 get_roster(LUser, LServer, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    case catch odbc_queries:get_roster(LServer, Username) of
-      {selected,
-       [<<"username">>, <<"jid">>, <<"nick">>,
-	<<"subscription">>, <<"ask">>, <<"askmessage">>,
-	<<"server">>, <<"subscribe">>, <<"type">>],
-       Items}
-	  when is_list(Items) ->
-	  JIDGroups = case catch
-			     odbc_queries:get_roster_jid_groups(LServer,
-								Username)
-			  of
-			{selected, [<<"jid">>, <<"grp">>], JGrps}
-			    when is_list(JGrps) ->
-			    JGrps;
-			_ -> []
-		      end,
-	  GroupsDict = lists:foldl(fun ([J, G], Acc) ->
-					   dict:append(J, G, Acc)
-				   end,
-				   dict:new(), JIDGroups),
-	  RItems = lists:flatmap(fun (I) ->
-					 case raw_to_record(LServer, I) of
-					   %% Bad JID in database:
-					   error -> [];
-					   R ->
-					       SJID =
-						   jid:to_string(R#roster.jid),
-					       Groups = case dict:find(SJID,
-								       GroupsDict)
-							    of
-							  {ok, Gs} -> Gs;
-							  error -> []
-							end,
-					       [R#roster{groups = Groups}]
-					 end
-				 end,
-				 Items),
-	  RItems;
-      _ -> []
+    case catch odbc_queries:get_roster(LServer, LUser) of
+        {selected, Items} when is_list(Items) ->
+            JIDGroups = case catch odbc_queries:get_roster_jid_groups(
+                                     LServer, LUser) of
+                            {selected, JGrps}
+                            when is_list(JGrps) ->
+                                JGrps;
+                            _ -> []
+                        end,
+            GroupsDict = lists:foldl(fun({J, G}, Acc) ->
+                                             dict:append(J, G, Acc)
+                                     end,
+                                     dict:new(), JIDGroups),
+            RItems =
+                lists:flatmap(
+                  fun(I) ->
+                          case raw_to_record(LServer, I) of
+                              %% Bad JID in database:
+                              error -> [];
+                              R ->
+                                  SJID = jid:to_string(R#roster.jid),
+                                  Groups = case dict:find(SJID, GroupsDict) of
+                                               {ok, Gs} -> Gs;
+                                               error -> []
+                                           end,
+                                  [R#roster{groups = Groups}]
+                          end
+                  end,
+                  Items),
+            RItems;
+        _ -> []
     end.
 
 set_roster(#roster{us = {LUser, LServer}, jid = LJID} = Item) ->
@@ -460,14 +449,8 @@ get_roster_by_jid_t(LUser, LServer, LJID, mnesia) ->
 		   xs = []}
     end;
 get_roster_by_jid_t(LUser, LServer, LJID, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    {selected,
-     [<<"username">>, <<"jid">>, <<"nick">>,
-      <<"subscription">>, <<"ask">>, <<"askmessage">>,
-      <<"server">>, <<"subscribe">>, <<"type">>],
-     Res} =
-	odbc_queries:get_roster_by_jid(LServer, Username, SJID),
+    {selected, Res} =
+	odbc_queries:get_roster_by_jid(LServer, LUser, jid:to_string(LJID)),
     case Res of
       [] ->
 	  #roster{usj = {LUser, LServer, LJID},
@@ -662,14 +645,8 @@ get_subscription_lists(_, LUser, LServer, mnesia) ->
       _ -> []
     end;
 get_subscription_lists(_, LUser, LServer, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    case catch odbc_queries:get_roster(LServer, Username) of
-      {selected,
-       [<<"username">>, <<"jid">>, <<"nick">>,
-	<<"subscription">>, <<"ask">>, <<"askmessage">>,
-	<<"server">>, <<"subscribe">>, <<"type">>],
-       Items}
-	  when is_list(Items) ->
+    case catch odbc_queries:get_roster(LServer, LUser) of
+        {selected, Items} when is_list(Items) ->
             lists:map(fun(I) -> raw_to_record(LServer, I) end, Items);
       _ -> []
     end;
@@ -711,12 +688,9 @@ roster_subscribe_t(LUser, LServer, LJID, Item) ->
 roster_subscribe_t(_LUser, _LServer, _LJID, Item,
 		   mnesia) ->
     mnesia:write(Item);
-roster_subscribe_t(LUser, LServer, LJID, Item, odbc) ->
-    ItemVals = record_to_string(Item),
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    odbc_queries:roster_subscribe(LServer, Username, SJID,
-				  ItemVals);
+roster_subscribe_t(_LUser, _LServer, _LJID, Item, odbc) ->
+    ItemVals = record_to_row(Item),
+    odbc_queries:roster_subscribe(ItemVals);
 roster_subscribe_t(LUser, LServer, _LJID, Item, riak) ->
     ejabberd_riak:put(Item, roster_schema(),
                       [{'2i', [{<<"us">>, {LUser, LServer}}]}]).
@@ -750,30 +724,18 @@ get_roster_by_jid_with_groups_t(LUser, LServer, LJID,
     end;
 get_roster_by_jid_with_groups_t(LUser, LServer, LJID,
 				odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    case odbc_queries:get_roster_by_jid(LServer, Username,
-					SJID)
-	of
-      {selected,
-       [<<"username">>, <<"jid">>, <<"nick">>,
-	<<"subscription">>, <<"ask">>, <<"askmessage">>,
-	<<"server">>, <<"subscribe">>, <<"type">>],
-       [I]} ->
-	  R = raw_to_record(LServer, I),
-	  Groups = case odbc_queries:get_roster_groups(LServer,
-						       Username, SJID)
-		       of
-		     {selected, [<<"grp">>], JGrps} when is_list(JGrps) ->
-			 [JGrp || [JGrp] <- JGrps];
-		     _ -> []
-		   end,
-	  R#roster{groups = Groups};
-      {selected,
-       [<<"username">>, <<"jid">>, <<"nick">>,
-	<<"subscription">>, <<"ask">>, <<"askmessage">>,
-	<<"server">>, <<"subscribe">>, <<"type">>],
-       []} ->
+    SJID = jid:to_string(LJID),
+    case odbc_queries:get_roster_by_jid(LServer, LUser, SJID) of
+      {selected, [I]} ->
+            R = raw_to_record(LServer, I),
+            Groups =
+                case odbc_queries:get_roster_groups(LServer, LUser, SJID) of
+                    {selected, JGrps} when is_list(JGrps) ->
+                        [JGrp || {JGrp} <- JGrps];
+                    _ -> []
+                end,
+            R#roster{groups = Groups};
+      {selected, []} ->
 	  #roster{usj = {LUser, LServer, LJID},
 		  us = {LUser, LServer}, jid = LJID}
     end;
@@ -995,8 +957,7 @@ remove_user(LUser, LServer, mnesia) ->
 	end,
     mnesia:transaction(F);
 remove_user(LUser, LServer, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    odbc_queries:del_user_roster_t(LServer, Username),
+    odbc_queries:del_user_roster_t(LServer, LUser),
     ok;
 remove_user(LUser, LServer, riak) ->
     {atomic, ejabberd_riak:delete_by_index(roster, <<"us">>, {LUser, LServer})}.
@@ -1064,11 +1025,10 @@ update_roster_t(_LUser, _LServer, _LJID, Item,
 		mnesia) ->
     mnesia:write(Item);
 update_roster_t(LUser, LServer, LJID, Item, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    ItemVals = record_to_string(Item),
-    ItemGroups = groups_to_string(Item),
-    odbc_queries:update_roster(LServer, Username, SJID, ItemVals,
+    SJID = jid:to_string(LJID),
+    ItemVals = record_to_row(Item),
+    ItemGroups = Item#roster.groups,
+    odbc_queries:update_roster(LServer, LUser, SJID, ItemVals,
                                ItemGroups);
 update_roster_t(LUser, LServer, _LJID, Item, riak) ->
     ejabberd_riak:put(Item, roster_schema(),
@@ -1081,9 +1041,8 @@ del_roster_t(LUser, LServer, LJID) ->
 del_roster_t(LUser, LServer, LJID, mnesia) ->
     mnesia:delete({roster, {LUser, LServer, LJID}});
 del_roster_t(LUser, LServer, LJID, odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    odbc_queries:del_roster(LServer, Username, SJID);
+    SJID = jid:to_string(LJID),
+    odbc_queries:del_roster(LServer, LUser, SJID);
 del_roster_t(LUser, LServer, LJID, riak) ->
     ejabberd_riak:delete(roster, {LUser, LServer, LJID}).
 
@@ -1184,14 +1143,8 @@ get_in_pending_subscriptions(Ls, User, Server, odbc) ->
     JID = jid:make(User, Server, <<"">>),
     LUser = JID#jid.luser,
     LServer = JID#jid.lserver,
-    Username = ejabberd_odbc:escape(LUser),
-    case catch odbc_queries:get_roster(LServer, Username) of
-      {selected,
-       [<<"username">>, <<"jid">>, <<"nick">>,
-	<<"subscription">>, <<"ask">>, <<"askmessage">>,
-	<<"server">>, <<"subscribe">>, <<"type">>],
-       Items}
-	  when is_list(Items) ->
+    case catch odbc_queries:get_roster(LServer, LUser) of
+        {selected, Items} when is_list(Items) ->
 	  Ls ++
 	    lists:map(fun (R) ->
 			      Message = R#roster.askmessage,
@@ -1243,12 +1196,9 @@ read_subscription_and_groups(LUser, LServer, LJID,
     end;
 read_subscription_and_groups(LUser, LServer, LJID,
 			     odbc) ->
-    Username = ejabberd_odbc:escape(LUser),
-    SJID = ejabberd_odbc:escape(jid:to_string(LJID)),
-    case catch odbc_queries:get_subscription(LServer,
-					     Username, SJID)
-	of
-      {selected, [<<"subscription">>], [[SSubscription]]} ->
+    SJID = jid:to_string(LJID),
+    case catch odbc_queries:get_subscription(LServer, LUser, SJID) of
+      {selected, [{SSubscription}]} ->
 	  Subscription = case SSubscription of
 			   <<"B">> -> both;
 			   <<"T">> -> to;
@@ -1256,11 +1206,11 @@ read_subscription_and_groups(LUser, LServer, LJID,
 			   _ -> none
 			 end,
 	  Groups = case catch
-			  odbc_queries:get_rostergroup_by_jid(LServer, Username,
+			  odbc_queries:get_rostergroup_by_jid(LServer, LUser,
 							      SJID)
 		       of
-		     {selected, [<<"grp">>], JGrps} when is_list(JGrps) ->
-			 [JGrp || [JGrp] <- JGrps];
+		     {selected, JGrps} when is_list(JGrps) ->
+			 [JGrp || {JGrp} <- JGrps];
 		     _ -> []
 		   end,
 	  {Subscription, Groups};
@@ -1297,6 +1247,12 @@ get_jid_info(_, User, Server, JID) ->
 raw_to_record(LServer,
 	      [User, SJID, Nick, SSubscription, SAsk, SAskMessage,
 	       _SServer, _SSubscribe, _SType]) ->
+    raw_to_record(LServer,
+                  {User, SJID, Nick, SSubscription, SAsk, SAskMessage,
+                   _SServer, _SSubscribe, _SType});
+raw_to_record(LServer,
+	      {User, SJID, Nick, SSubscription, SAsk, SAskMessage,
+	       _SServer, _SSubscribe, _SType}) ->
     case jid:from_string(SJID) of
       error -> error;
       JID ->
@@ -1345,6 +1301,27 @@ record_to_string(#roster{us = {User, _Server},
     SAskMessage = ejabberd_odbc:escape(AskMessage),
     [Username, SJID, Nick, SSubscription, SAsk, SAskMessage,
      <<"N">>, <<"">>, <<"item">>].
+
+record_to_row(
+  #roster{us = {LUser, _LServer},
+          jid = JID, name = Name, subscription = Subscription,
+          ask = Ask, askmessage = AskMessage}) ->
+    SJID = jid:to_string(jid:tolower(JID)),
+    SSubscription = case Subscription of
+		      both -> <<"B">>;
+		      to -> <<"T">>;
+		      from -> <<"F">>;
+		      none -> <<"N">>
+		    end,
+    SAsk = case Ask of
+	     subscribe -> <<"S">>;
+	     unsubscribe -> <<"U">>;
+	     both -> <<"B">>;
+	     out -> <<"O">>;
+	     in -> <<"I">>;
+	     none -> <<"N">>
+	   end,
+    {LUser, SJID, Name, SSubscription, SAsk, AskMessage}.
 
 groups_to_string(#roster{us = {User, _Server},
 			 jid = JID, groups = Groups}) ->

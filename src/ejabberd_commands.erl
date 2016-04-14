@@ -352,7 +352,7 @@ get_command_definition(Name) ->
 execute_command(Name, Arguments) ->
     execute_command([], noauth, Name, Arguments).
 
--spec execute_command([{atom(), [atom()], [any()]}],
+-spec execute_command([{atom(), [atom()], [any()]}] | undefined,
                       {binary(), binary(), binary(), boolean()} |
                       noauth | admin,
                       atom(),
@@ -361,7 +361,7 @@ execute_command(Name, Arguments) ->
 
 %% @spec (AccessCommands, Auth, Name::atom(), Arguments) -> ResultTerm | {error, Error}
 %% where
-%%       AccessCommands = [{Access, CommandNames, Arguments}]
+%%       AccessCommands = [{Access, CommandNames, Arguments}] | undefined
 %%       Auth = {User::string(), Server::string(), Password::string(), Admin::boolean()}
 %%            | noauth
 %%            | admin
@@ -465,7 +465,7 @@ check_access_commands([], _Auth, _Method, _Command, _Arguments) ->
 check_access_commands(AccessCommands, Auth, Method, Command1, Arguments) ->
     Command =
         case {Command1#ejabberd_commands.policy, Auth} of
-            {user, {_, _, _}} ->
+            {user, {_, _, _, _}} ->
                 Command1;
             {user, _} ->
                 Command1#ejabberd_commands{
@@ -517,7 +517,7 @@ check_auth(Command, {User, Server, {oauth, Token}, _}) ->
     end;
 check_auth(_Command, {User, Server, Password, _}) when is_binary(Password) ->
     %% Check the account exists and password is valid
-    case ejabberd_auth:check_password(User, Server, Password) of
+    case ejabberd_auth:check_password(User, <<"">>, Server, Password) of
         true -> {ok, User, Server};
         _ -> throw({error, invalid_account_data})
     end.
@@ -595,7 +595,7 @@ get_commands() ->
     UserCmds = [N || {N, _, _, user} <- CommandsList],
     Cmds =
         lists:foldl(
-          fun({add_commands, L}, Acc) ->
+          fun([{add_commands, L}], Acc) ->
                   Cmds = case L of
                              open -> OpenCmds;
                              restricted -> RestrictedCmds;
@@ -604,7 +604,7 @@ get_commands() ->
                              _ when is_list(L) -> L
                          end,
                   lists:usort(Cmds ++ Acc);
-             ({remove_commands, L}, Acc) ->
+             ([{remove_commands, L}], Acc) ->
                   Cmds = case L of
                              open -> OpenCmds;
                              restricted -> RestrictedCmds;

@@ -65,8 +65,20 @@ init_config(Config) ->
      {resource, <<"resource">>},
      {master_resource, <<"master_resource">>},
      {slave_resource, <<"slave_resource">>},
-     {password, <<"password">>}
+     {password, <<"password">>},
+     {backends, get_config_backends()}
      |Config].
+
+%% Read environment variable CT_DB=riak,mysql to limit the backends to test.
+%% You can thus limit the backend you want to test with:
+%%  CT_BACKENDS=riak,mysql rebar ct suites=ejabberd
+get_config_backends() ->
+    case os:getenv("CT_BACKENDS") of
+        false  -> all;
+        String ->
+            Backends0 = string:tokens(String, ","),
+            lists:map(fun(Backend) -> string:strip(Backend, both, $ ) end, Backends0)
+    end.
 
 process_config_tpl(Content, []) ->
     Content;
@@ -353,6 +365,14 @@ muc_jid(Config) ->
 muc_room_jid(Config) ->
     Server = ?config(server, Config),
     jid:make(<<"test">>, <<"conference.", Server/binary>>, <<>>).
+
+mix_jid(Config) ->
+    Server = ?config(server, Config),
+    jid:make(<<>>, <<"mix.", Server/binary>>, <<>>).
+
+mix_room_jid(Config) ->
+    Server = ?config(server, Config),
+    jid:make(<<"test">>, <<"mix.", Server/binary>>, <<>>).
 
 id() ->
     id(undefined).

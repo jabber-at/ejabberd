@@ -31,8 +31,8 @@
 
 -behaviour(ejabberd_auth).
 
--export([start/1, set_password/3, check_password/3,
-	 check_password/5, try_register/3,
+-export([start/1, set_password/3, check_password/4,
+	 check_password/6, try_register/3,
 	 dirty_get_registered_users/0, get_vh_registered_users/1,
 	 get_vh_registered_users/2,
 	 get_vh_registered_users_number/1,
@@ -63,31 +63,30 @@ store_type() ->
       true -> scram %% allows: PLAIN SCRAM
     end.
 
-%% @spec (User, Server, Password) -> true | false | {error, Error}
-check_password(User, Server, Password) ->
-    LServer = jid:nameprep(Server),
-    LUser = jid:nodeprep(User),
+%% @spec (User, AuthzId, Server, Password) -> true | false | {error, Error}
+check_password(User, AuthzId, Server, Password) ->
+    if AuthzId /= <<>> andalso AuthzId /= User ->
+        false;
+    true ->
+        LServer = jid:nameprep(Server),
+        LUser = jid:nodeprep(User),
     if (LUser == error) or (LServer == error) ->
             false;
        (LUser == <<>>) or (LServer == <<>>) ->
             false;
        true ->
-            Username = ejabberd_odbc:escape(LUser),
             case is_scrammed() of
                 true ->
-                    try odbc_queries:get_password_scram(LServer, Username) of
-                        {selected, [<<"password">>, <<"serverkey">>,
-                                    <<"salt">>, <<"iterationcount">>],
-                         [[StoredKey, ServerKey, Salt, IterationCount]]} ->
+                    try odbc_queries:get_password_scram(LServer, LUser) of
+                        {selected,
+                         [{StoredKey, ServerKey, Salt, IterationCount}]} ->
                             Scram =
                                 #scram{storedkey = StoredKey,
                                        serverkey = ServerKey,
                                        salt = Salt,
-                                       iterationcount = binary_to_integer(
-                                                          IterationCount)},
+                                       iterationcount = IterationCount},
                             is_password_scram_valid(Password, Scram);
-                        {selected, [<<"password">>, <<"serverkey">>,
-                                    <<"salt">>, <<"iterationcount">>], []} ->
+                        {selected, []} ->
                             false; %% Account does not exist
                         {error, _Error} ->
                             false %% Typical error is that table doesn't exist
@@ -96,12 +95,12 @@ check_password(User, Server, Password) ->
                             false %% Typical error is database not accessible
                     end;
                 false ->
-                    try odbc_queries:get_password(LServer, Username) of
-                        {selected, [<<"password">>], [[Password]]} ->
+                    try odbc_queries:get_password(LServer, LUser) of
+                        {selected, [{Password}]} ->
                             Password /= <<"">>;
-                        {selected, [<<"password">>], [[_Password2]]} ->
+                        {selected, [{_Password2}]} ->
                             false; %% Password is not correct
-                        {selected, [<<"password">>], []} ->
+                        {selected, []} ->
                             false; %% Account does not exist
                         {error, _Error} ->
                             false %% Typical error is that table doesn't exist
@@ -110,13 +109,17 @@ check_password(User, Server, Password) ->
                             false %% Typical error is database not accessible
                     end
             end
+        end
     end.
 
-%% @spec (User, Server, Password, Digest, DigestGen) -> true | false | {error, Error}
-check_password(User, Server, Password, Digest,
+%% @spec (User, AuthzId, Server, Password, Digest, DigestGen) -> true | false | {error, Error}
+check_password(User, AuthzId, Server, Password, Digest,
 	       DigestGen) ->
-    LServer = jid:nameprep(Server),
-    LUser = jid:nodeprep(User),
+    if AuthzId /= <<>> andalso AuthzId /= User ->
+        false;
+    true ->
+        LServer = jid:nameprep(Server),
+        LUser = jid:nodeprep(User),
     if (LUser == error) or (LServer == error) ->
             false;
        (LUser == <<>>) or (LServer == <<>>) ->
@@ -124,10 +127,9 @@ check_password(User, Server, Password, Digest,
        true ->
             case is_scrammed() of
                 false ->
-                    Username = ejabberd_odbc:escape(LUser),
-                    try odbc_queries:get_password(LServer, Username) of
+                    try odbc_queries:get_password(LServer, LUser) of
                         %% Account exists, check if password is valid
-                        {selected, [<<"password">>], [[Passwd]]} ->
+                        {selected, [{Passwd}]} ->
                             DigRes = if Digest /= <<"">> ->
                                              Digest == DigestGen(Passwd);
                                         true -> false
@@ -135,7 +137,7 @@ check_password(User, Server, Password, Digest,
                             if DigRes -> true;
                                true -> (Passwd == Password) and (Password /= <<"">>)
                             end;
-                        {selected, [<<"password">>], []} ->
+                        {selected, []} ->
                             false; %% Account does not exist
                         {error, _Error} ->
                             false %% Typical error is that table doesn't exist
@@ -146,6 +148,7 @@ check_password(User, Server, Password, Digest,
                 true ->
                     false
             end
+        end
     end.
 
 %% @spec (User::string(), Server::string(), Password::string()) ->
@@ -158,26 +161,24 @@ set_password(User, Server, Password) ->
        (LUser == <<>>) or (LServer == <<>>) ->
             {error, invalid_jid};
        true ->
-            Username = ejabberd_odbc:escape(LUser),
             case is_scrammed() of
                 true ->
                     Scram = password_to_scram(Password),
                     case catch odbc_queries:set_password_scram_t(
                                  LServer,
-                                 Username,
-                                 ejabberd_odbc:escape(Scram#scram.storedkey),
-                                 ejabberd_odbc:escape(Scram#scram.serverkey),
-                                 ejabberd_odbc:escape(Scram#scram.salt),
-                                 integer_to_binary(Scram#scram.iterationcount)
+                                 LUser,
+                                 Scram#scram.storedkey,
+                                 Scram#scram.serverkey,
+                                 Scram#scram.salt,
+                                 Scram#scram.iterationcount
                                 )
                         of
                         {atomic, ok} -> ok;
                         Other -> {error, Other}
                     end;
                 false ->
-                    Pass = ejabberd_odbc:escape(Password),
                     case catch odbc_queries:set_password_t(LServer,
-                                                           Username, Pass)
+                                                           LUser, Password)
                         of
                         {atomic, ok} -> ok;
                         Other -> {error, Other}
@@ -194,26 +195,23 @@ try_register(User, Server, Password) ->
        (LUser == <<>>) or (LServer == <<>>) ->
             {error, invalid_jid};
        true ->
-	  Username = ejabberd_odbc:escape(LUser),
             case is_scrammed() of
                 true ->
                     Scram = password_to_scram(Password),
                     case catch odbc_queries:add_user_scram(
                                  LServer,
-                                 Username,
-                                 ejabberd_odbc:escape(Scram#scram.storedkey),
-                                 ejabberd_odbc:escape(Scram#scram.serverkey),
-                                 ejabberd_odbc:escape(Scram#scram.salt),
-                                 integer_to_binary(Scram#scram.iterationcount)
+                                 LUser,
+                                 Scram#scram.storedkey,
+                                 Scram#scram.serverkey,
+                                 Scram#scram.salt,
+                                 Scram#scram.iterationcount
                                 ) of
                         {updated, 1} -> {atomic, ok};
                         _ -> {atomic, exists}
                     end;
                 false ->
-                    Pass = ejabberd_odbc:escape(Password),
-                    case catch odbc_queries:add_user(LServer, Username,
-                                                     Pass)
-                        of
+                    case catch odbc_queries:add_user(LServer, LUser,
+                                                     Password) of
                         {updated, 1} -> {atomic, ok};
                         _ -> {atomic, exists}
                     end
@@ -228,35 +226,51 @@ dirty_get_registered_users() ->
 		  Servers).
 
 get_vh_registered_users(Server) ->
-    LServer = jid:nameprep(Server),
-    case catch odbc_queries:list_users(LServer) of
-      {selected, [<<"username">>], Res} ->
-	  [{U, LServer} || [U] <- Res];
-      _ -> []
+    case jid:nameprep(Server) of
+        error -> [];
+        <<>> -> [];
+        LServer ->
+            case catch odbc_queries:list_users(LServer) of
+                {selected, Res} ->
+                    [{U, LServer} || {U} <- Res];
+                _ -> []
+            end
     end.
 
 get_vh_registered_users(Server, Opts) ->
-    LServer = jid:nameprep(Server),
-    case catch odbc_queries:list_users(LServer, Opts) of
-      {selected, [<<"username">>], Res} ->
-	  [{U, LServer} || [U] <- Res];
-      _ -> []
+    case jid:nameprep(Server) of
+        error -> [];
+        <<>> -> [];
+        LServer ->
+            case catch odbc_queries:list_users(LServer, Opts) of
+                {selected, Res} ->
+                    [{U, LServer} || {U} <- Res];
+                _ -> []
+            end
     end.
 
 get_vh_registered_users_number(Server) ->
-    LServer = jid:nameprep(Server),
-    case catch odbc_queries:users_number(LServer) of
-      {selected, [_], [[Res]]} ->
-	  jlib:binary_to_integer(Res);
-      _ -> 0
+    case jid:nameprep(Server) of
+        error -> 0;
+        <<>> -> 0;
+        LServer ->
+            case catch odbc_queries:users_number(LServer) of
+                {selected, [{Res}]} ->
+                    Res;
+                _ -> 0
+            end
     end.
 
 get_vh_registered_users_number(Server, Opts) ->
-    LServer = jid:nameprep(Server),
-    case catch odbc_queries:users_number(LServer, Opts) of
-      {selected, [_], [[Res]]} ->
-	  jlib:binary_to_integer(Res);
-      _Other -> 0
+    case jid:nameprep(Server) of
+        error -> 0;
+        <<>> -> 0;
+        LServer ->
+            case catch odbc_queries:users_number(LServer, Opts) of
+                {selected, [{Res}]} ->
+                    Res;
+                _Other -> 0
+            end
     end.
 
 get_password(User, Server) ->
@@ -267,24 +281,22 @@ get_password(User, Server) ->
        (LUser == <<>>) or (LServer == <<>>) ->
             false;
        true ->
-            Username = ejabberd_odbc:escape(LUser),
             case is_scrammed() of
                 true ->
                     case catch odbc_queries:get_password_scram(
-                                 LServer, Username) of
-                        {selected, [<<"password">>, <<"serverkey">>,
-                                    <<"salt">>, <<"iterationcount">>],
-                         [[StoredKey, ServerKey, Salt, IterationCount]]} ->
+                                 LServer, LUser) of
+                        {selected,
+                         [{StoredKey, ServerKey, Salt, IterationCount}]} ->
                             {jlib:decode_base64(StoredKey),
                              jlib:decode_base64(ServerKey),
                              jlib:decode_base64(Salt),
-                             binary_to_integer(IterationCount)};
+                             IterationCount};
                         _ -> false
                     end;
                 false ->
-                    case catch odbc_queries:get_password(LServer, Username)
+                    case catch odbc_queries:get_password(LServer, LUser)
                         of
-                        {selected, [<<"password">>], [[Password]]} -> Password;
+                        {selected, [{Password}]} -> Password;
                         _ -> false
                     end
             end
@@ -300,9 +312,8 @@ get_password_s(User, Server) ->
        true ->
             case is_scrammed() of
                 false ->
-                    Username = ejabberd_odbc:escape(LUser),
-                    case catch odbc_queries:get_password(LServer, Username) of
-                        {selected, [<<"password">>], [[Password]]} -> Password;
+                    case catch odbc_queries:get_password(LServer, LUser) of
+                        {selected, [{Password}]} -> Password;
                         _ -> <<"">>
                     end;
                 true -> <<"">>
@@ -311,15 +322,17 @@ get_password_s(User, Server) ->
 
 %% @spec (User, Server) -> true | false | {error, Error}
 is_user_exists(User, Server) ->
-    case jid:nodeprep(User) of
-      error -> false;
-      LUser ->
-	  Username = ejabberd_odbc:escape(LUser),
-	  LServer = jid:nameprep(Server),
-	  try odbc_queries:get_password(LServer, Username) of
-	    {selected, [<<"password">>], [[_Password]]} ->
+    LServer = jid:nameprep(Server),
+    LUser = jid:nodeprep(User),
+    if (LUser == error) or (LServer == error) ->
+            false;
+       (LUser == <<>>) or (LServer == <<>>) ->
+            false;
+       true ->
+	  try odbc_queries:get_password(LServer, LUser) of
+	    {selected, [{_Password}]} ->
 		true; %% Account exists
-	    {selected, [<<"password">>], []} ->
+	    {selected, []} ->
 		false; %% Account does not exist
 	    {error, Error} -> {error, Error}
 	  catch
@@ -331,12 +344,14 @@ is_user_exists(User, Server) ->
 %% @doc Remove user.
 %% Note: it may return ok even if there was some problem removing the user.
 remove_user(User, Server) ->
-    case jid:nodeprep(User) of
-      error -> error;
-      LUser ->
-	  Username = ejabberd_odbc:escape(LUser),
-	  LServer = jid:nameprep(Server),
-	  catch odbc_queries:del_user(LServer, Username),
+    LServer = jid:nameprep(Server),
+    LUser = jid:nodeprep(User),
+    if (LUser == error) or (LServer == error) ->
+            error;
+       (LUser == <<>>) or (LServer == <<>>) ->
+            error;
+       true ->
+	  catch odbc_queries:del_user(LServer, LUser),
 	  ok
     end.
 
@@ -352,23 +367,19 @@ remove_user(User, Server, Password) ->
        true ->
             case is_scrammed() of
                 true ->
-                    case check_password(User, Server, Password) of
+                    case check_password(User, <<"">>, Server, Password) of
                         true ->
                             remove_user(User, Server),
                             ok;
                         false -> not_allowed
                     end;
                 false ->
-                    Username = ejabberd_odbc:escape(LUser),
-                    Pass = ejabberd_odbc:escape(Password),
                     F = fun () ->
                                 Result = odbc_queries:del_user_return_password(
-                                           LServer, Username, Pass),
+                                           LServer, LUser, Password),
                                 case Result of
-                                    {selected, [<<"password">>],
-                                     [[Password]]} -> ok;
-                                    {selected, [<<"password">>],
-                                     []} -> not_exists;
+                                    {selected, [{Password}]} -> ok;
+                                    {selected, []} -> not_exists;
                                     _ -> not_allowed
                                 end
                         end,
