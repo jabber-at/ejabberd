@@ -2,6 +2,8 @@ ejabberd (1:16.03-1) unstable; urgency=low
 
   * Add erlang-jiffy to Depends, mod_http_api doesn't work without it, see:
     https://github.com/processone/ejabberd/issues/1042#issuecomment-212835592
+  * Add fix_check_password.patch, see:
+    https://github.com/processone/ejabberd/pull/1064
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 21 Apr 2016 14:40:30 +0200
 
