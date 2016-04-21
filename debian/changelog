@@ -1,5 +1,12 @@
 ejabberd (1:16.03-1) unstable; urgency=low
 
+  * Add erlang-jiffy to Depends, mod_http_api doesn't work without it, see:
+    https://github.com/processone/ejabberd/issues/1042#issuecomment-212835592
+
+ -- Mathias Ertl <mati@jabber.at>  Thu, 21 Apr 2016 14:40:30 +0200
+
+ejabberd (1:16.03-1) unstable; urgency=low
+
   * Version bump from upstream.
   * Add fix-anon-auth.patch to fix anonymous authentication.
 

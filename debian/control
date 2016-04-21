@@ -50,6 +50,7 @@ Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends},
  		erlang-p1-xml        (>= 1.1.3),
  		erlang-p1-yaml       (>= 1.0.2),
  		erlang-p1-zlib       (>= 1.0.1),
+ 		erlang-jiffy         (>= 0.14.7),
  		erlang-xmerl
 Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
  		ejabberd-contrib     (>> 0.2015.08),
