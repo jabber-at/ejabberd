@@ -4,8 +4,10 @@ ejabberd (1:16.03-2) unstable; urgency=low
     https://github.com/processone/ejabberd/issues/1042#issuecomment-212835592
   * Add fix_check_password.patch, see:
     https://github.com/processone/ejabberd/pull/1064
+  * Add pubsub_default_value.patch, see:
+    https://github.com/processone/ejabberd/commit/f0e6def3
 
- -- Mathias Ertl <mati@jabber.at>  Thu, 21 Apr 2016 14:40:30 +0200
+ -- Mathias Ertl <mati@jabber.at>  Fri, 22 Apr 2016 16:54:58 +0200
 
 ejabberd (1:16.03-1) unstable; urgency=low
 

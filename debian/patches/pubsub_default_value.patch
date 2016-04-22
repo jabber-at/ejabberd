@@ -1,0 +1,174 @@
+From f0e6def3edb219b8889a9c01de1a57dd74144f51 Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Thu, 21 Apr 2016 23:47:07 +0200
+Subject: [PATCH] Set default value for pubsub#itemreply option
+ Applied in 16.03+1
+
+---
+ src/node_buddy.erl    | 3 ++-
+ src/node_club.erl     | 3 ++-
+ src/node_dispatch.erl | 3 ++-
+ src/node_flat.erl     | 3 ++-
+ src/node_mb.erl       | 3 ++-
+ src/node_mix.erl      | 3 ++-
+ src/node_mix_odbc.erl  | 3 ++-
+ src/node_online.erl   | 3 ++-
+ src/node_pep.erl      | 3 ++-
+ src/node_private.erl  | 3 ++-
+ src/node_public.erl   | 3 ++-
+ 11 files changed, 22 insertions(+), 11 deletions(-)
+
+diff --git a/src/node_buddy.erl b/src/node_buddy.erl
+index 1ebef4e..aeacacd 100644
+--- a/src/node_buddy.erl
++++ b/src/node_buddy.erl
+@@ -65,7 +65,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_club.erl b/src/node_club.erl
+index a7ef35b..64eff77 100644
+--- a/src/node_club.erl
++++ b/src/node_club.erl
+@@ -65,7 +65,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_dispatch.erl b/src/node_dispatch.erl
+index f9bfaf4..178292d 100644
+--- a/src/node_dispatch.erl
++++ b/src/node_dispatch.erl
+@@ -71,7 +71,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_flat.erl b/src/node_flat.erl
+index 3687bb6..c2efe3e 100644
+--- a/src/node_flat.erl
++++ b/src/node_flat.erl
+@@ -84,7 +84,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, on_sub_and_presence},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_mb.erl b/src/node_mb.erl
+index 1213805..0bfb51e 100644
+--- a/src/node_mb.erl
++++ b/src/node_mb.erl
+@@ -78,7 +78,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, on_sub_and_presence},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, true}].
++	{presence_based_delivery, true},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_mix.erl b/src/node_mix.erl
+index b0410a8..b57d584 100644
+--- a/src/node_mix.erl
++++ b/src/node_mix.erl
+@@ -52,7 +52,8 @@ options() ->
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+         {broadcast_all_resources, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_mix_odbc.erl b/src/node_mix_odbc.erl
+index 45d471d..b5b9a94 100644
+--- a/src/node_mix_odbc.erl
++++ b/src/node_mix_odbc.erl
+@@ -52,7 +52,8 @@ options() ->
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+         {broadcast_all_resources, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_online.erl b/src/node_online.erl
+index 1e9e295..ea492fc 100644
+--- a/src/node_online.erl
++++ b/src/node_online.erl
+@@ -76,7 +76,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, on_sub_and_presence},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, true}].
++	{presence_based_delivery, true},
++	{itemreply, none}].
+ 
+ features() ->
+     node_flat:features().
+diff --git a/src/node_pep.erl b/src/node_pep.erl
+index da03253..2ac4da6 100644
+--- a/src/node_pep.erl
++++ b/src/node_pep.erl
+@@ -72,7 +72,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, on_sub_and_presence},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, true}].
++	{presence_based_delivery, true},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_private.erl b/src/node_private.erl
+index de80d87..79dc5ed 100644
+--- a/src/node_private.erl
++++ b/src/node_private.erl
+@@ -65,7 +65,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, false},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
+diff --git a/src/node_public.erl b/src/node_public.erl
+index df4f1c0..cdb8abc 100644
+--- a/src/node_public.erl
++++ b/src/node_public.erl
+@@ -65,7 +65,8 @@ options() ->
+ 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
+ 	{send_last_published_item, never},
+ 	{deliver_notifications, true},
+-	{presence_based_delivery, false}].
++	{presence_based_delivery, false},
++	{itemreply, none}].
+ 
+ features() ->
+     [<<"create-nodes">>,
