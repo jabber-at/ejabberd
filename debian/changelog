@@ -1,3 +1,9 @@
+ejabberd (1:16.04-1) unstable; urgency=low
+
+  * Version bump from upstream.
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 03 May 2016 19:17:18 +0200
+
 ejabberd (1:16.03-2) unstable; urgency=low
 
   * Add erlang-jiffy to Depends, mod_http_api doesn't work without it, see:
