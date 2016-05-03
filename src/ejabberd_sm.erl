@@ -66,7 +66,8 @@
 	 get_max_user_sessions/2,
 	 get_all_pids/0,
 	 is_existing_resource/3,
-	 get_commands_spec/0
+	 get_commands_spec/0,
+	 make_sid/0
 	]).
 
 -export([init/1, handle_call/3, handle_cast/2,
@@ -159,8 +160,10 @@ check_in_subscription(Acc, User, Server, _JID, _Type, _Reason) ->
 -spec bounce_offline_message(jid(), jid(), xmlel()) -> stop.
 
 bounce_offline_message(From, To, Packet) ->
-    Err = jlib:make_error_reply(Packet,
-				?ERR_SERVICE_UNAVAILABLE),
+    Lang = fxml:get_tag_attr_s(<<"xml:lang">>, Packet),
+    Txt = <<"User session not found">>,
+    Err = jlib:make_error_reply(
+	    Packet, ?ERRT_SERVICE_UNAVAILABLE(Lang, Txt)),
     ejabberd_router:route(To, From, Err),
     stop.
 
@@ -423,6 +426,7 @@ do_route(From, To, #xmlel{} = Packet) ->
     #jid{user = User, server = Server,
 	 luser = LUser, lserver = LServer, lresource = LResource} = To,
     #xmlel{name = Name, attrs = Attrs} = Packet,
+    Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
     case LResource of
       <<"">> ->
 	  case Name of
@@ -496,8 +500,9 @@ do_route(From, To, #xmlel{} = Packet) ->
 		  <<"headline">> -> route_message(From, To, Packet, headline);
 		  <<"error">> -> ok;
 		  <<"groupchat">> ->
-		      Err = jlib:make_error_reply(Packet,
-						  ?ERR_SERVICE_UNAVAILABLE),
+		      ErrTxt = <<"User session not found">>,
+		      Err = jlib:make_error_reply(
+			      Packet, ?ERRT_SERVICE_UNAVAILABLE(Lang, ErrTxt)),
 		      ejabberd_router:route(To, From, Err);
 		  _ ->
 		      route_message(From, To, Packet, normal)
@@ -515,10 +520,13 @@ do_route(From, To, #xmlel{} = Packet) ->
 			<<"chat">> -> route_message(From, To, Packet, chat);
 			<<"normal">> -> route_message(From, To, Packet, normal);
 			<<"">> -> route_message(From, To, Packet, normal);
+			<<"headline">> -> ok;
 			<<"error">> -> ok;
 			_ ->
-			    Err = jlib:make_error_reply(Packet,
-							?ERR_SERVICE_UNAVAILABLE),
+			    ErrTxt = <<"User session not found">>,
+			    Err = jlib:make_error_reply(
+				    Packet,
+				    ?ERRT_SERVICE_UNAVAILABLE(Lang, ErrTxt)),
 			    ejabberd_router:route(To, From, Err)
 		      end;
 		  <<"iq">> ->
@@ -526,8 +534,10 @@ do_route(From, To, #xmlel{} = Packet) ->
 			<<"error">> -> ok;
 			<<"result">> -> ok;
 			_ ->
-			    Err = jlib:make_error_reply(Packet,
-							?ERR_SERVICE_UNAVAILABLE),
+			    ErrTxt = <<"User session not found">>,
+			    Err = jlib:make_error_reply(
+				    Packet,
+				    ?ERRT_SERVICE_UNAVAILABLE(Lang, ErrTxt)),
 			    ejabberd_router:route(To, From, Err)
 		      end;
 		  _ -> ?DEBUG("packet dropped~n", [])
@@ -684,7 +694,7 @@ get_max_user_sessions(LUser, Host) ->
 process_iq(From, To, Packet) ->
     IQ = jlib:iq_query_info(Packet),
     case IQ of
-      #iq{xmlns = XMLNS} ->
+      #iq{xmlns = XMLNS, lang = Lang} ->
 	  Host = To#jid.lserver,
 	  case ets:lookup(sm_iqtable, {XMLNS, Host}) of
 	    [{_, Module, Function}] ->
@@ -697,8 +707,10 @@ process_iq(From, To, Packet) ->
 		gen_iq_handler:handle(Host, Module, Function, Opts,
 				      From, To, IQ);
 	    [] ->
-		Err = jlib:make_error_reply(Packet,
-					    ?ERR_SERVICE_UNAVAILABLE),
+		Txt = <<"No module is handling this query">>,
+		Err = jlib:make_error_reply(
+			Packet,
+			?ERRT_SERVICE_UNAVAILABLE(Lang, Txt)),
 		ejabberd_router:route(To, From, Err)
 	  end;
       reply -> ok;
@@ -721,12 +733,10 @@ force_update_presence({LUser, LServer}) ->
 -spec get_sm_backend(binary()) -> module().
 
 get_sm_backend(Host) ->
-    DBType = ejabberd_config:get_option({sm_db_type, Host},
-					fun(mnesia) -> mnesia;
-					   (internal) -> mnesia;
-					   (odbc) -> odbc;
-					   (redis) -> redis
-					end, mnesia),
+    DBType = ejabberd_config:get_option(
+	       {sm_db_type, Host},
+	       fun(T) -> ejabberd_config:v_db(?MODULE, T) end,
+	       mnesia),
     list_to_atom("ejabberd_sm_" ++ atom_to_list(DBType)).
 
 -spec get_sm_backends() -> [module()].
@@ -796,10 +806,8 @@ kick_user(User, Server) ->
 	end, Resources),
     length(Resources).
 
-opt_type(sm_db_type) ->
-    fun (mnesia) -> mnesia;
-	(internal) -> mnesia;
-	(odbc) -> odbc;
-	(redis) -> redis
-    end;
+make_sid() ->
+    {p1_time_compat:unique_timestamp(), self()}.
+
+opt_type(sm_db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 opt_type(_) -> [sm_db_type].

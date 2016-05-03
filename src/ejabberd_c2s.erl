@@ -327,7 +327,7 @@ init([{SockMod, Socket}, Opts]) ->
 		       xml_socket = XMLSocket, zlib = Zlib, tls = TLS,
 		       tls_required = StartTLSRequired,
 		       tls_enabled = TLSEnabled, tls_options = TLSOpts,
-		       sid = {p1_time_compat:timestamp(), self()}, streamid = new_id(),
+		       sid = ejabberd_sm:make_sid(), streamid = new_id(),
 		       access = Access, shaper = Shaper, ip = IP,
 		       mgmt_state = StreamMgmtState,
 		       mgmt_max_queue = MaxAckQueue,
@@ -522,7 +522,6 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 				    send_element(StateData,
 					?POLICY_VIOLATION_ERR(Lang,
 					    <<"Use of STARTTLS required">>)),
-				    send_trailer(StateData),
 				    {stop, normal, StateData};
 				true ->
 				    fsm_next_state(wait_for_auth,
@@ -537,34 +536,28 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 			[jlib:ip_to_list(IP), LogReason]),
 		    send_header(StateData, Server, <<"">>, DefaultLang),
 		    send_element(StateData, ?POLICY_VIOLATION_ERR(Lang, ReasonT)),
-		    send_trailer(StateData),
 		    {stop, normal, StateData};
 		_ ->
 		    send_header(StateData, ?MYNAME, <<"">>, DefaultLang),
 		    send_element(StateData, ?HOST_UNKNOWN_ERR),
-		    send_trailer(StateData),
 		    {stop, normal, StateData}
 	    end;
 	_ ->
 	    send_header(StateData, ?MYNAME, <<"">>, DefaultLang),
 	    send_element(StateData, ?INVALID_NS_ERR),
-	    send_trailer(StateData),
 	    {stop, normal, StateData}
     end;
 wait_for_stream(timeout, StateData) ->
     {stop, normal, StateData};
 wait_for_stream({xmlstreamelement, _}, StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_stream({xmlstreamend, _}, StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_stream({xmlstreamerror, _}, StateData) ->
     send_header(StateData, ?MYNAME, <<"1.0">>, <<"">>),
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_stream(closed, StateData) ->
     {stop, normal, StateData};
@@ -619,8 +612,9 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 	    send_element(StateData, Res),
 	    fsm_next_state(wait_for_auth, StateData);
 	{auth, _ID, set, {_U, _P, _D, <<"">>}} ->
-	    Err = jlib:make_error_reply(El,
-		    ?ERR_AUTH_NO_RESOURCE_PROVIDED((StateData#state.lang))),
+	    Lang = StateData#state.lang,
+	    Txt = <<"No resource provided">>,
+	    Err = jlib:make_error_reply(El, ?ERRT_NOT_ACCEPTABLE(Lang, Txt)),
 	    send_element(StateData, Err),
 	    fsm_next_state(wait_for_auth, StateData);
 	{auth, _ID, set, {U, P, D, R}} ->
@@ -685,7 +679,10 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 			    ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
 				[false, U, StateData#state.server,
 				    StateData#state.ip]),
-			    Err = jlib:make_error_reply(El, ?ERR_NOT_AUTHORIZED),
+			    Lang = StateData#state.lang,
+			    Txt = <<"Legacy authentication failed">>,
+			    Err = jlib:make_error_reply(
+				    El, ?ERRT_NOT_AUTHORIZED(Lang, Txt)),
 			    send_element(StateData, Err),
 			    fsm_next_state(wait_for_auth, StateData)
 		    end;
@@ -706,7 +703,9 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 			    ejabberd_hooks:run(c2s_auth_result, StateData#state.server,
 				[false, U, StateData#state.server,
 				    StateData#state.ip]),
-			    Err = jlib:make_error_reply(El, ?ERR_NOT_ALLOWED),
+			    Lang = StateData#state.lang,
+			    Txt = <<"Legacy authentication forbidden">>,
+			    Err = jlib:make_error_reply(El, ?ERRT_NOT_ALLOWED(Lang, Txt)),
 			    send_element(StateData, Err),
 			    fsm_next_state(wait_for_auth, StateData)
 		    end
@@ -718,10 +717,9 @@ wait_for_auth({xmlstreamelement, El}, StateData) ->
 wait_for_auth(timeout, StateData) ->
     {stop, normal, StateData};
 wait_for_auth({xmlstreamend, _Name}, StateData) ->
-    send_trailer(StateData), {stop, normal, StateData};
+    {stop, normal, StateData};
 wait_for_auth({xmlstreamerror, _}, StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_auth(closed, StateData) ->
     {stop, normal, StateData};
@@ -837,7 +835,6 @@ wait_for_feature_request({xmlstreamelement, El},
 		 send_element(StateData,
 			      ?POLICY_VIOLATION_ERR(Lang,
 						    <<"Use of STARTTLS required">>)),
-		 send_trailer(StateData),
 		 {stop, normal, StateData};
 	     true ->
 		 process_unauthenticated_stanza(StateData, El),
@@ -848,11 +845,10 @@ wait_for_feature_request(timeout, StateData) ->
     {stop, normal, StateData};
 wait_for_feature_request({xmlstreamend, _Name},
 			 StateData) ->
-    send_trailer(StateData), {stop, normal, StateData};
+    {stop, normal, StateData};
 wait_for_feature_request({xmlstreamerror, _},
 			 StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_feature_request(closed, StateData) ->
     {stop, normal, StateData};
@@ -957,11 +953,10 @@ wait_for_sasl_response(timeout, StateData) ->
     {stop, normal, StateData};
 wait_for_sasl_response({xmlstreamend, _Name},
 		       StateData) ->
-    send_trailer(StateData), {stop, normal, StateData};
+    {stop, normal, StateData};
 wait_for_sasl_response({xmlstreamerror, _},
 		       StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_sasl_response(closed, StateData) ->
     {stop, normal, StateData};
@@ -1013,7 +1008,7 @@ wait_for_bind({xmlstreamelement, #xmlel{name = Name, attrs = Attrs} = El},
     end;
 wait_for_bind({xmlstreamelement, El}, StateData) ->
     case jlib:iq_query_info(El) of
-      #iq{type = set, xmlns = ?NS_BIND, sub_el = SubEl} =
+      #iq{type = set, lang = Lang, xmlns = ?NS_BIND, sub_el = SubEl} =
 	  IQ ->
 	  U = StateData#state.user,
 	  R1 = fxml:get_path_s(SubEl,
@@ -1025,7 +1020,8 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 	      end,
 	  case R of
 	    error ->
-		Err = jlib:make_error_reply(El, ?ERR_BAD_REQUEST),
+		Txt = <<"Malformed resource">>,
+		Err = jlib:make_error_reply(El, ?ERRT_BAD_REQUEST(Lang, Txt)),
 		send_element(StateData, Err),
 		fsm_next_state(wait_for_bind, StateData);
 	    _ ->
@@ -1085,10 +1081,9 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 wait_for_bind(timeout, StateData) ->
     {stop, normal, StateData};
 wait_for_bind({xmlstreamend, _Name}, StateData) ->
-    send_trailer(StateData), {stop, normal, StateData};
+    {stop, normal, StateData};
 wait_for_bind({xmlstreamerror, _}, StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 wait_for_bind(closed, StateData) ->
     {stop, normal, StateData};
@@ -1099,6 +1094,7 @@ open_session(StateData) ->
     U = StateData#state.user,
     R = StateData#state.resource,
     JID = StateData#state.jid,
+    Lang = StateData#state.lang,
     case acl:match_rule(StateData#state.server,
                         StateData#state.access, JID) of
         allow ->
@@ -1136,7 +1132,8 @@ open_session(StateData) ->
                                StateData#state.server, [JID]),
             ?INFO_MSG("(~w) Forbidden session for ~s",
                       [StateData#state.socket, jid:to_string(JID)]),
-            {error, ?ERR_NOT_ALLOWED}
+	    Txt = <<"Denied by ACL">>,
+            {error, ?ERRT_NOT_ALLOWED(Lang, Txt)}
     end.
 
 session_established({xmlstreamelement, #xmlel{name = Name} = El}, StateData)
@@ -1159,7 +1156,6 @@ session_established({xmlstreamelement, El},
     case check_from(El, FromJID) of
 	'invalid-from' ->
 	    send_element(StateData, ?INVALID_FROM),
-	    send_trailer(StateData),
 	    {stop, normal, StateData};
 	_NewEl ->
 	    session_established2(El, StateData)
@@ -1172,17 +1168,15 @@ session_established(timeout, StateData) ->
 		       [?MODULE, Options, session_established, StateData]),
     fsm_next_state(session_established, StateData);
 session_established({xmlstreamend, _Name}, StateData) ->
-    send_trailer(StateData), {stop, normal, StateData};
+    {stop, normal, StateData};
 session_established({xmlstreamerror,
 		     <<"XML stanza is too big">> = E},
 		    StateData) ->
     send_element(StateData,
 		 ?POLICY_VIOLATION_ERR((StateData#state.lang), E)),
-    send_trailer(StateData),
     {stop, normal, StateData};
 session_established({xmlstreamerror, _}, StateData) ->
     send_element(StateData, ?INVALID_XML_ERR),
-    send_trailer(StateData),
     {stop, normal, StateData};
 session_established(closed, #state{mgmt_state = active} = StateData) ->
     catch (StateData#state.sockmod):close(StateData#state.socket),
@@ -1337,7 +1331,6 @@ handle_info(kick, StateName, StateData) ->
     handle_info({kick, kicked_by_admin, Xmlelement}, StateName, StateData);
 handle_info({kick, Reason, Xmlelement}, _StateName, StateData) ->
     send_element(StateData, Xmlelement),
-    send_trailer(StateData),
     {stop, normal,
      StateData#state{authenticated = Reason}};
 handle_info({route, _From, _To, {broadcast, Data}},
@@ -1350,7 +1343,6 @@ handle_info({route, _From, _To, {broadcast, Data}},
         {exit, Reason} ->
             Lang = StateData#state.lang,
             send_element(StateData, ?SERRT_CONFLICT(Lang, Reason)),
-            catch send_trailer(StateData),
             {stop, normal, StateData};
         {privacy_list, PrivList, PrivListName} ->
             case ejabberd_hooks:run_fold(privacy_updated_list,
@@ -1621,7 +1613,6 @@ handle_info({route, From, To,
                                                    <<"error">> -> ok;
                                                    <<"groupchat">> -> ok;
                                                    <<"headline">> -> ok;
-                                                   <<"result">> -> ok;
                                                    _ ->
                                                        Err =
                                                            jlib:make_error_reply(Packet,
@@ -1664,11 +1655,9 @@ handle_info(system_shutdown, StateName, StateData) ->
       wait_for_stream ->
 	  send_header(StateData, ?MYNAME, <<"1.0">>, <<"en">>),
 	  send_element(StateData, ?SERR_SYSTEM_SHUTDOWN),
-	  send_trailer(StateData),
 	  ok;
       _ ->
 	  send_element(StateData, ?SERR_SYSTEM_SHUTDOWN),
-	  send_trailer(StateData),
 	  ok
     end,
     {stop, normal, StateData};
@@ -1800,6 +1789,7 @@ terminate(_Reason, StateName, StateData) ->
 		 ok
 	  end
     end,
+    catch send_trailer(StateData),
     (StateData#state.sockmod):close(StateData#state.socket),
     ok.
 
@@ -2275,30 +2265,32 @@ get_priority_from_presence(PresencePacket) ->
     end.
 
 process_privacy_iq(From, To,
-		   #iq{type = Type, sub_el = SubEl} = IQ, StateData) ->
-    {Res, NewStateData} = case Type of
-			    get ->
-				R = ejabberd_hooks:run_fold(privacy_iq_get,
-							    StateData#state.server,
-							    {error,
-							     ?ERR_FEATURE_NOT_IMPLEMENTED},
-							    [From, To, IQ,
-							     StateData#state.privacy_list]),
-				{R, StateData};
-			    set ->
-				case ejabberd_hooks:run_fold(privacy_iq_set,
-							     StateData#state.server,
-							     {error,
-							      ?ERR_FEATURE_NOT_IMPLEMENTED},
-							     [From, To, IQ])
-				    of
-				  {result, R, NewPrivList} ->
-				      {{result, R},
-				       StateData#state{privacy_list =
-							   NewPrivList}};
-				  R -> {R, StateData}
-				end
-			  end,
+		   #iq{type = Type, lang = Lang, sub_el = SubEl} = IQ, StateData) ->
+    Txt = <<"No module is handling this query">>,
+    {Res, NewStateData} =
+	case Type of
+	    get ->
+		R = ejabberd_hooks:run_fold(
+		      privacy_iq_get,
+		      StateData#state.server,
+		      {error, ?ERRT_FEATURE_NOT_IMPLEMENTED(Lang, Txt)},
+		      [From, To, IQ,
+		       StateData#state.privacy_list]),
+		{R, StateData};
+	    set ->
+		case ejabberd_hooks:run_fold(
+		       privacy_iq_set,
+		       StateData#state.server,
+		       {error, ?ERRT_FEATURE_NOT_IMPLEMENTED(Lang, Txt)},
+		       [From, To, IQ])
+		of
+		    {result, R, NewPrivList} ->
+			{{result, R},
+			 StateData#state{privacy_list =
+					     NewPrivList}};
+		    R -> {R, StateData}
+		end
+	end,
     IQRes = case Res of
 	      {result, Result} ->
 		  IQ#iq{type = result, sub_el = Result};
@@ -2365,15 +2357,16 @@ process_unauthenticated_stanza(StateData, El) ->
 	      _ -> El
 	    end,
     case jlib:iq_query_info(NewEl) of
-      #iq{} = IQ ->
+      #iq{lang = L} = IQ ->
 	  Res = ejabberd_hooks:run_fold(c2s_unauthenticated_iq,
 					StateData#state.server, empty,
 					[StateData#state.server, IQ,
 					 StateData#state.ip]),
 	  case Res of
 	    empty ->
+		Txt = <<"Authentication required">>,
 		ResIQ = IQ#iq{type = error,
-			      sub_el = [?ERR_SERVICE_UNAVAILABLE]},
+			      sub_el = [?ERRT_SERVICE_UNAVAILABLE(L, Txt)]},
 		Res1 = jlib:replace_from_to(jid:make(<<"">>,
 							  StateData#state.server,
 							  <<"">>),
@@ -2419,7 +2412,6 @@ fsm_next_state(session_established, #state{mgmt_max_queue = exceeded} =
     Err = ?SERRT_POLICY_VIOLATION(StateData#state.lang,
 				  <<"Too many unacked stanzas">>),
     send_element(StateData, Err),
-    send_trailer(StateData),
     {stop, normal, StateData#state{mgmt_resend = false}};
 fsm_next_state(session_established, #state{mgmt_state = pending} = StateData) ->
     fsm_next_state(wait_for_resume, StateData);
@@ -2879,6 +2871,7 @@ handle_unacked_stanzas(StateData)
 		    false
 	      end
 	end,
+    Lang = StateData#state.lang,
     ReRoute = case ResendOnTimeout of
 		true ->
 		    fun(From, To, El, Time) ->
@@ -2887,9 +2880,11 @@ handle_unacked_stanzas(StateData)
 		    end;
 		false ->
 		    fun(From, To, El, _Time) ->
+			    Txt = <<"User session not found">>,
 			    Err =
-				jlib:make_error_reply(El,
-						      ?ERR_SERVICE_UNAVAILABLE),
+				jlib:make_error_reply(
+				  El,
+				  ?ERRT_SERVICE_UNAVAILABLE(Lang, Txt)),
 			    ejabberd_router:route(To, From, Err)
 		    end
 	      end,
@@ -2897,7 +2892,9 @@ handle_unacked_stanzas(StateData)
 		?DEBUG("Dropping presence stanza from ~s",
 		       [jid:to_string(From)]);
 	   (From, To, #xmlel{name = <<"iq">>} = El, _Time) ->
-		Err = jlib:make_error_reply(El, ?ERR_SERVICE_UNAVAILABLE),
+		Txt = <<"User session not found">>,
+		Err = jlib:make_error_reply(
+			El, ?ERRT_SERVICE_UNAVAILABLE(Lang, Txt)),
 		ejabberd_router:route(To, From, Err);
 	   (From, To, El, Time) ->
 		%% We'll drop the stanza if it was <forwarded/> by some

@@ -34,8 +34,8 @@
          get_vh_by_auth_method/1, is_file_readable/1,
          get_version/0, get_myhosts/0, get_mylang/0,
          prepare_opt_val/4, convert_table_to_binary/5,
-         transform_options/1, collect_options/1,
-         convert_to_yaml/1, convert_to_yaml/2,
+         transform_options/1, collect_options/1, default_db/2,
+         convert_to_yaml/1, convert_to_yaml/2, v_db/2,
          env_binary_to_list/2, opt_type/1, may_hide_data/1]).
 
 -export([start/2]).
@@ -93,7 +93,7 @@ hosts_to_start(State) ->
 -spec(start/2 :: (Hosts :: [binary()], Opts :: [acl:acl() | local_config()]) -> ok).
 start(Hosts, Opts) ->
     mnesia_init(),
-    set_opts(#state{hosts = Hosts, opts = Opts}).
+    set_opts(set_hosts_in_options(Hosts, #state{opts = Opts})).
 
 mnesia_init() ->
     case catch mnesia:table_info(local_config, storage_type) of
@@ -651,13 +651,41 @@ process_host_term(Term, Host, State, Action) ->
         {hosts, _} ->
             State;
 	{Opt, Val} when Action == set ->
-	    set_option({Opt, Host}, Val, State);
+	    set_option({rename_option(Opt), Host}, change_val(Opt, Val), State);
         {Opt, Val} when Action == append ->
-            append_option({Opt, Host}, Val, State);
+            append_option({rename_option(Opt), Host}, change_val(Opt, Val), State);
         Opt ->
             ?WARNING_MSG("Ignore invalid (outdated?) option ~p", [Opt]),
             State
     end.
+
+rename_option(Option) when is_atom(Option) ->
+    case atom_to_list(Option) of
+	"odbc_" ++ T ->
+	    NewOption = list_to_atom("sql_" ++ T),
+	    ?WARNING_MSG("Option '~s' is obsoleted, use '~s' instead",
+			 [Option, NewOption]),
+	    NewOption;
+	_ ->
+	    Option
+    end;
+rename_option(Option) ->
+    Option.
+
+change_val(auth_method, Val) ->
+    prepare_opt_val(auth_method, Val,
+		    fun(V) ->
+			    L = if is_list(V) -> V;
+				   true -> [V]
+				end,
+			    lists:map(
+			      fun(odbc) -> sql;
+				 (internal) -> mnesia;
+				 (A) when is_atom(A) -> A
+			      end, L)
+		    end, [mnesia]);
+change_val(_Opt, Val) ->
+    Val.
 
 set_option(Opt, Val, State) ->
     State#state{opts = [#local_config{key = Opt, value = Val} |
@@ -725,13 +753,11 @@ prepare_opt_val(Opt, Val, F, Default) ->
           end,
     case Res of
         {'EXIT', _} ->
-            ?INFO_MSG("Configuration problem:~n"
-                      "** Option: ~s~n"
-                      "** Invalid value: ~s~n"
-                      "** Using as fallback: ~s",
-                      [format_term(Opt),
-                       format_term(Val),
-                       format_term(Default)]),
+	    ?WARNING_MSG("incorrect value '~s' of option '~s', "
+			 "using '~s' as fallback",
+			 [format_term(Val),
+			  format_term(Opt),
+			  format_term(Default)]),
             Default;
         _ ->
             Res
@@ -787,9 +813,57 @@ get_option(Opt, F, Default) ->
             end
     end.
 
+init_module_db_table(Modules) ->
+    catch ets:new(module_db, [named_table, public, bag]),
+    %% Dirty hack for mod_pubsub
+    ets:insert(module_db, {mod_pubsub, mnesia}),
+    ets:insert(module_db, {mod_pubsub, sql}),
+    lists:foreach(
+      fun(M) ->
+	      case re:split(atom_to_list(M), "_", [{return, list}]) of
+		  [_] ->
+		      ok;
+		  Parts ->
+		      [Suffix|T] = lists:reverse(Parts),
+		      BareMod = string:join(lists:reverse(T), "_"),
+		      ets:insert(module_db, {list_to_atom(BareMod),
+					     list_to_atom(Suffix)})
+	      end
+      end, Modules).
+
+-spec v_db(module(), atom()) -> atom().
+
+v_db(Mod, internal) -> v_db(Mod, mnesia);
+v_db(Mod, odbc) -> v_db(Mod, sql);
+v_db(Mod, Type) ->
+    case ets:match_object(module_db, {Mod, Type}) of
+	[_|_] -> Type;
+	[] -> erlang:error(badarg)
+    end.
+
+-spec default_db(binary(), module()) -> atom().
+
+default_db(Host, Module) ->
+    case ejabberd_config:get_option(
+	   {default_db, Host}, fun(T) when is_atom(T) -> T end) of
+	undefined ->
+	    mnesia;
+	DBType ->
+	    try
+		v_db(Module, DBType)
+	    catch error:badarg ->
+		    ?WARNING_MSG("Module '~s' doesn't support database '~s' "
+				 "defined in option 'default_db', using "
+				 "'mnesia' as fallback", [Module, DBType]),
+		    mnesia
+	    end
+    end.
+
 get_modules_with_options() ->
     {ok, Mods} = application:get_key(ejabberd, modules),
     ExtMods = [Name || {Name, _Details} <- ext_mod:installed()],
+    AllMods = [?MODULE|ExtMods++Mods],
+    init_module_db_table(AllMods),
     lists:foldl(
       fun(Mod, D) ->
 	      case catch Mod:opt_type('') of
@@ -801,7 +875,7 @@ get_modules_with_options() ->
 		  {'EXIT', {undef, _}} ->
 		      D
 	      end
-      end, dict:new(), [?MODULE|ExtMods++Mods]).
+      end, dict:new(), AllMods).
 
 validate_opts(#state{opts = Opts} = State) ->
     ModOpts = get_modules_with_options(),
@@ -829,11 +903,25 @@ validate_opts(#state{opts = Opts} = State) ->
 
 -spec get_vh_by_auth_method(atom()) -> [binary()].
 
-%% Return the list of hosts handled by a given module
+%% Return the list of hosts with a given auth method
 get_vh_by_auth_method(AuthMethod) ->
-    mnesia:dirty_select(local_config,
-			[{#local_config{key = {auth_method, '$1'},
-					value=AuthMethod},[],['$1']}]).
+    Cfgs = mnesia:dirty_match_object(local_config,
+				     #local_config{key = {auth_method, '_'},
+						   _ = '_'}),
+    lists:flatmap(
+      fun(#local_config{key = {auth_method, Host}, value = M}) ->
+	      Methods = if not is_list(M) -> [M];
+			   true -> M
+			end,
+	      case lists:member(AuthMethod, Methods) of
+		  true when Host == global ->
+		      get_myhosts();
+		  true ->
+		      [Host];
+		  false ->
+		      []
+	      end
+      end, Cfgs).
 
 %% @spec (Path::string()) -> true | false
 is_file_readable(Path) ->
@@ -867,20 +955,20 @@ get_mylang() ->
       fun iolist_to_binary/1,
       <<"en">>).
 
-replace_module(mod_announce_odbc) -> {mod_announce, odbc};
-replace_module(mod_blocking_odbc) -> {mod_blocking, odbc};
-replace_module(mod_caps_odbc) -> {mod_caps, odbc};
-replace_module(mod_irc_odbc) -> {mod_irc, odbc};
-replace_module(mod_last_odbc) -> {mod_last, odbc};
-replace_module(mod_muc_odbc) -> {mod_muc, odbc};
-replace_module(mod_offline_odbc) -> {mod_offline, odbc};
-replace_module(mod_privacy_odbc) -> {mod_privacy, odbc};
-replace_module(mod_private_odbc) -> {mod_private, odbc};
-replace_module(mod_roster_odbc) -> {mod_roster, odbc};
-replace_module(mod_shared_roster_odbc) -> {mod_shared_roster, odbc};
-replace_module(mod_vcard_odbc) -> {mod_vcard, odbc};
-replace_module(mod_vcard_xupdate_odbc) -> {mod_vcard_xupdate, odbc};
-replace_module(mod_pubsub_odbc) -> {mod_pubsub, odbc};
+replace_module(mod_announce_odbc) -> {mod_announce, sql};
+replace_module(mod_blocking_odbc) -> {mod_blocking, sql};
+replace_module(mod_caps_odbc) -> {mod_caps, sql};
+replace_module(mod_irc_odbc) -> {mod_irc, sql};
+replace_module(mod_last_odbc) -> {mod_last, sql};
+replace_module(mod_muc_odbc) -> {mod_muc, sql};
+replace_module(mod_offline_odbc) -> {mod_offline, sql};
+replace_module(mod_privacy_odbc) -> {mod_privacy, sql};
+replace_module(mod_private_odbc) -> {mod_private, sql};
+replace_module(mod_roster_odbc) -> {mod_roster, sql};
+replace_module(mod_shared_roster_odbc) -> {mod_shared_roster, sql};
+replace_module(mod_vcard_odbc) -> {mod_vcard, sql};
+replace_module(mod_vcard_xupdate_odbc) -> {mod_vcard_xupdate, sql};
+replace_module(mod_pubsub_odbc) -> {mod_pubsub, sql};
 replace_module(Module) ->
     case is_elixir_module(Module) of
         true  -> expand_elixir_module(Module);
@@ -985,7 +1073,7 @@ transform_terms(Terms) ->
             mod_last,
             ejabberd_s2s,
             ejabberd_listener,
-            ejabberd_odbc_sup,
+            ejabberd_sql_sup,
             shaper,
             ejabberd_s2s_out,
             acl,

@@ -44,8 +44,6 @@
 
 -define(DEFAULT_PING_INTERVAL, 60).
 
--define(DICT, dict).
-
 %% API
 -export([start_link/2, start_ping/2, stop_ping/2]).
 
@@ -65,7 +63,7 @@
 	 ping_interval = ?DEFAULT_PING_INTERVAL :: non_neg_integer(),
 	 ping_ack_timeout = undefined :: non_neg_integer(),
 	 timeout_action = none :: none | kill,
-         timers = (?DICT):new() :: ?TDICT}).
+         timers = maps:new() :: map()}).
 
 %%====================================================================
 %% API
@@ -136,7 +134,7 @@ init([Host, Opts]) ->
 	    ping_interval = PingInterval,
 	    timeout_action = TimeoutAction,
 	    ping_ack_timeout = PingAckTimeout,
-	    timers = (?DICT):new()}}.
+	    timers = maps:new()}}.
 
 terminate(_Reason, #state{host = Host}) ->
     ejabberd_hooks:delete(sm_remove_connection_hook, Host,
@@ -204,13 +202,14 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Hook callbacks
 %%====================================================================
 iq_ping(_From, _To,
-	#iq{type = Type, sub_el = SubEl} = IQ) ->
+	#iq{type = Type, sub_el = SubEl, lang = Lang} = IQ) ->
     case {Type, SubEl} of
       {get, #xmlel{name = <<"ping">>}} ->
 	  IQ#iq{type = result, sub_el = []};
       _ ->
+	  Txt = <<"Ping query is incorrect">>,
 	  IQ#iq{type = error,
-		sub_el = [SubEl, ?ERR_FEATURE_NOT_IMPLEMENTED]}
+		sub_el = [SubEl, ?ERRT_BAD_REQUEST(Lang, Txt)]}
     end.
 
 user_online(_SID, JID, _Info) ->
@@ -228,20 +227,22 @@ user_send(Packet, _C2SState, JID, _From) ->
 %%====================================================================
 add_timer(JID, Interval, Timers) ->
     LJID = jid:tolower(JID),
-    NewTimers = case (?DICT):find(LJID, Timers) of
-		  {ok, OldTRef} ->
-		      cancel_timer(OldTRef), (?DICT):erase(LJID, Timers);
-		  _ -> Timers
+    NewTimers = case maps:find(LJID, Timers) of
+      {ok, OldTRef} ->
+		      cancel_timer(OldTRef),
+          maps:remove(LJID, Timers);
+      _ -> Timers
 		end,
     TRef = erlang:start_timer(Interval * 1000, self(),
 			      {ping, JID}),
-    (?DICT):store(LJID, TRef, NewTimers).
+    maps:put(LJID, TRef, NewTimers).
 
 del_timer(JID, Timers) ->
     LJID = jid:tolower(JID),
-    case (?DICT):find(LJID, Timers) of
+    case maps:find(LJID, Timers) of
       {ok, TRef} ->
-	  cancel_timer(TRef), (?DICT):erase(LJID, Timers);
+	  cancel_timer(TRef),
+    maps:remove(LJID, Timers);
       _ -> Timers
     end.
 
