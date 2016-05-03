@@ -1,6 +1,7 @@
 ejabberd (1:16.04-1) unstable; urgency=low
 
   * Version bump from upstream.
+  * Update dependencies.
   * Remove patches applied upstream:
     * fix-anon-auth.patch
     * fix_check_password.patch
