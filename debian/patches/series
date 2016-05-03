@@ -11,6 +11,3 @@ ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 failed_auth.patch
-fix-anon-auth.patch
-fix_check_password.patch
-pubsub_default_value.patch
