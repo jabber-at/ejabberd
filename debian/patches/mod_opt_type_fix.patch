@@ -1,0 +1,32 @@
+From b46ed7044a6d57670b2e7f5b6278254ecd869b78 Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Sun, 1 May 2016 22:06:15 +0200
+Subject: [PATCH] Cope with modules that don't export mod_opt_type/1
+ Fixed in 16.04+1
+
+---
+ src/gen_mod.erl | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/gen_mod.erl b/src/gen_mod.erl
+index efbfc08..8a432b4 100644
+--- a/src/gen_mod.erl
++++ b/src/gen_mod.erl
+@@ -301,7 +301,7 @@ validate_opts(Module, Opts) ->
+ db_type(Opts, Module) when is_list(Opts) ->
+     db_type(global, Opts, Module);
+ db_type(Host, Module) when is_atom(Module) ->
+-    case Module:mod_opt_type(db_type) of
++    case catch Module:mod_opt_type(db_type) of
+ 	F when is_function(F) ->
+ 	    case get_module_opt(Host, Module, db_type, F) of
+ 		undefined -> ejabberd_config:default_db(Host, Module);
+@@ -314,7 +314,7 @@ db_type(Host, Module) when is_atom(Module) ->
+ -spec db_type(binary(), opts(), module()) -> db_type().
+ 
+ db_type(Host, Opts, Module) ->
+-    case Module:mod_opt_type(db_type) of
++    case catch Module:mod_opt_type(db_type) of
+ 	F when is_function(F) ->
+ 	    case get_opt(db_type, Opts, F) of
+ 		undefined -> ejabberd_config:default_db(Host, Module);

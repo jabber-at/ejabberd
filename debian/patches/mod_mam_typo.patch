@@ -1,0 +1,26 @@
+From 3493a874695749072522c5a36d363b1f84475569 Mon Sep 17 00:00:00 2001
+From: Evgeniy Khramtsov <ekhramtsov@process-one.net>
+Date: Sat, 30 Apr 2016 21:37:18 +0300
+Subject: [PATCH] Fix typo in mod_mam:select() (#1098)
+ Fixed in 16.04+1
+
+---
+ src/mod_mam.erl | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/mod_mam.erl b/src/mod_mam.erl
+index d5ee9bf..317fddf 100644
+--- a/src/mod_mam.erl
++++ b/src/mod_mam.erl
+@@ -812,9 +812,9 @@ select(_LServer, JidRequestor, JidArchive, Start, End, _With, RSM,
+ 	_ ->
+ 	    {Msgs, true, L}
+     end;
+-select(LServer, From, From, Start, End, With, RSM, MsgType) ->
++select(LServer, From, To, Start, End, With, RSM, MsgType) ->
+     Mod = gen_mod:db_mod(LServer, ?MODULE),
+-    Mod:select(LServer, From, From, Start, End, With, RSM, MsgType).
++    Mod:select(LServer, From, To, Start, End, With, RSM, MsgType).
+ 
+ msg_to_el(#archive_msg{timestamp = TS, packet = Pkt1, nick = Nick, peer = Peer},
+ 	  MsgType, JidRequestor, #jid{lserver = LServer} = JidArchive) ->

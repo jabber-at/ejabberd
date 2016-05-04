@@ -6,6 +6,7 @@ ejabberd (1:16.04-1) unstable; urgency=low
     * fix-anon-auth.patch
     * fix_check_password.patch
     * pubsub_default_value.patch
+  * Add mod_mam_typo.patch and mod_opt_type_fix.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Tue, 03 May 2016 19:17:18 +0200
 

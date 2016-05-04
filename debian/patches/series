@@ -11,3 +11,5 @@ ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 failed_auth.patch
+mod_mam_typo.patch
+mod_opt_type_fix.patch
