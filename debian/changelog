@@ -1,4 +1,4 @@
-ejabberd (1:16.04-1) unstable; urgency=low
+ejabberd (1:16.04-2) unstable; urgency=low
 
   * Add mod_mam_locking.patch.
 
