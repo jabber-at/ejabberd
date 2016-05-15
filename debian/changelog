@@ -1,5 +1,11 @@
 ejabberd (1:16.04-1) unstable; urgency=low
 
+  * Add mod_mam_locking.patch.
+
+ -- Mathias Ertl <mati@jabber.at>  Sun, 15 May 2016 18:26:19 +0200
+
+ejabberd (1:16.04-1) unstable; urgency=low
+
   * Version bump from upstream.
   * Update dependencies.
   * Remove patches applied upstream:

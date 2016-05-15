@@ -13,3 +13,4 @@ ejabberd.yml.example-local.diff
 failed_auth.patch
 mod_mam_typo.patch
 mod_opt_type_fix.patch
+mod_mam_locking.patch
