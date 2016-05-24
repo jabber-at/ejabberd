@@ -1,0 +1,81 @@
+From 143ced6a36c610beedd15ac4eec0a449d69f1481 Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Sun, 15 May 2016 19:37:04 +0200
+Subject: [PATCH] mod_mam_mnesia: Don't exceed table size limit
+
+Don't write MAM messages into an Mnesia archive if the size of the table
+comes close to the 2 GB limit for tables with disc-only copies.  That
+way, the table is at least not corrupted.
+---
+ src/mod_mam_mnesia.erl | 51 ++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 31 insertions(+), 20 deletions(-)
+
+diff --git a/src/mod_mam_mnesia.erl b/src/mod_mam_mnesia.erl
+index ff97c1b..1a0bf72 100644
+--- a/src/mod_mam_mnesia.erl
++++ b/src/mod_mam_mnesia.erl
+@@ -26,6 +26,8 @@
+ 	((A < B andalso byte_size(A) == byte_size(B))
+ 	 orelse byte_size(A) < byte_size(B))).
+ 
++-define(TABLE_SIZE_LIMIT, 2000000000). % A bit less than 2 GiB.
++
+ %%%===================================================================
+ %%% API
+ %%%===================================================================
+@@ -83,26 +85,35 @@ extended_fields() ->
+     [].
+ 
+ store(Pkt, _, {LUser, LServer}, Type, Peer, Nick, _Dir) ->
+-    LPeer = {PUser, PServer, _} = jid:tolower(Peer),
+-    TS = p1_time_compat:timestamp(),
+-    ID = jlib:integer_to_binary(now_to_usec(TS)),
+-    F = fun() ->
+-		mnesia:write(#archive_msg{us = {LUser, LServer},
+-					  id = ID,
+-					  timestamp = TS,
+-					  peer = LPeer,
+-					  bare_peer = {PUser, PServer, <<>>},
+-					  type = Type,
+-					  nick = Nick,
+-					  packet = Pkt})
+-	end,
+-    case mnesia:transaction(F) of
+-	{atomic, ok} ->
+-	    {ok, ID};
+-	{aborted, Err} ->
+-	    ?ERROR_MSG("Cannot store MAM message in archive of ~s@~s: ~s",
+-		       [LUser, LServer, Err]),
+-	    Err
++	case {mnesia:table_info(archive_msg, disc_only_copies),
++	      mnesia:table_info(archive_msg, memory)} of
++	{[_|_], TableSize} when TableSize > ?TABLE_SIZE_LIMIT ->
++	    ?ERROR_MSG("MAM archive of ~s@~s too large, won't store message",
++		       [LUser, LServer]),
++	    {error, overflow};
++	_ ->
++	    LPeer = {PUser, PServer, _} = jid:tolower(Peer),
++	    TS = p1_time_compat:timestamp(),
++	    ID = jlib:integer_to_binary(now_to_usec(TS)),
++	    F = fun() ->
++			mnesia:write(
++			  #archive_msg{us = {LUser, LServer},
++				       id = ID,
++				       timestamp = TS,
++				       peer = LPeer,
++				       bare_peer = {PUser, PServer, <<>>},
++				       type = Type,
++				       nick = Nick,
++				       packet = Pkt})
++		end,
++	    case mnesia:transaction(F) of
++		{atomic, ok} ->
++		    {ok, ID};
++		{aborted, Err} ->
++		    ?ERROR_MSG("Cannot add message to MAM archive of ~s@~s: ~s",
++			       [LUser, LServer, Err]),
++		    Err
++	    end
+     end.
+ 
+ write_prefs(_LUser, _LServer, Prefs, _ServerHost) ->

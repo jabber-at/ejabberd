@@ -1,6 +1,7 @@
 ejabberd (1:16.04-2) unstable; urgency=low
 
   * Add mod_mam_locking.patch.
+  * Add mod_mam_limit_disk_usage.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Sun, 15 May 2016 18:26:19 +0200
 
