@@ -2,6 +2,7 @@ ejabberd (1:16.04-2) unstable; urgency=low
 
   * Add mod_mam_locking.patch.
   * Add mod_mam_limit_disk_usage.patch.
+  * Add lintian override to remove warning about missing news entry.
 
  -- Mathias Ertl <mati@jabber.at>  Tue, 24 May 2016 10:23:06 +0200
 
