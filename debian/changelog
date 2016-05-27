@@ -1,3 +1,9 @@
+ejabberd (1:16.04-3) unstable; urgency=low
+
+  * Add conflict to old ejabberd-mod-mam-mnesia package.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 27 May 2016 08:35:18 +0200
+
 ejabberd (1:16.04-2) unstable; urgency=low
 
   * Add mod_mam_locking.patch.
