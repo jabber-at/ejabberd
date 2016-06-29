@@ -3,10 +3,8 @@ Description: adjust ejabberd.yml.example to sane defaults
  a useful on Debian systems
 Author: Philipp Huebner <debalance@debian.org>
 
-Index: ejabberd/ejabberd.yml.example
-===================================================================
---- ejabberd.orig/ejabberd.yml.example
-+++ ejabberd/ejabberd.yml.example
+--- a/ejabberd.yml.example
++++ b/ejabberd.yml.example
 @@ -39,23 +39,10 @@
  loglevel: 4
  
@@ -34,7 +32,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -113,14 +100,15 @@ hosts:
+@@ -113,14 +100,15 @@
  listen: 
    - 
      port: 5222
@@ -52,7 +50,7 @@ Index: ejabberd/ejabberd.yml.example
      ##
      ## To enforce TLS encryption for client connections,
      ## use this instead of the "starttls" option:
-@@ -129,14 +117,17 @@ listen:
+@@ -129,14 +117,17 @@
      ##
      ## Custom OpenSSL options
      ##
@@ -72,7 +70,7 @@ Index: ejabberd/ejabberd.yml.example
      module: ejabberd_s2s_in
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
-@@ -170,6 +161,7 @@ listen:
+@@ -170,6 +161,7 @@
    ##   access_commands: {}
    - 
      port: 5280
@@ -80,7 +78,7 @@ Index: ejabberd/ejabberd.yml.example
      module: ejabberd_http
      request_handlers:
        "/websocket": ejabberd_http_ws
-@@ -178,6 +170,12 @@ listen:
+@@ -178,6 +170,12 @@
      http_bind: true
      ## register: true
      captcha: true
@@ -93,7 +91,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -187,17 +185,17 @@ listen:
+@@ -187,17 +185,17 @@
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -115,7 +113,7 @@ Index: ejabberd/ejabberd.yml.example
  ##   - "no_tlsv1"
  
  ##
-@@ -241,7 +239,7 @@ auth_method: internal
+@@ -241,7 +239,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -124,7 +122,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -552,7 +550,7 @@ language: "en"
+@@ -552,7 +550,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -133,7 +131,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -572,7 +570,7 @@ language: "en"
+@@ -572,7 +570,7 @@
  ##
  modules: 
    mod_adhoc: {}
@@ -142,7 +140,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_announce: # recommends mod_adhoc
      access: announce
    mod_blocking: {} # requires mod_privacy
-@@ -581,7 +579,7 @@ modules:
+@@ -581,7 +579,7 @@
    mod_client_state: {}
    mod_configure: {} # requires mod_adhoc
    mod_disco: {}
@@ -151,9 +149,9 @@ Index: ejabberd/ejabberd.yml.example
    mod_irc: {}
    mod_http_bind: {}
    ## mod_http_fileserver:
-@@ -595,6 +593,7 @@ modules:
+@@ -597,6 +595,7 @@
+     access_create: muc_create
      access_persistent: muc_create
-     access_admin: muc_admin
    ## mod_muc_log: {}
 +  mod_muc_admin: {}
    ## mod_multicast: {}
