@@ -52,6 +52,7 @@
 
 -callback start(binary(), opts()) -> any().
 -callback stop(binary()) -> any().
+-callback mod_opt_type(atom()) -> fun((term()) -> term()) | [atom()].
 
 -export_type([opts/0]).
 -export_type([db_type/0]).
@@ -265,18 +266,25 @@ get_opt_host(Host, Opts, Default) ->
     ejabberd_regexp:greplace(Val, <<"@HOST@">>, Host).
 
 validate_opts(Module, Opts) ->
-    lists:filter(
+    lists:filtermap(
       fun({Opt, Val}) ->
 	      case catch Module:mod_opt_type(Opt) of
 		  VFun when is_function(VFun) ->
-		      case catch VFun(Val) of
-			  {'EXIT', _} ->
+		      try VFun(Val) of
+			  _ ->
+			      true
+		      catch {replace_with, NewVal} ->
+			      {true, {Opt, NewVal}};
+			    {invalid_syntax, Error} ->
+			      ?ERROR_MSG("ignoring invalid value '~p' for "
+					 "option '~s' of module '~s': ~s",
+					 [Val, Opt, Module, Error]),
+			      false;
+			    _:_ ->
 			      ?ERROR_MSG("ignoring invalid value '~p' for "
 					 "option '~s' of module '~s'",
 					 [Val, Opt, Module]),
-			      false;
-			  _ ->
-			      true
+			      false
 		      end;
 		  L when is_list(L) ->
 		      SOpts = str:join([[$', atom_to_list(A), $'] || A <- L], <<", ">>),
@@ -301,7 +309,7 @@ validate_opts(Module, Opts) ->
 db_type(Opts, Module) when is_list(Opts) ->
     db_type(global, Opts, Module);
 db_type(Host, Module) when is_atom(Module) ->
-    case Module:mod_opt_type(db_type) of
+    case catch Module:mod_opt_type(db_type) of
 	F when is_function(F) ->
 	    case get_module_opt(Host, Module, db_type, F) of
 		undefined -> ejabberd_config:default_db(Host, Module);
@@ -314,7 +322,7 @@ db_type(Host, Module) when is_atom(Module) ->
 -spec db_type(binary(), opts(), module()) -> db_type().
 
 db_type(Host, Opts, Module) ->
-    case Module:mod_opt_type(db_type) of
+    case catch Module:mod_opt_type(db_type) of
 	F when is_function(F) ->
 	    case get_opt(db_type, Opts, F) of
 		undefined -> ejabberd_config:default_db(Host, Module);

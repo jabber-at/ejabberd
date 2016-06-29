@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, 16.04, ejabberd@process-one.net, ejabberd)
+AC_INIT(ejabberd, 16.06, ejabberd@process-one.net, ejabberd)
 REQUIRE_ERLANG_MIN="6.1 (Erlang/OTP 17.1)"
 REQUIRE_ERLANG_MAX="9.0.0 (No Max)"
 
@@ -30,6 +30,7 @@ fi
 
 AC_PATH_TOOL(ERL, erl, , [${extra_erl_path}$PATH])
 AC_PATH_TOOL(ERLC, erlc, , [${extra_erl_path}$PATH])
+AC_PATH_TOOL(EPMD, epmd, , [${extra_erl_path}$PATH])
 
 AC_ERLANG_NEED_ERL
 AC_ERLANG_NEED_ERLC
