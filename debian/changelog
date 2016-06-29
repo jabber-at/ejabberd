@@ -1,3 +1,9 @@
+ejabberd (1:16.06-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Mathias Ertl <mati@jabber.at>  Wed, 29 Jun 2016 22:00:31 +0200
+
 ejabberd (1:16.04-3) unstable; urgency=low
 
   * Add conflict to old ejabberd-mod-mam-mnesia package.
