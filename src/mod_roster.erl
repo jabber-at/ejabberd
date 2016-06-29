@@ -351,7 +351,7 @@ get_roster_by_jid_t(LUser, LServer, LJID) ->
 
 try_process_iq_set(From, To, #iq{sub_el = SubEl, lang = Lang} = IQ) ->
     #jid{server = Server} = From,
-    Access = gen_mod:get_module_opt(Server, ?MODULE, access, fun(A) when is_atom(A) -> A end, all),
+    Access = gen_mod:get_module_opt(Server, ?MODULE, access, fun(A) -> A end, all),
     case acl:match_rule(Server, Access, From) of
 	deny ->
 	    Txt = <<"Denied by ACL">>,
@@ -382,14 +382,14 @@ process_item_set(From, To,
 		      Item = get_roster_by_jid_t(LUser, LServer, LJID),
 		      Item1 = process_item_attrs_managed(Item, Attrs, Managed),
 		      Item2 = process_item_els(Item1, Els),
-		      case Item2#roster.subscription of
-			remove -> del_roster_t(LUser, LServer, LJID);
-			_ -> update_roster_t(LUser, LServer, LJID, Item2)
-		      end,
-                      send_itemset_to_managers(From, Item2, Managed),
 		      Item3 = ejabberd_hooks:run_fold(roster_process_item,
 						      LServer, Item2,
 						      [LServer]),
+		      case Item3#roster.subscription of
+			remove -> del_roster_t(LUser, LServer, LJID);
+			_ -> update_roster_t(LUser, LServer, LJID, Item3)
+		      end,
+                      send_itemset_to_managers(From, Item3, Managed),
 		      case roster_version_on_db(LServer) of
 			true -> write_roster_version_t(LUser, LServer);
 			false -> ok
@@ -1235,7 +1235,7 @@ import(LServer, DBType, R) ->
     Mod:import(LServer, R).
 
 mod_opt_type(access) ->
-    fun (A) when is_atom(A) -> A end;
+    fun acl:access_rules_validator/1;
 mod_opt_type(db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
 mod_opt_type(managers) ->
