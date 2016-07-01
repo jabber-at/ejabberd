@@ -2,6 +2,7 @@ ejabberd (1:16.06-2) unstable; urgency=low
 
   * Conflict with erlang 19, which was released just a week before ejabberd
     16.06.
+  * Add src.mod_mam_mnesia.erl.patch for MAM mnesia users.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 01 Jul 2016 14:55:00 +0200
 
