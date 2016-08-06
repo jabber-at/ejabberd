@@ -4,7 +4,7 @@ Author: Mathias Ertl <mati@jabber.at>
 
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -1,17 +1,19 @@
+@@ -1,17 +1,18 @@
  [Unit]
 -Description=XMPP Server
 -After=network.target
@@ -28,6 +28,10 @@ Author: Mathias Ertl <mati@jabber.at>
 +Type=forking
 +Restart=on-failure
 +PIDFile=/run/ejabberd/ejabberd.pid
+ # The CAP_DAC_OVERRIDE capability is required for pam authentication to work
+ CapabilityBoundingSet=CAP_DAC_OVERRIDE
+ PrivateTmp=true
+@@ -22,3 +23,4 @@
  
  [Install]
  WantedBy=multi-user.target
