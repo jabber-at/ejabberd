@@ -11,4 +11,3 @@ ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 failed_auth.patch
-src.mod_mam_mnesia.erl.patch
