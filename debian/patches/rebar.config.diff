@@ -5,19 +5,19 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/rebar.config
 +++ b/rebar.config
-@@ -7,66 +7,6 @@
+@@ -7,50 +7,6 @@
  %%% Created :  1 May 2013 by Evgeniy Khramtsov <ekhramtsov@process-one.net>
  %%%-------------------------------------------------------------------
  
--{deps, [{lager, ".*", {git, "https://github.com/basho/lager", {tag, "3.0.2"}}},
--        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", {tag, "1.0.4"}}},
--        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.2"}}},
--        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.4"}}},
--        {stringprep, ".*", {git, "https://github.com/processone/stringprep", {tag, "1.0.3"}}},
--        {fast_xml, ".*", {git, "https://github.com/processone/fast_xml", {tag, "1.1.12"}}},
--        {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.4"}}},
--        {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.5"}}},
--        {fast_yaml, ".*", {git, "https://github.com/processone/fast_yaml", {tag, "1.0.3"}}},
+-{deps, [{lager, ".*", {git, "https://github.com/basho/lager", {tag, "3.2.1"}}},
+-        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", {tag, "1.0.5"}}},
+-        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.3"}}},
+-        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.6"}}},
+-        {stringprep, ".*", {git, "https://github.com/processone/stringprep", {tag, "1.0.5"}}},
+-        {fast_xml, ".*", {git, "https://github.com/processone/fast_xml", {tag, "1.1.14"}}},
+-        {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.6"}}},
+-        {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.7"}}},
+-        {fast_yaml, ".*", {git, "https://github.com/processone/fast_yaml", {tag, "1.0.5"}}},
 -        {jiffy, ".*", {git, "https://github.com/davisp/jiffy", {tag, "0.14.7"}}},
 -        {p1_oauth2, ".*", {git, "https://github.com/processone/p1_oauth2", {tag, "0.6.1"}}},
 -        {p1_xmlrpc, ".*", {git, "https://github.com/processone/p1_xmlrpc", {tag, "1.15.1"}}},
@@ -36,43 +36,27 @@ Author: Philipp Huebner <debalance@debian.org>
 -                                           "527722d12d0433b837cdb92a60900c2cb5df8942"}}},
 -        %% Forces correct dependency for riakc and allow using newer meck version)
 -        {if_var_true, riak, {hamcrest, ".*", {git, "https://github.com/hyperthunk/hamcrest-erlang",
--                                              "908a24fda4a46776a5135db60ca071e3d783f9f6"}}},  % for riak_pb-2.1.0.7
+-                                              "13f9bfb9b27d216e8e033b0e0a9a29097ed923dd"}}},  % for riak_pb-2.1.0.7
 -        {if_var_true, riak, {protobuffs, ".*", {git, "https://github.com/basho/erlang_protobuffs",
 -                                                "6e7fc924506e2dc166a6170e580ce1d95ebbd5bd"}}},  % for riak_pb-2.1.0.7 with correct meck dependency
 -        %% Elixir support, needed to run tests
 -        {if_var_true, elixir, {elixir, ".*", {git, "https://github.com/elixir-lang/elixir",
--                                              {tag, "v1.1.1"}}}},
+-                                              {tag, {if_version_above, "17", "v1.2.6", "v1.1.1"}}}}},
 -        %% TODO: When modules are fully migrated to new structure and mix, we will not need anymore rebar_elixir_plugin
 -        {if_var_true, elixir, {rebar_elixir_plugin, ".*",
 -                               {git, "https://github.com/processone/rebar_elixir_plugin", "0.1.0"}}},
 -        {if_var_true, iconv, {iconv, ".*", {git, "https://github.com/processone/iconv",
--                                            {tag, "1.0.0"}}}},
+-                                            {tag, "1.0.1"}}}},
 -        {if_var_true, tools, {meck, "0.8.*", {git, "https://github.com/eproxus/meck",
 -                                              {tag, "0.8.4"}}}},
 -        {if_var_true, tools, {moka, ".*", {git, "https://github.com/processone/moka.git",
 -                                           {tag, "1.0.5b"}}}},
 -        {if_var_true, redis, {eredis, ".*", {git, "https://github.com/wooga/eredis",
 -                                             {tag, "v1.0.8"}}}}]}.
--
--{if_var_true, latest_deps,
-- {floating_deps, [cache_tab,
--                  fast_tls,
--                  stringprep,
--                  fast_xml,
--                  esip,
--                  luerl,
--                  stun,
--                  fast_yaml,
--                  p1_utils,
--                  p1_mysql,
--                  p1_pgsql,
--                  p1_pam,
--                  ezlib,
--                  iconv]}}.
  
- {erl_first_files, ["src/ejabberd_config.erl", "src/gen_mod.erl"]}.
- 
-@@ -121,14 +61,6 @@
+ {if_var_true, latest_deps,
+  {floating_deps, [cache_tab,
+@@ -121,14 +77,6 @@
  {if_version_above, "17", {cover_enabled, true}}.
  {cover_export_enabled, true}.
  
