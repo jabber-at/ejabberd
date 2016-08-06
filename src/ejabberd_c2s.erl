@@ -1318,7 +1318,7 @@ handle_sync_event({resume_session, Time}, _From, _StateName,
 			      StateData#state.user,
 			      StateData#state.server,
 			      StateData#state.resource),
-    {stop, normal, {ok, StateData}, StateData#state{mgmt_state = resumed}};
+    {stop, normal, {resume, StateData}, StateData#state{mgmt_state = resumed}};
 handle_sync_event({resume_session, _Time}, _From, StateName,
 		  StateData) ->
     {reply, {error, <<"Previous session not found">>}, StateName, StateData};
@@ -1632,11 +1632,18 @@ handle_info({route, From, To,
                                                    <<"groupchat">> -> ok;
                                                    <<"headline">> -> ok;
                                                    _ ->
-                                                       Err =
-                                                           jlib:make_error_reply(Packet,
-                                                                                 ?ERR_SERVICE_UNAVAILABLE),
-                                                       ejabberd_router:route(To, From,
-                                                                             Err)
+						       case fxml:get_subtag_with_xmlns(Packet,
+										       <<"x">>,
+										       ?NS_MUC_USER)
+							   of
+							 false ->
+							     Err =
+								 jlib:make_error_reply(Packet,
+										       ?ERR_SERVICE_UNAVAILABLE),
+							     ejabberd_router:route(To, From,
+										   Err);
+							 _ -> ok
+						       end
                                                end,
                                                {false, Attrs, StateData}
 				       end;
@@ -1738,6 +1745,13 @@ handle_info({broadcast, Type, From, Packet}, StateName, StateData) ->
     fsm_next_state(StateName, StateData);
 handle_info(dont_ask_offline, StateName, StateData) ->
     fsm_next_state(StateName, StateData#state{ask_offline = false});
+handle_info({_Ref, {resume, OldStateData}}, StateName, StateData) ->
+    %% This happens if the resume_session/1 request timed out; the new session
+    %% now receives the late response.
+    ?DEBUG("Received old session state for ~s after failed resumption",
+	   [jid:to_string(OldStateData#state.jid)]),
+    handle_unacked_stanzas(OldStateData#state{mgmt_resend = false}),
+    fsm_next_state(StateName, StateData);
 handle_info(Info, StateName, StateData) ->
     ?ERROR_MSG("Unexpected info: ~p", [Info]),
     fsm_next_state(StateName, StateData).
@@ -1855,6 +1869,7 @@ send_text(StateData, Text) ->
 send_element(StateData, El) when StateData#state.mgmt_state == pending ->
     ?DEBUG("Cannot send element while waiting for resumption: ~p", [El]);
 send_element(StateData, El) when StateData#state.xml_socket ->
+    ?DEBUG("Send XML on stream = ~p", [fxml:element_to_binary(El)]),
     (StateData#state.sockmod):send_xml(StateData#state.socket,
 				       {xmlstreamelement, El});
 send_element(StateData, El) ->
@@ -2873,8 +2888,8 @@ handle_unacked_stanzas(#state{mgmt_state = MgmtState} = StateData, F)
       0 ->
 	  ok;
       N ->
-	  ?INFO_MSG("~B stanzas were not acknowledged by ~s",
-		    [N, jid:to_string(StateData#state.jid)]),
+	  ?DEBUG("~B stanza(s) were not acknowledged by ~s",
+		 [N, jid:to_string(StateData#state.jid)]),
 	  lists:foreach(
 	    fun({_, Time, #xmlel{attrs = Attrs} = El}) ->
 		    From_s = fxml:get_attr_s(<<"from">>, Attrs),
@@ -2951,6 +2966,9 @@ handle_unacked_stanzas(#state{mgmt_state = MgmtState} = StateData)
 						   [StateData, From,
 						    StateData#state.jid, El]) of
 			true ->
+			    ?DEBUG("Dropping archived message stanza from ~s",
+				   [fxml:get_attr_s(<<"from">>,
+						    El#xmlel.attrs)]),
 			    ok;
 			false ->
 			    ReRoute(From, To, El, Time)
@@ -3006,7 +3024,7 @@ inherit_session_state(#state{user = U, server = S} = StateData, ResumeID) ->
 	    OldPID ->
 		OldSID = {Time, OldPID},
 		case catch resume_session(OldSID) of
-		  {ok, OldStateData} ->
+		  {resume, OldStateData} ->
 		      NewSID = {Time, self()}, % Old time, new PID
 		      Priority = case OldStateData#state.pres_last of
 				   undefined ->
@@ -3048,7 +3066,7 @@ inherit_session_state(#state{user = U, server = S} = StateData, ResumeID) ->
     end.
 
 resume_session({Time, PID}) ->
-    (?GEN_FSM):sync_send_all_state_event(PID, {resume_session, Time}, 5000).
+    (?GEN_FSM):sync_send_all_state_event(PID, {resume_session, Time}, 15000).
 
 make_resume_id(StateData) ->
     {Time, _} = StateData#state.sid,
