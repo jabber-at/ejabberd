@@ -47,7 +47,7 @@
 	 srg_delete/2, srg_list/1, srg_get_info/2,
 	 srg_get_members/2, srg_user_add/4, srg_user_del/4,
 	 send_message/5, send_stanza/3, send_stanza_c2s/4, privacy_set/3,
-	 stats/1, stats/2, mod_opt_type/1, get_commands_spec/0]).
+	 stats/1, stats/2, mod_opt_type/1, get_commands_spec/0, depends/2]).
 
 
 -include("ejabberd.hrl").
@@ -66,6 +66,8 @@ start(_Host, _Opts) ->
 stop(_Host) ->
     ejabberd_commands:unregister_commands(get_commands_spec()).
 
+depends(_Host, _Opts) ->
+    [].
 
 %%%
 %%% Register commands
@@ -533,7 +535,7 @@ get_commands_spec() ->
                         policy = user,
 			module = mod_offline, function = count_offline_messages,
 			args = [],
-			result = {res, integer}},
+			result = {value, integer}},
      #ejabberd_commands{name = send_message, tags = [stanza],
 			desc = "Send a message to a local or remote bare of full JID",
 			module = ?MODULE, function = send_message,
@@ -861,12 +863,15 @@ connected_users_vhost(Host) ->
 
 %% Code copied from ejabberd_sm.erl and customized
 dirty_get_sessions_list2() ->
-    mnesia:dirty_select(
-      session,
-      [{#session{usr = '$1', sid = {'$2', '$3'}, priority = '$4', info = '$5',
-		 _ = '_'},
-	[{is_pid, '$3'}],
-	[['$1', {{'$2', '$3'}}, '$4', '$5']]}]).
+    Ss = mnesia:dirty_select(
+	   session,
+	   [{#session{usr = '$1', sid = '$2', priority = '$3', info = '$4',
+		      _ = '_'},
+	     [],
+	     [['$1', '$2', '$3', '$4']]}]),
+    lists:filter(fun([_USR, _SID, _Priority, Info]) ->
+			 not proplists:get_bool(offline, Info)
+		 end, Ss).
 
 %% Make string more print-friendly
 stringize(String) ->
@@ -901,8 +906,8 @@ user_sessions_info(User, Host) ->
 		   {'EXIT', _Reason} ->
 		       [];
 		   Ss ->
-		       lists:filter(fun(#session{sid = {_, Pid}}) ->
-					    is_pid(Pid)
+		       lists:filter(fun(#session{info = Info}) ->
+					    not proplists:get_bool(offline, Info)
 				    end, Ss)
 	       end,
     lists:map(
@@ -1166,8 +1171,8 @@ subscribe_roster({Name, Server, Group, Nick}, [{Name, Server, _, _} | Roster]) -
     subscribe_roster({Name, Server, Group, Nick}, Roster);
 %% Subscribe Name2 to Name1
 subscribe_roster({Name1, Server1, Group1, Nick1}, [{Name2, Server2, Group2, Nick2} | Roster]) ->
-    subscribe(Name1, Server1, list_to_binary(Name2), list_to_binary(Server2),
-	list_to_binary(Nick2), list_to_binary(Group2), <<"both">>, []),
+    subscribe(Name1, Server1, iolist_to_binary(Name2), iolist_to_binary(Server2),
+	iolist_to_binary(Nick2), iolist_to_binary(Group2), <<"both">>, []),
     subscribe_roster({Name1, Server1, Group1, Nick1}, Roster).
 
 push_alltoall(S, G) ->

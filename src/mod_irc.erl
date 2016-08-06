@@ -38,7 +38,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3,
-	 mod_opt_type/1]).
+	 mod_opt_type/1, depends/2]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -90,7 +90,7 @@ start(Host, Opts) ->
     start_supervisor(Host),
     Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     ChildSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
-		 temporary, 1000, worker, [?MODULE]},
+		 transient, 1000, worker, [?MODULE]},
     supervisor:start_child(ejabberd_sup, ChildSpec).
 
 stop(Host) ->
@@ -98,6 +98,9 @@ stop(Host) ->
     Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
     gen_server:call(Proc, stop),
     supervisor:delete_child(ejabberd_sup, Proc).
+
+depends(_Host, _Opts) ->
+    [].
 
 %%====================================================================
 %% gen_server callbacks

@@ -66,7 +66,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3,
-	 mod_opt_type/1]).
+	 mod_opt_type/1, depends/2]).
 
 -deprecated({get_queue_length,2}).
 
@@ -125,6 +125,8 @@ stop(Host) ->
     supervisor:delete_child(ejabberd_sup, Proc),
     ok.
 
+depends(_Host, _Opts) ->
+    [].
 
 %%====================================================================
 %% gen_server callbacks
@@ -791,7 +793,7 @@ get_messages_subset(User, Host, MsgsAll) ->
                                     fun(A) when is_atom(A) -> A end,
 				    max_user_offline_messages),
     MaxOfflineMsgs = case get_max_user_messages(Access,
-						{User, Host}, Host)
+						User, Host)
 			 of
 		       Number when is_integer(Number) -> Number;
 		       _ -> 100

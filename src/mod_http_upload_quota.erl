@@ -39,6 +39,7 @@
 -export([start_link/3,
 	 start/2,
 	 stop/1,
+	 depends/2,
 	 mod_opt_type/1]).
 
 %% gen_server callbacks.
@@ -108,6 +109,11 @@ mod_opt_type(max_days) ->
     end;
 mod_opt_type(_) ->
     [access_soft_quota, access_hard_quota, max_days].
+
+-spec depends(binary(), gen_mod:opts()) -> [{module(), hard | soft}].
+
+depends(_Host, _Opts) ->
+    [{mod_http_upload, hard}].
 
 %%--------------------------------------------------------------------
 %% gen_server callbacks.
@@ -245,7 +251,7 @@ terminate(Reason, #state{server_host = ServerHost, timers = Timers}) ->
     ?DEBUG("Stopping upload quota process for ~s: ~p", [ServerHost, Reason]),
     ejabberd_hooks:delete(http_upload_slot_request, ServerHost, ?MODULE,
 			  handle_slot_request, 50),
-    lists:foreach(fun(Timer) -> timer:cancel(Timer) end, Timers).
+    lists:foreach(fun timer:cancel/1, Timers).
 
 -spec code_change({down, _} | _, state(), _) -> {ok, state()}.
 
@@ -293,7 +299,7 @@ enforce_quota(UserDir, SlotSize, _OldSize, MinSize, MaxSize) ->
 			    {[Path | AccFiles], AccSize + Size, NewSize}
 		    end, {[], 0, 0}, Files),
     if OldSize + SlotSize > MaxSize ->
-	    lists:foreach(fun(File) -> del_file_and_dir(File) end, DelFiles),
+	    lists:foreach(fun del_file_and_dir/1, DelFiles),
 	    file:del_dir(UserDir), % In case it's empty, now.
 	    NewSize + SlotSize;
        true ->
@@ -308,7 +314,7 @@ delete_old_files(UserDir, CutOff) ->
 	[] ->
 	    ok;
 	OldFiles ->
-	    lists:foreach(fun(File) -> del_file_and_dir(File) end, OldFiles),
+	    lists:foreach(fun del_file_and_dir/1, OldFiles),
 	    file:del_dir(UserDir) % In case it's empty, now.
     end.
 

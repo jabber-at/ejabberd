@@ -31,7 +31,7 @@
 -behavior(gen_mod).
 
 %% gen_mod callbacks.
--export([start/2, stop/1, mod_opt_type/1]).
+-export([start/2, stop/1, mod_opt_type/1, depends/2]).
 
 %% ejabberd_hooks callbacks.
 -export([filter_presence/3, filter_chat_states/3, filter_pep/3, filter_other/3,
@@ -66,7 +66,7 @@ start(Host, Opts) ->
     QueuePEP =
 	gen_mod:get_opt(queue_pep, Opts,
 			fun(B) when is_boolean(B) -> B end,
-			false),
+			true),
     if QueuePresence; QueueChatStates; QueuePEP ->
 	   ejabberd_hooks:add(c2s_post_auth_features, Host, ?MODULE,
 			      add_stream_feature, 50),
@@ -106,7 +106,7 @@ stop(Host) ->
     QueuePEP =
 	gen_mod:get_module_opt(Host, ?MODULE, queue_pep,
 			       fun(B) when is_boolean(B) -> B end,
-			       false),
+			       true),
     if QueuePresence; QueueChatStates; QueuePEP ->
 	   ejabberd_hooks:delete(c2s_post_auth_features, Host, ?MODULE,
 				 add_stream_feature, 50),
@@ -141,6 +141,11 @@ mod_opt_type(queue_chat_states) ->
 mod_opt_type(queue_pep) ->
     fun(B) when is_boolean(B) -> B end;
 mod_opt_type(_) -> [queue_presence, queue_chat_states, queue_pep].
+
+-spec depends(binary(), gen_mod:opts()) -> [{module(), hard | soft}].
+
+depends(_Host, _Opts) ->
+    [].
 
 %%--------------------------------------------------------------------
 %% ejabberd_hooks callbacks.

@@ -90,7 +90,7 @@ hosts_to_start(State) ->
 
 %% @private
 %% At the moment, these functions are mainly used to setup unit tests.
--spec(start/2 :: (Hosts :: [binary()], Opts :: [acl:acl() | local_config()]) -> ok).
+-spec start(Hosts :: [binary()], Opts :: [acl:acl() | local_config()]) -> ok.
 start(Hosts, Opts) ->
     mnesia_init(),
     set_opts(set_hosts_in_options(Hosts, #state{opts = Opts})).
@@ -220,9 +220,6 @@ env_binary_to_list(Application, Parameter) ->
 %% in which the options 'include_config_file' were parsed
 %% and the terms in those files were included.
 %% @spec(iolist()) -> [term()]
-get_plain_terms_file(File) ->
-    get_plain_terms_file(File, [{include_files, true}]).
-
 get_plain_terms_file(File, Opts) when is_binary(File) ->
     get_plain_terms_file(binary_to_list(File), Opts);
 get_plain_terms_file(File1, Opts) ->
