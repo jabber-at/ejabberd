@@ -1,3 +1,11 @@
+ejabberd (1:16.08-2) unstable; urgency=low
+
+  * New upstream release.
+  * Add ejabberdctl_access.patch, see:
+    https://github.com/processone/ejabberd/issues/1231
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 09 Aug 2016 09:34:23 +0200
+
 ejabberd (1:16.08-1) unstable; urgency=low
 
   * New upstream release.
