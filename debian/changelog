@@ -1,6 +1,5 @@
 ejabberd (1:16.08-2) unstable; urgency=low
 
-  * New upstream release.
   * Add ejabberdctl_access.patch, see:
     https://github.com/processone/ejabberd/issues/1231
 
