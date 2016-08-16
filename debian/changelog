@@ -1,3 +1,11 @@
+ejabberd (1:16.08-3) unstable; urgency=low
+
+  * Really add ejabberdctl_access.patch, forgot to add it in series.
+  * Add ejabberdctl_access2.patch, see:
+    https://github.com/processone/ejabberd/commit/a0c8012c66cce3f01562edc4d5708fdbb6a7f76f
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 16 Aug 2016 14:05:43 +0200
+
 ejabberd (1:16.08-2) unstable; urgency=low
 
   * Add ejabberdctl_access.patch, see:

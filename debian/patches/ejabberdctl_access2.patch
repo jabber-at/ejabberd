@@ -1,0 +1,21 @@
+From efc744092b08c38aaa9952d7763f15979f436837 Mon Sep 17 00:00:00 2001
+From: Mickael Remond <mremond@process-one.net>
+Date: Sun, 7 Aug 2016 18:27:16 +0200
+Subject: [PATCH] We do not force yet access rules check on register command
+
+---
+ src/ejabberd_admin.erl | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/ejabberd_admin.erl b/src/ejabberd_admin.erl
+index 615459f..ae2fac3 100644
+--- a/src/ejabberd_admin.erl
++++ b/src/ejabberd_admin.erl
+@@ -131,7 +131,6 @@ get_commands_spec() ->
+      #ejabberd_commands{name = register, tags = [accounts],
+ 			desc = "Register a user",
+ 			policy = admin,
+-      access = [{mod_register, access, configure}],
+ 			module = ?MODULE, function = register,
+ 			args = [{user, binary}, {host, binary}, {password, binary}],
+ 			result = {res, restuple}},
