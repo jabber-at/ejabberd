@@ -274,7 +274,6 @@ get_commands_spec() ->
                            args_example = ["/home/me/docs/api.html", "mod_admin", "java,json"],
                            result_example = ok}].
 init() ->
-    mnesia:delete_table(ejabberd_commands),
     mnesia:create_table(ejabberd_commands,
                         [{ram_copies, [node()]},
                          {local_content, true},
@@ -538,6 +537,9 @@ execute_check_policy(
   _Auth, _JID, #ejabberd_commands{policy = open} = Command, Arguments) ->
     do_execute_command(Command, Arguments);
 execute_check_policy(
+  noauth, _JID, Command, Arguments) ->
+    do_execute_command(Command, Arguments);
+execute_check_policy(
   _Auth, _JID, #ejabberd_commands{policy = restricted} = Command, Arguments) ->
     do_execute_command(Command, Arguments);
 execute_check_policy(
@@ -546,9 +548,6 @@ execute_check_policy(
 execute_check_policy(
   admin, JID, #ejabberd_commands{policy = user} = Command, Arguments) ->
     execute_check_access(JID, Command, Arguments);
-execute_check_policy(
-  noauth, _JID, #ejabberd_commands{policy = user} = Command, Arguments) ->
-    do_execute_command(Command, Arguments);
 execute_check_policy(
   {User, Server, _, _}, JID, #ejabberd_commands{policy = user} = Command, Arguments) ->
     execute_check_access(JID, Command, [User, Server | Arguments]).

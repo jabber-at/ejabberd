@@ -437,35 +437,36 @@ remove_msg_by_node(To, Seq) ->
     end.
 
 need_to_store(LServer, Packet) ->
-    Type = fxml:get_tag_attr_s(<<"type">>, Packet),
-    if (Type /= <<"error">>) and (Type /= <<"groupchat">>)
-       and (Type /= <<"headline">>) ->
-	    case has_offline_tag(Packet) of
-		false ->
-		    case check_store_hint(Packet) of
-			store ->
+    case has_offline_tag(Packet) of
+	false ->
+	    case {check_store_hint(Packet),
+		  fxml:get_tag_attr_s(<<"type">>, Packet)} of
+		{_Hint, <<"error">>} ->
+		    false;
+		{store, _Type} ->
+		    true;
+		{no_store, _Type} ->
+		    false;
+		{none, <<"groupchat">>} ->
+		    false;
+		{none, <<"headline">>} ->
+		    false;
+		{none, _Type} ->
+		    case gen_mod:get_module_opt(
+			   LServer, ?MODULE, store_empty_body,
+			   fun(V) when is_boolean(V) -> V;
+			      (unless_chat_state) -> unless_chat_state
+			   end,
+			   unless_chat_state) of
+			true ->
 			    true;
-			no_store ->
-			    false;
-			none ->
-			    case gen_mod:get_module_opt(
-				   LServer, ?MODULE, store_empty_body,
-				   fun(V) when is_boolean(V) -> V;
-				      (unless_chat_state) -> unless_chat_state
-				   end,
-				   unless_chat_state) of
-				false ->
-				    fxml:get_subtag(Packet, <<"body">>) /= false;
-				unless_chat_state ->
-				    not jlib:is_standalone_chat_state(Packet);
-				true ->
-				    true
-			    end
-		    end;
-		true ->
-		    false
+			false ->
+			    fxml:get_subtag(Packet, <<"body">>) /= false;
+			unless_chat_state ->
+			    not jlib:is_standalone_chat_state(Packet)
+		    end
 	    end;
-       true ->
+	true ->
 	    false
     end.
 
@@ -475,14 +476,22 @@ store_packet(From, To, Packet) ->
 	    case check_event(From, To, Packet) of
 		true ->
 		    #jid{luser = LUser, lserver = LServer} = To,
-		    TimeStamp = p1_time_compat:timestamp(),
-		    #xmlel{children = Els} = Packet,
-		    Expire = find_x_expire(TimeStamp, Els),
-		    gen_mod:get_module_proc(To#jid.lserver, ?PROCNAME) !
-		      #offline_msg{us = {LUser, LServer},
-				   timestamp = TimeStamp, expire = Expire,
-				   from = From, to = To, packet = Packet},
-		    stop;
+		    case ejabberd_hooks:run_fold(store_offline_message, LServer,
+						 Packet, [From, To]) of
+			drop ->
+			    ok;
+			NewPacket ->
+			    TimeStamp = p1_time_compat:timestamp(),
+			    #xmlel{children = Els} = NewPacket,
+			    Expire = find_x_expire(TimeStamp, Els),
+			    gen_mod:get_module_proc(To#jid.lserver, ?PROCNAME) !
+			      #offline_msg{us = {LUser, LServer},
+					   timestamp = TimeStamp,
+					   expire = Expire,
+					   from = From, to = To,
+					   packet = NewPacket},
+			    stop
+		    end;
 		_ -> ok
 	    end;
 	false -> ok

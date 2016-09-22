@@ -33,10 +33,12 @@
          get_option/2, get_option/3, add_option/2, has_option/1,
          get_vh_by_auth_method/1, is_file_readable/1,
          get_version/0, get_myhosts/0, get_mylang/0,
+         get_ejabberd_config_path/0, is_using_elixir_config/0,
          prepare_opt_val/4, convert_table_to_binary/5,
          transform_options/1, collect_options/1, default_db/2,
          convert_to_yaml/1, convert_to_yaml/2, v_db/2,
-         env_binary_to_list/2, opt_type/1, may_hide_data/1]).
+         env_binary_to_list/2, opt_type/1, may_hide_data/1,
+	 is_elixir_enabled/0]).
 
 -export([start/2]).
 
@@ -147,7 +149,18 @@ read_file(File) ->
                      {include_modules_configs, true}]).
 
 read_file(File, Opts) ->
-    Terms1 = get_plain_terms_file(File, Opts),
+    Terms1 = case is_elixir_enabled() of
+		 true ->
+		     case 'Elixir.Ejabberd.ConfigUtil':is_elixir_config(File) of
+			 true ->
+			     'Elixir.Ejabberd.Config':init(File),
+			     'Elixir.Ejabberd.Config':get_ejabberd_opts();
+			 false ->
+			     get_plain_terms_file(File, Opts)
+		     end;
+		 false ->
+		     get_plain_terms_file(File, Opts)
+	     end,
     Terms_macros = case proplists:get_bool(replace_macros, Opts) of
                        true -> replace_macros(Terms1);
                        false -> Terms1
@@ -318,7 +331,9 @@ get_absolute_path(File) ->
 	    File;
 	relative ->
 	    {ok, Dir} = file:get_cwd(),
-	    filename:absname_join(Dir, File)
+	    filename:absname_join(Dir, File);
+	volumerelative ->
+	    filename:absname(File)
     end.
 
 
@@ -1039,6 +1054,23 @@ replace_modules(Modules) ->
 
 %% Elixir module naming
 %% ====================
+
+-ifdef(ELIXIR_ENABLED).
+is_elixir_enabled() ->
+    true.
+-else.
+is_elixir_enabled() ->
+    false.
+-endif.
+
+is_using_elixir_config() ->
+    case is_elixir_enabled() of
+	true ->
+	    Config = get_ejabberd_config_path(),
+	    'Elixir.Ejabberd.ConfigUtil':is_elixir_config(Config);
+       false ->
+	    false
+    end.
 
 %% If module name start with uppercase letter, this is an Elixir module:
 is_elixir_module(Module) ->
