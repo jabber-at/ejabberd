@@ -1,6 +1,7 @@
 ejabberd (1:16.09-1) unstable; urgency=low
 
   * New upstream release.
+  * Remove conflict with erlang 19.
 
  -- Mathias Ertl <mati@jabber.at>  Thu, 22 Sep 2016 19:47:02 +0200
 
