@@ -3,7 +3,7 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "16.06.0",
+     version: "16.08.0",
      description: description,
      elixir: "~> 1.2",
      elixirc_paths: ["lib"],
@@ -29,7 +29,7 @@ defmodule Ejabberd.Mixfile do
      included_applications: [:lager, :mnesia, :p1_utils, :cache_tab,
                              :fast_tls, :stringprep, :fast_xml,
                              :stun, :fast_yaml, :ezlib, :iconv,
-                             :esip, :jiffy, :p1_oauth2, :p1_xmlrpc, :eredis,
+                             :esip, :jiffy, :p1_oauth2, :eredis,
                              :p1_mysql, :p1_pgsql, :sqlite3]]
   end
 
@@ -40,7 +40,7 @@ defmodule Ejabberd.Mixfile do
   end
 
   defp deps do
-    [{:lager, "~> 3.0.0"},
+    [{:lager, "~> 3.2"},
      {:p1_utils, "~> 1.0"},
      {:cache_tab, "~> 1.0"},
      {:stringprep, "~> 1.0"},
@@ -51,7 +51,6 @@ defmodule Ejabberd.Mixfile do
      {:esip, "~> 1.0"},
      {:jiffy, "~> 0.14.7"},
      {:p1_oauth2, "~> 0.6.1"},
-     {:p1_xmlrpc, "~> 1.15"},
      {:p1_mysql, "~> 1.0"},
      {:p1_pgsql, "~> 1.1"},
      {:sqlite3, "~> 1.1"},
@@ -61,9 +60,10 @@ defmodule Ejabberd.Mixfile do
      {:exrm, "~> 1.0.0", only: :dev},
      # relx is used by exrm. Lock version as for now, ejabberd doesn not compile fine with
      # version 3.20:
-     {:relx, "~> 3.19.0", only: :dev},
+     {:relx, "~> 3.21", only: :dev},
+     {:ex_doc, ">= 0.0.0", only: :dev},
      {:meck, "~> 0.8.4", only: :test},
-     {:moka, github: "processone/moka", tag: "1.0.5b", only: :test}]
+     {:moka, github: "processone/moka", tag: "1.0.5c", only: :test}]
   end
 
   defp package do
