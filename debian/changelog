@@ -1,3 +1,9 @@
+ejabberd (1:16.09-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Mathias Ertl <mati@jabber.at>  Thu, 22 Sep 2016 19:47:02 +0200
+
 ejabberd (1:16.08-3) unstable; urgency=low
 
   * Really add ejabberdctl_access.patch, forgot to add it in series.
