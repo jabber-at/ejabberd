@@ -38,13 +38,14 @@ defmodule EjabberdModAdminExtraTest do
 
 	setup_all do
 		try do
-      :jid.start
+			:jid.start
 			:stringprep.start
 			:mnesia.start
 			:p1_sha.load_nif
 		rescue
 			_ -> :ok
 		end
+		{:ok, _} = :ejabberd_access_permissions.start_link()
 		:ejabberd_commands.init
                 :ok = :ejabberd_config.start([@domain], [])
 		:mod_admin_extra.start(@domain, [])

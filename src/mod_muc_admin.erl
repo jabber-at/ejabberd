@@ -26,7 +26,7 @@
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
--include("jlib.hrl").
+-include("xmpp.hrl").
 -include("mod_muc_room.hrl").
 -include("mod_muc.hrl").
 -include("ejabberd_http.hrl").
@@ -270,7 +270,7 @@ web_menu_host(Acc, _Host, Lang) ->
 
 -define(TDTD(L, N),
 	?XE(<<"tr">>, [?XCT(<<"td">>, L),
-		       ?XC(<<"td">>, jlib:integer_to_binary(N))
+		       ?XC(<<"td">>, integer_to_binary(N))
 		      ])).
 
 web_page_main(_, #request{path=[<<"muc">>], lang = Lang} = _Request) ->
@@ -312,7 +312,7 @@ get_sort_query(Q) ->
 
 get_sort_query2(Q) ->
     {value, {_, String}} = lists:keysearch(<<"sort">>, 1, Q),
-    Integer = jlib:binary_to_integer(String),
+    Integer = binary_to_integer(String),
     case Integer >= 0 of
 	true -> {ok, {normal, Integer}};
 	false -> {ok, {reverse, abs(Integer)}}
@@ -338,7 +338,7 @@ make_rooms_page(Host, Lang, {Sort_direction, Sort_column}) ->
     {Titles_TR, _} =
 	lists:mapfoldl(
 	  fun(Title, Num_column) ->
-		  NCS = jlib:integer_to_binary(Num_column),
+		  NCS = integer_to_binary(Num_column),
 		  TD = ?XE(<<"td">>, [?CT(Title),
 				      ?C(<<" ">>),
 				      ?AC(<<"?sort=", NCS/binary>>, <<"<">>),
@@ -388,7 +388,7 @@ build_info_room({Name, Host, Pid}) ->
 	    false ->
 		Last_message1 = queue:last(History),
 		{_, _, _, Ts_last, _} = Last_message1,
-		jlib:timestamp_to_legacy(Ts_last)
+		xmpp_util:encode_timestamp(Ts_last)
 	end,
 
     {<<Name/binary, "@", Host/binary>>,
@@ -412,7 +412,7 @@ prepare_room_info(Room_info) ->
      Just_created,
      Title} = Room_info,
     [NameHost,
-     jlib:integer_to_binary(Num_participants),
+     integer_to_binary(Num_participants),
      Ts_last_message,
      jlib:atom_to_binary(Public),
      jlib:atom_to_binary(Persistent),
@@ -432,8 +432,8 @@ create_room(Name1, Host1, ServerHost) ->
     create_room_with_opts(Name1, Host1, ServerHost, []).
 
 create_room_with_opts(Name1, Host1, ServerHost, CustomRoomOpts) ->
-    Name = jid:nodeprep(Name1),
-    Host = jid:nodeprep(Host1),
+    true = (error /= (Name = jid:nodeprep(Name1))),
+    true = (error /= (Host = jid:nodeprep(Host1))),
 
     %% Get the default room options from the muc configuration
     DefRoomOpts = gen_mod:get_module_opt(ServerHost, mod_muc,
@@ -514,7 +514,7 @@ destroy_room({N, H, SH}) ->
 %% The file encoding must be UTF-8
 
 destroy_rooms_file(Filename) ->
-    {ok, F} = file:open(Filename, [read, binary]),
+    {ok, F} = file:open(Filename, [read]),
     RJID = read_room(F),
     Rooms = read_rooms(F, RJID, []),
     file:close(F),
@@ -533,7 +533,7 @@ read_room(F) ->
 	eof -> eof;
 	String ->
 	    case io_lib:fread("~s", String) of
-		{ok, [RoomJID], _} -> split_roomjid(RoomJID);
+		{ok, [RoomJID], _} -> split_roomjid(list_to_binary(RoomJID));
 		{error, What} ->
 		    io:format("Parse error: what: ~p~non the line: ~p~n~n", [What, String])
 	    end
@@ -551,7 +551,7 @@ split_roomjid(RoomJID) ->
 %%----------------------------
 
 create_rooms_file(Filename) ->
-    {ok, F} = file:open(Filename, [read, binary]),
+    {ok, F} = file:open(Filename, [read]),
     RJID = read_room(F),
     Rooms = read_rooms(F, RJID, []),
     file:close(F),
@@ -806,7 +806,7 @@ format_room_option(OptionString, ValueString) ->
 		password -> ValueString;
 		subject ->ValueString;
 		subject_author ->ValueString;
-		max_users -> jlib:binary_to_integer(ValueString);
+		max_users -> binary_to_integer(ValueString);
 		_ -> jlib:binary_to_atom(ValueString)
 	    end,
     {Option, Value}.
@@ -871,7 +871,7 @@ get_options(Config) ->
     Fields = [jlib:atom_to_binary(Field) || Field <- record_info(fields, config)],
     [config | ValuesRaw] = tuple_to_list(Config),
     Values = lists:map(fun(V) when is_atom(V) -> jlib:atom_to_binary(V);
-                          (V) when is_integer(V) -> jlib:integer_to_binary(V);
+                          (V) when is_integer(V) -> integer_to_binary(V);
                           (V) when is_tuple(V); is_list(V) -> list_to_binary(hd(io_lib:format("~w", [V])));
                           (V) -> V end, ValuesRaw),
     lists:zip(Fields, Values).
@@ -993,38 +993,50 @@ get_subscribers(Name, Host) ->
 	    throw({error, "The room does not exist"})
     end.
 
+%% Copied from mod_muc_room.erl
+get_config_opt_name(Pos) ->
+    Fs = [config|record_info(fields, config)],
+    lists:nth(Pos, Fs).
+-define(MAKE_CONFIG_OPT(Opt),
+        {get_config_opt_name(Opt), element(Opt, Config)}).
 make_opts(StateData) ->
     Config = StateData#state.config,
-    [
-     {title, Config#config.title},
-     {vcard, Config#config.vcard},
-     {voice_request_min_interval, Config#config.voice_request_min_interval},
-     {allow_change_subj, Config#config.allow_change_subj},
-     {allow_query_users, Config#config.allow_query_users},
-     {allow_private_messages, Config#config.allow_private_messages},
-     {allow_private_messages_from_visitors, Config#config.allow_private_messages_from_visitors},
-     {allow_visitor_status, Config#config.allow_visitor_status},
-     {allow_visitor_nickchange, Config#config.allow_visitor_nickchange},
-     {allow_voice_requests, Config#config.allow_voice_requests},
-     {public, Config#config.public},
-     {public_list, Config#config.public_list},
-     {persistent, Config#config.persistent},
-     {mam, Config#config.mam},
-     {moderated, Config#config.moderated},
-     {members_by_default, Config#config.members_by_default},
-     {members_only, Config#config.members_only},
-     {allow_user_invites, Config#config.allow_user_invites},
-     {password_protected, Config#config.password_protected},
-     {password, Config#config.password},
-     {anonymous, Config#config.anonymous},
-     {captcha_protected, Config#config.captcha_protected},
-     {description, Config#config.description},
-     {logging, Config#config.logging},
-     {max_users, Config#config.max_users},
-     {affiliations, ?DICT:to_list(StateData#state.affiliations)},
+    Subscribers = (?DICT):fold(
+                    fun(_LJID, Sub, Acc) ->
+                            [{Sub#subscriber.jid,
+                              Sub#subscriber.nick,
+                              Sub#subscriber.nodes}|Acc]
+                    end, [], StateData#state.subscribers),
+    [?MAKE_CONFIG_OPT(#config.title), ?MAKE_CONFIG_OPT(#config.description),
+     ?MAKE_CONFIG_OPT(#config.allow_change_subj),
+     ?MAKE_CONFIG_OPT(#config.allow_query_users),
+     ?MAKE_CONFIG_OPT(#config.allow_private_messages),
+     ?MAKE_CONFIG_OPT(#config.allow_private_messages_from_visitors),
+     ?MAKE_CONFIG_OPT(#config.allow_visitor_status),
+     ?MAKE_CONFIG_OPT(#config.allow_visitor_nickchange),
+     ?MAKE_CONFIG_OPT(#config.public), ?MAKE_CONFIG_OPT(#config.public_list),
+     ?MAKE_CONFIG_OPT(#config.persistent),
+     ?MAKE_CONFIG_OPT(#config.moderated),
+     ?MAKE_CONFIG_OPT(#config.members_by_default),
+     ?MAKE_CONFIG_OPT(#config.members_only),
+     ?MAKE_CONFIG_OPT(#config.allow_user_invites),
+     ?MAKE_CONFIG_OPT(#config.password_protected),
+     ?MAKE_CONFIG_OPT(#config.captcha_protected),
+     ?MAKE_CONFIG_OPT(#config.password), ?MAKE_CONFIG_OPT(#config.anonymous),
+     ?MAKE_CONFIG_OPT(#config.logging), ?MAKE_CONFIG_OPT(#config.max_users),
+     ?MAKE_CONFIG_OPT(#config.allow_voice_requests),
+     ?MAKE_CONFIG_OPT(#config.allow_subscription),
+     ?MAKE_CONFIG_OPT(#config.mam),
+     ?MAKE_CONFIG_OPT(#config.presence_broadcast),
+     ?MAKE_CONFIG_OPT(#config.voice_request_min_interval),
+     ?MAKE_CONFIG_OPT(#config.vcard),
+     {captcha_whitelist,
+      (?SETS):to_list((StateData#state.config)#config.captcha_whitelist)},
+     {affiliations,
+      (?DICT):to_list(StateData#state.affiliations)},
      {subject, StateData#state.subject},
-     {subject_author, StateData#state.subject_author}
-    ].
+     {subject_author, StateData#state.subject_author},
+     {subscribers, Subscribers}].
 
 
 %%----------------------------

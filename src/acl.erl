@@ -36,11 +36,12 @@
 	 acl_rule_verify/1, access_matches/3,
 	 transform_access_rules_config/1,
 	 parse_ip_netmask/1,
-	 access_rules_validator/1, shaper_rules_validator/1]).
+	 access_rules_validator/1, shaper_rules_validator/1,
+	 normalize_spec/1, resolve_access/2]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
--include("jlib.hrl").
+-include("jid.hrl").
 
 -record(acl, {aclname, aclspec}).
 -record(access, {name       :: aclname(),
@@ -75,17 +76,11 @@
 -export_type([acl/0]).
 
 start() ->
-    case catch mnesia:table_info(acl, storage_type) of
-        disc_copies ->
-            mnesia:delete_table(acl);
-        _ ->
-            ok
-    end,
-    mnesia:create_table(acl,
+    ejabberd_mnesia:create(?MODULE, acl,
 			[{ram_copies, [node()]}, {type, bag},
                          {local_content, true},
 			 {attributes, record_info(fields, acl)}]),
-    mnesia:create_table(access,
+    ejabberd_mnesia:create(?MODULE, access,
                         [{ram_copies, [node()]},
                          {local_content, true},
 			 {attributes, record_info(fields, access)}]),
@@ -347,7 +342,7 @@ acl_rule_verify({node_glob, {UR, SR}}) when is_binary(UR), is_binary(SR) ->
 acl_rule_verify(_Spec) ->
     false.
 invalid_syntax(Msg, Data) ->
-    throw({invalid_syntax, iolist_to_binary(io_lib:format(Msg, Data))}).
+    throw({invalid_syntax, (str:format(Msg, Data))}).
 
 acl_rules_verify([{acl, Name} | Rest], true) when is_atom(Name) ->
     acl_rules_verify(Rest, true);
@@ -443,30 +438,35 @@ acl_rule_matches({node_glob, {UR, SR}}, #{usr := {U, S, _}}, _Host) ->
 acl_rule_matches(_ACL, _Data, _Host) ->
     false.
 
--spec access_matches(atom()|list(), any(), global|binary()) -> any().
-access_matches(all, _Data, _Host) ->
-    allow;
-access_matches(none, _Data, _Host) ->
-    deny;
-access_matches(Name, Data, Host) when is_atom(Name) ->
-    GAccess = ets:lookup(access, {Name, global}),
+resolve_access(all, _Host) ->
+    all;
+resolve_access(none, _Host) ->
+    none;
+resolve_access(Name, Host) when is_atom(Name) ->
+    GAccess = mnesia:dirty_read(access, {Name, global}),
     LAccess =
-	if Host /= global -> ets:lookup(access, {Name, Host});
+    if Host /= global -> mnesia:dirty_read(access, {Name, Host});
 	    true -> []
 	end,
     case GAccess ++ LAccess of
 	[] ->
-	    deny;
+	    [];
 	AccessList ->
-	    Rules = lists:flatmap(
+	    lists:flatmap(
 		fun(#access{rules = Rs}) ->
 		    Rs
-		end, AccessList),
-	    access_rules_matches(Rules, Data, Host)
+		end, AccessList)
     end;
-access_matches(Rules, Data, Host) when is_list(Rules) ->
-    access_rules_matches(Rules, Data, Host).
+resolve_access(Rules, _Host) when is_list(Rules) ->
+    Rules.
 
+-spec access_matches(atom()|list(), any(), global|binary()) -> allow|deny.
+access_matches(Rules, Data, Host) ->
+    case resolve_access(Rules, Host) of
+	all -> allow;
+	none -> deny;
+	RRules -> access_rules_matches(RRules, Data, Host)
+    end.
 
 -spec access_rules_matches(list(), any(), global|binary()) -> any().
 
@@ -484,7 +484,7 @@ access_rules_matches([], _Data, _Host, Default) ->
     Default.
 
 get_aclspecs(ACL, Host) ->
-    ets:lookup(acl, {ACL, Host}) ++ ets:lookup(acl, {ACL, global}).
+    mnesia:dirty_read(acl, {ACL, Host}) ++ mnesia:dirty_read(acl, {ACL, global}).
 
 is_regexp_match(String, RegExp) ->
     case ejabberd_regexp:run(String, RegExp) of
@@ -542,7 +542,7 @@ parse_ip_netmask(S) ->
 	    _ -> error
 	  end;
       [IPStr, MaskStr] ->
-	  case catch jlib:binary_to_integer(MaskStr) of
+	  case catch binary_to_integer(MaskStr) of
 	    Mask when is_integer(Mask), Mask >= 0 ->
 		case inet_parse:address(binary_to_list(IPStr)) of
 		  {ok, {_, _, _, _} = IP} when Mask =< 32 ->

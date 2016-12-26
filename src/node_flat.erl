@@ -34,7 +34,7 @@
 -author('christophe.romain@process-one.net').
 
 -include("pubsub.hrl").
--include("jlib.hrl").
+-include("xmpp.hrl").
 
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
@@ -50,14 +50,17 @@
     path_to_node/1, can_fetch_item/2, is_subscribed/1]).
 
 init(_Host, _ServerHost, _Opts) ->
-    %pubsub_subscription:init(),
-    mnesia:create_table(pubsub_state,
+    %pubsub_subscription:init(Host, ServerHost, Opts),
+    ejabberd_mnesia:create(?MODULE, pubsub_state,
 	[{disc_copies, [node()]},
 	    {type, ordered_set},
 	    {attributes, record_info(fields, pubsub_state)}]),
-    mnesia:create_table(pubsub_item,
+    ejabberd_mnesia:create(?MODULE, pubsub_item,
 	[{disc_only_copies, [node()]},
 	    {attributes, record_info(fields, pubsub_item)}]),
+    ejabberd_mnesia:create(?MODULE, pubsub_orphan,
+	[{disc_copies, [node()]},
+	    {attributes, record_info(fields, pubsub_orphan)}]),
     ItemsFields = record_info(fields, pubsub_item),
     case mnesia:table_info(pubsub_item, attributes) of
 	ItemsFields -> ok;
@@ -84,6 +87,7 @@ options() ->
 	{max_payload_size, ?MAX_PAYLOAD_SIZE},
 	{send_last_published_item, on_sub_and_presence},
 	{deliver_notifications, true},
+        {title, <<>>},
 	{presence_based_delivery, false},
 	{itemreply, none}].
 
@@ -107,8 +111,8 @@ features() ->
 	<<"retrieve-items">>,
 	<<"retrieve-subscriptions">>,
 	<<"subscribe">>,
+        %%<<"subscription-options">>,
 	<<"subscription-notifications">>].
-%%<<"subscription-options">>
 
 %% @doc Checks if the current user has the permission to create the requested node
 %% <p>In flat node, any unused node name is allowed. The access parameter is also
@@ -136,10 +140,11 @@ delete_node(Nodes) ->
     end,
     Reply = lists:map(fun (#pubsub_node{id = Nidx} = PubsubNode) ->
 		    {result, States} = get_states(Nidx),
-		    lists:foreach(fun (#pubsub_state{stateid = {LJID, _}, items = Items}) ->
-				del_items(Nidx, Items),
-				del_state(Nidx, LJID)
+		    lists:foreach(fun (State) ->
+				del_items(Nidx, State#pubsub_state.items),
+				del_state(State#pubsub_state{items = []})
 			end, States),
+		    del_orphan_items(Nidx),
 		    {PubsubNode, lists:flatmap(Tr, States)}
 	    end, Nodes),
     {result, {default, broadcast, Reply}}.
@@ -196,27 +201,27 @@ subscribe_node(Nidx, Sender, Subscriber, AccessModel,
     Owner = Affiliation == owner,
     if not Authorized ->
 	    {error,
-		?ERR_EXTENDED((?ERR_BAD_REQUEST), <<"invalid-jid">>)};
+		mod_pubsub:extended_error((xmpp:err_bad_request()), mod_pubsub:err_invalid_jid())};
 	(Affiliation == outcast) or (Affiliation == publish_only) ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	PendingSubscription ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"pending-subscription">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_pending_subscription())};
 	(AccessModel == presence) and (not PresenceSubscription) and (not Owner) ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"presence-subscription-required">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_presence_subscription_required())};
 	(AccessModel == roster) and (not RosterGroup) and (not Owner) ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"not-in-roster-group">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_not_in_roster_group())};
 	(AccessModel == whitelist) and (not Whitelisted) and (not Owner) ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_ALLOWED), <<"closed-node">>)};
+		mod_pubsub:extended_error((xmpp:err_not_allowed()), mod_pubsub:err_closed_node())};
 	%%MustPay ->
 	%%        % Payment is required for a subscription
 	%%        {error, ?ERR_PAYMENT_REQUIRED};
 	%%ForbiddenAnonymous ->
 	%%        % Requesting entity is anonymous
-	%%        {error, ?ERR_FORBIDDEN};
+	%%        {error, xmpp:err_forbidden()};
 	true ->
 	    %%SubId = pubsub_subscription:add_subscription(Subscriber, Nidx, Options),
 	    {NewSub, SubId} = case Subscriptions of
@@ -265,17 +270,17 @@ unsubscribe_node(Nidx, Sender, Subscriber, SubId) ->
     if
 	%% Requesting entity is prohibited from unsubscribing entity
 	not Authorized ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	%% Entity did not specify SubId
 	%%SubId == "", ?? ->
-	%%        {error, ?ERR_EXTENDED(?ERR_BAD_REQUEST, "subid-required")};
+	%%        {error, mod_pubsub:extended_error(xmpp:err_bad_request(), "subid-required")};
 	%% Invalid subscription identifier
 	%%InvalidSubId ->
-	%%        {error, ?ERR_EXTENDED(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
+	%%        {error, mod_pubsub:extended_error(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
 	%% Requesting entity is not a subscriber
 	Subscriptions == [] ->
 	    {error,
-		?ERR_EXTENDED((?ERR_UNEXPECTED_REQUEST_CANCEL), <<"not-subscribed">>)};
+		mod_pubsub:extended_error(xmpp:err_unexpected_request(), mod_pubsub:err_not_subscribed())};
 	%% Subid supplied, so use that.
 	SubIdExists ->
 	    Sub = first_in_list(fun
@@ -285,33 +290,33 @@ unsubscribe_node(Nidx, Sender, Subscriber, SubId) ->
 		    SubState#pubsub_state.subscriptions),
 	    case Sub of
 		{value, S} ->
-		    delete_subscriptions(SubKey, Nidx, [S], SubState),
+		    delete_subscriptions(SubState, [S]),
 		    {result, default};
 		false ->
 		    {error,
-			?ERR_EXTENDED((?ERR_UNEXPECTED_REQUEST_CANCEL), <<"not-subscribed">>)}
+			mod_pubsub:extended_error(xmpp:err_unexpected_request(), mod_pubsub:err_not_subscribed())}
 	    end;
 	%% Asking to remove all subscriptions to the given node
 	SubId == all ->
-	    delete_subscriptions(SubKey, Nidx, Subscriptions, SubState),
+	    delete_subscriptions(SubState, Subscriptions),
 	    {result, default};
 	%% No subid supplied, but there's only one matching subscription
 	length(Subscriptions) == 1 ->
-	    delete_subscriptions(SubKey, Nidx, Subscriptions, SubState),
+	    delete_subscriptions(SubState, Subscriptions),
 	    {result, default};
 	%% No subid and more than one possible subscription match.
 	true ->
 	    {error,
-		?ERR_EXTENDED((?ERR_BAD_REQUEST), <<"subid-required">>)}
+		mod_pubsub:extended_error((xmpp:err_bad_request()), mod_pubsub:err_subid_required())}
     end.
 
-delete_subscriptions(SubKey, Nidx, Subscriptions, SubState) ->
+delete_subscriptions(SubState, Subscriptions) ->
     NewSubs = lists:foldl(fun ({Subscription, SubId}, Acc) ->
 		    %%pubsub_subscription:delete_subscription(SubKey, Nidx, SubId),
 		    Acc -- [{Subscription, SubId}]
 	    end, SubState#pubsub_state.subscriptions, Subscriptions),
     case {SubState#pubsub_state.affiliation, NewSubs} of
-	{none, []} -> del_state(Nidx, SubKey);
+	{none, []} -> del_state(SubState);
 	_          -> set_state(SubState#pubsub_state{subscriptions = NewSubs})
     end.
 
@@ -366,7 +371,7 @@ publish_item(Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload,
 			or (Affiliation == publisher)
 			or (Affiliation == publish_only))
 		    or (Subscribed == true)) ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	true ->
 	    if MaxItems > 0 ->
 		    Now = p1_time_compat:timestamp(),
@@ -419,13 +424,13 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
     #pubsub_state{affiliation = Affiliation, items = Items} = GenState,
     Allowed = Affiliation == publisher orelse
 	Affiliation == owner orelse
-	PublishModel == open orelse
-	case get_item(Nidx, ItemId) of
-	{result, #pubsub_item{creation = {_, GenKey}}} -> true;
-	_ -> false
-    end,
+	(PublishModel == open andalso
+	  case get_item(Nidx, ItemId) of
+	    {result, #pubsub_item{creation = {_, GenKey}}} -> true;
+	    _ -> false
+          end),
     if not Allowed ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	true ->
 	    case lists:member(ItemId, Items) of
 		true ->
@@ -450,9 +455,9 @@ delete_item(Nidx, Publisher, PublishModel, ItemId) ->
 				    (_, Res) ->
 					Res
 				end,
-				{error, ?ERR_ITEM_NOT_FOUND}, States);
+				{error, xmpp:err_item_not_found()}, States);
 			_ ->
-			    {error, ?ERR_ITEM_NOT_FOUND}
+			    {error, xmpp:err_forbidden()}
 		    end
 	    end
     end.
@@ -472,9 +477,10 @@ purge_node(Nidx, Owner) ->
 			set_state(S#pubsub_state{items = []})
 		end,
 		States),
+	    del_orphan_items(Nidx),
 	    {result, {default, broadcast}};
 	_ ->
-	    {error, ?ERR_FORBIDDEN}
+	    {error, xmpp:err_forbidden()}
     end.
 
 %% @doc <p>Return the current affiliations for the given user</p>
@@ -514,7 +520,7 @@ set_affiliation(Nidx, Owner, Affiliation) ->
     GenKey = jid:remove_resource(SubKey),
     GenState = get_state(Nidx, GenKey),
     case {Affiliation, GenState#pubsub_state.subscriptions} of
-	{none, []} -> del_state(Nidx, GenKey);
+	{none, []} -> del_state(GenState);
 	_ -> set_state(GenState#pubsub_state{affiliation = Affiliation})
     end.
 
@@ -581,21 +587,21 @@ set_subscriptions(Nidx, Owner, Subscription, SubId) ->
 	    case Subscription of
 		none ->
 		    {error,
-			?ERR_EXTENDED((?ERR_BAD_REQUEST), <<"not-subscribed">>)};
+			mod_pubsub:extended_error((xmpp:err_bad_request()), mod_pubsub:err_not_subscribed())};
 		_ ->
 		    new_subscription(Nidx, Owner, Subscription, SubState)
 	    end;
 	{<<>>, [{_, SID}]} ->
 	    case Subscription of
-		none -> unsub_with_subid(Nidx, SID, SubState);
+		none -> unsub_with_subid(SubState, SID);
 		_ -> replace_subscription({Subscription, SID}, SubState)
 	    end;
 	{<<>>, [_ | _]} ->
 	    {error,
-		?ERR_EXTENDED((?ERR_BAD_REQUEST), <<"subid-required">>)};
+		mod_pubsub:extended_error((xmpp:err_bad_request()), mod_pubsub:err_subid_required())};
 	_ ->
 	    case Subscription of
-		none -> unsub_with_subid(Nidx, SubId, SubState);
+		none -> unsub_with_subid(SubState, SubId);
 		_ -> replace_subscription({Subscription, SubId}, SubState)
 	    end
     end.
@@ -615,13 +621,13 @@ new_subscription(_Nidx, _Owner, Sub, SubState) ->
     set_state(SubState#pubsub_state{subscriptions = [{Sub, SubId} | Subs]}),
     {Sub, SubId}.
 
-unsub_with_subid(Nidx, SubId, #pubsub_state{stateid = {Entity, _}} = SubState) ->
+unsub_with_subid(SubState, SubId) ->
     %%pubsub_subscription:delete_subscription(SubState#pubsub_state.stateid, Nidx, SubId),
     NewSubs = [{S, Sid}
 	    || {S, Sid} <- SubState#pubsub_state.subscriptions,
 		SubId =/= Sid],
     case {NewSubs, SubState#pubsub_state.affiliation} of
-	{[], none} -> del_state(Nidx, Entity);
+	{[], none} -> del_state(SubState);
 	_ -> set_state(SubState#pubsub_state{subscriptions = NewSubs})
     end.
 
@@ -696,7 +702,14 @@ set_state(State) when is_record(State, pubsub_state) ->
 %set_state(_) -> {error, ?ERR_INTERNAL_SERVER_ERROR}.
 
 %% @doc <p>Delete a state from database.</p>
-del_state(Nidx, Key) ->
+del_state(#pubsub_state{stateid = {Key, Nidx}, items = Items}) ->
+    case Items of
+	[] ->
+	    ok;
+	_ ->
+	    Orphan = #pubsub_orphan{nodeid = Nidx, items = Items},
+	    mnesia:write(Orphan)
+    end,
     mnesia:delete({pubsub_state, {Key, Nidx}}).
 
 %% @doc Returns the list of stored items for a given node.
@@ -707,7 +720,7 @@ del_state(Nidx, Key) ->
 %% relational database), or they can even decide not to persist any items.</p>
 get_items(Nidx, _From, _RSM) ->
     Items = mnesia:match_object(#pubsub_item{itemid = {'_', Nidx}, _ = '_'}),
-    {result, {lists:reverse(lists:keysort(#pubsub_item.modification, Items)), none}}.
+    {result, {lists:reverse(lists:keysort(#pubsub_item.modification, Items)), undefined}}.
 
 get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, RSM) ->
     SubKey = jid:tolower(JID),
@@ -721,23 +734,23 @@ get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, RSM
 		  can_fetch_item(Affiliation, FullSubscriptions),
     if %%SubId == "", ?? ->
 	%% Entity has multiple subscriptions to the node but does not specify a subscription ID
-	%{error, ?ERR_EXTENDED(?ERR_BAD_REQUEST, "subid-required")};
+	%{error, mod_pubsub:extended_error(xmpp:err_bad_request(), "subid-required")};
 	%%InvalidSubId ->
 	%% Entity is subscribed but specifies an invalid subscription ID
-	%{error, ?ERR_EXTENDED(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
+	%{error, mod_pubsub:extended_error(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
 	(Affiliation == outcast) or (Affiliation == publish_only) ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	(AccessModel == presence) and not PresenceSubscription ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"presence-subscription-required">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_presence_subscription_required())};
 	(AccessModel == roster) and not RosterGroup ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"not-in-roster-group">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_not_in_roster_group())};
 	(AccessModel == whitelist) and not Whitelisted ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_ALLOWED), <<"closed-node">>)};
+		mod_pubsub:extended_error((xmpp:err_not_allowed()), mod_pubsub:err_closed_node())};
 	(AccessModel == authorize) and not Whitelisted ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	%%MustPay ->
 	%%        % Payment is required for a subscription
 	%%        {error, ?ERR_PAYMENT_REQUIRED};
@@ -750,7 +763,7 @@ get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId, RSM
 get_item(Nidx, ItemId) ->
     case mnesia:read({pubsub_item, {ItemId, Nidx}}) of
 	[Item] when is_record(Item, pubsub_item) -> {result, Item};
-	_ -> {error, ?ERR_ITEM_NOT_FOUND}
+	_ -> {error, xmpp:err_item_not_found()}
     end.
 
 get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _SubId) ->
@@ -762,23 +775,23 @@ get_item(Nidx, ItemId, JID, AccessModel, PresenceSubscription, RosterGroup, _Sub
     Whitelisted = can_fetch_item(Affiliation, Subscriptions),
     if %%SubId == "", ?? ->
 	%% Entity has multiple subscriptions to the node but does not specify a subscription ID
-	%{error, ?ERR_EXTENDED(?ERR_BAD_REQUEST, "subid-required")};
+	%{error, mod_pubsub:extended_error(xmpp:err_bad_request(), "subid-required")};
 	%%InvalidSubId ->
 	%% Entity is subscribed but specifies an invalid subscription ID
-	%{error, ?ERR_EXTENDED(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
+	%{error, mod_pubsub:extended_error(?ERR_NOT_ACCEPTABLE, "invalid-subid")};
 	(Affiliation == outcast) or (Affiliation == publish_only) ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	(AccessModel == presence) and not PresenceSubscription ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"presence-subscription-required">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_presence_subscription_required())};
 	(AccessModel == roster) and not RosterGroup ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_AUTHORIZED), <<"not-in-roster-group">>)};
+		mod_pubsub:extended_error((xmpp:err_not_authorized()), mod_pubsub:err_not_in_roster_group())};
 	(AccessModel == whitelist) and not Whitelisted ->
 	    {error,
-		?ERR_EXTENDED((?ERR_NOT_ALLOWED), <<"closed-node">>)};
+		mod_pubsub:extended_error((xmpp:err_not_allowed()), mod_pubsub:err_closed_node())};
 	(AccessModel == authorize) and not Whitelisted ->
-	    {error, ?ERR_FORBIDDEN};
+	    {error, xmpp:err_forbidden()};
 	%%MustPay ->
 	%%        % Payment is required for a subscription
 	%%        {error, ?ERR_PAYMENT_REQUIRED};
@@ -799,6 +812,15 @@ del_items(Nidx, ItemIds) ->
     lists:foreach(fun (ItemId) -> del_item(Nidx, ItemId)
 	end,
 	ItemIds).
+
+del_orphan_items(Nidx) ->
+    case mnesia:read({pubsub_orphan, Nidx}) of
+	[#pubsub_orphan{items = ItemIds}] ->
+	    del_items(Nidx, ItemIds),
+	    mnesia:delete({pubsub_orphan, Nidx});
+	_ ->
+	    ok
+    end.
 
 get_item_name(_Host, _Node, Id) ->
     Id.
