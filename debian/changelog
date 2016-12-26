@@ -1,6 +1,9 @@
 ejabberd (1:16.12-1) unstable; urgency=low
 
   * New upstream release.
+  * Disable failed_auth.patch, since mod_logsession that uses it hasn't been
+    updated in over two years. ejabberd-mod-logsession is added as a conflict
+    as a result.
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 26 Dec 2016 13:13:08 +0100
 

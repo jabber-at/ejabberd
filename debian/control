@@ -71,7 +71,7 @@ Replaces: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
 Provides: xmpp-server, stun-server, turn-server
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
  ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702),
- ejabberd-mod-http-upload, ejabberd-mod-mam-mnesia
+ ejabberd-mod-http-upload, ejabberd-mod-mam-mnesia, ejabberd-mod-logsession
 Description: distributed, fault-tolerant Jabber/XMPP server
  ejabberd is a Jabber/XMPP server written in Erlang, featuring:
   * distributed operation with load-balancing across a cluster;
