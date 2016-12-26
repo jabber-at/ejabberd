@@ -28,7 +28,6 @@
 -author('holger@zedat.fu-berlin.de').
 
 -include("pubsub.hrl").
--include("jlib.hrl").
 
 -export([init/3, terminate/2, options/0, features/0,
     create_node_permission/6, create_node/2, delete_node/1,
@@ -41,7 +40,8 @@
     get_pending_nodes/2, get_states/1, get_state/2,
     set_state/1, get_items/7, get_items/3, get_item/7,
     get_item/2, set_item/1, get_item_name/3, node_to_path/1,
-    path_to_node/1]).
+    path_to_node/1, get_entity_subscriptions_for_send_last/2,
+    get_last_items/3]).
 
 init(Host, ServerHost, Opts) ->
     node_pep_sql:init(Host, ServerHost, Opts).
@@ -101,6 +101,9 @@ set_affiliation(Nidx, Owner, Affiliation) ->
 get_entity_subscriptions(Host, Owner) ->
     node_pep_sql:get_entity_subscriptions(Host, Owner).
 
+get_entity_subscriptions_for_send_last(Host, Owner) ->
+    node_pep_sql:get_entity_subscriptions_for_send_last(Host, Owner).
+
 get_node_subscriptions(Nidx) ->
     node_pep_sql:get_node_subscriptions(Nidx).
 
@@ -129,6 +132,9 @@ get_items(Nidx, JID, AccessModel, PresenceSubscription, RosterGroup, SubId,
 	  RSM) ->
     node_pep_sql:get_items(Nidx, JID, AccessModel, PresenceSubscription,
 			   RosterGroup, SubId, RSM).
+
+get_last_items(Nidx, JID, Count) ->
+    node_pep_sql:get_last_items(Nidx, JID, Count).
 
 get_item(Nidx, ItemId) ->
     node_pep_sql:get_item(Nidx, ItemId).
