@@ -4,34 +4,23 @@ Author: Mathias Ertl <mati@jabber.at>
 
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -1,17 +1,18 @@
+@@ -1,6 +1,7 @@
  [Unit]
 -Description=XMPP Server
 -After=network.target
-+Description=A distributed, fault-tolerant Jabber/XMPP serve
++Description=A distributed, fault-tolerant Jabber/XMPP server
 +After=epmd.service network.target
 +Requires=epmd.service
  
  [Service]
- User=ejabberd
- Group=ejabberd
--LimitNOFILE=16000
-+LimitNOFILE=32768
+ Type=forking
+@@ -11,8 +12,10 @@
  RestartSec=5
--ExecStart=@ctlscriptpath@/ejabberdctl start
--ExecStop=@ctlscriptpath@/ejabberdctl stop
--ExecReload=@ctlscriptpath@/ejabberdctl reload_config
--Type=oneshot
--RemainAfterExit=yes
-+ExecStart=/usr/sbin/ejabberdctl start
-+ExecStop=/usr/sbin/ejabberdctl stop
-+Type=forking
-+Restart=on-failure
+ ExecStart=/bin/sh -c '@ctlscriptpath@/ejabberdctl start && @ctlscriptpath@/ejabberdctl started'
+ ExecStop=/bin/sh -c '@ctlscriptpath@/ejabberdctl stop && @ctlscriptpath@/ejabberdctl stopped'
 +PIDFile=/run/ejabberd/ejabberd.pid
- # The CAP_DAC_OVERRIDE capability is required for pam authentication to work
- CapabilityBoundingSet=CAP_DAC_OVERRIDE
- PrivateTmp=true
-@@ -22,3 +23,4 @@
+ PrivateDevices=true
+ ProtectSystem=full
  
  [Install]
  WantedBy=multi-user.target
