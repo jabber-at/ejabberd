@@ -1,6 +1,12 @@
-ejabberd (1:16.12-1) unstable; urgency=low
+ejabberd (1:17.01-1) unstable; urgency=low
 
   * New upstream release.
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 28 Jan 2017 16:27:26 +0100
+
+ejabberd (1:16.12-1) unstable; urgency=low
+
+  * New upstream release, this package was never released.
   * Disable failed_auth.patch, since mod_logsession that uses it hasn't been
     updated in over two years. ejabberd-mod-logsession is added as a conflict
     as a result.
