@@ -5,7 +5,7 @@
 %%% Created :  1 Dec 2007 by Christophe Romain <christophe.romain@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -51,13 +51,8 @@
 init(_Host, _ServerHost, _Options) ->
     ejabberd_mnesia:create(?MODULE, pubsub_node,
 	[{disc_copies, [node()]},
-	    {attributes, record_info(fields, pubsub_node)}]),
-    mnesia:add_table_index(pubsub_node, id),
-    NodesFields = record_info(fields, pubsub_node),
-    case mnesia:table_info(pubsub_node, attributes) of
-	NodesFields -> ok;
-	_ -> ok
-    end,
+	    {attributes, record_info(fields, pubsub_node)},
+	    {index, [id]}]),
     %% mnesia:transform_table(pubsub_state, ignore, StatesFields)
     ok.
 
