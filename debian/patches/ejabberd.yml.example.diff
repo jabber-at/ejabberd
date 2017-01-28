@@ -122,7 +122,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -561,7 +559,7 @@
+@@ -595,7 +593,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -131,7 +131,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -581,7 +579,7 @@
+@@ -615,7 +613,7 @@
  ##
  modules: 
    mod_adhoc: {}
@@ -140,7 +140,7 @@ Author: Philipp Huebner <debalance@debian.org>
    mod_announce: # recommends mod_adhoc
      access: announce
    mod_blocking: {} # requires mod_privacy
-@@ -591,7 +589,7 @@
+@@ -625,7 +623,7 @@
    mod_configure: {} # requires mod_adhoc
    ##mod_delegation: {} # for xep0356
    mod_disco: {}
@@ -149,7 +149,7 @@ Author: Philipp Huebner <debalance@debian.org>
    mod_irc: {}
    mod_http_bind: {}
    ## mod_http_fileserver:
-@@ -607,6 +605,7 @@
+@@ -641,6 +639,7 @@
      access_create: muc_create
      access_persistent: muc_create
    ## mod_muc_log: {}
