@@ -5,7 +5,7 @@
 %%% Created :  5 Mar 2005 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -915,7 +915,7 @@ shared_roster_group(Host, Group, Query, Lang) ->
 			      ?XE(<<"td">>,
 				  [?TEXTAREA(<<"members">>,
 					     integer_to_binary(lists:max([3,
-                                                                               byte_size(FMembers)])),
+                                                                               length(Members)+3])),
 					     <<"20">>, FMembers)])]),
 			 ?XE(<<"tr">>,
 			     [?XCT(<<"td">>, <<"Displayed Groups:">>),

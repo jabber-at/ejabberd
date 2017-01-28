@@ -5,7 +5,7 @@
 %%% Created : 19 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -42,6 +42,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("ejabberd_sm.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
 -define(T(Lang, Text), translate:translate(Lang, Text)).
 
@@ -340,16 +341,15 @@ adhoc_local_items(Acc, From,
 	  PermLev = get_permission_level(From),
 	  Nodes = recursively_get_local_items(PermLev, LServer,
 					      <<"">>, Server, Lang),
-	  Nodes1 = lists:filter(fun (N) ->
-					Nd = fxml:get_tag_attr_s(<<"node">>, N),
-					F = get_local_features([], From, To, Nd,
-							       Lang),
-					case F of
-					  {result, [?NS_COMMANDS]} -> true;
-					  _ -> false
-					end
-				end,
-				Nodes),
+	  Nodes1 = lists:filter(
+		     fun (#disco_item{node = Nd}) ->
+			     F = get_local_features([], From, To, Nd, Lang),
+			     case F of
+				 {result, [?NS_COMMANDS]} -> true;
+				 _ -> false
+			     end
+		     end,
+		     Nodes),
 	  {result, Items ++ Nodes1};
       _ -> Acc
     end.

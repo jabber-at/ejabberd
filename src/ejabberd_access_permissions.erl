@@ -5,7 +5,7 @@
 %%% Created :  7 Sep 2016 by Paweł Chmielowski <pawel@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -237,7 +237,8 @@ get_definitions(#state{definitions = Defs, fragments_generators = Gens} = State)
 			{all, none}}},
 		      {<<"admin access">>,
 		       {[],
-			[{acl, admin}],
+			[{acl,{acl,admin}},
+			 {oauth,[<<"ejabberd:admin">>],[{acl,{acl,admin}}]}],
 			{all, [start, stop]}}}],
     NDefs = case Defs of
 		none ->

@@ -1,12 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% @author Evgeniy Khramtsov <ekhramtsov@process-one.net>
-%%% @doc
-%%%      Message Archive Management (XEP-0313)
-%%% @end
+%%% File    : mod_mam.erl
+%%% Author  : Evgeniy Khramtsov <ekhramtsov@process-one.net>
+%%% Purpose : Message Archive Management (XEP-0313)
 %%% Created :  4 Jul 2013 by Evgeniy Khramtsov <ekhramtsov@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2013-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2013-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -781,7 +780,15 @@ msg_to_el(#archive_msg{timestamp = TS, packet = Pkt1, nick = Nick, peer = Peer},
 	  MsgType, JidRequestor, #jid{lserver = LServer} = JidArchive) ->
     Pkt2 = maybe_update_from_to(Pkt1, JidRequestor, JidArchive, Peer, MsgType,
 				Nick),
-    #forwarded{xml_els = [xmpp:encode(Pkt2)],
+    El = case Pkt2 of
+	     #xmlel{attrs = Attrs} ->
+		 Attrs1 = lists:keystore(<<"xmlns">>, 1, Attrs,
+					 {<<"xmlns">>, ?NS_CLIENT}),
+		 Pkt2#xmlel{attrs = Attrs1};
+	     _ ->
+		 xmpp:encode(Pkt2)
+	 end,
+    #forwarded{xml_els = [El],
 	       delay = #delay{stamp = TS, from = jid:make(LServer)}}.
 
 maybe_update_from_to(#xmlel{} = El, JidRequestor, JidArchive, Peer,

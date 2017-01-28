@@ -1,11 +1,27 @@
 %%%-------------------------------------------------------------------
-%%% @author Evgeny Khramtsov <ekhramtsov@process-one.net>
-%%% @copyright (C) 2016, Evgeny Khramtsov
-%%% @doc
-%%%
-%%% @end
+%%% File    : mod_vcard_mnesia.erl
+%%% Author  : Evgeny Khramtsov <ekhramtsov@process-one.net>
 %%% Created : 13 Apr 2016 by Evgeny Khramtsov <ekhramtsov@process-one.net>
-%%%-------------------------------------------------------------------
+%%%
+%%%
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
+%%%
+%%% This program is free software; you can redistribute it and/or
+%%% modify it under the terms of the GNU General Public License as
+%%% published by the Free Software Foundation; either version 2 of the
+%%% License, or (at your option) any later version.
+%%%
+%%% This program is distributed in the hope that it will be useful,
+%%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+%%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%%% General Public License for more details.
+%%%
+%%% You should have received a copy of the GNU General Public License along
+%%% with this program; if not, write to the Free Software Foundation, Inc.,
+%%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+%%%
+%%%----------------------------------------------------------------------
+
 -module(mod_vcard_mnesia).
 
 -behaviour(mod_vcard).
@@ -30,20 +46,13 @@ init(_Host, _Opts) ->
     ejabberd_mnesia:create(?MODULE, vcard_search,
 			[{disc_copies, [node()]},
 			 {attributes,
-			  record_info(fields, vcard_search)}]),
-    update_tables(),
-    mnesia:add_table_index(vcard_search, luser),
-    mnesia:add_table_index(vcard_search, lfn),
-    mnesia:add_table_index(vcard_search, lfamily),
-    mnesia:add_table_index(vcard_search, lgiven),
-    mnesia:add_table_index(vcard_search, lmiddle),
-    mnesia:add_table_index(vcard_search, lnickname),
-    mnesia:add_table_index(vcard_search, lbday),
-    mnesia:add_table_index(vcard_search, lctry),
-    mnesia:add_table_index(vcard_search, llocality),
-    mnesia:add_table_index(vcard_search, lemail),
-    mnesia:add_table_index(vcard_search, lorgname),
-    mnesia:add_table_index(vcard_search, lorgunit).
+			  record_info(fields, vcard_search)},
+			 {index, [ luser, lfn, lfamily,
+				   lgiven, lmiddle, lnickname,
+				   lbday, lctry, llocality,
+				   lemail, lorgname, lorgunit
+				 ]}]),
+    update_tables().
 
 stop(_Host) ->
     ok.

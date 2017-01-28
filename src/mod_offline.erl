@@ -5,7 +5,7 @@
 %%% Created :  5 Jan 2003 by Alexey Shchepin <alexey@process-one.net>
 %%%
 %%%
-%%% ejabberd, Copyright (C) 2002-2016   ProcessOne
+%%% ejabberd, Copyright (C) 2002-2017   ProcessOne
 %%%
 %%% This program is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -122,7 +122,6 @@ start(Host, Opts) ->
 
 stop(Host) ->
     Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
-    catch ?GEN_SERVER:call(Proc, stop),
     supervisor:terminate_child(ejabberd_sup, Proc),
     supervisor:delete_child(ejabberd_sup, Proc),
     ok.
@@ -570,30 +569,32 @@ pop_offline_messages(Ls, User, Server) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     case Mod:pop_messages(LUser, LServer) of
 	{ok, Rs} ->
-	    TS = p1_time_compat:timestamp(),
 	    Ls ++
 		lists:flatmap(
-		  fun(R) ->
+		  fun(#offline_msg{expire = Expire} = R) ->
 			  case offline_msg_to_route(LServer, R) of
-			      error -> [];
-			      RouteMsg -> [RouteMsg]
+			      error ->
+				  [];
+			      {route, _From, _To, Msg} = RouteMsg ->
+				  case is_expired_message(Expire, Msg) of
+				      true -> [];
+				      false -> [RouteMsg]
+				  end
 			  end
-		  end,
-		  lists:filter(
-		    fun(#offline_msg{packet = Pkt} = R) ->
-			    Expire = case R#offline_msg.expire of
-					 undefined ->
-					     find_x_expire(TS, Pkt);
-					 Exp ->
-					     Exp
-				     end,
-			    case Expire of
-				never -> true;
-				TimeStamp -> TS < TimeStamp
-			    end
-		    end, Rs));
+		  end, Rs);
 	_ ->
 	    Ls
+    end.
+
+is_expired_message(Expire, Pkt) ->
+    TS = p1_time_compat:timestamp(),
+    Exp = case Expire of
+	      undefined -> find_x_expire(TS, Pkt);
+	      _ -> Expire
+	  end,
+    case Exp of
+	never -> false;
+	TimeStamp -> TS >= TimeStamp
     end.
 
 remove_expired_messages(Server) ->
@@ -841,10 +842,12 @@ count_offline_messages(User, Server) ->
 
 -spec add_delay_info(message(), binary(),
 		     undefined | erlang:timestamp()) -> message().
-add_delay_info(Packet, _LServer, undefined) ->
-    Packet;
-add_delay_info(Packet, LServer, {_, _, _} = TS) ->
-    xmpp_util:add_delay_info(Packet, jid:make(LServer), TS,
+add_delay_info(Packet, LServer, TS) ->
+    NewTS = case TS of
+		undefined -> p1_time_compat:timestamp();
+		_ -> TS
+	    end,
+    xmpp_util:add_delay_info(Packet, jid:make(LServer), NewTS,
 			     <<"Offline storage">>).
 
 export(LServer) ->
