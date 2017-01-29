@@ -6,7 +6,7 @@
  	    {i, "deps/xmpp/include"},
 +	    {i, "deps/xmpp/include"},
 +            {i, "/usr/lib/erlang/lib/p1_xmpp-1.1.16/include"},
-+            (i, "/usr/lib/erlang/lib/p1_xml-1.1.19/include/fxml_gen.hrl"},
++            {i, "/usr/lib/erlang/lib/p1_xml-1.1.19/include"},
              {if_var_false, debug, no_debug_info},
              {if_var_true, debug, debug_info},
              {if_var_true, roster_gateway_workaround, {d, 'ROSTER_GATWAY_WORKAROUND'}},
