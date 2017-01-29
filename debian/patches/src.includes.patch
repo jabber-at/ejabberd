@@ -37,14 +37,3 @@ Author: Philipp Huebner <debalance@debian.org>
  
  -define(CALL_TIMEOUT, timer:seconds(30)).
  -define(DEFAULT_EXPIRES, 3600).
---- a/src/mod_muc_room.erl
-+++ b/src/mod_muc_room.erl
-@@ -51,7 +51,7 @@
- -include("ejabberd.hrl").
- -include("logger.hrl").
- 
---include("xmpp.hrl").
-+-include("p1_xmpp/include/xmpp.hrl").
- 
- -include("mod_muc_room.hrl").
- 
