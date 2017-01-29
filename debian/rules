@@ -18,7 +18,7 @@ override_dh_auto_configure:
 	# on Debian Wheezy.
 	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
 			--enable-riak --libdir=/usr/lib \
-			--enable-zlib --enable-iconv --enable-lager --enable-redis --enable-sqlite
+			--enable-zlib --enable-iconv --enable-redis --enable-sqlite
 
 .PHONY: override_dh_auto_install
 override_dh_auto_install:
