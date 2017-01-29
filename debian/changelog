@@ -1,6 +1,7 @@
 ejabberd (1:17.01-1) unstable; urgency=low
 
   * New upstream release.
+  * Update Standards-Version to 3.9.8.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 28 Jan 2017 16:27:26 +0100
 

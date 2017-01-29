@@ -33,7 +33,7 @@ Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-de
  		erlang-ssl,
  		erlang-riak,
  		erlang-xmerl
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Homepage: https://www.ejabberd.im
 Vcs-Git: https://github.com/jabber-at/ejabberd.git
 Vcs-Browser: https://github.com/jabber-at/ejabberd/
