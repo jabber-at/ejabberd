@@ -28,9 +28,9 @@
 
 -record(lqueue,
 {
-    queue :: ?TQUEUE,
-    len :: integer(),
-    max :: integer()
+    queue = queue:new() :: ?TQUEUE,
+    len = 0             :: integer(),
+    max = 0             :: integer()
 }).
 
 -type lqueue() :: #lqueue{}.
@@ -80,7 +80,7 @@
     role :: role(),
     %%is_subscriber = false :: boolean(),
     %%subscriptions = [] :: [binary()],
-    last_presence :: xmlel()
+    last_presence :: presence() | undefined
 }).
 
 -record(subscriber, {jid :: jid(),
@@ -91,10 +91,10 @@
 {
     message_time    = 0 :: integer(),
     presence_time   = 0 :: integer(),
-    message_shaper :: shaper:shaper(),
-    presence_shaper :: shaper:shaper(),
-    message :: xmlel(),
-    presence :: {binary(), xmlel()}
+    message_shaper  = none :: shaper:shaper(),
+    presence_shaper = none :: shaper:shaper(),
+    message :: message() | undefined,
+    presence :: {binary(), presence()} | undefined
 }).
 
 -record(state,
@@ -112,7 +112,7 @@
     robots                  = (?DICT):new() :: ?TDICT,
     nicks                   = (?DICT):new() :: ?TDICT,
     affiliations            = (?DICT):new() :: ?TDICT,
-    history                 :: lqueue(),
+    history                 = #lqueue{} :: lqueue(),
     subject                 = <<"">> :: binary(),
     subject_author          = <<"">> :: binary(),
     just_created            = false :: boolean(),
@@ -120,10 +120,3 @@
     room_shaper             = none :: shaper:shaper(),
     room_queue              = queue:new() :: ?TQUEUE
 }).
-
--record(muc_online_users, {us = {<<>>, <<>>} :: {binary(), binary()},
-                           resource = <<>> :: binary() | '_',
-                           room = <<>> :: binary() | '_' | '$1',
-                           host = <<>> :: binary() | '_' | '$2'}).
-
--type muc_online_users() :: #muc_online_users{}.

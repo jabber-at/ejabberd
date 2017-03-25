@@ -182,6 +182,7 @@ listen:
     module: ejabberd_http
     request_handlers:
       "/websocket": ejabberd_http_ws
+      "/api": mod_http_api
     ##  "/pub/archive": mod_http_fileserver
     web_admin: true
     http_bind: true
@@ -192,7 +193,7 @@ listen:
 ###'  S2S GLOBAL OPTIONS
 
 ##
-## s2s_use_starttls: Enable STARTTLS + Dialback for S2S connections.
+## s2s_use_starttls: Enable STARTTLS for S2S connections.
 ## Allowed values are: false optional required required_trusted
 ## You must specify a certificate file.
 ##
@@ -517,6 +518,7 @@ access_rules:
   trusted_network: 
     - allow: loopback
   ## Do not establish S2S connections with bad servers
+  ## If you enable this you also have to uncomment "s2s_access: s2s"
   ## s2s: 
   ##   - deny:
   ##     - ip: "XXX.XXX.XXX.XXX/32"
@@ -533,30 +535,43 @@ access_rules:
 ##
 ## By default "console commands" section allow executing all commands
 ## issued using ejabberdctl command, and "admin access" section allows
-## users in admin acl to  execute all commands except start and stop
-## with any available access method (ejabberdctl, http-api, xmlrpc
-## depending what is enabled on server).
+## users in admin acl that connect from 127.0.0.1 to  execute all
+## commands except start and stop with any available access method
+## (ejabberdctl, http-api, xmlrpc depending what is enabled on server).
 ##
-## Remember to not remove "console commands" section when doing modifications
-## or ejabberdctl will not be able to execute commands!
+## If you remove "console commands" there will be one added by
+## default allowing executing all commands, but if you just change
+## permissions in it, version from config file will be used instead
+## of default one.
 ##
-##
-## api_permissions:
-##  "console commands":
-##    from:
-##      - ejabberd_ctl
-##    who: all
-##    what: "*"
-##  "admin access":
-##    who:
-##      - admin
-##      - oauth:
-##        - scope: "ejabberd:admin"
-##        - admin
-##    what:
-##      - "*"
-##      - "!stop"
-##      - "!start"
+api_permissions:
+  "console commands":
+    from:
+      - ejabberd_ctl
+    who: all
+    what: "*"
+  "admin access":
+    who:
+      - access:
+          - allow:
+            - ip: "127.0.0.1/8"
+            - acl: admin
+      - oauth:
+        - scope: "ejabberd:admin"
+        - access:
+          - allow:
+              - ip: "127.0.0.1/8"
+              - acl: admin
+    what:
+      - "*"
+      - "!stop"
+      - "!start"
+  "public commands":
+    who:
+      - ip: "127.0.0.1/8"
+    what:
+      - "status"
+      - "connected_users_number"
 
 ## By default the frequency of account registrations from the same IP
 ## is limited to 1 account every 10 minutes. To disable, specify: infinity
@@ -627,7 +642,7 @@ modules:
   mod_disco: {}
   ## mod_echo: {}
   mod_irc: {}
-  mod_http_bind: {}
+  mod_bosh: {}
   ## mod_http_fileserver:
   ##   docroot: "/var/www"
   ##   accesslog: "/var/log/ejabberd/access.log"
@@ -702,6 +717,18 @@ modules:
   mod_vcard:
     search: false
   mod_version: {}
+  mod_stream_mgmt: {}
+  ##   Non-SASL Authentication (XEP-0078) is now disabled by default
+  ##   because it's obsoleted and is used mostly by abandoned
+  ##   client software
+  ## mod_legacy_auth: {}
+  ##   The module for S2S dialback (XEP-0220). Please note that you cannot
+  ##   rely solely on dialback if you want to federate with other servers,
+  ##   because a lot of servers have dialback disabled and instead rely on
+  ##   PKIX authentication. Make sure you have proper certificates installed
+  ##   and check your accessibility at https://xmpp.net/
+  mod_s2s_dialback: {}
+  mod_http_api: {}
 
 ##
 ## Enable modules with custom options in a specific virtual host

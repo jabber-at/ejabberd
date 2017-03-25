@@ -33,11 +33,11 @@
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, process_local_iq/1, export/1,
+-export([start/2, stop/1, reload/3, process_local_iq/1, export/1,
 	 process_sm_iq/1, on_presence_update/4, import_info/0,
 	 import/5, import_start/2, store_last_info/4, get_last_info/2,
 	 remove_user/2, transform_options/1, mod_opt_type/1,
-	 opt_type/1, register_user/2, depends/2]).
+	 opt_type/1, register_user/2, depends/2, privacy_check_packet/4]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -51,9 +51,8 @@
 -callback import(binary(), #last_activity{}) -> ok | pass.
 -callback get_last(binary(), binary()) ->
     {ok, non_neg_integer(), binary()} | not_found | {error, any()}.
--callback store_last_info(binary(), binary(), non_neg_integer(), binary()) ->
-    {atomic, any()}.
--callback remove_user(binary(), binary()) -> {atomic, any()}.
+-callback store_last_info(binary(), binary(), non_neg_integer(), binary()) -> any().
+-callback remove_user(binary(), binary()) -> any().
 
 start(Host, Opts) ->
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
@@ -64,6 +63,8 @@ start(Host, Opts) ->
 				  ?NS_LAST, ?MODULE, process_local_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
 				  ?NS_LAST, ?MODULE, process_sm_iq, IQDisc),
+    ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE,
+		       privacy_check_packet, 30),
     ejabberd_hooks:add(register_user, Host, ?MODULE,
 		       register_user, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE,
@@ -78,10 +79,32 @@ stop(Host) ->
 			  remove_user, 50),
     ejabberd_hooks:delete(unset_presence_hook, Host,
 			  ?MODULE, on_presence_update, 50),
+    ejabberd_hooks:delete(privacy_check_packet, Host, ?MODULE,
+			  privacy_check_packet, 30),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host,
 				     ?NS_LAST),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
 				     ?NS_LAST).
+
+reload(Host, NewOpts, OldOpts) ->
+    NewMod = gen_mod:db_mod(Host, NewOpts, ?MODULE),
+    OldMod = gen_mod:db_mod(Host, OldOpts, ?MODULE),
+    if NewMod /= OldMod ->
+	    NewMod:init(Host, NewOpts);
+       true ->
+	    ok
+    end,
+    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
+			      fun gen_iq_handler:check_type/1,
+			      one_queue) of
+	{false, IQDisc, _} ->
+	    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_LAST,
+					  ?MODULE, process_local_iq, IQDisc),
+	    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_LAST,
+					  ?MODULE, process_sm_iq, IQDisc);
+	true ->
+	    ok
+    end.
 
 %%%
 %%% Uptime of ejabberd node
@@ -128,13 +151,10 @@ process_sm_iq(#iq{from = From, to = To, lang = Lang} = IQ) ->
     if (Subscription == both) or (Subscription == from) or
        (From#jid.luser == To#jid.luser) and
        (From#jid.lserver == To#jid.lserver) ->
-	    UserListRecord =
-		ejabberd_hooks:run_fold(privacy_get_user_list, Server,
-					#userlist{}, [User, Server]),
+	    Pres = xmpp:set_from_to(#presence{}, To, From),
 	    case ejabberd_hooks:run_fold(privacy_check_packet,
 					 Server, allow,
-					 [User, Server, UserListRecord,
-					  {To, From, #presence{}}, out]) of
+					 [To, Pres, out]) of
 		allow -> get_last_iq(IQ, User, Server);
 		deny -> xmpp:make_error(IQ, xmpp:err_forbidden())
 	    end;
@@ -142,6 +162,31 @@ process_sm_iq(#iq{from = From, to = To, lang = Lang} = IQ) ->
 	    Txt = <<"Not subscribed">>,
 	    xmpp:make_error(IQ, xmpp:err_subscription_required(Txt, Lang))
     end.
+
+privacy_check_packet(allow, C2SState,
+		     #iq{from = From, to = To, type = T} = IQ, in)
+  when T == get; T == set ->
+    case xmpp:has_subtag(IQ, #last{}) of
+	true ->
+	    Sub = ejabberd_c2s:get_subscription(From, C2SState),
+	    if Sub == from; Sub == both ->
+		    Pres = #presence{from = To, to = From},
+		    case ejabberd_hooks:run_fold(
+			   privacy_check_packet, allow,
+			   [C2SState, Pres, out]) of
+			allow ->
+			    allow;
+			deny ->
+			    {stop, deny}
+		    end;
+	       true ->
+		    {stop, deny}
+	    end;
+	false ->
+	    allow
+    end;
+privacy_check_packet(Acc, _, _, _) ->
+    Acc.
 
 %% @spec (LUser::string(), LServer::string()) ->
 %%      {ok, TimeStamp::integer(), Status::string()} | not_found | {error, Reason}
@@ -171,7 +216,7 @@ get_last_iq(#iq{lang = Lang} = IQ, LUser, LServer) ->
 	  xmpp:make_iq_result(IQ, #last{seconds = 0})
     end.
 
--spec register_user(binary(), binary()) -> {atomic, any()}.
+-spec register_user(binary(), binary()) -> any().
 register_user(User, Server) ->
     on_presence_update(
        User,
@@ -179,13 +224,12 @@ register_user(User, Server) ->
        <<"RegisterResource">>,
        <<"Registered but didn't login">>).
 
--spec on_presence_update(binary(), binary(), binary(), binary()) -> {atomic, any()}.
+-spec on_presence_update(binary(), binary(), binary(), binary()) -> any().
 on_presence_update(User, Server, _Resource, Status) ->
     TimeStamp = p1_time_compat:system_time(seconds),
     store_last_info(User, Server, TimeStamp, Status).
 
--spec store_last_info(binary(), binary(), non_neg_integer(), binary()) ->
-			     {atomic, any()}.
+-spec store_last_info(binary(), binary(), non_neg_integer(), binary()) -> any().
 store_last_info(User, Server, TimeStamp, Status) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),

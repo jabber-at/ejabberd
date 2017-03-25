@@ -36,8 +36,7 @@
 -export_type([error_reason/0]).
 
 start(_Opts) ->
-    cyrsasl:register_mechanism(<<"X-OAUTH2">>, ?MODULE, plain),
-    ok.
+    cyrsasl:register_mechanism(<<"X-OAUTH2">>, ?MODULE, plain).
 
 stop() -> ok.
 
@@ -54,7 +53,7 @@ mech_step(State, ClientIn) ->
     case prepare(ClientIn) of
         [AuthzId, User, Token] ->
             case ejabberd_oauth:check_token(
-                   User, State#state.host, <<"sasl_auth">>, Token) of
+                   User, State#state.host, [<<"sasl_auth">>], Token) of
                 true ->
                     {ok,
                      [{username, User}, {authzid, AuthzId},
@@ -70,12 +69,18 @@ prepare(ClientIn) ->
         [<<"">>, UserMaybeDomain, Token] ->
             case parse_domain(UserMaybeDomain) of
                 %% <NUL>login@domain<NUL>pwd
-                [User, _Domain] -> [UserMaybeDomain, User, Token];
+                [User, _Domain] -> [User, User, Token];
                 %% <NUL>login<NUL>pwd
-                [User] -> [<<"">>, User, Token]
+                [User] -> [User, User, Token]
             end;
         %% login@domain<NUL>login<NUL>pwd
-        [AuthzId, User, Token] -> [AuthzId, User, Token];
+        [AuthzId, User, Token] ->
+            case parse_domain(AuthzId) of
+                %% login@domain<NUL>login<NUL>pwd
+                [AuthzUser, _Domain] -> [AuthzUser, User, Token];
+                %% login<NUL>login<NUL>pwd
+                [AuthzUser] -> [AuthzUser, User, Token]
+            end;
         _ -> error
     end.
 

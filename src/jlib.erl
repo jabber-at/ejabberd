@@ -37,9 +37,10 @@
 
 -export([tolower/1, term_to_base64/1, base64_to_term/1,
 	 decode_base64/1, encode_base64/1, ip_to_list/1,
+	 hex_to_bin/1, hex_to_base64/1,
 	 atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
-	 l2i/1, i2l/1, i2l/2, queue_drop_while/2,
-	 expr_to_term/1, term_to_expr/1]).
+	 l2i/1, i2l/1, i2l/2, expr_to_term/1, term_to_expr/1,
+	 queue_drop_while/2, queue_foldl/3, queue_foldr/3, queue_foreach/2]).
 
 %% The following functions are used by gen_iq_handler.erl for providing backward
 %% compatibility and must not be used in other parts of the code
@@ -218,8 +219,8 @@ replace_from_to_attrs(From, To, Attrs) ->
 replace_from_to(From, To,
 		#xmlel{name = Name, attrs = Attrs, children = Els}) ->
     NewAttrs =
-	replace_from_to_attrs(jid:to_string(From),
-			      jid:to_string(To), Attrs),
+	replace_from_to_attrs(jid:encode(From),
+			      jid:encode(To), Attrs),
     #xmlel{name = Name, attrs = NewAttrs, children = Els}.
 
 -spec replace_from_attrs(binary(), [attr()]) -> [attr()].
@@ -232,7 +233,7 @@ replace_from_attrs(From, Attrs) ->
 
 replace_from(From,
 	     #xmlel{name = Name, attrs = Attrs, children = Els}) ->
-    NewAttrs = replace_from_attrs(jid:to_string(From),
+    NewAttrs = replace_from_attrs(jid:encode(From),
 				  Attrs),
     #xmlel{name = Name, attrs = NewAttrs, children = Els}.
 
@@ -261,12 +262,13 @@ split_jid(J) ->
 -spec string_to_jid(binary()) -> jid() | error.
 
 string_to_jid(S) ->
-    jid:from_string(S).
+    try jid:decode(S)
+    catch _:_ -> error end.
 
 -spec jid_to_string(jid() | ljid()) -> binary().
 
 jid_to_string(J) ->
-    jid:to_string(J).
+    jid:encode(J).
 
 -spec is_nodename(binary()) -> boolean().
 
@@ -626,7 +628,7 @@ add_delay_info(El, From, Time, Desc) ->
 		       -> xmlel() | error.
 
 create_delay_tag(TimeStamp, FromJID, Desc) when is_tuple(FromJID) ->
-    From = jid:to_string(FromJID),
+    From = jid:encode(FromJID),
     Stamp = now_to_utc_string(TimeStamp, 3),
     Children = case Desc of
 		 <<"">> -> [];
@@ -638,7 +640,7 @@ create_delay_tag(TimeStamp, FromJID, Desc) when is_tuple(FromJID) ->
 		{<<"stamp">>, Stamp}],
 	   children = Children};
 create_delay_tag(DateTime, Host, Desc) when is_binary(Host) ->
-    FromJID = jid:make(<<"">>, Host, <<"">>),
+    FromJID = jid:make(Host),
     create_delay_tag(DateTime, FromJID, Desc).
 
 -type tz() :: {binary(), {integer(), integer()}} | {integer(), integer()} | utc.
@@ -916,6 +918,23 @@ ip_to_list(undefined) ->
 ip_to_list(IP) ->
     list_to_binary(inet_parse:ntoa(IP)).
 
+-spec hex_to_bin(binary()) -> binary().
+
+hex_to_bin(Hex) ->
+    hex_to_bin(binary_to_list(Hex), []).
+
+-spec hex_to_bin(list(), list()) -> binary().
+
+hex_to_bin([], Acc) ->
+    list_to_binary(lists:reverse(Acc));
+hex_to_bin([H1, H2 | T], Acc) ->
+    {ok, [V], []} = io_lib:fread("~16u", [H1, H2]),
+    hex_to_bin(T, [V | Acc]).
+
+-spec hex_to_base64(binary()) -> binary().
+
+hex_to_base64(Hex) -> encode_base64(hex_to_bin(Hex)).
+
 binary_to_atom(Bin) ->
     erlang:binary_to_atom(Bin, utf8).
 
@@ -973,4 +992,34 @@ queue_drop_while(F, Q) ->
 	  end;
       empty ->
 	  Q
+    end.
+
+-spec queue_foldl(fun((term(), T) -> T), T, ?TQUEUE) -> T.
+queue_foldl(F, Acc, Q) ->
+    case queue:out(Q) of
+	{{value, Item}, Q1} ->
+	    Acc1 = F(Item, Acc),
+	    queue_foldl(F, Acc1, Q1);
+	{empty, _} ->
+	    Acc
+    end.
+
+-spec queue_foldr(fun((term(), T) -> T), T, ?TQUEUE) -> T.
+queue_foldr(F, Acc, Q) ->
+    case queue:out_r(Q) of
+	{{value, Item}, Q1} ->
+	    Acc1 = F(Item, Acc),
+	    queue_foldr(F, Acc1, Q1);
+	{empty, _} ->
+	    Acc
+    end.
+
+-spec queue_foreach(fun((_) -> _), ?TQUEUE) -> ok.
+queue_foreach(F, Q) ->
+    case queue:out(Q) of
+	{{value, Item}, Q1} ->
+	    F(Item),
+	    queue_foreach(F, Q1);
+	{empty, _} ->
+	    ok
     end.

@@ -41,11 +41,11 @@
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, process_iq/1, export/1,
+-export([start/2, stop/1, reload/3, process_iq/1, export/1,
 	 import_info/0, process_local_iq/1, get_user_roster/2,
-	 import/5, get_subscription_lists/3, get_roster/2,
-	 import_start/2, import_stop/2,
-	 get_in_pending_subscriptions/3, in_subscription/6,
+	 import/5, c2s_session_opened/1, get_roster/2,
+	 import_start/2, import_stop/2, user_receive_packet/1,
+	 c2s_self_presence/1, in_subscription/6,
 	 out_subscription/4, set_items/3, remove_user/2,
 	 get_jid_info/4, encode_item/1, webadmin_page/3,
 	 webadmin_user/4, get_versioning_feature/2,
@@ -62,6 +62,8 @@
 -include("ejabberd_http.hrl").
 
 -include("ejabberd_web_admin.hrl").
+
+-define(SETS, gb_sets).
 
 -export_type([subscription/0]).
 
@@ -92,22 +94,22 @@ start(Host, Opts) ->
 		       ?MODULE, in_subscription, 50),
     ejabberd_hooks:add(roster_out_subscription, Host,
 		       ?MODULE, out_subscription, 50),
-    ejabberd_hooks:add(roster_get_subscription_lists, Host,
-		       ?MODULE, get_subscription_lists, 50),
+    ejabberd_hooks:add(c2s_session_opened, Host, ?MODULE,
+		       c2s_session_opened, 50),
     ejabberd_hooks:add(roster_get_jid_info, Host, ?MODULE,
 		       get_jid_info, 50),
     ejabberd_hooks:add(remove_user, Host, ?MODULE,
 		       remove_user, 50),
-    ejabberd_hooks:add(anonymous_purge_hook, Host, ?MODULE,
-		       remove_user, 50),
-    ejabberd_hooks:add(resend_subscription_requests_hook,
-		       Host, ?MODULE, get_in_pending_subscriptions, 50),
-    ejabberd_hooks:add(roster_get_versioning_feature, Host,
+    ejabberd_hooks:add(c2s_self_presence, Host, ?MODULE,
+		       c2s_self_presence, 50),
+    ejabberd_hooks:add(c2s_post_auth_features, Host,
 		       ?MODULE, get_versioning_feature, 50),
     ejabberd_hooks:add(webadmin_page_host, Host, ?MODULE,
 		       webadmin_page, 50),
     ejabberd_hooks:add(webadmin_user, Host, ?MODULE,
 		       webadmin_user, 50),
+    ejabberd_hooks:add(user_receive_packet, Host, ?MODULE,
+		       user_receive_packet, 50),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
 				  ?NS_ROSTER, ?MODULE, process_iq, IQDisc).
 
@@ -118,24 +120,42 @@ stop(Host) ->
 			  ?MODULE, in_subscription, 50),
     ejabberd_hooks:delete(roster_out_subscription, Host,
 			  ?MODULE, out_subscription, 50),
-    ejabberd_hooks:delete(roster_get_subscription_lists,
-			  Host, ?MODULE, get_subscription_lists, 50),
+    ejabberd_hooks:delete(c2s_session_opened, Host, ?MODULE,
+			  c2s_session_opened, 50),
     ejabberd_hooks:delete(roster_get_jid_info, Host,
 			  ?MODULE, get_jid_info, 50),
     ejabberd_hooks:delete(remove_user, Host, ?MODULE,
 			  remove_user, 50),
-    ejabberd_hooks:delete(anonymous_purge_hook, Host,
-			  ?MODULE, remove_user, 50),
-    ejabberd_hooks:delete(resend_subscription_requests_hook,
-			  Host, ?MODULE, get_in_pending_subscriptions, 50),
-    ejabberd_hooks:delete(roster_get_versioning_feature,
+    ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE,
+			  c2s_self_presence, 50),
+    ejabberd_hooks:delete(c2s_post_auth_features,
 			  Host, ?MODULE, get_versioning_feature, 50),
     ejabberd_hooks:delete(webadmin_page_host, Host, ?MODULE,
 			  webadmin_page, 50),
     ejabberd_hooks:delete(webadmin_user, Host, ?MODULE,
 			  webadmin_user, 50),
+    ejabberd_hooks:delete(user_receive_packet, Host, ?MODULE,
+			  user_receive_packet, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
 				     ?NS_ROSTER).
+
+reload(Host, NewOpts, OldOpts) ->
+    NewMod = gen_mod:db_mod(Host, NewOpts, ?MODULE),
+    OldMod = gen_mod:db_mod(Host, OldOpts, ?MODULE),
+    if NewMod /= OldMod ->
+	    NewMod:init(Host, NewOpts);
+       true ->
+	    ok
+    end,
+    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
+			      fun gen_iq_handler:check_type/1,
+			      one_queue) of
+	{false, IQDisc, _} ->
+	    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_ROSTER,
+					  ?MODULE, process_iq, IQDisc);
+	true ->
+	    ok
+    end.
 
 depends(_Host, _Opts) ->
     [].
@@ -196,7 +216,7 @@ process_local_iq(#iq{lang = Lang} = IQ) ->
     xmpp:make_error(IQ, xmpp:err_service_unavailable(Txt, Lang)).
 
 roster_hash(Items) ->
-    p1_sha:sha(term_to_binary(lists:sort([R#roster{groups =
+    str:sha(term_to_binary(lists:sort([R#roster{groups =
 						    lists:sort(Grs)}
 				       || R = #roster{groups = Grs}
 					      <- Items]))).
@@ -214,10 +234,16 @@ roster_version_on_db(Host) ->
 %% Returns a list that may contain an xmlelement with the XEP-237 feature if it's enabled.
 -spec get_versioning_feature([xmpp_element()], binary()) -> [xmpp_element()].
 get_versioning_feature(Acc, Host) ->
+    case gen_mod:is_loaded(Host, ?MODULE) of
+	true ->
     case roster_versioning_enabled(Host) of
       true ->
 	  [#rosterver_feature{}|Acc];
-      false -> []
+		false ->
+		    Acc
+	    end;
+	false ->
+	    Acc
     end.
 
 roster_version(LServer, LUser) ->
@@ -244,7 +270,7 @@ write_roster_version_t(LUser, LServer) ->
     write_roster_version(LUser, LServer, true).
 
 write_roster_version(LUser, LServer, InTransaction) ->
-    Ver = p1_sha:sha(term_to_binary(p1_time_compat:unique_integer())),
+    Ver = str:sha(term_to_binary(p1_time_compat:unique_integer())),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:write_roster_version(LUser, LServer, InTransaction, Ver),
     Ver.
@@ -307,7 +333,7 @@ process_iq_get(#iq{to = To, lang = Lang,
 	   end)
     catch E:R ->
 	    ?ERROR_MSG("failed to process roster get for ~s: ~p",
-		       [jid:to_string(To), {E, {R, erlang:get_stacktrace()}}]),
+		       [jid:encode(To), {E, {R, erlang:get_stacktrace()}}]),
 	    Txt = <<"Roster module has failed">>,
 	    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang))
     end.
@@ -417,10 +443,6 @@ process_iq_set(#iq{from = From, to = To,
     end.
 
 push_item(User, Server, From, Item) ->
-    ejabberd_sm:route(jid:make(<<"">>, <<"">>, <<"">>),
-		      jid:make(User, Server, <<"">>),
-                      {broadcast, {item, Item#roster.jid,
-				   Item#roster.subscription}}),
     case roster_versioning_enabled(Server) of
       true ->
 	  push_item_version(Server, User, From, Item,
@@ -442,15 +464,12 @@ push_item(User, Server, Resource, From, Item,
 	      not_found -> undefined;
 	      _ -> RosterVersion
 	  end,
-    ResIQ = #iq{type = set,
-%% @doc Roster push, calculate and include the version attribute.
-%% TODO: don't push to those who didn't load roster
+    To = jid:make(User, Server, Resource),
+    ResIQ = #iq{type = set, from = From, to = To,
 		id = <<"push", (randoms:get_string())/binary>>,
 		sub_els = [#roster_query{ver = Ver,
 					 items = [encode_item(Item)]}]},
-    ejabberd_router:route(From,
-			  jid:make(User, Server, Resource),
-			  ResIQ).
+    ejabberd_router:route(xmpp:put_meta(ResIQ, roster_item, Item)).
 
 push_item_version(Server, User, From, Item,
 		  RosterVersion) ->
@@ -460,26 +479,87 @@ push_item_version(Server, User, From, Item,
 		  end,
 		  ejabberd_sm:get_user_resources(User, Server)).
 
--spec get_subscription_lists({[ljid()], [ljid()]}, binary(), binary())
-      -> {[ljid()], [ljid()]}.
-get_subscription_lists(_Acc, User, Server) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Server),
+-spec user_receive_packet({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+user_receive_packet({#iq{type = set, meta = #{roster_item := Item}} = IQ, State}) ->
+    {IQ, roster_change(State, Item)};
+user_receive_packet(Acc) ->
+    Acc.
+
+-spec roster_change(ejabberd_c2s:state(), #roster{}) -> ejabberd_c2s:state().
+roster_change(#{user := U, server := S, resource := R,
+		pres_a := PresA, pres_f := PresF, pres_t := PresT} = State,
+	      #roster{jid = IJID, subscription = ISubscription}) ->
+    LIJID = jid:tolower(IJID),
+    IsFrom = (ISubscription == both) or (ISubscription == from),
+    IsTo = (ISubscription == both) or (ISubscription == to),
+    OldIsFrom = ?SETS:is_element(LIJID, PresF),
+    FSet = if IsFrom -> ?SETS:add_element(LIJID, PresF);
+	      true -> ?SETS:del_element(LIJID, PresF)
+	   end,
+    TSet = if IsTo -> ?SETS:add_element(LIJID, PresT);
+	      true -> ?SETS:del_element(LIJID, PresT)
+	   end,
+    State1 = State#{pres_f => FSet, pres_t => TSet},
+    case maps:get(pres_last, State, undefined) of
+	undefined ->
+	    State1;
+	LastPres ->
+	    From = jid:make(U, S, R),
+	    To = jid:make(IJID),
+	    Cond1 = IsFrom andalso not OldIsFrom,
+	    Cond2 = not IsFrom andalso OldIsFrom andalso
+		?SETS:is_element(LIJID, PresA),
+	    if Cond1 ->
+		    case ejabberd_hooks:run_fold(
+			   privacy_check_packet, allow,
+			   [State1, LastPres, out]) of
+			deny ->
+			    ok;
+			allow ->
+			    Pres = xmpp:set_from_to(LastPres, From, To),
+			    ejabberd_router:route(Pres)
+		    end,
+		    A = ?SETS:add_element(LIJID, PresA),
+		    State1#{pres_a => A};
+	       Cond2 ->
+		    PU = #presence{from = From, to = To, type = unavailable},
+		    case ejabberd_hooks:run_fold(
+			   privacy_check_packet, allow,
+			   [State1, PU, out]) of
+			deny ->
+			    ok;
+			allow ->
+			    ejabberd_router:route(PU)
+		    end,
+		    A = ?SETS:del_element(LIJID, PresA),
+		    State1#{pres_a => A};
+	       true ->
+		    State1
+	    end
+    end.
+
+-spec c2s_session_opened(ejabberd_c2s:state()) -> ejabberd_c2s:state().
+c2s_session_opened(#{jid := #jid{luser = LUser, lserver = LServer},
+		     pres_f := PresF, pres_t := PresT} = State) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Items = Mod:get_only_items(LUser, LServer),
-    fill_subscription_lists(LServer, Items, [], []).
+    {F, T} = fill_subscription_lists(Items, PresF, PresT),
+    State#{pres_f => F, pres_t => T}.
 
-fill_subscription_lists(LServer, [I | Is], F, T) ->
+fill_subscription_lists([I | Is], F, T) ->
     J = element(3, I#roster.usj),
-    case I#roster.subscription of
+    {F1, T1} = case I#roster.subscription of
 	both ->
-	    fill_subscription_lists(LServer, Is, [J | F], [J | T]);
+		       {?SETS:add_element(J, F), ?SETS:add_element(J, T)};
 	from ->
-	    fill_subscription_lists(LServer, Is, [J | F], T);
-	to -> fill_subscription_lists(LServer, Is, F, [J | T]);
-	_ -> fill_subscription_lists(LServer, Is, F, T)
-    end;
-fill_subscription_lists(_LServer, [], F, T) ->
+		       {?SETS:add_element(J, F), T};
+		   to ->
+		       {F, ?SETS:add_element(J, T)};
+		   _ ->
+		       {F, T}
+	       end,
+    fill_subscription_lists(Is, F1, T1);
+fill_subscription_lists([], F, T) ->
     {F, T}.
 
 ask_to_pending(subscribe) -> out;
@@ -561,8 +641,10 @@ process_subscription(Direction, User, Server, JID1,
 	  case AutoReply of
 	    none -> ok;
 	    _ ->
-		ejabberd_router:route(jid:make(User, Server, <<"">>),
-				      JID1, #presence{type = AutoReply})
+		ejabberd_router:route(
+		  #presence{type = AutoReply,
+			    from = jid:make(User, Server),
+			    to = JID1})
 	  end,
 	  case Push of
 	    {push, Item} ->
@@ -571,7 +653,7 @@ process_subscription(Direction, User, Server, JID1,
 		       ok;
 		   true ->
 		       push_item(User, Server,
-				 jid:make(User, Server, <<"">>), Item)
+				 jid:make(User, Server), Item)
 		end,
 		true;
 	    none -> false
@@ -726,15 +808,17 @@ send_unsubscribing_presence(From, Item) ->
 	       _ -> false
 	     end,
     if IsTo ->
-	    ejabberd_router:route(jid:remove_resource(From),
-				  jid:make(Item#roster.jid),
-				  #presence{type = unsubscribe});
+	    ejabberd_router:route(
+	      #presence{type = unsubscribe,
+			from = jid:remove_resource(From),
+			to = jid:make(Item#roster.jid)});
        true -> ok
     end,
     if IsFrom ->
-	    ejabberd_router:route(jid:remove_resource(From),
-				  jid:make(Item#roster.jid),
-				  #presence{type = unsubscribed});
+	    ejabberd_router:route(
+	      #presence{type = unsubscribed,
+			from = jid:remove_resource(From),
+			to = jid:make(Item#roster.jid)});
        true -> ok
     end,
     ok.
@@ -772,27 +856,48 @@ process_item_set_t(LUser, LServer, #roster_item{jid = JID1} = QueryItem) ->
     end;
 process_item_set_t(_LUser, _LServer, _) -> ok.
 
--spec get_in_pending_subscriptions([presence()], binary(), binary()) -> [presence()].
-get_in_pending_subscriptions(Ls, User, Server) ->
-    LServer = jid:nameprep(Server),
+-spec c2s_self_presence({presence(), ejabberd_c2s:state()})
+      -> {presence(), ejabberd_c2s:state()}.
+c2s_self_presence({_, #{pres_last := _}} = Acc) ->
+    Acc;
+c2s_self_presence({#presence{type = available} = Pkt,
+		   #{lserver := LServer} = State}) ->
+    Prio = get_priority_from_presence(Pkt),
+    if Prio >= 0 ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    get_in_pending_subscriptions(Ls, User, Server, Mod).
+	    State1 = resend_pending_subscriptions(State, Mod),
+	    {Pkt, State1};
+       true ->
+	    {Pkt, State}
+    end;
+c2s_self_presence(Acc) ->
+    Acc.
 
-get_in_pending_subscriptions(Ls, User, Server, Mod) ->
-    JID = jid:make(User, Server, <<"">>),
+-spec resend_pending_subscriptions(ejabberd_c2s:state(), module()) -> ejabberd_c2s:state().
+resend_pending_subscriptions(#{jid := JID} = State, Mod) ->
+    BareJID = jid:remove_resource(JID),
     Result = Mod:get_only_items(JID#jid.luser, JID#jid.lserver),
-    Ls ++ lists:flatmap(
-	    fun(#roster{ask = Ask} = R) when Ask == in; Ask == both ->
+    lists:foldl(
+      fun(#roster{ask = Ask} = R, AccState) when Ask == in; Ask == both ->
 		    Message = R#roster.askmessage,
 		    Status = if is_binary(Message) -> (Message);
 				true -> <<"">>
 			     end,
-		    [#presence{from = R#roster.jid, to = JID,
-			       type = subscribe,
-			       status = xmpp:mk_text(Status)}];
-	       (_) ->
-		    []
-	    end, Result).
+	      Sub = #presence{from = jid:make(R#roster.jid),
+			      to = BareJID,
+			      type = subscribe,
+			      status = xmpp:mk_text(Status)},
+	      ejabberd_c2s:send(AccState, Sub);
+	 (_, AccState) ->
+	      AccState
+      end, State, Result).
+
+-spec get_priority_from_presence(presence()) -> integer().
+get_priority_from_presence(#presence{priority = Prio}) ->
+    case Prio of
+	undefined -> 0;
+	_ -> Prio
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -933,10 +1038,10 @@ build_contact_jid_td(RosterJID) ->
     case JIDURI of
       <<>> ->
 	  ?XAC(<<"td">>, [{<<"class">>, <<"valign">>}],
-	       (jid:to_string(RosterJID)));
+	       (jid:encode(RosterJID)));
       URI when is_binary(URI) ->
 	  ?XAE(<<"td">>, [{<<"class">>, <<"valign">>}],
-	       [?AC(JIDURI, (jid:to_string(RosterJID)))])
+	       [?AC(JIDURI, (jid:encode(RosterJID)))])
     end.
 
 user_roster_parse_query(User, Server, Items, Query) ->
@@ -944,10 +1049,11 @@ user_roster_parse_query(User, Server, Items, Query) ->
       {value, _} ->
 	  case lists:keysearch(<<"newjid">>, 1, Query) of
 	    {value, {_, SJID}} ->
-		case jid:from_string(SJID) of
-		  JID when is_record(JID, jid) ->
-		      user_roster_subscribe_jid(User, Server, JID), ok;
-		  error -> error
+		try jid:decode(SJID) of
+		  JID ->
+		      user_roster_subscribe_jid(User, Server, JID), ok
+		catch _:{bad_jid, _} ->
+			error
 		end;
 	    false -> error
 	  end;
@@ -963,8 +1069,8 @@ user_roster_parse_query(User, Server, Items, Query) ->
 
 user_roster_subscribe_jid(User, Server, JID) ->
     out_subscription(User, Server, JID, subscribe),
-    UJID = jid:make(User, Server, <<"">>),
-    ejabberd_router:route(UJID, JID, #presence{type = subscribe}).
+    UJID = jid:make(User, Server),
+    ejabberd_router:route(#presence{from = UJID, to = JID, type = subscribe}).
 
 user_roster_item_parse_query(User, Server, Items,
 			     Query) ->
@@ -978,9 +1084,10 @@ user_roster_item_parse_query(User, Server, Items,
 				JID1 = jid:make(JID),
 				out_subscription(User, Server, JID1,
 						 subscribed),
-				UJID = jid:make(User, Server, <<"">>),
-				ejabberd_router:route(UJID, JID1,
-						      #presence{type = subscribed}),
+				UJID = jid:make(User, Server),
+				ejabberd_router:route(
+				  #presence{from = UJID, to = JID1,
+					    type = subscribed}),
 				throw(submitted);
 			    false ->
 				case lists:keysearch(<<"remove",
@@ -1008,7 +1115,7 @@ user_roster_item_parse_query(User, Server, Items,
     nothing.
 
 us_to_list({User, Server}) ->
-    jid:to_string({User, Server, <<"">>}).
+    jid:encode({User, Server, <<"">>}).
 
 webadmin_user(Acc, _User, _Server, Lang) ->
     Acc ++
@@ -1039,7 +1146,7 @@ import_stop(_LServer, _DBType) ->
     ok.
 
 import(LServer, {sql, _}, _DBType, <<"rostergroups">>, [LUser, SJID, Group]) ->
-    LJID = jid:tolower(jid:from_string(SJID)),
+    LJID = jid:tolower(jid:decode(SJID)),
     ets:insert(rostergroups_tmp, {{LUser, LServer, LJID}, Group}),
     ok;
 import(LServer, {sql, _}, DBType, <<"rosterusers">>, Row) ->

@@ -38,24 +38,22 @@
 
 -include("xmpp.hrl").
 
--define(SUPERVISOR, ejabberd_sup).
-
 -define(DEFAULT_SEND_PINGS, false).
 
 -define(DEFAULT_PING_INTERVAL, 60).
 
 %% API
--export([start_link/2, start_ping/2, stop_ping/2]).
+-export([start_ping/2, stop_ping/2]).
 
 %% gen_mod callbacks
--export([start/2, stop/1]).
+-export([start/2, stop/1, reload/3]).
 
 %% gen_server callbacks
 -export([init/1, terminate/2, handle_call/3,
 	 handle_cast/2, handle_info/2, code_change/3]).
 
 -export([iq_ping/1, user_online/3, user_offline/3,
-	 user_send/4, mod_opt_type/1, depends/2]).
+	 user_send/1, mod_opt_type/1, depends/2]).
 
 -record(state,
 	{host = <<"">>,
@@ -68,11 +66,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-start_link(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:start_link({local, Proc}, ?MODULE,
-			  [Host, Opts], []).
-
 -spec start_ping(binary(), jid()) -> ok.
 start_ping(Host, JID) ->
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
@@ -87,75 +80,54 @@ stop_ping(Host, JID) ->
 %% gen_mod callbacks
 %%====================================================================
 start(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    PingSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
-		transient, 2000, worker, [?MODULE]},
-    supervisor:start_child(?SUPERVISOR, PingSpec).
+    gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
+    gen_mod:stop_child(?MODULE, Host).
+
+reload(Host, NewOpts, OldOpts) ->
     Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:call(Proc, stop),
-    supervisor:delete_child(?SUPERVISOR, Proc).
+    gen_server:cast(Proc, {reload, Host, NewOpts, OldOpts}).
 
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
 init([Host, Opts]) ->
-    SendPings = gen_mod:get_opt(send_pings, Opts,
-                                fun(B) when is_boolean(B) -> B end,
-				?DEFAULT_SEND_PINGS),
-    PingInterval = gen_mod:get_opt(ping_interval, Opts,
-                                   fun(I) when is_integer(I), I>0 -> I end,
-				   ?DEFAULT_PING_INTERVAL),
-    PingAckTimeout = gen_mod:get_opt(ping_ack_timeout, Opts,
-                                     fun(I) when is_integer(I), I>0 -> I * 1000 end,
-                                     undefined),
-    TimeoutAction = gen_mod:get_opt(timeout_action, Opts,
-                                    fun(none) -> none;
-                                       (kill) -> kill
-                                    end, none),
+    process_flag(trap_exit, true),
+    State = init_state(Host, Opts),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
                              no_queue),
-    mod_disco:register_feature(Host, ?NS_PING),
-    gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-				  ?NS_PING, ?MODULE, iq_ping, IQDisc),
-    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
-				  ?NS_PING, ?MODULE, iq_ping, IQDisc),
-    case SendPings of
-      true ->
-	  ejabberd_hooks:add(sm_register_connection_hook, Host,
-			     ?MODULE, user_online, 100),
-	  ejabberd_hooks:add(sm_remove_connection_hook, Host,
-			     ?MODULE, user_offline, 100),
-	  ejabberd_hooks:add(user_send_packet, Host, ?MODULE,
-			     user_send, 100);
-      _ -> ok
+    register_iq_handlers(Host, IQDisc),
+    case State#state.send_pings of
+	true -> register_hooks(Host);
+	false -> ok
     end,
-    {ok,
-     #state{host = Host, send_pings = SendPings,
-	    ping_interval = PingInterval,
-	    timeout_action = TimeoutAction,
-	    ping_ack_timeout = PingAckTimeout,
-	    timers = maps:new()}}.
+    {ok, State}.
 
 terminate(_Reason, #state{host = Host}) ->
-    ejabberd_hooks:delete(sm_remove_connection_hook, Host,
-			  ?MODULE, user_offline, 100),
-    ejabberd_hooks:delete(sm_register_connection_hook, Host,
-			  ?MODULE, user_online, 100),
-    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE,
-			  user_send, 100),
-    gen_iq_handler:remove_iq_handler(ejabberd_local, Host,
-				     ?NS_PING),
-    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
-				     ?NS_PING),
-    mod_disco:unregister_feature(Host, ?NS_PING).
+    unregister_hooks(Host),
+    unregister_iq_handlers(Host).
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 handle_call(_Req, _From, State) ->
     {reply, {error, badarg}, State}.
 
+handle_cast({reload, Host, NewOpts, OldOpts},
+	    #state{timers = Timers} = OldState) ->
+    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
+			      fun gen_iq_handler:check_type/1,
+			      one_queue) of
+	{false, IQDisc, _} -> register_iq_handlers(Host, IQDisc);
+	true -> ok
+    end,
+    NewState = init_state(Host, NewOpts),
+    case {NewState#state.send_pings, OldState#state.send_pings} of
+	{true, false} -> register_hooks(Host);
+	{false, true} -> unregister_hooks(Host);
+	_ -> ok
+    end,
+    {noreply, NewState#state{timers = Timers}};
 handle_cast({start_ping, JID}, State) ->
     Timers = add_timer(JID, State#state.ping_interval,
 		       State#state.timers),
@@ -180,16 +152,18 @@ handle_cast({iq_pong, JID, timeout}, State) ->
       _ -> ok
     end,
     {noreply, State#state{timers = Timers}};
-handle_cast(_Msg, State) -> {noreply, State}.
+handle_cast(Msg, State) ->
+    ?WARNING_MSG("unexpected cast: ~p", [Msg]),
+    {noreply, State}.
 
 handle_info({timeout, _TRef, {ping, JID}}, State) ->
-    IQ = #iq{type = get, sub_els = [#ping{}]},
+    From = jid:make(State#state.host),
+    IQ = #iq{from = From, to = JID, type = get, sub_els = [#ping{}]},
     Pid = self(),
     F = fun (Response) ->
 		gen_server:cast(Pid, {iq_pong, JID, Response})
 	end,
-    From = jid:make(<<"">>, State#state.host, <<"">>),
-    ejabberd_local:route_iq(From, JID, IQ, F, State#state.ping_ack_timeout),
+    ejabberd_local:route_iq(IQ, F, State#state.ping_ack_timeout),
     Timers = add_timer(JID, State#state.ping_interval,
 		       State#state.timers),
     {noreply, State#state{timers = Timers}};
@@ -215,14 +189,61 @@ user_online(_SID, JID, _Info) ->
 user_offline(_SID, JID, _Info) ->
     stop_ping(JID#jid.lserver, JID).
 
--spec user_send(stanza(), ejabberd_c2s:state(), jid(), jid()) -> stanza().
-user_send(Packet, _C2SState, JID, _From) ->
+-spec user_send({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+user_send({Packet, #{jid := JID} = C2SState}) ->
     start_ping(JID#jid.lserver, JID),
-    Packet.
+    {Packet, C2SState}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+init_state(Host, Opts) ->
+    SendPings = gen_mod:get_opt(send_pings, Opts,
+                                fun(B) when is_boolean(B) -> B end,
+				?DEFAULT_SEND_PINGS),
+    PingInterval = gen_mod:get_opt(ping_interval, Opts,
+                                   fun(I) when is_integer(I), I>0 -> I end,
+				   ?DEFAULT_PING_INTERVAL),
+    PingAckTimeout = gen_mod:get_opt(ping_ack_timeout, Opts,
+                                     fun(I) when is_integer(I), I>0 -> I * 1000 end,
+                                     undefined),
+    TimeoutAction = gen_mod:get_opt(timeout_action, Opts,
+                                    fun(none) -> none;
+                                       (kill) -> kill
+                                    end, none),
+    #state{host = Host,
+	   send_pings = SendPings,
+	   ping_interval = PingInterval,
+	   timeout_action = TimeoutAction,
+	   ping_ack_timeout = PingAckTimeout,
+	   timers = maps:new()}.
+
+register_hooks(Host) ->
+    ejabberd_hooks:add(sm_register_connection_hook, Host,
+		       ?MODULE, user_online, 100),
+    ejabberd_hooks:add(sm_remove_connection_hook, Host,
+		       ?MODULE, user_offline, 100),
+    ejabberd_hooks:add(user_send_packet, Host, ?MODULE,
+		       user_send, 100).
+
+unregister_hooks(Host) ->
+    ejabberd_hooks:delete(sm_remove_connection_hook, Host,
+			  ?MODULE, user_offline, 100),
+    ejabberd_hooks:delete(sm_register_connection_hook, Host,
+			  ?MODULE, user_online, 100),
+    ejabberd_hooks:delete(user_send_packet, Host, ?MODULE,
+			  user_send, 100).
+
+register_iq_handlers(Host, IQDisc) ->
+    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PING,
+				  ?MODULE, iq_ping, IQDisc),
+    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PING,
+				  ?MODULE, iq_ping, IQDisc).
+
+unregister_iq_handlers(Host) ->
+    gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_PING),
+    gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_PING).
+
 -spec add_timer(jid(), non_neg_integer(), map()) -> map().
 add_timer(JID, Interval, Timers) ->
     LJID = jid:tolower(JID),

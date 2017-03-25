@@ -31,14 +31,13 @@
 -behaviour(gen_mod).
 
 %% API
--export([start_link/2]).
--export([start/2, stop/1, mod_opt_type/1, depends/2]).
+-export([start/2, stop/1, reload/3, mod_opt_type/1, depends/2]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 -export([component_connected/1, component_disconnected/2,
-	 roster_access/2, process_message/3,
-	 process_presence_out/4, process_presence_in/5]).
+	 roster_access/2, process_message/1,
+	 process_presence_out/1, process_presence_in/1]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -50,20 +49,14 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-start_link(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
-
 start(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    PingSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
-                transient, 2000, worker, [?MODULE]},
-    supervisor:start_child(ejabberd_sup, PingSpec).
+    gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
-    Proc = gen_mod:get_module_proc(Host, ?MODULE),
-    gen_server:call(Proc, stop),
-    supervisor:delete_child(ejabberd_sup, Proc).
+    gen_mod:stop_child(?MODULE, Host).
+
+reload(_Host, _NewOpts, _OldOpts) ->
+    ok.
 
 mod_opt_type(roster) -> v_roster();
 mod_opt_type(message) -> v_message();
@@ -90,10 +83,10 @@ component_disconnected(Host, _Reason) ->
 	      gen_server:cast(Proc, {component_disconnected, Host})
       end, ?MYHOSTS).
 
--spec process_message(jid(), jid(), stanza()) -> stop | ok.
-process_message(#jid{luser = <<"">>, lresource = <<"">>} = From,
-		#jid{lresource = <<"">>} = To,
-		#message{lang = Lang, type = T} = Msg) when T /= error ->
+-spec process_message(stanza()) -> stop | ok.
+process_message(#message{from = #jid{luser = <<"">>, lresource = <<"">>} = From,
+			 to = #jid{lresource = <<"">>} = To,
+			 lang = Lang, type = T} = Msg) when T /= error ->
     Host = From#jid.lserver,
     ServerHost = To#jid.lserver,
     Permissions = get_permissions(ServerHost),
@@ -101,18 +94,18 @@ process_message(#jid{luser = <<"">>, lresource = <<"">>} = From,
 	{ok, Access} ->
 	    case proplists:get_value(message, Access, none) of
 		outgoing ->
-		    forward_message(From, To, Msg);
+		    forward_message(Msg);
 		none ->
 		    Txt = <<"Insufficient privilege">>,
 		    Err = xmpp:err_forbidden(Txt, Lang),
-		    ejabberd_router:route_error(To, From, Msg, Err)
+		    ejabberd_router:route_error(Msg, Err)
 	    end,
 	    stop;
 	error ->
 	    %% Component is disconnected
 	    ok
     end;
-process_message(_From, _To, _Stanza) ->
+process_message(_Stanza) ->
     ok.
 
 -spec roster_access(boolean(), iq()) -> boolean().
@@ -133,10 +126,11 @@ roster_access(false, #iq{from = From, to = To, type = Type}) ->
 	    false
     end.
 
--spec process_presence_out(stanza(), ejabberd_c2s:state(), jid(), jid()) -> stanza().
-process_presence_out(#presence{type = Type} = Pres, _C2SState,
-		     #jid{luser = LUser, lserver = LServer} = From,
-		     #jid{luser = LUser, lserver = LServer, lresource = <<"">>})
+-spec process_presence_out({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+process_presence_out({#presence{
+			 from = #jid{luser = LUser, lserver = LServer} = From,
+			 to = #jid{luser = LUser, lserver = LServer, lresource = <<"">>},
+			 type = Type} = Pres, C2SState})
   when Type == available; Type == unavailable ->
     %% Self-presence processing
     Permissions = get_permissions(LServer),
@@ -146,20 +140,20 @@ process_presence_out(#presence{type = Type} = Pres, _C2SState,
 	      if Permission == roster; Permission == managed_entity ->
 		      To = jid:make(Host),
 		      ejabberd_router:route(
-			From, To, xmpp:set_from_to(Pres, From, To));
+			xmpp:set_from_to(Pres, From, To));
 		 true ->
 		      ok
 	      end
       end, dict:to_list(Permissions)),
-    Pres;
-process_presence_out(Acc, _, _, _) ->
+    {Pres, C2SState};
+process_presence_out(Acc) ->
     Acc.
 
--spec process_presence_in(stanza(), ejabberd_c2s:state(),
-			  jid(), jid(), jid()) -> stanza().
-process_presence_in(#presence{type = Type} = Pres, _C2SState, _,
-		    #jid{luser = U, lserver = S} = From,
-		    #jid{luser = LUser, lserver = LServer})
+-spec process_presence_in({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+process_presence_in({#presence{
+			from = #jid{luser = U, lserver = S} = From,
+			to = #jid{luser = LUser, lserver = LServer},
+			type = Type} = Pres, C2SState})
   when {U, S} /= {LUser, LServer} andalso
        (Type == available orelse Type == unavailable) ->
     Permissions = get_permissions(LServer),
@@ -171,7 +165,7 @@ process_presence_in(#presence{type = Type} = Pres, _C2SState, _,
 		      if Permission == both; Permission == get ->
 			      To = jid:make(Host),
 			      ejabberd_router:route(
-				From, To, xmpp:set_from_to(Pres, From, To));
+				xmpp:set_from_to(Pres, From, To));
 			 true ->
 			      ok
 		      end;
@@ -179,14 +173,15 @@ process_presence_in(#presence{type = Type} = Pres, _C2SState, _,
 		      ok
 	      end
       end, dict:to_list(Permissions)),
-    Pres;
-process_presence_in(Acc, _, _, _, _) ->
+    {Pres, C2SState};
+process_presence_in(Acc) ->
     Acc.
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 init([Host, _Opts]) ->
+    process_flag(trap_exit, true),
     ejabberd_hooks:add(component_connected, ?MODULE,
                        component_connected, 50),
     ejabberd_hooks:add(component_disconnected, ?MODULE,
@@ -226,7 +221,7 @@ handle_cast({component_connected, Host}, State) ->
 		      "message = ~s",
 		      [Host, RosterPerm, PresencePerm, MessagePerm]),
 	    Msg = #message{from = From, to = To,  sub_els = [Priv]},
-	    ejabberd_router:route(From, To, Msg),
+	    ejabberd_router:route(Msg),
 	    Permissions = dict:store(Host, [{roster, RosterPerm},
 					    {presence, PresencePerm},
 					    {message, MessagePerm}],
@@ -275,7 +270,7 @@ get_permissions(ServerHost) ->
 	    dict:new()
     end.
 
-forward_message(From, To, Msg) ->
+forward_message(#message{to = To} = Msg) ->
     ServerHost = To#jid.lserver,
     Lang = xmpp:get_lang(Msg),
     case xmpp:get_subtag(Msg, #privilege{}) of
@@ -284,27 +279,26 @@ forward_message(From, To, Msg) ->
 		#message{} = NewMsg ->
 		    case NewMsg#message.from of
 			#jid{lresource = <<"">>, lserver = ServerHost} ->
-			    ejabberd_router:route(
-			      xmpp:get_from(NewMsg), xmpp:get_to(NewMsg), NewMsg);
+			    ejabberd_router:route(NewMsg);
 			_ ->
 			    Lang = xmpp:get_lang(Msg),
 			    Txt = <<"Invalid 'from' attribute in forwarded message">>,
 			    Err = xmpp:err_forbidden(Txt, Lang),
-			    ejabberd_router:route_error(To, From, Msg, Err)
+			    ejabberd_router:route_error(Msg, Err)
 		    end;
 		_ ->
 		    Txt = <<"Message not found in forwarded payload">>,
 		    Err = xmpp:err_bad_request(Txt, Lang),
-		    ejabberd_router:route_error(To, From, Msg, Err)
+		    ejabberd_router:route_error(Msg, Err)
 	    catch _:{xmpp_codec, Why} ->
 		    Txt = xmpp:format_error(Why),
 		    Err = xmpp:err_bad_request(Txt, Lang),
-		    ejabberd_router:route_error(To, From, Msg, Err)
+		    ejabberd_router:route_error(Msg, Err)
 	    end;
 	_ ->
 	    Txt = <<"Invalid <forwarded/> element">>,
 	    Err = xmpp:err_bad_request(Txt, Lang),
-	    ejabberd_router:route_error(To, From, Msg, Err)
+	    ejabberd_router:route_error(Msg, Err)
     end.
 
 get_roster_permission(ServerHost, Host) ->

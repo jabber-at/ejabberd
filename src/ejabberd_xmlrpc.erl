@@ -46,7 +46,7 @@
 
 -record(state,
 	{access_commands = [] :: list(),
-         auth = noauth        :: noauth | {binary(), binary(), binary()},
+         auth = noauth        :: noauth | map(),
          get_auth = true      :: boolean(),
 	 ip                   :: inet:ip_address()}).
 
@@ -274,7 +274,7 @@ extract_auth(AuthList) ->
 		    {error, not_found}
 	    end
     catch
-        exit:{attribute_not_found, _Attr, _} ->
+	exit:{attribute_not_found, _, _} ->
             try get_attrs([user, server, password], AuthList) of
                 [U0, S0, P] ->
 		    U = jid:nodeprep(U0),
@@ -286,8 +286,8 @@ extract_auth(AuthList) ->
 			    {error, invalid_auth}
 		    end
             catch
-                exit:{attribute_not_found, _Attr, _} ->
-                    #{}
+		exit:{attribute_not_found, Attr, _} ->
+		    throw({error, missing_auth_arguments, Attr})
             end
     end.
 
@@ -340,7 +340,8 @@ handler(#state{get_auth = true, auth = noauth, ip = IP} = State,
                     {call, Method, Arguments})
     catch
       {error, missing_auth_arguments, _Attr} ->
-	  handler(State#state{get_auth = false, auth = noauth},
+	  handler(State#state{get_auth = false,
+			      auth = #{ip => IP, caller_module => ?MODULE}},
 		  {call, Method, AllArgs})
     end;
 %% .............................

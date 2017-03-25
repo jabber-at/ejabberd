@@ -30,7 +30,7 @@
 
 -behaviour(ejabberd_auth).
 
--export([start/1, set_password/3, check_password/4,
+-export([start/1, stop/1, set_password/3, check_password/4,
 	 check_password/6, try_register/3,
 	 dirty_get_registered_users/0, get_vh_registered_users/1,
 	 get_vh_registered_users/2,
@@ -41,7 +41,10 @@
 	 opt_type/1]).
 
 start(_Host) ->
-    ejabberd:start_app(p1_pam).
+    ejabberd:start_app(epam).
+
+stop(_Host) ->
+    ok.
 
 set_password(_User, _Server, _Password) ->
     {error, not_allowed}.

@@ -198,29 +198,29 @@ defmodule EjabberdModAdminExtraTest do
 
 	test "get_last works" do
 
-		assert 'Never' ==
+		assert {_, 'NOT FOUND'} =
 			:ejabberd_commands.execute_command(:get_last, [@user, @domain])
 
 		EjabberdSmMock.connect_resource @user, @domain, @resource<>"1"
 		EjabberdSmMock.connect_resource @user, @domain, @resource<>"2"
 
-		assert 'Online' ==
+		assert {_, 'ONLINE'} =
 			:ejabberd_commands.execute_command(:get_last, [@user, @domain])
 
 		EjabberdSmMock.disconnect_resource @user, @domain, @resource<>"1"
 
-		assert 'Online' ==
+		assert {_, 'ONLINE'} =
 			:ejabberd_commands.execute_command(:get_last, [@user, @domain])
 
 		now = {megasecs, secs, _microsecs} = :os.timestamp
 		timestamp = megasecs * 1000000 + secs
 		EjabberdSmMock.disconnect_resource(@user, @domain, @resource<>"2",
 		                                   timestamp)
-		{{year, month, day}, {hour, minute, second}} = :calendar.now_to_local_time now
-		result = List.flatten(:io_lib.format(
-					"~w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w ",
+    {{year, month, day}, {hour, minute, second}} = :calendar.now_to_universal_time now
+		result = IO.iodata_to_binary(:io_lib.format(
+					"~w-~.2.0w-~.2.0wT~.2.0w:~.2.0w:~.2.0wZ",
 					[year, month, day, hour, minute, second]))
-		assert result ==
+		assert {result, ""} ==
 			:ejabberd_commands.execute_command(:get_last, [@user, @domain])
 
 		assert :meck.validate :mod_last
@@ -257,8 +257,8 @@ defmodule EjabberdModAdminExtraTest do
 		jid = :jlib.make_jid(@user, @domain, @resource)
 		assert 1 ==
 			:meck.num_calls(:ejabberd_sm, :route,
-											[jid, jid,
-											 {:broadcast, {:item, {@user<>"1", @domain, ""}, :both}}])
+                      [jid,
+                       {:item, {@user<>"1", @domain, ""}, :both}])
 
 		assert :ok ==
 			:ejabberd_commands.execute_command(:add_rosteritem, [@user, @domain,
@@ -274,8 +274,8 @@ defmodule EjabberdModAdminExtraTest do
 		# 'both' to user online ressource
 		assert 1 ==
 			:meck.num_calls(:ejabberd_sm, :route,
-											[jid, jid,
-											 {:broadcast, {:item, {@user<>"2", @domain, ""}, :both}}])
+                      [jid,
+                       {:item, {@user<>"2", @domain, ""}, :both}])
 
 
 		:ejabberd_commands.execute_command(:delete_rosteritem, [@user, @domain,
@@ -293,8 +293,8 @@ defmodule EjabberdModAdminExtraTest do
 		jid = :jlib.make_jid(@user, @domain, @resource)
 		assert 1 ==
 			:meck.num_calls(:ejabberd_sm, :route,
-											[jid, jid,
-											 {:broadcast, {:item, {@user<>"1", @domain, ""}, :none}}])
+                      [jid,
+                       {:item, {@user<>"1", @domain, ""}, :none}])
 
 		:ejabberd_commands.execute_command(:delete_rosteritem, [@user, @domain,
 																														@user<>"2", @domain])
@@ -303,16 +303,16 @@ defmodule EjabberdModAdminExtraTest do
 		# 'none' to user online ressource
 		assert 1 ==
 			:meck.num_calls(:ejabberd_sm, :route,
-											[jid, jid,
-											 {:broadcast, {:item, {@user<>"2", @domain, ""}, :none}}])
+                      [jid,
+                       {:item, {@user<>"2", @domain, ""}, :none}])
 
 		# Check that nothing else was pushed to user resource
 		jid = jid(user: @user, server: @domain, resource: :_,
 							luser: @user, lserver: @domain, lresource: :_)
 		assert 4 ==
 			:meck.num_calls(:ejabberd_sm, :route,
-											[jid, jid,
-											 {:broadcast, {:item, :_, :_}}])
+                      [jid,
+                       {:item, :_, :_}])
 
 		assert [] == ModRosterMock.get_roster(@user, @domain)
 		assert :meck.validate :ejabberd_sm

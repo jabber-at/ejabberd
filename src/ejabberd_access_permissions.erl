@@ -109,6 +109,7 @@ start_link() ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
 init([]) ->
+    ejabberd_hooks:add(config_reloaded, ?MODULE, invalidate, 90),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -209,7 +210,7 @@ handle_info(_Info, State) ->
 -spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #state{}) -> term().
 terminate(_Reason, _State) ->
-    ok.
+    ejabberd_hooks:delete(config_reloaded, ?MODULE, invalidate, 90).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -230,31 +231,34 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 -spec get_definitions(#state{}) -> {#state{}, any()}.
-get_definitions(#state{definitions = Defs, fragments_generators = Gens} = State) ->
-    DefaultOptions = [{<<"console commands">>,
-		       {[ejabberd_ctl],
-			[{acl, all}],
-			{all, none}}},
-		      {<<"admin access">>,
+get_definitions(#state{definitions = Defs} = State) when Defs /= none ->
+    {State, Defs};
+get_definitions(#state{definitions = none, fragments_generators = Gens} = State) ->
+    DefaultOptions = [{<<"admin access">>,
 		       {[],
 			[{acl,{acl,admin}},
 			 {oauth,[<<"ejabberd:admin">>],[{acl,{acl,admin}}]}],
 			{all, [start, stop]}}}],
-    NDefs = case Defs of
-		none ->
-		    ApiPerms = ejabberd_config:get_option(api_permissions, fun(A) -> A end, DefaultOptions),
-		    AllCommands = ejabberd_commands:get_commands_definition(),
-		    Frags = lists:foldl(
-			fun({_Name, Generator}, Acc) ->
-			    Acc ++ Generator()
-			end, [], Gens),
-		    lists:map(
-			fun({Name, {From, Who, {Add, Del}}}) ->
-			    Cmds = filter_commands_with_permissions(AllCommands, Add, Del),
-			    {Name, {From, Who, Cmds}}
-			end, ApiPerms ++ Frags);
-		V ->
-		    V
+    ApiPerms = ejabberd_config:get_option(api_permissions, fun(A) -> A end,
+					  DefaultOptions),
+    AllCommands = ejabberd_commands:get_commands_definition(),
+    Frags = lists:foldl(
+	      fun({_Name, Generator}, Acc) ->
+		      Acc ++ Generator()
+	      end, [], Gens),
+    NDefs0 = lists:map(
+	       fun({Name, {From, Who, {Add, Del}}}) ->
+		       Cmds = filter_commands_with_permissions(AllCommands, Add, Del),
+		       {Name, {From, Who, Cmds}}
+	       end, ApiPerms ++ Frags),
+    NDefs = case lists:keyfind(<<"console commands">>, 1, NDefs0) of
+		false ->
+		    [{<<"console commands">>,
+		      {[ejabberd_ctl],
+		       [{acl, all}],
+		       filter_commands_with_permissions(AllCommands, all, none)}} | NDefs0];
+		_ ->
+		    NDefs0
 	    end,
     {State#state{definitions = NDefs}, NDefs}.
 
@@ -275,7 +279,7 @@ matches_definition({_Name, {From, Who, What}}, Cmd, Module, Host, CallerInfo) ->
 				       lists:any(
 					   fun({access, Access}) ->
 					       acl:access_matches(Access, CallerInfo, Host) == allow;
-					      ({acl, Acl} = Acl) ->
+					      ({acl, Acl}) ->
 						  acl:acl_rule_matches(Acl, CallerInfo, Host)
 					   end, List);
 				   _ ->
@@ -359,7 +363,10 @@ parse_who(Name, Atom, ParseOauth) when is_atom(Atom) ->
     parse_who(Name, [Atom], ParseOauth);
 parse_who(Name, Defs, ParseOauth) when is_list(Defs) ->
     lists:map(
-	fun([{access, Val}]) ->
+      fun([Val]) ->
+	      [NVal] = parse_who(Name, [Val], ParseOauth),
+	      NVal;
+	 ({access, Val}) ->
 	    try acl:access_rules_validator(Val) of
 		Rule ->
 		    {access, Rule}
@@ -373,7 +380,7 @@ parse_who(Name, Defs, ParseOauth) when is_list(Defs) ->
 		    report_error(<<"Invalid access rule '~p' used inside 'who' section for api_permission '~s'">>,
 				 [Val, Name])
 	    end;
-	   ([{oauth, OauthList}]) when is_list(OauthList) ->
+	   ({oauth, OauthList}) when is_list(OauthList) ->
 	       case ParseOauth of
 		   oauth ->
 		       Nested = parse_who(Name, lists:flatten(OauthList), scope),
@@ -409,7 +416,7 @@ parse_who(Name, Defs, ParseOauth) when is_list(Defs) ->
 	       end;
 	   (Atom) when is_atom(Atom) ->
 	       {acl, {acl, Atom}};
-	   ([Other]) ->
+	   (Other) ->
 	       try acl:normalize_spec(Other) of
 		   Rule2 ->
 		       {acl, Rule2}
@@ -417,10 +424,7 @@ parse_who(Name, Defs, ParseOauth) when is_list(Defs) ->
 		   _:_ ->
 		       report_error(<<"Invalid value '~p' used inside 'who' section for api_permission '~s'">>,
 				    [Other, Name])
-	       end;
-	   (Invalid) ->
-	       report_error(<<"Invalid value '~p' used inside 'who' section for api_permission '~s'">>,
-			    [Invalid, Name])
+	       end
 	end, Defs);
 parse_who(Name, Val, _ParseOauth) ->
     report_error(<<"Invalid value '~p' used inside 'who' section for api_permission '~s'">>,

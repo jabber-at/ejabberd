@@ -50,12 +50,12 @@
         {socket                       :: ws_socket(),
          ping_interval = ?PING_INTERVAL :: non_neg_integer(),
          ping_timer = make_ref()      :: reference(),
-         pong_expected                :: boolean(),
+         pong_expected = false        :: boolean(),
          timeout = ?WEBSOCKET_TIMEOUT :: non_neg_integer(),
          timer = make_ref()           :: reference(),
          input = []                   :: list(),
          waiting_input = false        :: false | pid(),
-         last_receiver                :: pid(),
+         last_receiver = self()       :: pid(),
          ws                           :: {#ws{}, pid()},
          rfc_compilant = undefined    :: boolean() | undefined}).
 
@@ -120,7 +120,7 @@ init([{#ws{ip = IP, http_opts = HOpts}, _} = WS]) ->
                                ({resend_on_timeout, _}) -> true;
                                (_) -> false
                             end, HOpts),
-    Opts = [{xml_socket, true} | ejabberd_c2s_config:get_c2s_limits() ++ SOpts],
+    Opts = ejabberd_c2s_config:get_c2s_limits() ++ SOpts,
     PingInterval = ejabberd_config:get_option(
                      {websocket_ping_interval, ?MYNAME},
                      fun(I) when is_integer(I), I>=0 -> I end,
