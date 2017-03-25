@@ -3,7 +3,7 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "17.01.0",
+     version: "17.03.0",
      description: description,
      elixir: "~> 1.3",
      elixirc_paths: ["lib"],
@@ -26,7 +26,7 @@ defmodule Ejabberd.Mixfile do
   def application do
     [mod: {:ejabberd_app, []},
      applications: [:ssl],
-     included_applications: [:lager, :mnesia, :p1_utils, :cache_tab,
+     included_applications: [:lager, :mnesia, :inets, :p1_utils, :cache_tab,
                              :fast_tls, :stringprep, :fast_xml, :xmpp,
                              :stun, :fast_yaml, :esip, :jiffy, :p1_oauth2]
                          ++ cond_apps]
@@ -41,12 +41,12 @@ defmodule Ejabberd.Mixfile do
   defp deps do
     [{:lager, "~> 3.2"},
      {:p1_utils, "~> 1.0"},
+     {:fast_xml, "~> 1.1"},
+     {:xmpp, "~> 1.1"},
      {:cache_tab, "~> 1.0"},
      {:stringprep, "~> 1.0"},
      {:fast_yaml, "~> 1.0"},
      {:fast_tls, "~> 1.0"},
-     {:fast_xml, "~> 1.1"},
-     {:xmpp, "~> 1.1"},
      {:stun, "~> 1.0"},
      {:esip, "~> 1.0"},
      {:jiffy, "~> 0.14.7"},
@@ -57,7 +57,11 @@ defmodule Ejabberd.Mixfile do
   end
 
   defp deps_include(deps) do
-    Enum.map(deps, fn dep -> "deps/#{dep}/include" end)
+    base = case Mix.Project.deps_paths()[:ejabberd] do
+      nil -> "deps"
+      _ -> ".."
+    end
+    Enum.map(deps, fn dep -> base<>"/#{dep}/include" end)
   end
 
   defp cond_deps do
@@ -68,7 +72,7 @@ defmodule Ejabberd.Mixfile do
                          {config(:redis), {:eredis, "~> 1.0"}},
                          {config(:zlib), {:ezlib, "~> 1.0"}},
                          {config(:iconv), {:iconv, "~> 1.0"}},
-                         {config(:pam), {:p1_pam, "~> 1.0"}},
+                         {config(:pam), {:epam, "~> 1.0"}},
                          {config(:tools), {:luerl, github: "rvirding/luerl", tag: "v0.2"}},
                          {config(:tools), {:meck, "~> 0.8.4"}},
                          {config(:tools), {:moka, github: "processone/moka", tag: "1.0.5c"}}], do:

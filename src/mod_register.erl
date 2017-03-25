@@ -33,8 +33,8 @@
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, stream_feature_register/2,
-	 unauthenticated_iq_register/4, try_register/5,
+-export([start/2, stop/1, reload/3, stream_feature_register/2,
+	 c2s_unauthenticated_packet/2, try_register/5,
 	 process_iq/1, send_registration_notifications/3,
 	 transform_options/1, transform_module_options/1,
 	 mod_opt_type/1, opt_type/1, depends/2]).
@@ -50,10 +50,10 @@ start(Host, Opts) ->
 				  ?NS_REGISTER, ?MODULE, process_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
 				  ?NS_REGISTER, ?MODULE, process_iq, IQDisc),
-    ejabberd_hooks:add(c2s_stream_features, Host, ?MODULE,
+    ejabberd_hooks:add(c2s_pre_auth_features, Host, ?MODULE,
 		       stream_feature_register, 50),
-    ejabberd_hooks:add(c2s_unauthenticated_iq, Host,
-		       ?MODULE, unauthenticated_iq_register, 50),
+    ejabberd_hooks:add(c2s_unauthenticated_packet, Host,
+		       ?MODULE, c2s_unauthenticated_packet, 50),
     ejabberd_mnesia:create(?MODULE, mod_register_ip,
 			[{ram_copies, [node()]}, {local_content, true},
 			 {attributes, [key, value]}]),
@@ -62,14 +62,27 @@ start(Host, Opts) ->
     ok.
 
 stop(Host) ->
-    ejabberd_hooks:delete(c2s_stream_features, Host,
+    ejabberd_hooks:delete(c2s_pre_auth_features, Host,
 			  ?MODULE, stream_feature_register, 50),
-    ejabberd_hooks:delete(c2s_unauthenticated_iq, Host,
-			  ?MODULE, unauthenticated_iq_register, 50),
+    ejabberd_hooks:delete(c2s_unauthenticated_packet, Host,
+			  ?MODULE, c2s_unauthenticated_packet, 50),
     gen_iq_handler:remove_iq_handler(ejabberd_local, Host,
 				     ?NS_REGISTER),
     gen_iq_handler:remove_iq_handler(ejabberd_sm, Host,
 				     ?NS_REGISTER).
+
+reload(Host, NewOpts, OldOpts) ->
+    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
+			      fun gen_iq_handler:check_type/1,
+			      one_queue) of
+	{false, IQDisc, _} ->
+	    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_REGISTER,
+					  ?MODULE, process_iq, IQDisc),
+	    gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_REGISTER,
+					  ?MODULE, process_iq, IQDisc);
+	true ->
+	    ok
+    end.
 
 depends(_Host, _Opts) ->
     [].
@@ -79,27 +92,29 @@ stream_feature_register(Acc, Host) ->
     AF = gen_mod:get_module_opt(Host, ?MODULE, access_from,
                                           fun(A) -> A end,
 					  all),
-    case (AF /= none) and lists:keymember(sasl_mechanisms, 1, Acc) of
+    case (AF /= none) of
 	true ->
 	    [#feature_register{}|Acc];
 	false ->
 	    Acc
     end.
 
--spec unauthenticated_iq_register(empty | iq(), binary(), iq(),
-				  {inet:ip_address(), non_neg_integer()}) ->
-					 empty | iq().
-unauthenticated_iq_register(_Acc, Server,
-			    #iq{sub_els = [#register{}]} = IQ, IP) ->
-    Address = case IP of
-		{A, _Port} -> A;
-		_ -> undefined
-	      end,
-    ResIQ = process_iq(xmpp:set_from_to(IQ, jid:make(<<>>), jid:make(Server)),
-		       Address),
-    xmpp:set_from_to(ResIQ, jid:make(Server), undefined);
-unauthenticated_iq_register(Acc, _Server, _IQ, _IP) ->
-    Acc.
+c2s_unauthenticated_packet(#{ip := IP, server := Server} = State,
+			   #iq{type = T, sub_els = [_]} = IQ)
+  when T == set; T == get ->
+    case xmpp:get_subtag(IQ, #register{}) of
+	#register{} = Register ->
+	    {Address, _} = IP,
+	    IQ1 = xmpp:set_els(IQ, [Register]),
+	    IQ2 = xmpp:set_from_to(IQ1, jid:make(<<>>), jid:make(Server)),
+	    ResIQ = process_iq(IQ2, Address),
+	    ResIQ1 = xmpp:set_from_to(ResIQ, jid:make(Server), undefined),
+	    {stop, ejabberd_c2s:send(State, ResIQ1)};
+	false ->
+	    State
+    end;
+c2s_unauthenticated_packet(State, _) ->
+    State.
 
 process_iq(#iq{from = From} = IQ) ->
     process_iq(IQ, jid:tolower(From)).
@@ -148,7 +163,7 @@ process_iq(#iq{type = set, lang = Lang, to = To, from = From,
 	    case From of
 		#jid{luser = LUser, lserver = Server} ->
 		    ResIQ = xmpp:make_iq_result(IQ),
-		    ejabberd_router:route(From, From, ResIQ),
+		    ejabberd_router:route(xmpp:set_from_to(ResIQ, From, From)),
 		    ejabberd_auth:remove_user(LUser, Server),
 		    ignore;
 		_ ->
@@ -266,11 +281,15 @@ try_register_or_set_password(User, Server, Password,
     end.
 
 %% @doc Try to change password and return IQ response
-try_set_password(User, Server, Password, #iq{lang = Lang} = IQ) ->
+try_set_password(User, Server, Password, #iq{lang = Lang, meta = M} = IQ) ->
     case is_strong_password(Server, Password) of
       true ->
 	  case ejabberd_auth:set_password(User, Server, Password) of
 	    ok ->
+		?INFO_MSG("~s has changed password from ~s",
+			  [jid:encode({User, Server, <<"">>}),
+			   ejabberd_config:may_hide_data(
+			     jlib:ip_to_list(maps:get(ip, M, {0,0,0,0})))]),
 		xmpp:make_iq_result(IQ);
 	    {error, empty_password} ->
 		Txt = <<"Empty password">>,
@@ -297,7 +316,7 @@ try_register(User, Server, Password, SourceRaw, Lang) ->
     case jid:is_nodename(User) of
       false -> {error, xmpp:err_bad_request(<<"Malformed username">>, Lang)};
       _ ->
-	  JID = jid:make(User, Server, <<"">>),
+	  JID = jid:make(User, Server),
 	  Access = gen_mod:get_module_opt(Server, ?MODULE, access,
                                           fun(A) -> A end,
 					  all),
@@ -374,8 +393,9 @@ send_welcome_message(JID) ->
       {<<"">>, <<"">>} -> ok;
       {Subj, Body} ->
 	  ejabberd_router:route(
-	    jid:make(Host), JID,
-	    #message{subject = xmpp:mk_text(Subj),
+	    #message{from = jid:make(Host),
+		     to = JID,
+		     subject = xmpp:mk_text(Subj),
 		     body = xmpp:mk_text(Body)});
       _ -> ok
     end.
@@ -385,8 +405,7 @@ send_registration_notifications(Mod, UJID, Source) ->
     case gen_mod:get_module_opt(
            Host, Mod, registration_watchers,
            fun(Ss) ->
-                   [#jid{} = jid:from_string(iolist_to_binary(S))
-                    || S <- Ss]
+                   [jid:decode(iolist_to_binary(S)) || S <- Ss]
            end, []) of
         [] -> ok;
         JIDs when is_list(JIDs) ->
@@ -394,14 +413,15 @@ send_registration_notifications(Mod, UJID, Source) ->
                 (str:format("[~s] The account ~s was registered from "
                                                "IP address ~s on node ~w using ~p.",
                                                [get_time_string(),
-                                                jid:to_string(UJID),
+                                                jid:encode(UJID),
                                                 ip_to_string(Source), node(),
                                                 Mod])),
             lists:foreach(
               fun(JID) ->
                       ejabberd_router:route(
-                        jid:make(Host), JID,
-			#message{type = chat,
+			#message{from = jid:make(Host),
+				 to = JID,
+				 type = chat,
 				 body = xmpp:mk_text(Body)})
               end, JIDs)
     end.
@@ -622,8 +642,7 @@ mod_opt_type(password_strength) ->
     fun (N) when is_number(N), N >= 0 -> N end;
 mod_opt_type(registration_watchers) ->
     fun (Ss) ->
-	    [#jid{} = jid:from_string(iolist_to_binary(S))
-	     || S <- Ss]
+	    [jid:decode(iolist_to_binary(S)) || S <- Ss]
     end;
 mod_opt_type(welcome_message) ->
     fun (Opts) ->

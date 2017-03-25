@@ -32,7 +32,7 @@
 	 start_listeners/0, start_listener/3, stop_listeners/0,
 	 stop_listener/2, parse_listener_portip/2,
 	 add_listener/3, delete_listener/2, transform_options/1,
-	 validate_cfg/1, opt_type/1]).
+	 validate_cfg/1, opt_type/1, config_reloaded/0]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -41,63 +41,38 @@
 -define(TCP_SEND_TIMEOUT, 15000).
 
 start_link() ->
-    supervisor:start_link({local, ejabberd_listeners}, ?MODULE, []).
-
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init(_) ->
-    ets:new(listen_sockets, [named_table, public]),
-    bind_tcp_ports(),
-    {ok, {{one_for_one, 10, 1}, []}}.
+    ets:new(?MODULE, [named_table, public]),
+    ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
+    {ok, {{one_for_one, 10, 1}, listeners_childspec()}}.
 
-bind_tcp_ports() ->
+listeners_childspec() ->
     case ejabberd_config:get_option(listen, fun validate_cfg/1) of
 	undefined ->
-	    ignore;
+	    [];
 	Ls ->
-	    lists:foreach(
-	      fun({Port, Module, Opts}) ->
-		      ModuleRaw = strip_frontend(Module),
-		      case ModuleRaw:socket_type() of
-			  independent -> ok;
-			  _ ->
-			      bind_tcp_port(Port, Module, Opts)
-		      end
-	      end, Ls)
-    end.
-
-bind_tcp_port(PortIP, Module, RawOpts) ->
-    try check_listener_options(RawOpts) of
-	ok ->
-	    {Port, IPT, IPS, IPV, Proto, OptsClean} = parse_listener_portip(PortIP, RawOpts),
-	    {_Opts, SockOpts} = prepare_opts(IPT, IPV, OptsClean),
-	    case Proto of
-		udp -> ok;
-		_ ->
-		    ListenSocket = listen_tcp(PortIP, Module, SockOpts, Port, IPS),
-		    ets:insert(listen_sockets, {PortIP, ListenSocket}),
-                    ok
-	    end
-    catch
-	throw:{error, Error} ->
-	    ?ERROR_MSG(Error, [])
+	    Specs = lists:map(
+		      fun({Port, Module, Opts}) ->
+			      maybe_start_sip(Module),
+			      ets:insert(?MODULE, {Port, Module, Opts}),
+			      {Port,
+			       {?MODULE, start, [Port, Module, Opts]},
+			       transient,
+			       brutal_kill,
+			       worker,
+			       [?MODULE]}
+		      end, Ls),
+	    report_duplicated_portips(Ls),
+	    Specs
     end.
 
 start_listeners() ->
-    case ejabberd_config:get_option(listen, fun validate_cfg/1) of
-	undefined ->
-	    ignore;
-	Ls ->
-	    Ls2 = lists:map(
-	        fun({Port, Module, Opts}) ->
-		        case start_listener(Port, Module, Opts) of
-			    {ok, _Pid} = R -> R;
-			    {error, Error} ->
-				throw(Error)
-			end
-		end, Ls),
-	    report_duplicated_portips(Ls),
-	    {ok, {{one_for_one, 10, 1}, Ls2}}
-    end.
+    lists:foreach(
+      fun(Spec) ->
+	      supervisor:start_child(?MODULE, Spec)
+      end, listeners_childspec()).
 
 report_duplicated_portips(L) ->
     LKeys = [Port || {Port, _, _} <- L],
@@ -112,9 +87,8 @@ report_duplicated_portips(L) ->
 
 start(Port, Module, Opts) ->
     %% Check if the module is an ejabberd listener or an independent listener
-    ModuleRaw = strip_frontend(Module),
-    case ModuleRaw:socket_type() of
-	independent -> ModuleRaw:start_listener(Port, Opts);
+    case Module:socket_type() of
+	independent -> Module:start_listener(Port, Opts);
 	_ -> start_dependent(Port, Module, Opts)
     end.
 
@@ -146,6 +120,9 @@ init_udp(PortIP, Module, Opts, SockOpts, Port, IPS) ->
 	{ok, Socket} ->
 	    %% Inform my parent that this port was opened succesfully
 	    proc_lib:init_ack({ok, self()}),
+	    start_module_sup(Port, Module),
+	    ?INFO_MSG("Start accepting UDP connections at ~s for ~p",
+		      [format_portip(PortIP), Module]),
 	    case erlang:function_exported(Module, udp_init, 2) of
 		false ->
 		    udp_recv(Socket, Module, Opts);
@@ -168,6 +145,9 @@ init_tcp(PortIP, Module, Opts, SockOpts, Port, IPS) ->
     ListenSocket = listen_tcp(PortIP, Module, SockOpts, Port, IPS),
     %% Inform my parent that this port was opened succesfully
     proc_lib:init_ack({ok, self()}),
+    start_module_sup(Port, Module),
+    ?INFO_MSG("Start accepting TCP connections at ~s for ~p",
+	      [format_portip(PortIP), Module]),
     case erlang:function_exported(Module, tcp_init, 2) of
 	false ->
 	    accept(ListenSocket, Module, Opts);
@@ -184,27 +164,20 @@ init_tcp(PortIP, Module, Opts, SockOpts, Port, IPS) ->
     end.
 
 listen_tcp(PortIP, Module, SockOpts, Port, IPS) ->
-    case ets:lookup(listen_sockets, PortIP) of
-	[{PortIP, ListenSocket}] ->
-	    ?INFO_MSG("Reusing listening port for ~p", [PortIP]),
-	    ets:delete(listen_sockets, PortIP),
+    Res = gen_tcp:listen(Port, [binary,
+				{packet, 0},
+				{active, false},
+				{reuseaddr, true},
+				{nodelay, true},
+				{send_timeout, ?TCP_SEND_TIMEOUT},
+				{send_timeout_close, true},
+				{keepalive, true} |
+				SockOpts]),
+    case Res of
+	{ok, ListenSocket} ->
 	    ListenSocket;
-	_ ->
-	    Res = gen_tcp:listen(Port, [binary,
-					{packet, 0},
-					{active, false},
-					{reuseaddr, true},
-					{nodelay, true},
-					{send_timeout, ?TCP_SEND_TIMEOUT},
-					{send_timeout_close, true},
-					{keepalive, true} |
-					SockOpts]),
-	    case Res of
-		{ok, ListenSocket} ->
-		    ListenSocket;
-		{error, Reason} ->
-		    socket_error(Reason, PortIP, Module, SockOpts, Port, IPS)
-	    end
+	{error, Reason} ->
+	    socket_error(Reason, PortIP, Module, SockOpts, Port, IPS)
     end.
 
 %% @spec (PortIP, Opts) -> {Port, IPT, IPS, IPV, OptsClean}
@@ -330,21 +303,22 @@ accept(ListenSocket, Module, Opts, Interval) ->
 	{ok, Socket} ->
 	    case {inet:sockname(Socket), inet:peername(Socket)} of
 		{{ok, {Addr, Port}}, {ok, {PAddr, PPort}}} ->
-		    ?INFO_MSG("(~w) Accepted connection ~s:~p -> ~s:~p",
-			      [Socket, ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)), PPort,
-			       inet_parse:ntoa(Addr), Port]);
+		    Receiver = case ejabberd_socket:start(Module,
+							  gen_tcp, Socket, Opts) of
+				   {ok, RecvPid} -> RecvPid;
+				   _ -> none
+			       end,
+		    ?INFO_MSG("(~p) Accepted connection ~s:~p -> ~s:~p",
+			      [Receiver,
+			       ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)),
+			       PPort, inet_parse:ntoa(Addr), Port]);
 		_ ->
 		    ok
 	    end,
-	    CallMod = case is_frontend(Module) of
-			  true -> ejabberd_frontend_socket;
-			  false -> ejabberd_socket
-		      end,
-	    CallMod:start(strip_frontend(Module), gen_tcp, Socket, Opts),
 	    accept(ListenSocket, Module, Opts, NewInterval);
 	{error, Reason} ->
-	    ?ERROR_MSG("(~w) Failed TCP accept: ~w",
-                       [ListenSocket, Reason]),
+	    ?ERROR_MSG("(~w) Failed TCP accept: ~s",
+                       [ListenSocket, inet:format_error(Reason)]),
 	    accept(ListenSocket, Module, Opts, NewInterval)
     end.
 
@@ -387,14 +361,13 @@ start_listener2(Port, Module, Opts) ->
     %% But it doesn't hurt to attempt to start it for any listener.
     %% So, it's normal (and harmless) that in most cases this call returns: {error, {already_started, pid()}}
     maybe_start_sip(Module),
-    start_module_sup(Port, Module),
     start_listener_sup(Port, Module, Opts).
 
 start_module_sup(_Port, Module) ->
     Proc1 = gen_mod:get_module_proc(<<"sup">>, Module),
     ChildSpec1 =
 	{Proc1,
-	 {ejabberd_tmp_sup, start_link, [Proc1, strip_frontend(Module)]},
+	 {ejabberd_tmp_sup, start_link, [Proc1, Module]},
 	 permanent,
 	 infinity,
 	 supervisor,
@@ -408,7 +381,7 @@ start_listener_sup(Port, Module, Opts) ->
 		 brutal_kill,
 		 worker,
 		 [?MODULE]},
-    supervisor:start_child(ejabberd_listeners, ChildSpec).
+    supervisor:start_child(?MODULE, ChildSpec).
 
 stop_listeners() ->
     Ports = ejabberd_config:get_option(listen, fun validate_cfg/1),
@@ -418,27 +391,18 @@ stop_listeners() ->
       end,
       Ports).
 
-%% @spec (PortIP, Module) -> ok
-%% where
-%%      PortIP = {Port, IPT | IPS}
-%%      Port = integer()
-%%      IPT = tuple()
-%%      IPS = string()
-%%      Module = atom()
-stop_listener(PortIP, _Module) ->
-    supervisor:terminate_child(ejabberd_listeners, PortIP),
-    supervisor:delete_child(ejabberd_listeners, PortIP).
+stop_listener({_, _, Transport} = PortIP, Module) ->
+    case supervisor:terminate_child(?MODULE, PortIP) of
+	ok ->
+	    ?INFO_MSG("Stop accepting ~s connections at ~s for ~p",
+		      [case Transport of udp -> "UDP"; tcp -> "TCP" end,
+		       format_portip(PortIP), Module]),
+	    ets:delete(?MODULE, PortIP),
+	    supervisor:delete_child(?MODULE, PortIP);
+	Err ->
+	    Err
+    end.
 
-%% @spec (PortIP, Module, Opts) -> {ok, Pid} | {error, Error}
-%% where
-%%      PortIP = {Port, IPT | IPS}
-%%      Port = integer()
-%%      IPT = tuple()
-%%      IPS = string()
-%%      IPV = inet | inet6
-%%      Module = atom()
-%%      Opts = [IPV | {ip, IPT} | atom() | tuple()]
-%% @doc Add a listener and store in config if success
 add_listener(PortIP, Module, Opts) ->
     {Port, IPT, _, _, Proto, _} = parse_listener_portip(PortIP, Opts),
     PortIP1 = {Port, IPT, Proto},
@@ -489,22 +453,40 @@ delete_listener(PortIP, Module, Opts) ->
     stop_listener(PortIP1, Module).
 
 
--spec is_frontend({frontend, module} | module()) -> boolean().
-
-is_frontend({frontend, _Module}) -> true;
-is_frontend(_) -> false.
-
-%% @doc(FrontMod) -> atom()
-%% where FrontMod = atom() | {frontend, atom()}
--spec strip_frontend({frontend, module()} | module()) -> module().
-
-strip_frontend({frontend, Module}) -> Module;
-strip_frontend(Module) when is_atom(Module) -> Module.
-
 maybe_start_sip(esip_socket) ->
     ejabberd:start_app(esip);
 maybe_start_sip(_) ->
     ok.
+
+config_reloaded() ->
+    New = case ejabberd_config:get_option(listen, fun validate_cfg/1) of
+	      undefined -> [];
+	      Ls -> Ls
+	  end,
+    Old = ets:tab2list(?MODULE),
+    lists:foreach(
+      fun({PortIP, Module, _Opts}) ->
+	      case lists:keyfind(PortIP, 1, New) of
+		  false ->
+		      stop_listener(PortIP, Module);
+		  _ ->
+		      ok
+	      end
+      end, Old),
+    lists:foreach(
+      fun({PortIP, Module, Opts}) ->
+	      case lists:keyfind(PortIP, 1, Old) of
+		  {_, Module, Opts} ->
+		      ok;
+		  {_, OldModule, _} ->
+		      stop_listener(PortIP, OldModule),
+		      ets:insert(?MODULE, {PortIP, Module, Opts}),
+		      start_listener(PortIP, Module, Opts);
+		  false ->
+		      ets:insert(?MODULE, {PortIP, Module, Opts}),
+		      start_listener(PortIP, Module, Opts)
+	      end
+      end, New).
 
 %%%
 %%% Check options
@@ -588,6 +570,13 @@ format_error(Reason) ->
 	ReasonStr ->
 	    ReasonStr
     end.
+
+format_portip({Port, IP, _Transport}) ->
+    IPStr = case tuple_size(IP) of
+		4 -> inet:ntoa(IP);
+		8 -> "[" ++ inet:ntoa(IP) ++ "]"
+	    end,
+    IPStr ++ ":" ++ integer_to_list(Port).
 
 check_rate_limit(Interval) ->
     NewInterval = receive

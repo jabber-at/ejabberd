@@ -33,7 +33,7 @@
 -export([init/1, handle_info/2, handle_call/3,
 	 handle_cast/2, terminate/2, code_change/3]).
 
--export([start_link/2, add_listener/2, process_disco_info/1,
+-export([start_link/2, reload/3, add_listener/2, process_disco_info/1,
 	 process_disco_items/1, process_vcard/1, process_bytestreams/1,
 	 transform_module_options/1, delete_listener/1]).
 
@@ -54,7 +54,12 @@ start_link(Host, Opts) ->
     gen_server:start_link({local, Proc}, ?MODULE,
 			  [Host, Opts], []).
 
+reload(Host, NewOpts, OldOpts) ->
+    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
+    gen_server:cast(Proc, {reload, Host, NewOpts, OldOpts}).
+
 init([Host, Opts]) ->
+    process_flag(trap_exit, true),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
                              one_queue),
     MyHost = gen_mod:get_opt_host(Host, Opts, <<"proxy.@HOST@">>),
@@ -76,15 +81,49 @@ terminate(_Reason, #state{myhost = MyHost}) ->
     gen_iq_handler:remove_iq_handler(ejabberd_local, MyHost, ?NS_VCARD),
     gen_iq_handler:remove_iq_handler(ejabberd_local, MyHost, ?NS_BYTESTREAMS).
 
-handle_info({route, From, To, #iq{} = Packet}, State) ->
-    ejabberd_router:process_iq(From, To, Packet),
+handle_info({route, #iq{} = Packet}, State) ->
+    ejabberd_router:process_iq(Packet),
     {noreply, State};
 handle_info(_Info, State) -> {noreply, State}.
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-handle_cast(_Request, State) -> {noreply, State}.
+handle_cast({reload, ServerHost, NewOpts, OldOpts}, State) ->
+    NewHost = gen_mod:get_opt_host(ServerHost, NewOpts, <<"proxy.@HOST@">>),
+    OldHost = gen_mod:get_opt_host(ServerHost, OldOpts, <<"proxy.@HOST@">>),
+    NewIQDisc = gen_mod:get_opt(iqdisc, NewOpts,
+				fun gen_iq_handler:check_type/1,
+				one_queue),
+    OldIQDisc = gen_mod:get_opt(iqdisc, OldOpts,
+				fun gen_iq_handler:check_type/1,
+				one_queue),
+    if (NewIQDisc /= OldIQDisc) or (NewHost /= OldHost) ->
+	    gen_iq_handler:add_iq_handler(ejabberd_local, NewHost, ?NS_DISCO_INFO,
+					  ?MODULE, process_disco_info, NewIQDisc),
+	    gen_iq_handler:add_iq_handler(ejabberd_local, NewHost, ?NS_DISCO_ITEMS,
+					  ?MODULE, process_disco_items, NewIQDisc),
+	    gen_iq_handler:add_iq_handler(ejabberd_local, NewHost, ?NS_VCARD,
+					  ?MODULE, process_vcard, NewIQDisc),
+	    gen_iq_handler:add_iq_handler(ejabberd_local, NewHost, ?NS_BYTESTREAMS,
+					  ?MODULE, process_bytestreams, NewIQDisc);
+       true ->
+	    ok
+    end,
+    if NewHost /= OldHost ->
+	    ejabberd_router:register_route(NewHost, ServerHost),
+	    ejabberd_router:unregister_route(OldHost),
+	    gen_iq_handler:remove_iq_handler(ejabberd_local, OldHost, ?NS_DISCO_INFO),
+	    gen_iq_handler:remove_iq_handler(ejabberd_local, OldHost, ?NS_DISCO_ITEMS),
+	    gen_iq_handler:remove_iq_handler(ejabberd_local, OldHost, ?NS_VCARD),
+	    gen_iq_handler:remove_iq_handler(ejabberd_local, OldHost, ?NS_BYTESTREAMS);
+       true ->
+	    ok
+    end,
+    {noreply, State#state{myhost = NewHost}};
+handle_cast(Msg, State) ->
+    ?WARNING_MSG("unexpected cast: ~p", [Msg]),
+    {noreply, State}.
 
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
 
@@ -157,7 +196,7 @@ process_bytestreams(#iq{type = get, from = JID, to = To, lang = Lang} = IQ) ->
     end;
 process_bytestreams(#iq{type = set, lang = Lang,
 			sub_els = [#bytestreams{sid = SID}]} = IQ)
-  when SID == <<"">> orelse length(SID) > 128 ->
+  when SID == <<"">> orelse size(SID) > 128 ->
     Why = {bad_attr_value, <<"sid">>, <<"query">>, ?NS_BYTESTREAMS},
     Txt = xmpp:format_error(Why),
     xmpp:make_error(IQ, xmpp:err_bad_request(Txt, Lang));
@@ -175,31 +214,39 @@ process_bytestreams(#iq{type = set, lang = Lang, from = InitiatorJID, to = To,
 				 all),
     case acl:match_rule(ServerHost, ACL, InitiatorJID) of
 	allow ->
-	    Target = jid:to_string(jid:tolower(TargetJID)),
-	    Initiator = jid:to_string(jid:tolower(InitiatorJID)),
-	    SHA1 = p1_sha:sha(<<SID/binary, Initiator/binary, Target/binary>>),
-	    case mod_proxy65_sm:activate_stream(SHA1, InitiatorJID,
-						TargetJID, ServerHost) of
-		ok ->
+	    Node = ejabberd_cluster:get_node_by_id(To#jid.lresource),
+	    Target = jid:encode(jid:tolower(TargetJID)),
+	    Initiator = jid:encode(jid:tolower(InitiatorJID)),
+	    SHA1 = str:sha(<<SID/binary, Initiator/binary, Target/binary>>),
+	    Mod = gen_mod:ram_db_mod(global, mod_proxy65),
+	    MaxConnections = max_connections(ServerHost),
+	    case Mod:activate_stream(SHA1, Initiator, MaxConnections, Node) of
+		{ok, InitiatorPid, TargetPid} ->
+		    mod_proxy65_stream:activate(
+		      {InitiatorPid, InitiatorJID}, {TargetPid, TargetJID}),
 		    xmpp:make_iq_result(IQ);
-		false ->
+		{error, notfound} ->
 		    Txt = <<"Failed to activate bytestream">>,
 		    xmpp:make_error(IQ, xmpp:err_item_not_found(Txt, Lang));
-		limit ->
+		{error, {limit, InitiatorPid, TargetPid}} ->
+		    mod_proxy65_stream:stop(InitiatorPid),
+		    mod_proxy65_stream:stop(TargetPid),
 		    Txt = <<"Too many active bytestreams">>,
 		    xmpp:make_error(IQ, xmpp:err_resource_constraint(Txt, Lang));
-		conflict ->
+		{error, conflict} ->
 		    Txt = <<"Bytestream already activated">>,
 		    xmpp:make_error(IQ, xmpp:err_conflict(Txt, Lang));
-		Err ->
+		{error, Err} ->
 		    ?ERROR_MSG("failed to activate bytestream from ~s to ~s: ~p",
 			       [Initiator, Target, Err]),
-		    xmpp:make_error(IQ, xmpp:err_internal_server_error())
+		    Txt = <<"Database failure">>,
+		    xmpp:make_error(IQ, xmpp:err_internal_server_error(Txt, Lang))
 	    end;
 	deny ->
 	    Txt = <<"Denied by ACL">>,
 	    xmpp:make_error(IQ, xmpp:err_forbidden(Txt, Lang))
     end.
+
 %%%-------------------------
 %%% Auxiliary functions.
 %%%-------------------------
@@ -219,7 +266,8 @@ get_streamhost(Host, ServerHost) ->
     HostName = gen_mod:get_module_opt(ServerHost, mod_proxy65, hostname,
 				      fun iolist_to_binary/1,
 				      jlib:ip_to_list(IP)),
-    #streamhost{jid = jid:make(Host),
+    Resource = ejabberd_cluster:node_id(),
+    #streamhost{jid = jid:make(<<"">>, Host, Resource),
 		host = HostName,
 		port = Port}.
 
@@ -246,3 +294,9 @@ get_my_ip() ->
       {ok, Addr} -> Addr;
       {error, _} -> {127, 0, 0, 1}
     end.
+
+max_connections(ServerHost) ->
+    gen_mod:get_module_opt(ServerHost, mod_proxy65, max_connections,
+			   fun(I) when is_integer(I), I>0 -> I;
+			      (infinity) -> infinity
+			   end, infinity).

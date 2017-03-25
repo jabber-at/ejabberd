@@ -28,7 +28,7 @@
 -behaviour(gen_mod).
 
 %% API
--export([start_link/2, start/2, stop/1, process_iq/1,
+-export([start/2, stop/1, process_iq/1,
 	 disco_items/5, disco_identity/5, disco_info/5,
 	 disco_features/5, mod_opt_type/1, depends/2]).
 
@@ -39,7 +39,6 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 
--define(PROCNAME, ejabberd_mod_mix).
 -define(NODES, [?NS_MIX_NODES_MESSAGES,
 		?NS_MIX_NODES_PRESENCE,
 		?NS_MIX_NODES_PARTICIPANTS,
@@ -52,21 +51,11 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-start_link(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
-    gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).
-
 start(Host, Opts) ->
-    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
-    ChildSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
-		 transient, 5000, worker, [?MODULE]},
-    supervisor:start_child(ejabberd_sup, ChildSpec).
+    gen_mod:start_child(?MODULE, Host, Opts).
 
 stop(Host) ->
-    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
-    supervisor:terminate_child(ejabberd_sup, Proc),
-    supervisor:delete_child(ejabberd_sup, Proc),
-    ok.
+    gen_mod:stop_child(?MODULE, Host).
 
 -spec disco_features({error, stanza_error()} | {result, [binary()]} | empty,
 		     jid(), jid(), binary(), binary()) -> {result, [binary()]}.
@@ -134,6 +123,7 @@ process_iq(#iq{lang = Lang} = IQ) ->
 %%% gen_server callbacks
 %%%===================================================================
 init([ServerHost, Opts]) ->
+    process_flag(trap_exit, true),
     Host = gen_mod:get_opt_host(ServerHost, Opts, <<"mix.@HOST@">>),
     IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
                              one_queue),
@@ -173,14 +163,14 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({route, From, To, Packet}, State) ->
-    case catch do_route(State, From, To, Packet) of
+handle_info({route, Packet}, State) ->
+    case catch do_route(State, Packet) of
 	{'EXIT', _} = Err ->
 	    try
-		?ERROR_MSG("failed to route packet ~p from '~s' to '~s': ~p",
-			   [Packet, jid:to_string(From), jid:to_string(To), Err]),
+		?ERROR_MSG("failed to route packet:~n~s~nReason: ~p",
+			   [xmpp:pp(Packet), Err]),
 		Error = xmpp:err_internal_server_error(),
-		ejabberd_router:route_error(To, From, Packet, Error)
+		ejabberd_router:route_error(Packet, Error)
 	    catch _:_ ->
 		    ok
 	    end;
@@ -214,12 +204,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-do_route(_State, From, To, #iq{} = Packet) ->
-    ejabberd_router:process_iq(From, To, Packet);
-do_route(_State, From, To, #presence{type = unavailable})
+do_route(_State, #iq{} = Packet) ->
+    ejabberd_router:process_iq(Packet);
+do_route(_State, #presence{from = From, to = To, type = unavailable})
   when To#jid.luser /= <<"">> ->
     delete_presence(From, To);
-do_route(_State, _From, _To, _Packet) ->
+do_route(_State, _Packet) ->
     ok.
 
 subscribe_nodes(From, To, Nodes) ->
@@ -271,7 +261,7 @@ publish_participant(From, To) ->
     LFrom = jid:tolower(BareFrom),
     LTo = jid:tolower(jid:remove_resource(To)),
     Participant = #mix_participant{jid = BareFrom},
-    ItemID = p1_sha:sha(jid:to_string(LFrom)),
+    ItemID = str:sha(jid:encode(LFrom)),
     mod_pubsub:publish_item(
       LTo, To#jid.lserver, ?NS_MIX_NODES_PARTICIPANTS,
       From, ItemID, [xmpp:encode(Participant)]).
@@ -294,7 +284,7 @@ delete_presence(From, To) ->
 
 delete_participant(From, To) ->
     LFrom = jid:tolower(jid:remove_resource(From)),
-    ItemID = p1_sha:sha(jid:to_string(LFrom)),
+    ItemID = str:sha(jid:encode(LFrom)),
     delete_presence(From, To),
     delete_item(From, To, ?NS_MIX_NODES_PARTICIPANTS, ItemID).
 

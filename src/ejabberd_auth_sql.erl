@@ -33,7 +33,7 @@
 
 -behaviour(ejabberd_auth).
 
--export([start/1, set_password/3, check_password/4,
+-export([start/1, stop/1, set_password/3, check_password/4,
 	 check_password/6, try_register/3,
 	 dirty_get_registered_users/0, get_vh_registered_users/1,
 	 get_vh_registered_users/2,
@@ -53,6 +53,8 @@
 %%% API
 %%%----------------------------------------------------------------------
 start(_Host) -> ok.
+
+stop(_Host) -> ok.
 
 plain_password_required() ->
     case is_scrammed() of
@@ -159,10 +161,13 @@ check_password(User, AuthzId, Server, Password, Digest,
 set_password(User, Server, Password) ->
     LServer = jid:nameprep(Server),
     LUser = jid:nodeprep(User),
+    LPassword = jid:resourceprep(Password),
     if (LUser == error) or (LServer == error) ->
             {error, invalid_jid};
        (LUser == <<>>) or (LServer == <<>>) ->
             {error, invalid_jid};
+       LPassword == error ->
+	   {error, invalid_password};
        true ->
             case is_scrammed() of
                 true ->
@@ -193,14 +198,20 @@ set_password(User, Server, Password) ->
 try_register(User, Server, Password) ->
     LServer = jid:nameprep(Server),
     LUser = jid:nodeprep(User),
+    LPassword = jid:resourceprep(Password),
     if (LUser == error) or (LServer == error) ->
             {error, invalid_jid};
        (LUser == <<>>) or (LServer == <<>>) ->
             {error, invalid_jid};
+       LPassword == error and not is_record(Password, scram) ->
+	   {error, invalid_password};
        true ->
             case is_scrammed() of
                 true ->
-                    Scram = password_to_scram(Password),
+                    Scram = case is_record(Password, scram) of
+                        true -> Password;
+                        false -> password_to_scram(Password)
+                    end,
                     case catch sql_queries:add_user_scram(
                                  LServer,
                                  LUser,
@@ -427,13 +438,18 @@ is_password_scram_valid_stored(Password, Scram, _, _) ->
     is_password_scram_valid(Password, Scram).
 
 is_password_scram_valid(Password, Scram) ->
-    IterationCount = Scram#scram.iterationcount,
-    Salt = jlib:decode_base64(Scram#scram.salt),
-    SaltedPassword = scram:salted_password(Password, Salt,
-					   IterationCount),
-    StoredKey =
-	scram:stored_key(scram:client_key(SaltedPassword)),
-    jlib:decode_base64(Scram#scram.storedkey) == StoredKey.
+    case jid:resourceprep(Password) of
+	error ->
+	    false;
+	_ ->
+	    IterationCount = Scram#scram.iterationcount,
+	    Salt = jlib:decode_base64(Scram#scram.salt),
+	    SaltedPassword = scram:salted_password(Password, Salt,
+						   IterationCount),
+	    StoredKey =
+		scram:stored_key(scram:client_key(SaltedPassword)),
+	    jlib:decode_base64(Scram#scram.storedkey) == StoredKey
+    end.
 
 -define(BATCH_SIZE, 1000).
 
@@ -466,14 +482,21 @@ convert_to_scram(Server) ->
                             {selected, Rs} ->
                                 lists:foreach(
                                   fun({LUser, Password}) ->
-                                          Scram = password_to_scram(Password),
-                                          set_password_scram_t(
-                                            LUser,
-                                            Scram#scram.storedkey,
-                                            Scram#scram.serverkey,
-                                            Scram#scram.salt,
-                                            Scram#scram.iterationcount
-                                           )
+					  case jid:resourceprep(Password) of
+					      error ->
+						  ?ERROR_MSG(
+						     "SASLprep failed for "
+						     "password of user ~s@~s",
+						     [LUser, LServer]);
+					      _ ->
+						  Scram = password_to_scram(Password),
+						  set_password_scram_t(
+						    LUser,
+						    Scram#scram.storedkey,
+						    Scram#scram.serverkey,
+						    Scram#scram.salt,
+						    Scram#scram.iterationcount)
+					  end
                                   end, Rs),
                                 continue;
                             Err -> {bad_reply, Err}

@@ -51,6 +51,8 @@ host_config:
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -106,6 +108,8 @@ Welcome to this XMPP server."
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -166,6 +170,8 @@ Welcome to this XMPP server."
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -222,6 +228,8 @@ Welcome to this XMPP server."
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -279,6 +287,8 @@ Welcome to this XMPP server."
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -319,6 +329,8 @@ Welcome to this XMPP server."
       mod_disco: []
       mod_ping: []
       mod_proxy65: []
+      mod_s2s_dialback: []
+      mod_legacy_auth: []
       mod_register: 
         welcome_message: 
           subject: "Welcome!"
@@ -417,8 +429,10 @@ listen:
     module: ejabberd_c2s
     max_stanza_size: 65536
     certfile: CERTFILE
+    cafile: CAFILE
     zlib: true
     starttls: true
+    tls_verify: true
     shaper: c2s_shaper
     access: c2s
     resume_timeout: 3
@@ -450,6 +464,10 @@ modules:
       body: "Hi.
 Welcome to this XMPP server."
   mod_stats: []
+  mod_s2s_dialback: []
+  mod_legacy_auth: []
+  mod_stream_mgmt:
+    max_ack_queue: 10
   mod_time: []
   mod_version: []
 registration_timeout: infinity

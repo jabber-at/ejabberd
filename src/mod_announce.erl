@@ -29,13 +29,26 @@
 -module(mod_announce).
 -author('alexey@process-one.net').
 
+-behaviour(gen_server).
 -behaviour(gen_mod).
 
--export([start/2, init/0, stop/1, export/1, import_info/0,
-	 import_start/2, import/5, announce/3, send_motd/1, disco_identity/5,
+-export([start/2, stop/1, reload/3, export/1, import_info/0,
+	 import_start/2, import/5, announce/1, send_motd/1, disco_identity/5,
 	 disco_features/5, disco_items/5, depends/2,
 	 send_announcement_to_all/3, announce_commands/4,
 	 announce_items/4, mod_opt_type/1]).
+-export([init/1, handle_call/3, handle_cast/2,
+	 handle_info/2, terminate/2, code_change/3]).
+-export([announce_all/1,
+	 announce_all_hosts_all/1,
+	 announce_online/1,
+	 announce_all_hosts_online/1,
+	 announce_motd/1,
+	 announce_all_hosts_motd/1,
+	 announce_motd_update/1,
+	 announce_all_hosts_motd_update/1,
+	 announce_motd_delete/1,
+	 announce_all_hosts_motd_delete/1]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -51,14 +64,40 @@
 -callback is_motd_user(binary(), binary()) -> boolean().
 -callback set_motd_user(binary(), binary()) -> {atomic, any()}.
 
--define(PROCNAME, ejabberd_announce).
+-record(state, {host :: binary()}).
 
 -define(NS_ADMINL(Sub), [<<"http:">>, <<"jabber.org">>, <<"protocol">>,
                          <<"admin">>, <<Sub>>]).
 
 tokenize(Node) -> str:tokens(Node, <<"/#">>).
 
+%%====================================================================
+%% gen_mod callbacks
+%%====================================================================
 start(Host, Opts) ->
+    gen_mod:start_child(?MODULE, Host, Opts).
+
+stop(Host) ->
+    gen_mod:stop_child(?MODULE, Host).
+
+reload(Host, NewOpts, OldOpts) ->
+    NewMod = gen_mod:db_mod(Host, NewOpts, ?MODULE),
+    OldMod = gen_mod:db_mod(Host, OldOpts, ?MODULE),
+    if NewMod /= OldMod ->
+	    NewMod:init(Host, NewOpts);
+       true ->
+	    ok
+    end,
+    ok.
+
+depends(_Host, _Opts) ->
+    [{mod_adhoc, hard}].
+
+%%====================================================================
+%% gen_server callbacks
+%%====================================================================
+init([Host, Opts]) ->
+    process_flag(trap_exit, true),
     Mod = gen_mod:db_mod(Host, Opts, ?MODULE),
     Mod:init(Host, Opts),
     ejabberd_hooks:add(local_send_to_resource_hook, Host,
@@ -68,100 +107,89 @@ start(Host, Opts) ->
     ejabberd_hooks:add(disco_local_items, Host, ?MODULE, disco_items, 50),
     ejabberd_hooks:add(adhoc_local_items, Host, ?MODULE, announce_items, 50),
     ejabberd_hooks:add(adhoc_local_commands, Host, ?MODULE, announce_commands, 50),
-    ejabberd_hooks:add(user_available_hook, Host,
+    ejabberd_hooks:add(c2s_self_presence, Host,
 		       ?MODULE, send_motd, 50),
-    register(gen_mod:get_module_proc(Host, ?PROCNAME),
-	     proc_lib:spawn(?MODULE, init, [])).
+    {ok, #state{host = Host}}.
 
-depends(_Host, _Opts) ->
-    [{mod_adhoc, hard}].
+handle_call(_Call, _From, State) ->
+    {noreply, State}.
 
-init() ->
-    loop().
+handle_cast({F, #message{from = From, to = To} = Pkt}, State) when is_atom(F) ->
+    LServer = To#jid.lserver,
+    Host = case F of
+	       announce_all -> LServer;
+	       announce_all_hosts_all -> global;
+	       announce_online -> LServer;
+	       announce_all_hosts_online -> global;
+	       announce_motd -> LServer;
+	       announce_all_hosts_motd -> global;
+	       announce_motd_update -> LServer;
+	       announce_all_hosts_motd_update -> global;
+	       announce_motd_delete -> LServer;
+	       announce_all_hosts_motd_delete -> global
+	   end,
+    Access = get_access(Host),
+    case acl:match_rule(Host, Access, From) of
+	deny ->
+	    route_forbidden_error(Pkt);
+	allow ->
+	    ?MODULE:F(Pkt)
+    end,
+    {noreply, State};
+handle_cast(Msg, State) ->
+    ?WARNING_MSG("unexpected cast: ~p", [Msg]),
+    {noreply, State}.
 
-loop() ->
-    receive
-	{announce_all, From, To, Packet} ->
-	    announce_all(From, To, Packet),
-	    loop();
-	{announce_all_hosts_all, From, To, Packet} ->
-	    announce_all_hosts_all(From, To, Packet),
-	    loop();
-	{announce_online, From, To, Packet} ->
-	    announce_online(From, To, Packet),
-	    loop();
-	{announce_all_hosts_online, From, To, Packet} ->
-	    announce_all_hosts_online(From, To, Packet),
-	    loop();
-	{announce_motd, From, To, Packet} ->
-	    announce_motd(From, To, Packet),
-	    loop();
-	{announce_all_hosts_motd, From, To, Packet} ->
-	    announce_all_hosts_motd(From, To, Packet),
-	    loop();
-	{announce_motd_update, From, To, Packet} ->
-	    announce_motd_update(From, To, Packet),
-	    loop();
-	{announce_all_hosts_motd_update, From, To, Packet} ->
-	    announce_all_hosts_motd_update(From, To, Packet),
-	    loop();
-	{announce_motd_delete, From, To, Packet} ->
-	    announce_motd_delete(From, To, Packet),
-	    loop();
-	{announce_all_hosts_motd_delete, From, To, Packet} ->
-	    announce_all_hosts_motd_delete(From, To, Packet),
-	    loop();
-	_ ->
-	    loop()
-    end.
 
-stop(Host) ->
+handle_info(Info, State) ->
+    ?WARNING_MSG("unexpected info: ~p", [Info]),
+    {noreply, State}.
+
+terminate(_Reason, #state{host = Host}) ->
     ejabberd_hooks:delete(adhoc_local_commands, Host, ?MODULE, announce_commands, 50),
     ejabberd_hooks:delete(adhoc_local_items, Host, ?MODULE, announce_items, 50),
     ejabberd_hooks:delete(disco_local_identity, Host, ?MODULE, disco_identity, 50),
     ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, disco_features, 50),
     ejabberd_hooks:delete(disco_local_items, Host, ?MODULE, disco_items, 50),
-    ejabberd_hooks:delete(local_send_to_resource_hook, Host,
-			  ?MODULE, announce, 50),
-    ejabberd_hooks:delete(user_available_hook, Host,
-			  ?MODULE, send_motd, 50),
-    Proc = gen_mod:get_module_proc(Host, ?PROCNAME),
-    exit(whereis(Proc), stop),
-    {wait, Proc}.
+    ejabberd_hooks:delete(local_send_to_resource_hook, Host, ?MODULE, announce, 50),
+    ejabberd_hooks:delete(c2s_self_presence, Host, ?MODULE, send_motd, 50).
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 %% Announcing via messages to a custom resource
--spec announce(jid(), jid(), stanza()) -> ok | stop.
-announce(From, #jid{luser = <<>>} = To, #message{} = Packet) ->
-    Proc = gen_mod:get_module_proc(To#jid.lserver, ?PROCNAME),
+-spec announce(stanza()) -> ok | stop.
+announce(#message{to = #jid{luser = <<>>} = To} = Packet) ->
+    Proc = gen_mod:get_module_proc(To#jid.lserver, ?MODULE),
     Res = case To#jid.lresource of
 	      <<"announce/all">> ->
-		  Proc ! {announce_all, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all, Packet});
 	      <<"announce/all-hosts/all">> ->
-		  Proc ! {announce_all_hosts_all, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all_hosts_all, Packet});
 	      <<"announce/online">> ->
-		  Proc ! {announce_online, From, To, Packet};
+		  gen_server:cast(Proc, {announce_online, Packet});
 	      <<"announce/all-hosts/online">> ->
-		  Proc ! {announce_all_hosts_online, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all_hosts_online, Packet});
 	      <<"announce/motd">> ->
-		  Proc ! {announce_motd, From, To, Packet};
+		  gen_server:cast(Proc, {announce_motd, Packet});
 	      <<"announce/all-hosts/motd">> ->
-		  Proc ! {announce_all_hosts_motd, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all_hosts_motd, Packet});
 	      <<"announce/motd/update">> ->
-		  Proc ! {announce_motd_update, From, To, Packet};
+		  gen_server:cast(Proc, {announce_motd_update, Packet});
 	      <<"announce/all-hosts/motd/update">> ->
-		  Proc ! {announce_all_hosts_motd_update, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all_hosts_motd_update, Packet});
 	      <<"announce/motd/delete">> ->
-		  Proc ! {announce_motd_delete, From, To, Packet};
+		  gen_server:cast(Proc, {announce_motd_delete, Packet});
 	      <<"announce/all-hosts/motd/delete">> ->
-		  Proc ! {announce_all_hosts_motd_delete, From, To, Packet};
+		  gen_server:cast(Proc, {announce_all_hosts_motd_delete, Packet});
 	      _ ->
-		  ok
+		  undefined
 	  end,
     case Res of
-	ok -> ok;
-	_ -> stop
+	ok -> stop;
+	_ -> ok
     end;
-announce(_From, _To, _Packet) ->
+announce(_Packet) ->
     ok.
 
 %%-------------------------------------------------------------------------
@@ -388,7 +416,7 @@ commands_result(Allow, From, To, Request) ->
 	    announce_commands(From, To, Request)
     end.
 
--spec announce_commands(adhoc_command(), jid(), jid(), adhoc_command()) ->
+-spec announce_commands(empty | adhoc_command(), jid(), jid(), adhoc_command()) ->
 			       adhoc_command() | {error, stanza_error()}.
 announce_commands(Acc, From, #jid{lserver = LServer} = To,
 		  #adhoc_command{node = Node} = Request) ->
@@ -513,21 +541,23 @@ handle_adhoc_form(From, #jid{lserver = LServer} = To,
     Body = join_lines(xmpp_util:get_xdata_values(<<"body">>, XData)),
     Response = #adhoc_command{lang = Lang, node = Node, sid = SessionID,
 			      status = completed},
-    Packet = #message{type = headline,
+    Packet = #message{from = From,
+		      to = To,
+		      type = headline,
 		      body = xmpp:mk_text(Body),
 		      subject = xmpp:mk_text(Subject)},
-    Proc = gen_mod:get_module_proc(LServer, ?PROCNAME),
+    Proc = gen_mod:get_module_proc(LServer, ?MODULE),
     case {Node, Body} of
 	{?NS_ADMIN_DELETE_MOTD, _} ->
 	    if	Confirm ->
-		    Proc ! {announce_motd_delete, From, To, Packet},
+		    gen_server:cast(Proc, {announce_motd_delete, Packet}),
 		    Response;
 		true ->
 		    Response
 	    end;
 	{?NS_ADMIN_DELETE_MOTD_ALLHOSTS, _} ->
 	    if	Confirm ->
-		    Proc ! {announce_all_hosts_motd_delete, From, To, Packet},
+		    gen_server:cast(Proc, {announce_all_hosts_motd_delete, Packet}),
 		    Response;
 		true ->
 		    Response
@@ -537,32 +567,32 @@ handle_adhoc_form(From, #jid{lserver = LServer} = To,
 	    %% Throw an error and give him/her a chance to send message again.
 	    {error, xmpp:err_not_acceptable(
 		      <<"No body provided for announce message">>, Lang)};
-	%% Now send the packet to ?PROCNAME.
+	%% Now send the packet to ?MODULE.
 	%% We don't use direct announce_* functions because it
 	%% leads to large delay in response and <iq/> queries processing
 	{?NS_ADMIN_ANNOUNCE, _} ->
-	    Proc ! {announce_online, From, To, Packet},
+	    gen_server:cast(Proc, {announce_online, Packet}),
 	    Response;
 	{?NS_ADMIN_ANNOUNCE_ALLHOSTS, _} ->	    
-	    Proc ! {announce_all_hosts_online, From, To, Packet},
+	    gen_server:cast(Proc, {announce_all_hosts_online, Packet}),
 	    Response;
 	{?NS_ADMIN_ANNOUNCE_ALL, _} ->
-	    Proc ! {announce_all, From, To, Packet},
+	    gen_server:cast(Proc, {announce_all, Packet}),
 	    Response;
 	{?NS_ADMIN_ANNOUNCE_ALL_ALLHOSTS, _} ->	    
-	    Proc ! {announce_all_hosts_all, From, To, Packet},
+	    gen_server:cast(Proc, {announce_all_hosts_all, Packet}),
 	    Response;
 	{?NS_ADMIN_SET_MOTD, _} ->
-	    Proc ! {announce_motd, From, To, Packet},
+	    gen_server:cast(Proc, {announce_motd, Packet}),
 	    Response;
 	{?NS_ADMIN_SET_MOTD_ALLHOSTS, _} ->	    
-	    Proc ! {announce_all_hosts_motd, From, To, Packet},
+	    gen_server:cast(Proc, {announce_all_hosts_motd, Packet}),
 	    Response;
 	{?NS_ADMIN_EDIT_MOTD, _} ->
-	    Proc ! {announce_motd_update, From, To, Packet},
+	    gen_server:cast(Proc, {announce_motd_update, Packet}),
 	    Response;
 	{?NS_ADMIN_EDIT_MOTD_ALLHOSTS, _} ->	    
-	    Proc ! {announce_all_hosts_motd_update, From, To, Packet},
+	    gen_server:cast(Proc, {announce_all_hosts_motd_update, Packet}),
 	    Response;
 	Junk ->
 	    %% This can't happen, as we haven't registered any other
@@ -596,85 +626,46 @@ get_title(Lang, ?NS_ADMIN_DELETE_MOTD_ALLHOSTS) ->
 
 %%-------------------------------------------------------------------------
 
-announce_all(From, To, Packet) ->
-    Host = To#jid.lserver,
-    Access = get_access(Host),
-    case acl:match_rule(Host, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    Local = jid:make(To#jid.server),
-	    lists:foreach(
-	      fun({User, Server}) ->
-		      Dest = jid:make(User, Server, <<>>),
-		      ejabberd_router:route(Local, Dest, add_store_hint(Packet))
-	      end, ejabberd_auth:get_vh_registered_users(Host))
-    end.
+announce_all(#message{to = To} = Packet) ->
+    Local = jid:make(To#jid.server),
+    lists:foreach(
+      fun({User, Server}) ->
+	      Dest = jid:make(User, Server),
+	      ejabberd_router:route(
+		xmpp:set_from_to(add_store_hint(Packet), Local, Dest))
+      end, ejabberd_auth:get_vh_registered_users(To#jid.lserver)).
 
-announce_all_hosts_all(From, To, Packet) ->
-    Access = get_access(global),
-    case acl:match_rule(global, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    Local = jid:make(To#jid.server),
-	    lists:foreach(
-	      fun({User, Server}) ->
-		      Dest = jid:make(User, Server, <<>>),
-		      ejabberd_router:route(Local, Dest, add_store_hint(Packet))
-	      end, ejabberd_auth:dirty_get_registered_users())
-    end.
+announce_all_hosts_all(#message{to = To} = Packet) ->
+    Local = jid:make(To#jid.server),
+    lists:foreach(
+      fun({User, Server}) ->
+	      Dest = jid:make(User, Server),
+	      ejabberd_router:route(
+		xmpp:set_from_to(add_store_hint(Packet), Local, Dest))
+      end, ejabberd_auth:dirty_get_registered_users()).
 
-announce_online(From, To, Packet) ->
-    Host = To#jid.lserver,
-    Access = get_access(Host),
-    case acl:match_rule(Host, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    announce_online1(ejabberd_sm:get_vh_session_list(Host),
-			     To#jid.server,
-			     Packet)
-    end.
+announce_online(#message{to = To} = Packet) ->
+    announce_online1(ejabberd_sm:get_vh_session_list(To#jid.lserver),
+		     To#jid.server, Packet).
 
-announce_all_hosts_online(From, To, Packet) ->
-    Access = get_access(global),
-    case acl:match_rule(global, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    announce_online1(ejabberd_sm:dirty_get_sessions_list(),
-			     To#jid.server,
-			     Packet)
-    end.
+announce_all_hosts_online(#message{to = To} = Packet) ->
+    announce_online1(ejabberd_sm:dirty_get_sessions_list(),
+		     To#jid.server, Packet).
 
 announce_online1(Sessions, Server, Packet) ->
     Local = jid:make(Server),
     lists:foreach(
       fun({U, S, R}) ->
 	      Dest = jid:make(U, S, R),
-	      ejabberd_router:route(Local, Dest, Packet)
+	      ejabberd_router:route(xmpp:set_from_to(Packet, Local, Dest))
       end, Sessions).
 
-announce_motd(From, To, Packet) ->
-    Host = To#jid.lserver,
-    Access = get_access(Host),
-    case acl:match_rule(Host, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    announce_motd(Host, Packet)
-    end.
+announce_motd(#message{to = To} = Packet) ->
+    announce_motd(To#jid.lserver, Packet).
 
-announce_all_hosts_motd(From, To, Packet) ->
-    Access = get_access(global),
-    case acl:match_rule(global, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    Hosts = ?MYHOSTS,
-	    [announce_motd(Host, Packet) || Host <- Hosts]
-    end.
+announce_all_hosts_motd(Packet) ->
+    Hosts = ?MYHOSTS,
+    [announce_motd(Host, Packet) || Host <- Hosts].
 
 announce_motd(Host, Packet) ->
     LServer = jid:nameprep(Host),
@@ -684,57 +675,37 @@ announce_motd(Host, Packet) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:set_motd_users(LServer, Sessions).
 
-announce_motd_update(From, To, Packet) ->
-    Host = To#jid.lserver,
-    Access = get_access(Host),
-    case acl:match_rule(Host, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    announce_motd_update(Host, Packet)
-    end.
+announce_motd_update(#message{to = To} = Packet) ->
+    announce_motd_update(To#jid.lserver, Packet).
 
-announce_all_hosts_motd_update(From, To, Packet) ->
-    Access = get_access(global),
-    case acl:match_rule(global, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    Hosts = ?MYHOSTS,
-	    [announce_motd_update(Host, Packet) || Host <- Hosts]
-    end.
+announce_all_hosts_motd_update(Packet) ->
+    Hosts = ?MYHOSTS,
+    [announce_motd_update(Host, Packet) || Host <- Hosts].
 
 announce_motd_update(LServer, Packet) ->
-    announce_motd_delete(LServer),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
+    Mod:delete_motd(LServer),
     Mod:set_motd(LServer, xmpp:encode(Packet)).
 
-announce_motd_delete(From, To, Packet) ->
-    Host = To#jid.lserver,
-    Access = get_access(Host),
-    case acl:match_rule(Host, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    announce_motd_delete(Host)
-    end.
-
-announce_all_hosts_motd_delete(From, To, Packet) ->
-    Access = get_access(global),
-    case acl:match_rule(global, Access, From) of
-	deny ->
-	    route_forbidden_error(From, To, Packet);
-	allow ->
-	    Hosts = ?MYHOSTS,
-	    [announce_motd_delete(Host) || Host <- Hosts]
-    end.
-
-announce_motd_delete(LServer) ->
+announce_motd_delete(#message{to = To}) ->
+    LServer = To#jid.lserver,
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:delete_motd(LServer).
 
--spec send_motd(jid()) -> ok | {atomic, any()}.
-send_motd(#jid{luser = LUser, lserver = LServer} = JID) when LUser /= <<>> ->
+announce_all_hosts_motd_delete(_Packet) ->
+    lists:foreach(
+      fun(Host) ->
+	      Mod = gen_mod:db_mod(Host, ?MODULE),
+	      Mod:delete_motd(Host)
+      end, ?MYHOSTS).
+
+-spec send_motd({presence(), ejabberd_c2s:state()}) -> {presence(), ejabberd_c2s:state()}.
+send_motd({_, #{pres_last := _}} = Acc) ->
+    %% This is just a presence update, nothing to do
+    Acc;
+send_motd({#presence{type = available},
+	   #{jid := #jid{luser = LUser, lserver = LServer} = JID}} = Acc)
+  when LUser /= <<>> ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     case Mod:get_motd(LServer) of
 	{ok, Packet} ->
@@ -743,7 +714,8 @@ send_motd(#jid{luser = LUser, lserver = LServer} = JID) when LUser /= <<>> ->
 		    case Mod:is_motd_user(LUser, LServer) of
 			false ->
 			    Local = jid:make(LServer),
-			    ejabberd_router:route(Local, JID, Msg),
+			    ejabberd_router:route(
+			      xmpp:set_from_to(Msg, Local, JID)),
 			    Mod:set_motd_user(LUser, LServer);
 			true ->
 			    ok
@@ -754,9 +726,10 @@ send_motd(#jid{luser = LUser, lserver = LServer} = JID) when LUser /= <<>> ->
 	    end;
 	error ->
 	    ok
-    end;
-send_motd(_) ->
-    ok.
+    end,
+    Acc;
+send_motd(Acc) ->
+    Acc.
 
 get_stored_motd(LServer) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
@@ -783,7 +756,8 @@ send_announcement_to_all(Host, SubjectS, BodyS) ->
     lists:foreach(
       fun({U, S, R}) ->
 	      Dest = jid:make(U, S, R),
-	      ejabberd_router:route(Local, Dest, add_store_hint(Packet))
+	      ejabberd_router:route(
+		xmpp:set_from_to(add_store_hint(Packet), Local, Dest))
       end, Sessions).
 
 -spec get_access(global | binary()) -> atom().
@@ -797,11 +771,11 @@ get_access(Host) ->
 add_store_hint(El) ->
     xmpp:set_subtag(El, #hint{type = store}).
 
--spec route_forbidden_error(jid(), jid(), stanza()) -> ok.
-route_forbidden_error(From, To, Packet) ->
+-spec route_forbidden_error(stanza()) -> ok.
+route_forbidden_error(Packet) ->
     Lang = xmpp:get_lang(Packet),
     Err = xmpp:err_forbidden(<<"Denied by ACL">>, Lang),
-    ejabberd_router:route_error(To, From, Packet, Err).
+    ejabberd_router:route_error(Packet, Err).
 
 %%-------------------------------------------------------------------------
 export(LServer) ->

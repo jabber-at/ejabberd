@@ -29,8 +29,8 @@
 
 -behaviour(gen_mod).
 
--export([start/2, stop/1, log_user_send/4,
-	 log_user_receive/5, mod_opt_type/1, depends/2]).
+-export([start/2, stop/1, log_user_send/1,
+	 log_user_receive/1, mod_opt_type/1, depends/2]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -54,40 +54,30 @@ stop(Host) ->
 depends(_Host, _Opts) ->
     [].
 
--spec log_user_send(stanza(), ejabberd_c2s:state(), jid(), jid()) -> stanza().
-log_user_send(Packet, _C2SState, From, To) ->
-    log_packet(From, To, Packet, From#jid.lserver),
-    Packet.
+-spec log_user_send({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+log_user_send({Packet, C2SState}) ->
+    From = xmpp:get_from(Packet),
+    log_packet(Packet, From#jid.lserver),
+    {Packet, C2SState}.
 
--spec log_user_receive(stanza(), ejabberd_c2s:state(), jid(), jid(), jid()) -> stanza().
-log_user_receive(Packet, _C2SState, _JID, From, To) ->
-    log_packet(From, To, Packet, To#jid.lserver),
-    Packet.
+-spec log_user_receive({stanza(), ejabberd_c2s:state()}) -> {stanza(), ejabberd_c2s:state()}.
+log_user_receive({Packet, C2SState}) ->
+    To = xmpp:get_to(Packet),
+    log_packet(Packet, To#jid.lserver),
+    {Packet, C2SState}.
 
--spec log_packet(jid(), jid(), stanza(), binary()) -> ok.
-log_packet(From, To, Packet, Host) ->
+-spec log_packet(stanza(), binary()) -> ok.
+log_packet(Packet, Host) ->
     Loggers = gen_mod:get_module_opt(Host, ?MODULE, loggers,
-                                     fun(L) ->
-                                             lists:map(
-                                               fun(S) ->
-                                                       B = iolist_to_binary(S),
-                                                       N = jid:nameprep(B),
-                                                       if N /= error ->
-                                                               N
-                                                       end
-                                               end, L)
-                                     end, []),
-    ServerJID = jid:make(Host),
-    FixedPacket = xmpp:set_from_to(Packet, From, To),
-    lists:foreach(fun (Logger) ->
-			  ejabberd_router:route(ServerJID,
-						jid:make(Logger),
-						#xmlel{name = <<"route">>,
-						       attrs = [],
-						       children =
-							   [FixedPacket]})
-		  end,
-		  Loggers).
+				     mod_opt_type(loggers), []),
+    ForwardedMsg = #message{from = jid:make(Host),
+			    id = randoms:get_string(),
+			    sub_els = [#forwarded{
+					  xml_els = [xmpp:encode(Packet)]}]},
+    lists:foreach(
+      fun(Logger) ->
+	      ejabberd_router:route(xmpp:set_to(ForwardedMsg, jid:make(Logger)))
+      end, Loggers).
 
 mod_opt_type(loggers) ->
     fun (L) ->

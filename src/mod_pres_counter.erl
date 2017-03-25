@@ -27,7 +27,7 @@
 
 -behavior(gen_mod).
 
--export([start/2, stop/1, check_packet/6,
+-export([start/2, stop/1, reload/3, check_packet/4,
 	 mod_opt_type/1, depends/2]).
 
 -include("ejabberd.hrl").
@@ -48,13 +48,18 @@ stop(Host) ->
 			  ?MODULE, check_packet, 25),
     ok.
 
+reload(_Host, _NewOpts, _OldOpts) ->
+    ok.
+
 depends(_Host, _Opts) ->
     [].
 
--spec check_packet(allow | deny, binary(), binary(), _,
-		   {jid(), jid(), stanza()}, in | out) -> allow | deny.
-check_packet(_, _User, Server, _PrivacyList,
-	     {From, To, #presence{type = Type}}, Dir) ->
+-spec check_packet(allow | deny, ejabberd_c2s:state() | jid(),
+		   stanza(), in | out) -> allow | deny.
+check_packet(Acc, #{jid := JID}, Packet, Dir) ->
+    check_packet(Acc, JID, Packet, Dir);
+check_packet(_, #jid{lserver = LServer},
+	     #presence{from = From, to = To, type = Type}, Dir) ->
     IsSubscription = case Type of
 			 subscribe -> true;
 			 subscribed -> true;
@@ -67,11 +72,11 @@ check_packet(_, _User, Server, _PrivacyList,
 		      in -> To;
 		      out -> From
 		  end,
-	    update(Server, JID, Dir);
+	    update(LServer, JID, Dir);
        true -> allow
     end;
-check_packet(_, _User, _Server, _PrivacyList, _Pkt, _Dir) ->
-    allow.
+check_packet(Acc, _, _, _) ->
+    Acc.
 
 update(Server, JID, Dir) ->
     StormCount = gen_mod:get_module_opt(Server, ?MODULE, count,
@@ -100,14 +105,14 @@ update(Server, JID, Dir) ->
 		   in ->
 		       ?WARNING_MSG("User ~s is being flooded, ignoring received "
 				    "presence subscriptions",
-				    [jid:to_string(JID)]);
+				    [jid:encode(JID)]);
 		   out ->
 		       IP = ejabberd_sm:get_user_ip(JID#jid.luser,
 						    JID#jid.lserver,
 						    JID#jid.lresource),
 		       ?WARNING_MSG("Flooder detected: ~s, on IP: ~s ignoring "
 				    "sent presence subscriptions~n",
-				    [jid:to_string(JID),
+				    [jid:encode(JID),
 				     jlib:ip_to_list(IP)])
 		 end,
 		 {stop, deny};

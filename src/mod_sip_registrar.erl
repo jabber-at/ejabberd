@@ -24,7 +24,9 @@
 %%%-------------------------------------------------------------------
 -module(mod_sip_registrar).
 
--define(GEN_SERVER, p1_server).
+-ifndef(GEN_SERVER).
+-define(GEN_SERVER, gen_server).
+-endif.
 -behaviour(?GEN_SERVER).
 
 %% API
@@ -49,7 +51,7 @@
 		      cseq = 0 :: non_neg_integer(),
 		      timestamp = p1_time_compat:timestamp() :: erlang:timestamp(),
 		      contact :: {binary(), #uri{}, [{binary(), binary()}]},
-		      flow_tref :: reference(),
+		      flow_tref :: reference() | undefined,
 		      reg_tref = make_ref() :: reference(),
 		      conn_mref = make_ref() :: reference(),
 		      expires = 0 :: non_neg_integer()}).
@@ -177,6 +179,7 @@ ping(SIPSocket) ->
 %%% gen_server callbacks
 %%%===================================================================
 init([]) ->
+    process_flag(trap_exit, true),
     update_table(),
     ejabberd_mnesia:create(?MODULE, sip_session,
 			[{ram_copies, [node()]},
