@@ -15,7 +15,7 @@
      ##
      ## Custom OpenSSL options
      ##
-@@ -194,7 +194,7 @@
+@@ -195,7 +195,7 @@
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -24,20 +24,27 @@
  
  ##
  ## s2s_certfile: Specify a certificate file.
-@@ -624,8 +624,10 @@
+@@ -631,6 +631,7 @@
+   mod_admin_extra: {}
+   mod_announce: # recommends mod_adhoc
+     access: announce
++  mod_block_strangers: {}
+   mod_blocking: {} # requires mod_privacy
+   mod_caps: {}
+   mod_carboncopy: {}
+@@ -639,7 +640,10 @@
    ##mod_delegation: {} # for xep0356
    mod_disco: {}
    mod_echo: {}
 -  mod_irc: {}
--  mod_http_bind: {}
-+  mod_irc:
++  mod_irc: 
 +    default_encoding: "utf-8"
 +  mod_http_bind:
 +    max_inactivity: 60
+   mod_bosh: {}
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
-   ##   accesslog: "/var/log/ejabberd/access.log"
-@@ -644,9 +646,9 @@
+@@ -659,9 +663,9 @@
    mod_offline: 
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -50,7 +57,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -665,7 +667,7 @@
+@@ -680,7 +684,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -59,7 +66,7 @@
      ##
      ## Set the minimum informational entropy for passwords.
      ##
-@@ -696,6 +698,7 @@
+@@ -711,6 +715,7 @@
      ##   access: register
    mod_roster: {}
    mod_shared_roster: {}
