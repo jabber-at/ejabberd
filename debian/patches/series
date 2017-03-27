@@ -1,7 +1,7 @@
 Makefile.in.diff
 rebar.config.diff
 src.includes.patch
-src.ext_mod.erl.patch
+#src.ext_mod.erl.patch
 ejabberdctl.template.patch
 ejabberd.init.template.patch
 ejabberd.service.template.patch

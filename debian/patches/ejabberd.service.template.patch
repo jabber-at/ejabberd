@@ -14,12 +14,13 @@ Author: Mathias Ertl <mati@jabber.at>
  
  [Service]
  Type=forking
-@@ -9,10 +10,12 @@
+@@ -9,11 +10,12 @@
  LimitNOFILE=65536
  Restart=on-failure
  RestartSec=5
 -ExecStart=/bin/sh -c '@ctlscriptpath@/ejabberdctl start && @ctlscriptpath@/ejabberdctl started'
 -ExecStop=/bin/sh -c '@ctlscriptpath@/ejabberdctl stop && @ctlscriptpath@/ejabberdctl stopped'
+-ExecReload=@ctlscriptpath@/ejabberdctl reload_config
 +ExecStart=/bin/sh -c '/usr/sbin/ejabberdctl start && /usr/sbin/ejabberdctl started'
 +ExecStop=/bin/sh -c '/usr/sbin/ejabberdctl stop && /usr/sbin/ejabberdctl stopped'
 +PIDFile=/run/ejabberd/ejabberd.pid

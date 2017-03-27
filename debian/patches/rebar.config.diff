@@ -10,15 +10,15 @@ Author: Philipp Huebner <debalance@debian.org>
  %%%----------------------------------------------------------------------
  
 -{deps, [{lager, ".*", {git, "https://github.com/basho/lager", {tag, "3.2.1"}}},
--        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", {tag, "1.0.6"}}},
--        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.6"}}},
--        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.10"}}},
--        {stringprep, ".*", {git, "https://github.com/processone/stringprep", {tag, "1.0.7"}}},
--        {fast_xml, ".*", {git, "https://github.com/processone/fast_xml", {tag, "1.1.19"}}},
--        {xmpp, ".*", {git, "https://github.com/processone/xmpp", {tag, "1.1.6"}}},
--        {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.9"}}},
--        {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.10"}}},
--        {fast_yaml, ".*", {git, "https://github.com/processone/fast_yaml", {tag, "1.0.8"}}},
+-        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", {tag, "1.0.7"}}},
+-        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.7"}}},
+-        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.11"}}},
+-        {stringprep, ".*", {git, "https://github.com/processone/stringprep", {tag, "1.0.8"}}},
+-        {fast_xml, ".*", {git, "https://github.com/processone/fast_xml", {tag, "1.1.21"}}},
+-        {xmpp, ".*", {git, "https://github.com/processone/xmpp", {tag, "1.1.9"}}},
+-        {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.10"}}},
+-        {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.11"}}},
+-        {fast_yaml, ".*", {git, "https://github.com/processone/fast_yaml", {tag, "1.0.9"}}},
 -        {jiffy, ".*", {git, "https://github.com/davisp/jiffy", {tag, "0.14.8"}}},
 -        {p1_oauth2, ".*", {git, "https://github.com/processone/p1_oauth2", {tag, "0.6.1"}}},
 -        {luerl, ".*", {git, "https://github.com/rvirding/luerl", {tag, "v0.2"}}},
@@ -28,20 +28,20 @@ Author: Philipp Huebner <debalance@debian.org>
 -                                               {tag, "1.1.2"}}}},
 -        {if_var_true, sqlite, {sqlite3, ".*", {git, "https://github.com/processone/erlang-sqlite3",
 -                                               {tag, "1.1.5"}}}},
--        {if_var_true, pam, {p1_pam, ".*", {git, "https://github.com/processone/epam",
--                                           {tag, "1.0.0"}}}},
+-        {if_var_true, pam, {epam, ".*", {git, "https://github.com/processone/epam",
+-                                           {tag, "1.0.2"}}}},
 -        {if_var_true, zlib, {ezlib, ".*", {git, "https://github.com/processone/ezlib",
 -                                           {tag, "1.0.2"}}}},
 -        {if_var_true, riak, {riakc, ".*", {git, "https://github.com/basho/riak-erlang-client",
 -                                           {tag, "2.4.1"}}}},
--        %% Elixir support, needed to run tests
+-	%% Elixir support, needed to run tests
 -        {if_var_true, elixir, {elixir, ".*", {git, "https://github.com/elixir-lang/elixir",
 -                                              {tag, {if_version_above, "17", "v1.2.6", "v1.1.1"}}}}},
 -        %% TODO: When modules are fully migrated to new structure and mix, we will not need anymore rebar_elixir_plugin
--        {if_var_true, elixir, {rebar_elixir_plugin, ".*",
--                               {git, "https://github.com/processone/rebar_elixir_plugin", "0.1.0"}}},
+-	{if_not_rebar3, {if_var_true, elixir, {rebar_elixir_plugin, ".*",
+-					       {git, "https://github.com/processone/rebar_elixir_plugin", "0.1.0"}}}},
 -        {if_var_true, iconv, {iconv, ".*", {git, "https://github.com/processone/iconv",
--                                            {tag, "1.0.3"}}}},
+-                                            {tag, "1.0.4"}}}},
 -        {if_var_true, tools, {meck, "0.8.*", {git, "https://github.com/eproxus/meck",
 -                                              {tag, "0.8.4"}}}},
 -        {if_var_true, tools, {moka, ".*", {git, "https://github.com/processone/moka.git",
@@ -51,7 +51,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  {if_var_true, latest_deps,
   {floating_deps, [cache_tab,
-@@ -136,14 +97,6 @@
+@@ -140,14 +101,6 @@
  {if_version_above, "17", {cover_enabled, true}}.
  {cover_export_enabled, true}.
  
@@ -60,7 +60,7 @@ Author: Philipp Huebner <debalance@debian.org>
 -                       {"fast_yaml", []},
 -                       {"esip", []},
 -                       {"fast_xml", [{if_var_true, full_xml, "--enable-full-xml"}]},
--                       {if_var_true, pam, {"p1_pam", []}},
+-                       {if_var_true, pam, {"epam", []}},
 -                       {if_var_true, zlib, {"ezlib", []}},
 -                       {if_var_true, iconv, {"iconv", []}}]}.
  
