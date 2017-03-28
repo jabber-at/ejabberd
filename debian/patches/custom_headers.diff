@@ -1,0 +1,185 @@
+Description: Add custom_headers option to HTTP listeners
+ With this patch, you can add custom headers to HTTP listeners, like this:
+ .
+ custom_headers:
+   "ejabberd-Version": "@VERSION@"
+Author: Author: Holger Weiss <holger@zedat.fu-berlin.de>
+Origin: https://github.com/processone/ejabberd/pull/1646
+Bug: https://github.com/processone/ejabberd/issues/517
+Applied-Upstream: 17.03+1
+Reviewed-by: <name and email of a reviewer, optional>
+Last-Update: 2017-03-28
+--- a/src/ejabberd_http.erl
++++ b/src/ejabberd_http.erl
+@@ -68,6 +68,7 @@
+ 		end_of_request = false,
+ 		options = [],
+ 		default_host,
++		custom_headers,
+ 		trail = <<>>,
+ 		addr_re
+ 	       }).
+@@ -167,10 +168,15 @@
+     DefaultHost = gen_mod:get_opt(default_host, Opts, fun(A) -> A end, undefined),
+     {ok, RE} = re:compile(<<"^(?:\\[(.*?)\\]|(.*?))(?::(\\d+))?$">>),
+ 
++    CustomHeaders = gen_mod:get_opt(custom_headers, Opts,
++				    fun expand_custom_headers/1,
++				    []),
++
+     ?INFO_MSG("started: ~p", [{SockMod1, Socket1}]),
+     State = #state{sockmod = SockMod1,
+                    socket = Socket1,
+                    default_host = DefaultHost,
++		   custom_headers = CustomHeaders,
+ 		   options = Opts,
+ 		   request_handlers = RequestHandlers,
+ 		   addr_re = RE},
+@@ -309,6 +315,7 @@
+ 		       trail = State3#state.trail,
+ 		       options = State#state.options,
+ 		       default_host = State#state.default_host,
++		       custom_headers = State#state.custom_headers,
+ 		       request_handlers = State#state.request_handlers,
+ 		       addr_re = State#state.addr_re};
+ 	    _ ->
+@@ -316,6 +323,7 @@
+ 		       trail = State3#state.trail,
+ 		       options = State#state.options,
+ 		       default_host = State#state.default_host,
++		       custom_headers = State#state.custom_headers,
+ 		       request_handlers = State#state.request_handlers,
+ 		       addr_re = State#state.addr_re}
+ 	  end;
+@@ -323,6 +331,7 @@
+ 	  #state{end_of_request = true,
+ 		 options = State#state.options,
+ 		 default_host = State#state.default_host,
++		 custom_headers = State#state.custom_headers,
+ 		 request_handlers = State#state.request_handlers,
+ 		 addr_re = State#state.addr_re}
+     end.
+@@ -446,6 +455,7 @@
+ 		       request_tp = TP,
+ 		       request_headers = RequestHeaders,
+ 		       request_handlers = RequestHandlers,
++		       custom_headers = CustomHeaders,
+ 		       trail = Trail} = State) ->
+     case extract_path_query(State) of
+ 	{State2, false} ->
+@@ -478,18 +488,21 @@
+                                ip = IP},
+ 	    Res = case process(RequestHandlers, Request, Socket, SockMod, Trail) of
+ 		      El when is_record(El, xmlel) ->
+-			  make_xhtml_output(State, 200, [], El);
++			  make_xhtml_output(State, 200, CustomHeaders, El);
+ 		      {Status, Headers, El}
+ 			when is_record(El, xmlel) ->
+-			  make_xhtml_output(State, Status, Headers, El);
++			  make_xhtml_output(State, Status,
++					    Headers ++ CustomHeaders, El);
+ 		      Output when is_binary(Output) or is_list(Output) ->
+-			  make_text_output(State, 200, [], Output);
++			  make_text_output(State, 200, CustomHeaders, Output);
+ 		      {Status, Headers, Output}
+ 			when is_binary(Output) or is_list(Output) ->
+-			  make_text_output(State, Status, Headers, Output);
++			  make_text_output(State, Status,
++					   Headers ++ CustomHeaders, Output);
+ 		      {Status, Reason, Headers, Output}
+ 			when is_binary(Output) or is_list(Output) ->
+-			  make_text_output(State, Status, Reason, Headers, Output);
++			  make_text_output(State, Status, Reason,
++					   Headers ++ CustomHeaders, Output);
+ 		      _ ->
+ 			  none
+ 		  end,
+@@ -497,7 +510,7 @@
+     end.
+ 
+ make_bad_request(State) ->
+-    make_xhtml_output(State, 400, [],
++    make_xhtml_output(State, 400, State#state.custom_headers,
+ 		      ejabberd_web:make_xhtml([#xmlel{name = <<"h1">>,
+ 						      attrs = [],
+ 						      children =
+@@ -720,6 +733,11 @@
+     rest_dir(0, <<H, Path/binary>>, T);
+ rest_dir(N, Path, <<_H, T/binary>>) -> rest_dir(N, Path, T).
+ 
++expand_custom_headers(Headers) ->
++    lists:map(fun({K, V}) ->
++		      {K, jlib:expand_keyword(<<"@VERSION@">>, V, ?VERSION)}
++	      end, Headers).
++
+ %% hex_to_integer
+ 
+ hex_to_integer(Hex) ->
+--- a/src/jlib.erl
++++ b/src/jlib.erl
+@@ -37,7 +37,7 @@
+ 
+ -export([tolower/1, term_to_base64/1, base64_to_term/1,
+ 	 decode_base64/1, encode_base64/1, ip_to_list/1,
+-	 hex_to_bin/1, hex_to_base64/1,
++	 hex_to_bin/1, hex_to_base64/1, expand_keyword/3,
+ 	 atom_to_binary/1, binary_to_atom/1, tuple_to_binary/1,
+ 	 l2i/1, i2l/1, i2l/2, expr_to_term/1, term_to_expr/1,
+ 	 queue_drop_while/2, queue_foldl/3, queue_foldr/3, queue_foreach/2]).
+@@ -935,6 +935,12 @@
+ 
+ hex_to_base64(Hex) -> encode_base64(hex_to_bin(Hex)).
+ 
++-spec expand_keyword(binary(), binary(), binary()) -> binary().
++
++expand_keyword(Keyword, Input, Replacement) ->
++    Parts = binary:split(Input, Keyword, [global]),
++    str:join(Parts, Replacement).
++
+ binary_to_atom(Bin) ->
+     erlang:binary_to_atom(Bin, utf8).
+ 
+--- a/src/mod_http_upload.erl
++++ b/src/mod_http_upload.erl
+@@ -500,16 +500,14 @@
+ 
+ -spec expand_home(binary()) -> binary().
+ 
+-expand_home(Subject) ->
++expand_home(Input) ->
+     {ok, [[Home]]} = init:get_argument(home),
+-    Parts = binary:split(Subject, <<"@HOME@">>, [global]),
+-    str:join(Parts, list_to_binary(Home)).
++    jlib:expand_keyword(<<"@HOME@">>, Input, Home).
+ 
+ -spec expand_host(binary(), binary()) -> binary().
+ 
+-expand_host(Subject, Host) ->
+-    Parts = binary:split(Subject, <<"@HOST@">>, [global]),
+-    str:join(Parts, Host).
++expand_host(Input, Host) ->
++    jlib:expand_keyword(<<"@HOST@">>, Input, Host).
+ 
+ %%--------------------------------------------------------------------
+ %% Internal functions.
+@@ -835,7 +833,6 @@
+       -> {pos_integer(), [{binary(), binary()}], binary()}.
+ 
+ http_response(Host, Code, ExtraHeaders, Body) ->
+-    ServerHeader = {<<"Server">>, <<"ejabberd ", (?VERSION)/binary>>},
+     CustomHeaders =
+ 	gen_mod:get_module_opt(Host, ?MODULE, custom_headers,
+ 			       fun(Headers) ->
+@@ -847,10 +844,9 @@
+ 			       []),
+     Headers = case proplists:is_defined(<<"Content-Type">>, ExtraHeaders) of
+ 		  true ->
+-		      [ServerHeader | ExtraHeaders];
++		      ExtraHeaders;
+ 		  false ->
+-		      [ServerHeader, {<<"Content-Type">>, <<"text/plain">>} |
+-		       ExtraHeaders]
++		      [{<<"Content-Type">>, <<"text/plain">>} | ExtraHeaders]
+ 	      end ++ CustomHeaders,
+     {Code, Headers, Body}.
+ 
