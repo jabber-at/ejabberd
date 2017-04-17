@@ -32,88 +32,92 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -113,14 +100,15 @@
- listen: 
-   - 
-     port: 5222
-+    ip: "::"
-     module: ejabberd_c2s
-     ##
-     ## If TLS is compiled in and you installed a SSL
+@@ -107,15 +94,15 @@
+ ###'  LISTENING PORTS
+ 
+ ## Define common macros used by listeners
+-## define_macro:
+-##   'CERTFILE': "/path/to/xmpp.pem"
+-##   'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
+-##   'TLSOPTS':
+-##     - "no_sslv3"
+-##     - "no_tlsv1"
+-##     - "cipher_server_preference"
+-##     - "no_compression"
+-##   'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
++define_macro:
++  'CERTFILE': "/etc/ejabberd/ejabberd.pem"
++  'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
++  'TLSOPTS':
++    - "no_sslv3"
++    - "no_tlsv1"
++    - "cipher_server_preference"
++    - "no_compression"
++  'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 4096
+ 
+ ##
+ ## listen: The ports ejabberd will listen on, which service each is handled
+@@ -131,11 +118,11 @@
      ## certificate, specify the full path to the
      ## file and uncomment these lines:
      ##
--    ## certfile: "/path/to/ssl.pem"
 -    ## starttls: true
-+    certfile: "/etc/ejabberd/ejabberd.pem"
+-    ## certfile: 'CERTFILE'
+-    ## protocol_options: 'TLSOPTS'
+-    ## dhfile: 'DHFILE'
+-    ## ciphers: 'CIPHERS'
++    certfile: 'CERTFILE'
 +    starttls: true
++    protocol_options: 'TLSOPTS'
++    dhfile: 'DHFILE'
++    ciphers: 'CIPHERS'
      ##
      ## To enforce TLS encryption for client connections,
      ## use this instead of the "starttls" option:
-@@ -129,14 +117,17 @@
-     ##
-     ## Custom OpenSSL options
-     ##
--    ## protocol_options:
--    ##   - "no_sslv3"
-+    protocol_options:
-+      - "no_sslv3"
-     ##   - "no_tlsv1"
+@@ -149,6 +136,7 @@
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-+    zlib: true
 +    resend_on_timeout: if_offline
    - 
      port: 5269
-+    ip: "::"
-     module: ejabberd_s2s_in
-   ##
-   ## ejabberd_service: Interact with external components (transports, ...)
-@@ -179,6 +170,7 @@
-   ##   access_commands: {}
-   - 
-     port: 5280
-+    ip: "::"
-     module: ejabberd_http
-     request_handlers:
-       "/websocket": ejabberd_http_ws
-@@ -188,6 +180,12 @@
+     ip: "::"
+@@ -165,6 +153,11 @@
      http_bind: true
      ## register: true
      captcha: true
 +    tls: true
-+    certfile: "/etc/ejabberd/ejabberd.pem"
-+
-+## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
-+## password storage (see auth_password_format option).
++    certfile: 'CERTFILE'
++    protocol_options: 'TLSOPTS'
++    dhfile: 'DHFILE'
++    ciphers: 'CIPHERS'
+   ##
+   ## ejabberd_service: Interact with external components (transports, ...)
+   ##
+@@ -224,7 +217,7 @@
+ 
+ ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
+ ## password storage (see auth_password_format option).
+-## disable_sasl_mechanisms: "digest-md5"
 +disable_sasl_mechanisms: "digest-md5"
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -197,17 +195,17 @@
- ## Allowed values are: false optional required required_trusted
- ## You must specify a certificate file.
- ##
--## s2s_use_starttls: optional
-+s2s_use_starttls: optional
- 
+@@ -239,11 +232,11 @@
  ##
  ## s2s_certfile: Specify a certificate file.
  ##
--## s2s_certfile: "/path/to/ssl.pem"
-+s2s_certfile: "/etc/ejabberd/ejabberd.pem"
+-## s2s_certfile: 'CERTFILE'
++s2s_certfile: 'CERTFILE'
  
  ## Custom OpenSSL options
  ##
--## s2s_protocol_options:
--##   - "no_sslv3"
-+s2s_protocol_options:
-+  - "no_sslv3"
- ##   - "no_tlsv1"
+-## s2s_protocol_options: 'TLSOPTS'
++s2s_protocol_options: 'TLSOPTS'
  
  ##
-@@ -251,7 +249,7 @@
+ ## domain_certfile: Specify a different certificate for each served hostname.
+@@ -286,7 +279,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -122,7 +126,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -610,7 +608,7 @@
+@@ -645,7 +638,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -131,27 +135,9 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -630,7 +628,7 @@
- ##
- modules: 
-   mod_adhoc: {}
--  ## mod_admin_extra: {}
-+  mod_admin_extra: {}
-   mod_announce: # recommends mod_adhoc
-     access: announce
-   mod_blocking: {} # requires mod_privacy
-@@ -640,7 +638,7 @@
-   mod_configure: {} # requires mod_adhoc
-   ##mod_delegation: {} # for xep0356
-   mod_disco: {}
--  ## mod_echo: {}
-+  mod_echo: {}
-   mod_irc: {}
-   mod_bosh: {}
-   ## mod_http_fileserver:
-@@ -656,6 +654,7 @@
-     access_create: muc_create
+@@ -702,6 +695,7 @@
      access_persistent: muc_create
+   mod_muc_admin: {}
    ## mod_muc_log: {}
 +  mod_muc_admin: {}
    ## mod_multicast: {}
