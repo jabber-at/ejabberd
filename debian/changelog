@@ -1,3 +1,9 @@
+ejabberd (1:17.04-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 28 Mar 2017 16:41:07 +0200
+
 ejabberd (1:17.03-2) unstable; urgency=low
 
   * Add custom_headers.diff, allows custom HTTP headers to ejabberd listeners.
