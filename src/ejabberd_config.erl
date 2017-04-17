@@ -37,7 +37,7 @@
 	 env_binary_to_list/2, opt_type/1, may_hide_data/1,
 	 is_elixir_enabled/0, v_dbs/1, v_dbs_mods/1,
 	 default_db/1, default_db/2, default_ram_db/1, default_ram_db/2,
-	 fsm_limit_opts/1]).
+	 default_queue_type/1, queue_dir/0, fsm_limit_opts/1]).
 
 -export([start/2]).
 
@@ -73,7 +73,7 @@ start() ->
                     nocookie ->
                         str:sha(randoms:get_string());
                     Cookie ->
-                        str:sha(jlib:atom_to_binary(Cookie))
+                        str:sha(misc:atom_to_binary(Cookie))
                 end,
     State2 = set_option({node_start, global}, UnixTime, State1),
     State3 = set_option({shared_key, global}, SharedKey, State2),
@@ -894,7 +894,8 @@ has_option(Opt) ->
     get_option(Opt, fun(_) -> true end, false).
 
 init_module_db_table(Modules) ->
-    catch ets:new(module_db, [named_table, public, bag]),
+    catch ets:new(module_db, [named_table, public, bag,
+			      {read_concurrency, true}]),
     %% Dirty hack for mod_pubsub
     ets:insert(module_db, {mod_pubsub, mnesia}),
     ets:insert(module_db, {mod_pubsub, sql}),
@@ -1455,9 +1456,13 @@ opt_type(default_ram_db) ->
     fun(T) when is_atom(T) -> T end;
 opt_type(loglevel) ->
     fun (P) when P >= 0, P =< 5 -> P end;
+opt_type(queue_dir) ->
+    fun iolist_to_binary/1;
+opt_type(queue_type) ->
+    fun(ram) -> ram; (file) -> file end;
 opt_type(_) ->
-    [hide_sensitive_log_data, hosts, language,
-     default_db, default_ram_db, loglevel].
+    [hide_sensitive_log_data, hosts, language, max_fsm_queue,
+     default_db, default_ram_db, queue_type, queue_dir, loglevel].
 
 -spec may_hide_data(any()) -> any().
 may_hide_data(Data) ->
@@ -1486,3 +1491,11 @@ fsm_limit_opts(Opts) ->
 		N -> [{max_queue, N}]
 	    end
     end.
+
+-spec queue_dir() -> binary() | undefined.
+queue_dir() ->
+    get_option(queue_dir, opt_type(queue_dir)).
+
+-spec default_queue_type(binary()) -> ram | file.
+default_queue_type(Host) ->
+    get_option({queue_type, Host}, opt_type(queue_type), ram).

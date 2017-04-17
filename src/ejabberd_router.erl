@@ -44,10 +44,12 @@
 	 host_of_route/1,
 	 process_iq/1,
 	 unregister_route/1,
+	 unregister_route/2,
 	 unregister_routes/1,
 	 get_all_routes/0,
 	 is_my_route/1,
 	 is_my_host/1,
+	 find_routes/0,
 	 get_backend/0]).
 
 -export([start_link/0]).
@@ -67,8 +69,9 @@
 -callback init() -> any().
 -callback register_route(binary(), binary(), local_hint(),
 			 undefined | pos_integer(), pid()) -> ok | {error, term()}.
--callback unregister_route(binary(), undefined | pos_integer()) -> ok | {error, term()}.
+-callback unregister_route(binary(), undefined | pos_integer(), pid()) -> ok | {error, term()}.
 -callback find_routes(binary()) -> [#route{}].
+-callback find_routes() -> [#route{}].
 -callback host_of_route(binary()) -> {ok, binary()} | error.
 -callback is_my_route(binary()) -> boolean().
 -callback is_my_host(binary()) -> boolean().
@@ -171,12 +174,17 @@ register_routes(Domains) ->
 
 -spec unregister_route(binary()) -> ok.
 unregister_route(Domain) ->
+    unregister_route(Domain, self()).
+
+-spec unregister_route(binary(), pid()) -> ok.
+unregister_route(Domain, Pid) ->
     case jid:nameprep(Domain) of
 	error ->
 	    erlang:error({invalid_domain, Domain});
 	LDomain ->
 	    Mod = get_backend(),
-	    case Mod:unregister_route(LDomain, get_component_number(LDomain)) of
+	    case Mod:unregister_route(
+		   LDomain, get_component_number(LDomain), Pid) of
 		ok ->
 		    ?DEBUG("Route unregistered: ~s", [LDomain]);
 		{error, Err} ->
@@ -195,6 +203,11 @@ unregister_routes(Domains) ->
 get_all_routes() ->
     Mod = get_backend(),
     Mod:get_all_routes().
+
+-spec find_routes() -> [#route{}].
+find_routes() ->
+    Mod = get_backend(),
+    Mod:find_routes().
 
 -spec host_of_route(binary()) -> binary().
 host_of_route(Domain) ->
@@ -333,8 +346,8 @@ get_component_number(LDomain) ->
 get_domain_balancing(From, To, LDomain) ->
     case ejabberd_config:get_option(
 	   {domain_balancing, LDomain}, fun(D) when is_atom(D) -> D end) of
-	undefined -> p1_time_compat:monotonic_time();
-	random -> p1_time_compat:monotonic_time();
+	undefined -> p1_time_compat:system_time();
+	random -> p1_time_compat:system_time();
 	source -> jid:tolower(From);
 	destination -> jid:tolower(To);
 	bare_source -> jid:remove_resource(jid:tolower(From));
