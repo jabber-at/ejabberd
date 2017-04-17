@@ -1,10 +1,9 @@
 --- a/rebar.config
 +++ b/rebar.config
-@@ -42,6 +42,9 @@
-             {i, "include"},
+@@ -43,6 +43,8 @@
  	    {i, "deps/fast_xml/include"},
  	    {i, "deps/xmpp/include"},
-+	    {i, "deps/xmpp/include"},
+ 	    {i, "deps/p1_utils/include"},
 +            {i, "/usr/lib/erlang/lib/p1_xmpp-1.1.9/include"},
 +            {i, "/usr/lib/erlang/lib/p1_xml-1.1.21/include"},
              {if_var_false, debug, no_debug_info},
