@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, 17.03, ejabberd@process-one.net, ejabberd)
+AC_INIT(ejabberd, 17.04, ejabberd@process-one.net, ejabberd)
 REQUIRE_ERLANG_MIN="6.1 (Erlang/OTP 17.1)"
 REQUIRE_ERLANG_MAX="9.0.0 (No Max)"
 
@@ -66,7 +66,7 @@ if test "x$MAKE" = "x"; then
 fi
 
 # Change default prefix
-AC_PREFIX_DEFAULT(/)
+AC_PREFIX_DEFAULT(/usr/local)
 
 AC_ARG_ENABLE(hipe,
 [AC_HELP_STRING([--enable-hipe], [compile natively with HiPE, not recommended (default: no)])],

@@ -427,7 +427,6 @@ db_tests(DB) when DB == mnesia; DB == redis ->
        muc_tests:single_cases(),
        offline_tests:single_cases(),
        mam_tests:single_cases(),
-       mix_tests:single_cases(),
        carbons_tests:single_cases(),
        csi_tests:single_cases(),
        test_unregister]},
@@ -437,13 +436,11 @@ db_tests(DB) when DB == mnesia; DB == redis ->
      roster_tests:master_slave_cases(),
      offline_tests:master_slave_cases(),
      mam_tests:master_slave_cases(),
-     mix_tests:master_slave_cases(),
      vcard_tests:master_slave_cases(),
      announce_tests:master_slave_cases(),
      carbons_tests:master_slave_cases(),
      csi_tests:master_slave_cases()];
 db_tests(_) ->
-    %% No support for carboncopy
     [{single_user, [sequence],
       [test_register,
        legacy_auth_tests(),
@@ -459,7 +456,6 @@ db_tests(_) ->
        muc_tests:single_cases(),
        offline_tests:single_cases(),
        mam_tests:single_cases(),
-       mix_tests:single_cases(),
        test_unregister]},
      muc_tests:master_slave_cases(),
      privacy_tests:master_slave_cases(),
@@ -467,9 +463,9 @@ db_tests(_) ->
      roster_tests:master_slave_cases(),
      offline_tests:master_slave_cases(),
      mam_tests:master_slave_cases(),
-     mix_tests:master_slave_cases(),
      vcard_tests:master_slave_cases(),
-     announce_tests:master_slave_cases()].
+     announce_tests:master_slave_cases(),
+     carbons_tests:master_slave_cases()].
 
 ldap_tests() ->
     [{ldap_tests, [sequence],
