@@ -21,7 +21,7 @@
      ##
      ## zlib: true
      ##
-@@ -663,6 +663,7 @@
+@@ -661,6 +661,7 @@
    mod_admin_extra: {}
    mod_announce: # recommends mod_adhoc
      access: announce
@@ -29,7 +29,7 @@
    mod_blocking: {} # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
-@@ -671,7 +672,10 @@
+@@ -669,7 +670,10 @@
    ## mod_delegation: {} # for xep0356
    mod_disco: {}
    mod_echo: {}
@@ -41,7 +41,7 @@
    mod_bosh: {}
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
-@@ -702,9 +706,9 @@
+@@ -700,9 +704,9 @@
    mod_offline: 
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -54,7 +54,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -723,7 +727,7 @@
+@@ -721,7 +725,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -63,7 +63,7 @@
      ##
      ## Set the minimum informational entropy for passwords.
      ##
-@@ -754,6 +758,7 @@
+@@ -752,6 +756,7 @@
      ##   access: register
    mod_roster: {}
    mod_shared_roster: {}
