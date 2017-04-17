@@ -12,4 +12,3 @@ ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 #failed_auth.patch
 fix-includes.diff
-custom_headers.diff

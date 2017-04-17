@@ -1,6 +1,7 @@
 ejabberd (1:17.04-1) unstable; urgency=low
 
   * New upstream release.
+  * Remove custom_headers.diff, applied upstream.
 
  -- Mathias Ertl <mati@jabber.at>  Tue, 28 Mar 2017 16:41:07 +0200
 
