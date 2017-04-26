@@ -1,0 +1,52 @@
+Description: ejabberd_c2s: Don't close session on stream resume
+ Don't let ejabberd_c2s close the session and unset presence if a
+ 'c2s_terminated' callback stops hook execution, as is done in
+ mod_stream_mgmt:c2s_terminated/2 on resumption.
+Bug: https://github.com/processone/ejabberd/issues/1680
+Author: Holger Weiss <holger@zedat.fu-berlin.de>
+Applied-Upstream: 17.04+1, https://github.com/processone/ejabberd/commit/b8a77209
+Last-Update: 2017-04-26
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/ejabberd_c2s.erl
++++ b/src/ejabberd_c2s.erl
+@@ -258,7 +258,8 @@
+ process_closed(State, Reason) ->
+     stop(State#{stop_reason => Reason}).
+ 
+-process_terminated(#{sockmod := SockMod, socket := Socket, jid := JID} = State,
++process_terminated(#{sid := SID, sockmod := SockMod, socket := Socket,
++		     jid := JID, user := U, server := S, resource := R} = State,
+ 		   Reason) ->
+     Status = format_reason(State, Reason),
+     ?INFO_MSG("(~s) Closing c2s session for ~s: ~s",
+@@ -269,8 +270,11 @@
+ 				      status = xmpp:mk_text(Status),
+ 				      from = JID,
+ 				      to = jid:remove_resource(JID)},
++		     ejabberd_sm:close_session_unset_presence(SID, U, S, R,
++							      Status),
+ 		     broadcast_presence_unavailable(State, Pres);
+ 		 false ->
++		     ejabberd_sm:close_session(SID, U, S, R),
+ 		     State
+ 	     end,
+     bounce_message_queue(),
+@@ -560,17 +564,6 @@
+ handle_info(Info, #{lserver := LServer} = State) ->
+     ejabberd_hooks:run_fold(c2s_handle_info, LServer, State, [Info]).
+ 
+-terminate(Reason, #{sid := SID,
+-		    user := U, server := S, resource := R,
+-		    lserver := LServer} = State) ->
+-    case maps:is_key(pres_last, State) of
+-	true ->
+-	    Status = format_reason(State, Reason),
+-	    ejabberd_sm:close_session_unset_presence(SID, U, S, R, Status);
+-	false ->
+-	    ejabberd_sm:close_session(SID, U, S, R)
+-    end,
+-    ejabberd_hooks:run_fold(c2s_terminated, LServer, State, [Reason]);
+ terminate(Reason, #{lserver := LServer} = State) ->
+     ejabberd_hooks:run_fold(c2s_terminated, LServer, State, [Reason]).
+ 

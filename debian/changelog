@@ -1,6 +1,7 @@
 ejabberd (1:17.04-2) unstable; urgency=low
 
-  * Add src.mod_stream_mgmt.diff.
+  * Add src.mod_stream_mgmt.diff, src.ejabberd_c2s.erl.diff and 
+    src.mod_stream_mgmt.erl.diff.
 
  -- Mathias Ertl <mati@jabber.at>  Wed, 26 Apr 2017 16:07:23 +0200
 
