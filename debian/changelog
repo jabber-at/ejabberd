@@ -1,3 +1,9 @@
+ejabberd (1:17.04-3) unstable; urgency=low
+
+  * Fix dependency for erlang-p1-xmpp.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 05 May 2017 14:09:26 +0200
+
 ejabberd (1:17.04-2) unstable; urgency=low
 
   * Add src.mod_stream_mgmt.diff, src.ejabberd_c2s.erl.diff and 
