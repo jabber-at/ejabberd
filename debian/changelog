@@ -1,3 +1,9 @@
+ejabberd (1:17.04-4) unstable; urgency=low
+
+  * Remove conflict with erlang-p1-xmpp.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 05 May 2017 17:26:20 +0200
+
 ejabberd (1:17.04-3) unstable; urgency=low
 
   * Fix dependency for erlang-p1-xmpp.
