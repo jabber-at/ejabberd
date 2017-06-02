@@ -74,7 +74,7 @@ root@$EHOSTNAME.$EDOMAINNAME
     sed -e     "s/  - \"localhost\"/  - \"$HOST\"/ ;
 		s/  ## admin/  admin/ ;
 		0,/  ##   user/s/  ##   user/     user/ ;
-		s/  ##     - \"aleksey\": \"localhost\"/         - \"$USER\": \"$HOST\"/ ;
+		s/  ##     - \"aleksey@localhost\"/       - \"$USER@$HOST\"/ ;
 		s/.*ermine.*//" $CONFIG_SOURCE > $TEMPFILE
     ucf --three-way --debconf-ok $TEMPFILE $CONFIG_TARGET
     db_stop
@@ -116,7 +116,6 @@ register_admin()
 		    fi
 		else
 		    echo "Admin user \"$USER@$HOST\" is registered successfully."
-		    invoke-rc.d ejabberd restart
 		fi
 	    fi
 	else
