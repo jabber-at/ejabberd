@@ -4,6 +4,7 @@ ejabberd (1:17.04-5) unstable; urgency=low
   * Merge changes from the upstream package:
 
     * Update ejabberdctl.8.
+    * Update AppArmor profile.
     * Sync NEWS, TODO and README.Debian.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 02 Jun 2017 19:29:06 +0200

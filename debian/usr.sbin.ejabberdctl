@@ -12,6 +12,7 @@
 	/bin/dash					rmix,
 	/bin/date					ix,
 	/bin/grep					ix,
+	/bin/ps						ix,
 	/bin/sed					ix,
 	/bin/sleep					ix,
 
@@ -43,13 +44,15 @@
 	}
 
 
-	/etc/ejabberd**					r,
 	/etc/default/ejabberd				r,
+	/etc/ejabberd**					r,
+	/etc/ImageMagick**				r,
 
 	/run/ejabberd**					rw,
 
 	/sys/devices/system/cpu**			r,
 	/sys/devices/system/node**			r,
+	/proc/sys/kernel/random/uuid			r,
 
 	/usr/bin/cut					ix,
 	/usr/bin/erl					ix,
@@ -64,13 +67,17 @@
 	/usr/lib/erlang/erts-*/bin/beam*		ix,
 	/usr/lib/erlang/erts-*/bin/child_setup		ix,
 	/usr/lib/erlang/erts-*/bin/epmd			ix,
-	/usr/lib/erlang/erts-*/bin/erlexec		ix,
 	/usr/lib/erlang/erts-*/bin/erl_child_setup	ix,
+	/usr/lib/erlang/erts-*/bin/erlexec		ix,
 	/usr/lib/erlang/erts-*/bin/inet_gethost		ix,
 	/usr/lib/erlang/lib/**.so			rm,
 	/usr/lib/erlang/p1_pam/bin/epam			px -> /usr/sbin/ejabberdctl//su,
 
+	/usr/lib/x86_64-linux-gnu/ImageMagick-*/**	ix,
+
 	/usr/sbin/ejabberdctl				r,
+
+	/usr/share/ImageMagick-*/**			rix,
 
 	/var/backups/					rw,
 	/var/backups/ejabberd**				rwlk,
