@@ -1,3 +1,10 @@
+ejabberd (16.06-1) unstable; urgency=medium
+
+  If you are using or intend to use sqlite3, oauth2 or xmlrpc with ejabberd
+  you should install the according erlang-p1-* packages listed as Suggests:.
+
+ -- Philipp Huebner <debalance@debian.org>  Sat, 02 Jul 2016 16:18:00 +0200
+
 ejabberd (16.01-2) unstable; urgency=medium
 
   Because ejabberd now installs its libraries the Erlang-ish way into a

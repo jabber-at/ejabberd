@@ -138,6 +138,34 @@ and to make epam setuid root you can do:
 (Note that we set o-x there so that only users in the ejabberd group
 are able to elevate their privileges by executing this program.)
 
+When ejabberd is started via systemd, you will have to edit the
+ejabberd.service file and set the following:
+
+ [Service]
+ PrivateDevices=false
+ NoNewPrivileges=false
+
+Otherwise it will be impossible for the epam helper program to gain the
+configured setuid and/or setgid privileges.
+
+With systemd >= 218 you can simply create an override with
+`systemctl edit ejabberd.service` and put
+ [Service]
+ PrivateDevices=
+ PrivateDevices=false
+ NoNewPrivileges=
+ NoNewPrivileges=false
+in there.
+
+With systemd < 218 the changes must be made manually.
+In order to not loose the changes upon upgrades,
+remove the symlink
+ /etc/systemd/system/multi-user.target.wants/ejabberd.service
+and replace it with a copy of
+ /lib/systemd/system/ejabberd.service
+before making the changes.
+Remember to do a `systemctl daemon-reload` afterwards.
+
 
 4. Using DBMS for data storage
 ===============================
