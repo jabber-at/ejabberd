@@ -43,6 +43,7 @@ single_cases() ->
      [single_test(feature_enabled),
       single_test(set_get_list),
       single_test(get_list_non_existent),
+      single_test(get_empty_lists),
       single_test(set_default),
       single_test(del_default),
       single_test(set_default_non_existent),
@@ -52,8 +53,7 @@ single_cases() ->
       single_test(remove_list),
       single_test(remove_default_list),
       single_test(remove_active_list),
-      %% TODO: this should be fixed
-      %% single_test(remove_list_non_existent),
+      single_test(remove_list_non_existent),
       single_test(allow_local_server),
       single_test(malformed_iq_query),
       single_test(malformed_get),
@@ -96,6 +96,12 @@ set_get_list(Config) ->
 get_list_non_existent(Config) ->
     ListName = <<"get-list-non-existent">>,
     #stanza_error{reason = 'item-not-found'} = get_list(Config, ListName),
+    disconnect(Config).
+
+get_empty_lists(Config) ->
+    #privacy_query{default = none,
+		   active = none,
+		   lists = []} = get_lists(Config),
     disconnect(Config).
 
 set_default(Config) ->
@@ -219,7 +225,8 @@ malformed_set(Config) ->
 				    #privacy_list{name = <<"2">>}]},
 	    #block{},
 	    #block_list{},
-	    #block_list{items = [jid:make(randoms:get_string())]}]).
+	    #block_list{items = [jid:make(randoms:get_string())]}]),
+    disconnect(Config).
 
 malformed_type_value(Config) ->
     Item = #privacy_item{order = 0, action = deny},
@@ -560,12 +567,6 @@ del_list(Config, Name) ->
 					 lists = [#privacy_list{
 						     name = Name}]}]}) of
 	#iq{type = result, sub_els = []} ->
-	    ct:comment("Receiving privacy list push"),
-	    #iq{type = set, id = ID,
-		sub_els = [#privacy_query{lists = [#privacy_list{
-						      name = Name}]}]} =
-		recv_iq(Config),
-	    send(Config, #iq{type = result, id = ID}),
 	    ok;
 	#iq{type = error} = Err ->
 	    xmpp:get_error(Err)

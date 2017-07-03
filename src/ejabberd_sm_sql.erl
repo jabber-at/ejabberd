@@ -31,11 +31,10 @@
 %% API
 -export([init/0,
 	 set_session/1,
-	 delete_session/4,
+	 delete_session/1,
 	 get_sessions/0,
 	 get_sessions/1,
-	 get_sessions/2,
-	 get_sessions/3]).
+	 get_sessions/2]).
 
 -include("ejabberd.hrl").
 -include("ejabberd_sm.hrl").
@@ -48,7 +47,7 @@
 -spec init() -> ok | {error, any()}.
 init() ->
     Node = erlang:atom_to_binary(node(), latin1),
-    ?INFO_MSG("Cleaning SQL SM table...", []),
+    ?DEBUG("Cleaning SQL SM table...", []),
     lists:foldl(
       fun(Host, ok) ->
 	      case ejabberd_sql:sql_query(
@@ -81,30 +80,21 @@ set_session(#session{sid = {Now, Pid}, usr = {U, LServer, R},
 	ok ->
 	    ok;
 	Err ->
-	    ?ERROR_MSG("failed to update 'sm' table: ~p", [Err])
+	    ?ERROR_MSG("failed to update 'sm' table: ~p", [Err]),
+	    {error, db_failure}
     end.
 
-delete_session(_LUser, LServer, _LResource, {Now, Pid}) ->
+delete_session(#session{usr = {_, LServer, _}, sid = {Now, Pid}}) ->
     TS = now_to_timestamp(Now),
     PidS = list_to_binary(erlang:pid_to_list(Pid)),
     case ejabberd_sql:sql_query(
 	   LServer,
-	   ?SQL("select @(usec)d, @(pid)s, @(node)s, @(username)s,"
-                " @(resource)s, @(priority)s, @(info)s "
-                "from sm where usec=%(TS)d and pid=%(PidS)s")) of
-	{selected, [Row]} ->
-            ejabberd_sql:sql_query(
-              LServer,
-              ?SQL("delete from sm"
-                   " where usec=%(TS)d and pid=%(PidS)s")),
-	    try {ok, row_to_session(LServer, Row)}
-	    catch _:{bad_node, _} -> {error, notfound}
-	    end;
-	{selected, []} ->
-	    {error, notfound};
+	   ?SQL("delete from sm where usec=%(TS)d and pid=%(PidS)s")) of
+	{updated, _} ->
+	    ok;
 	Err ->
 	    ?ERROR_MSG("failed to delete from 'sm' table: ~p", [Err]),
-	    {error, notfound}
+	    {error, db_failure}
     end.
 
 get_sessions() ->
@@ -137,33 +127,15 @@ get_sessions(LUser, LServer) ->
                 " @(resource)s, @(priority)s, @(info)s from sm"
                 " where username=%(LUser)s")) of
 	{selected, Rows} ->
-	    lists:flatmap(
-	      fun(Row) ->
-		      try [row_to_session(LServer, Row)]
-		      catch _:{bad_node, _} -> []
-		      end
-	      end, Rows);
+	    {ok, lists:flatmap(
+		   fun(Row) ->
+			   try [row_to_session(LServer, Row)]
+			   catch _:{bad_node, _} -> []
+			   end
+		   end, Rows)};
 	Err ->
 	    ?ERROR_MSG("failed to select from 'sm' table: ~p", [Err]),
-	    []
-    end.
-
-get_sessions(LUser, LServer, LResource) ->
-    case ejabberd_sql:sql_query(
-	   LServer,
-           ?SQL("select @(usec)d, @(pid)s, @(node)s, @(username)s,"
-                " @(resource)s, @(priority)s, @(info)s from sm"
-                " where username=%(LUser)s and resource=%(LResource)s")) of
-	{selected, Rows} ->
-	    lists:flatmap(
-	      fun(Row) ->
-		      try [row_to_session(LServer, Row)]
-		      catch _:{bad_node, _} -> []
-		      end
-	      end, Rows);
-	Err ->
-	    ?ERROR_MSG("failed to select from 'sm' table: ~p", [Err]),
-	    []
+	    {error, db_failure}
     end.
 
 %%%===================================================================
@@ -176,7 +148,7 @@ timestamp_to_now(I) ->
     Head = I div 1000000,
     USec = I rem 1000000,
     MSec = Head div 1000000,
-    Sec = Head div 1000000,
+    Sec = Head rem 1000000,
     {MSec, Sec, USec}.
 
 dec_priority(Prio) ->

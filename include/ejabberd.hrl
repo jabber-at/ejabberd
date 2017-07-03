@@ -33,9 +33,9 @@
 
 -define(SQL_DIR, filename:join(["priv", "sql"])).
 
--define(CONFIG_PATH, <<"ejabberd.cfg">>).
+-define(CONFIG_PATH, <<"ejabberd.yml">>).
 
--define(LOG_PATH, <<"ejabberd.log">>).
+-define(LOG_PATH, "ejabberd.log").
 
 -define(EJABBERD_URI, <<"http://www.process-one.net/en/ejabberd/">>).
 

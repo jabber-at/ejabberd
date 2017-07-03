@@ -32,8 +32,7 @@
 %%% API
 %%%===================================================================
 start(Host, Opts) ->
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
-                             one_queue),
+    IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_EVENT,
 				  ?MODULE, process_iq, IQDisc).
 

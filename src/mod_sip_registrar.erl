@@ -24,6 +24,9 @@
 %%%-------------------------------------------------------------------
 -module(mod_sip_registrar).
 
+-ifndef(SIP).
+-export([]).
+-else.
 -ifndef(GEN_SERVER).
 -define(GEN_SERVER, gen_server).
 -endif.
@@ -494,12 +497,10 @@ get_flow_timeout(LServer, #sip_socket{type = Type}) ->
 	udp ->
 	    gen_mod:get_module_opt(
 	      LServer, mod_sip, flow_timeout_udp,
-	      fun(I) when is_integer(I), I>0 -> I end,
 	      ?FLOW_TIMEOUT_UDP);
 	_ ->
 	    gen_mod:get_module_opt(
 	      LServer, mod_sip, flow_timeout_tcp,
-	      fun(I) when is_integer(I), I>0 -> I end,
 	      ?FLOW_TIMEOUT_TCP)
     end.
 
@@ -582,3 +583,5 @@ process_ping(SIPSocket) ->
 	 (_, Acc) ->
 	      Acc
       end, ErrResponse, Sessions).
+
+-endif.

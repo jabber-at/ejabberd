@@ -48,11 +48,12 @@
 -include("mod_vcard.hrl").
 
 -define(JUD_MATCHES, 30).
+-define(VCARD_CACHE, vcard_cache).
 
 -callback init(binary(), gen_mod:opts()) -> any().
 -callback stop(binary()) -> any().
 -callback import(binary(), binary(), [binary()]) -> ok.
--callback get_vcard(binary(), binary()) -> [xmlel()] | error.
+-callback get_vcard(binary(), binary()) -> {ok, [xmlel()]} | error.
 -callback set_vcard(binary(), binary(),
 		    xmlel(), #vcard_search{}) -> {atomic, any()}.
 -callback search_fields(binary()) -> [{binary(), binary()}].
@@ -61,6 +62,10 @@
 		 infinity | pos_integer()) -> [{binary(), binary()}].
 -callback remove_user(binary(), binary()) -> {atomic, any()}.
 -callback is_search_supported(binary()) -> boolean().
+-callback use_cache(binary()) -> boolean().
+-callback cache_nodes(binary()) -> [node()].
+
+-optional_callbacks([use_cache/1, cache_nodes/1]).
 
 -record(state, {host :: binary(), server_host :: binary()}).
 
@@ -80,10 +85,10 @@ init([Host, Opts]) ->
     process_flag(trap_exit, true),
     Mod = gen_mod:db_mod(Host, Opts, ?MODULE),
     Mod:init(Host, Opts),
+    init_cache(Mod, Host, Opts),
     ejabberd_hooks:add(remove_user, Host, ?MODULE,
 		       remove_user, 50),
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
-                             one_queue),
+    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
 				  ?NS_VCARD, ?MODULE, process_local_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
@@ -91,9 +96,7 @@ init([Host, Opts]) ->
     ejabberd_hooks:add(disco_sm_features, Host, ?MODULE,
 		       get_sm_features, 50),
     MyHost = gen_mod:get_opt_host(Host, Opts, <<"vjud.@HOST@">>),
-    Search = gen_mod:get_opt(search, Opts,
-                             fun(B) when is_boolean(B) -> B end,
-                             false),
+    Search = gen_mod:get_opt(search, Opts, false),
     if Search ->
 	    ejabberd_hooks:add(
 	      disco_local_items, MyHost, ?MODULE, disco_items, 100),
@@ -291,7 +294,18 @@ disco_identity(Acc, _From, _To, _Node, _Lang) ->
 -spec get_vcard(binary(), binary()) -> [xmlel()] | error.
 get_vcard(LUser, LServer) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    Mod:get_vcard(LUser, LServer).
+    Result = case use_cache(Mod, LServer) of
+		 true ->
+		     ets_cache:lookup(
+		       ?VCARD_CACHE, {LUser, LServer},
+		       fun() -> Mod:get_vcard(LUser, LServer) end);
+		 false ->
+		     Mod:get_vcard(LUser, LServer)
+	     end,
+    case Result of
+	{ok, Els} -> Els;
+	error -> error
+    end.
 
 -spec make_vcard_search(binary(), binary(), binary(), xmlel()) -> #vcard_search{}.
 make_vcard_search(User, LUser, LServer, VCARD) ->
@@ -369,6 +383,8 @@ set_vcard(User, LServer, VCARD) ->
 	    VCardSearch = make_vcard_search(User, LUser, LServer, VCARD),
 	    Mod = gen_mod:db_mod(LServer, ?MODULE),
 	    Mod:set_vcard(LUser, LServer, VCARD, VCardSearch),
+	    ets_cache:delete(?VCARD_CACHE, {LUser, LServer},
+			     cache_nodes(Mod, LServer)),
 	    ejabberd_hooks:run(vcard_set, LServer,
 			       [LUser, LServer, VCARD])
     end.
@@ -433,23 +449,61 @@ search(LServer, XFields) ->
     Data = [{Var, Vals} || #xdata_field{var = Var, values = Vals} <- XFields],
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     AllowReturnAll = gen_mod:get_module_opt(LServer, ?MODULE, allow_return_all,
-                                            fun(B) when is_boolean(B) -> B end,
                                             false),
-    MaxMatch = gen_mod:get_module_opt(LServer, ?MODULE, matches,
-				      fun(infinity) -> infinity;
-					 (I) when is_integer(I),
-						  I>0 ->
-					      I
-				      end, ?JUD_MATCHES),
+    MaxMatch = gen_mod:get_module_opt(LServer, ?MODULE, matches, ?JUD_MATCHES),
     Mod:search(LServer, Data, AllowReturnAll, MaxMatch).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec remove_user(binary(), binary()) -> any().
+-spec remove_user(binary(), binary()) -> ok.
 remove_user(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    Mod:remove_user(LUser, LServer).
+    Mod:remove_user(LUser, LServer),
+    ets_cache:delete(?VCARD_CACHE, {LUser, LServer}, cache_nodes(Mod, LServer)).
+
+-spec init_cache(module(), binary(), gen_mod:opts()) -> ok.
+init_cache(Mod, Host, Opts) ->
+    case use_cache(Mod, Host) of
+	true ->
+	    CacheOpts = cache_opts(Host, Opts),
+	    ets_cache:new(?VCARD_CACHE, CacheOpts);
+	false ->
+	    ets_cache:delete(?VCARD_CACHE)
+    end.
+
+-spec cache_opts(binary(), gen_mod:opts()) -> [proplists:property()].
+cache_opts(Host, Opts) ->
+    MaxSize = gen_mod:get_opt(
+		cache_size, Opts,
+		ejabberd_config:cache_size(Host)),
+    CacheMissed = gen_mod:get_opt(
+		    cache_missed, Opts,
+		    ejabberd_config:cache_missed(Host)),
+    LifeTime = case gen_mod:get_opt(
+		      cache_life_time, Opts,
+		      ejabberd_config:cache_life_time(Host)) of
+		   infinity -> infinity;
+		   I -> timer:seconds(I)
+	       end,
+    [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
+
+-spec use_cache(module(), binary()) -> boolean().
+use_cache(Mod, Host) ->
+    case erlang:function_exported(Mod, use_cache, 1) of
+	true -> Mod:use_cache(Host);
+	false ->
+	    gen_mod:get_module_opt(
+	      Host, ?MODULE, use_cache,
+	      ejabberd_config:use_cache(Host))
+    end.
+
+-spec cache_nodes(module(), binary()) -> [node()].
+cache_nodes(Mod, Host) ->
+    case erlang:function_exported(Mod, cache_nodes, 1) of
+	true -> Mod:cache_nodes(Host);
+	false -> ejabberd_cluster:get_nodes()
+    end.
 
 import_info() ->
     [{<<"vcard">>, 3}, {<<"vcard_search">>, 24}].
@@ -482,6 +536,13 @@ mod_opt_type(search) ->
     fun (B) when is_boolean(B) -> B end;
 mod_opt_type(search_all_hosts) ->
     fun (B) when is_boolean(B) -> B end;
+mod_opt_type(O) when O == cache_life_time; O == cache_size ->
+    fun (I) when is_integer(I), I > 0 -> I;
+        (infinity) -> infinity
+    end;
+mod_opt_type(O) when O == use_cache; O == cache_missed ->
+    fun (B) when is_boolean(B) -> B end;
 mod_opt_type(_) ->
     [allow_return_all, db_type, host, iqdisc, matches,
-     search, search_all_hosts].
+     search, search_all_hosts, cache_life_time, cache_size,
+     use_cache, cache_missed].
