@@ -27,11 +27,10 @@
 -behaviour(mod_privacy).
 
 %% API
--export([init/2, process_lists_get/2, process_list_get/3,
-	 process_default_set/3, process_active_set/3,
-	 remove_privacy_list/3, set_privacy_list/1,
-	 set_privacy_list/4, get_user_list/2, get_user_lists/2,
-	 remove_user/2, import/1]).
+-export([init/2, set_default/3, unset_default/2, set_lists/1,
+	 set_list/4, get_lists/2, get_list/3, remove_lists/2,
+	 remove_list/3, use_cache/1, import/1]).
+-export([need_transform/1, transform/1]).
 
 -include("xmpp.hrl").
 -include("mod_privacy.hrl").
@@ -42,146 +41,122 @@
 %%%===================================================================
 init(_Host, _Opts) ->
     ejabberd_mnesia:create(?MODULE, privacy,
-			[{disc_copies, [node()]},
-			 {attributes, record_info(fields, privacy)}]),
-    update_table().
+			   [{disc_only_copies, [node()]},
+			    {attributes, record_info(fields, privacy)}]).
 
-process_lists_get(LUser, LServer) ->
-    case catch mnesia:dirty_read(privacy, {LUser, LServer}) of
-	{'EXIT', _Reason} -> error;
-	[] -> {none, []};
-	[#privacy{default = Default, lists = Lists}] ->
-	    LItems = lists:map(fun ({N, _}) -> N end, Lists),
-	    {Default, LItems}
+use_cache(Host) ->
+    case mnesia:table_info(privacy, storage_type) of
+        disc_only_copies ->
+            gen_mod:get_module_opt(
+              Host, mod_privacy, use_cache,
+              ejabberd_config:use_cache(Host));
+        _ ->
+            false
     end.
 
-process_list_get(LUser, LServer, Name) ->
-    case catch mnesia:dirty_read(privacy, {LUser, LServer}) of
-	{'EXIT', _Reason} -> error;
-	[] -> not_found;
-	[#privacy{lists = Lists}] ->
-	    case lists:keysearch(Name, 1, Lists) of
-		{value, {_, List}} -> List;
-		_ -> not_found
-	    end
-    end.
-
-process_default_set(LUser, LServer, none) ->
+unset_default(LUser, LServer) ->
     F = fun () ->
 		case mnesia:read({privacy, {LUser, LServer}}) of
 		    [] -> ok;
 		    [R] -> mnesia:write(R#privacy{default = none})
 		end
 	end,
-    mnesia:transaction(F);
-process_default_set(LUser, LServer, Name) ->
+    transaction(F).
+
+set_default(LUser, LServer, Name) ->
     F = fun () ->
 		case mnesia:read({privacy, {LUser, LServer}}) of
-		    [] -> not_found;
+		    [] ->
+			{error, notfound};
 		    [#privacy{lists = Lists} = P] ->
 			case lists:keymember(Name, 1, Lists) of
 			    true ->
 				mnesia:write(P#privacy{default = Name,
-						       lists = Lists}),
-				ok;
-			    false -> not_found
+						       lists = Lists});
+			    false ->
+				{error, notfound}
 			end
 		end
 	end,
-    mnesia:transaction(F).
+    transaction(F).
 
-process_active_set(LUser, LServer, Name) ->
-    case catch mnesia:dirty_read(privacy, {LUser, LServer}) of
-	[] -> error;
-	[#privacy{lists = Lists}] ->
-	    case lists:keysearch(Name, 1, Lists) of
-		{value, {_, List}} -> List;
-		false -> error
-	    end
-    end.
-
-remove_privacy_list(LUser, LServer, Name) ->
+remove_list(LUser, LServer, Name) ->
     F = fun () ->
 		case mnesia:read({privacy, {LUser, LServer}}) of
-		  [] -> ok;
-		  [#privacy{default = Default, lists = Lists} = P] ->
-		      if Name == Default -> conflict;
-			 true ->
-			     NewLists = lists:keydelete(Name, 1, Lists),
-			     mnesia:write(P#privacy{lists = NewLists})
-		      end
+		    [] ->
+			{error, notfound};
+		    [#privacy{default = Default, lists = Lists} = P] ->
+			if Name == Default ->
+				{error, conflict};
+			   true ->
+				NewLists = lists:keydelete(Name, 1, Lists),
+				mnesia:write(P#privacy{lists = NewLists})
+			end
 		end
 	end,
-    mnesia:transaction(F).
+    transaction(F).
 
-set_privacy_list(Privacy) ->
+set_lists(Privacy) ->
     mnesia:dirty_write(Privacy).
 
-set_privacy_list(LUser, LServer, Name, List) ->
+set_list(LUser, LServer, Name, List) ->
     F = fun () ->
 		case mnesia:wread({privacy, {LUser, LServer}}) of
-		  [] ->
-		      NewLists = [{Name, List}],
-		      mnesia:write(#privacy{us = {LUser, LServer},
-					    lists = NewLists});
-		  [#privacy{lists = Lists} = P] ->
-		      NewLists1 = lists:keydelete(Name, 1, Lists),
-		      NewLists = [{Name, List} | NewLists1],
-		      mnesia:write(P#privacy{lists = NewLists})
+		    [] ->
+			NewLists = [{Name, List}],
+			mnesia:write(#privacy{us = {LUser, LServer},
+					      lists = NewLists});
+		    [#privacy{lists = Lists} = P] ->
+			NewLists1 = lists:keydelete(Name, 1, Lists),
+			NewLists = [{Name, List} | NewLists1],
+			mnesia:write(P#privacy{lists = NewLists})
 		end
 	end,
-    mnesia:transaction(F).
+    transaction(F).
 
-get_user_list(LUser, LServer) ->
-    case catch mnesia:dirty_read(privacy, {LUser, LServer})
-	of
-      [] -> {none, []};
-      [#privacy{default = Default, lists = Lists}] ->
-	  case Default of
-	    none -> {none, []};
-	    _ ->
-		case lists:keysearch(Default, 1, Lists) of
-		  {value, {_, List}} -> {Default, List};
-		  _ -> {none, []}
-		end
-	  end;
-      _ -> {none, []}
+get_list(LUser, LServer, Name) ->
+    case mnesia:dirty_read(privacy, {LUser, LServer}) of
+	[#privacy{default = Default, lists = Lists}] when Name == default ->
+	    case lists:keyfind(Default, 1, Lists) of
+		{_, List} -> {ok, {Default, List}};
+		false -> error
+	    end;
+	[#privacy{lists = Lists}] ->
+	    case lists:keyfind(Name, 1, Lists) of
+		{_, List} -> {ok, {Name, List}};
+		false -> error
+	    end;
+	[] ->
+	    error
     end.
 
-get_user_lists(LUser, LServer) ->
-    case catch mnesia:dirty_read(privacy, {LUser, LServer}) of
+get_lists(LUser, LServer) ->
+    case mnesia:dirty_read(privacy, {LUser, LServer}) of
         [#privacy{} = P] ->
             {ok, P};
         _ ->
             error
     end.
 
-remove_user(LUser, LServer) ->
+remove_lists(LUser, LServer) ->
     F = fun () -> mnesia:delete({privacy, {LUser, LServer}}) end,
-    mnesia:transaction(F).
+    transaction(F).
 
 import(#privacy{} = P) ->
     mnesia:dirty_write(P).
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-update_table() ->
-    Fields = record_info(fields, privacy),
-    case mnesia:table_info(privacy, attributes) of
-      Fields ->
-          ejabberd_config:convert_table_to_binary(
-            privacy, Fields, set,
-            fun(#privacy{us = {U, _}}) -> U end,
-            fun(#privacy{us = {U, S}, default = Def, lists = Lists} = R) ->
-                    NewLists =
-                        lists:map(
-                          fun({Name, Ls}) ->
-                                  NewLs =
-                                      lists:map(
-                                        fun(#listitem{value = Val} = L) ->
-                                                NewVal =
-                                                    case Val of
+need_transform(#privacy{us = {U, S}}) when is_list(U) orelse is_list(S) ->
+    ?INFO_MSG("Mnesia table 'privacy' will be converted to binary", []),
+    true;
+need_transform(_) ->
+    false.
+
+transform(#privacy{us = {U, S}, default = Def, lists = Lists} = R) ->
+    NewLists = lists:map(
+		 fun({Name, Ls}) ->
+			 NewLs = lists:map(
+				   fun(#listitem{value = Val} = L) ->
+					   NewVal = case Val of
                                                         {LU, LS, LR} ->
                                                             {iolist_to_binary(LU),
                                                              iolist_to_binary(LS),
@@ -192,19 +167,25 @@ update_table() ->
                                                         to -> to;
                                                         _ -> iolist_to_binary(Val)
                                                     end,
-                                                L#listitem{value = NewVal}
-                                        end, Ls),
-                                  {iolist_to_binary(Name), NewLs}
-                          end, Lists),
-                    NewDef = case Def of
-                                 none -> none;
-                                 _ -> iolist_to_binary(Def)
-                             end,
-                    NewUS = {iolist_to_binary(U), iolist_to_binary(S)},
-                    R#privacy{us = NewUS, default = NewDef,
-                              lists = NewLists}
-            end);
-      _ ->
-	  ?INFO_MSG("Recreating privacy table", []),
-	  mnesia:transform_table(privacy, ignore, Fields)
+					   L#listitem{value = NewVal}
+				   end, Ls),
+			 {iolist_to_binary(Name), NewLs}
+		 end, Lists),
+    NewDef = case Def of
+		 none -> none;
+		 _ -> iolist_to_binary(Def)
+	     end,
+    NewUS = {iolist_to_binary(U), iolist_to_binary(S)},
+    R#privacy{us = NewUS, default = NewDef, lists = NewLists}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+transaction(F) ->
+    case mnesia:transaction(F) of
+	{atomic, Result} ->
+	    Result;
+	{aborted, Reason} ->
+	    ?ERROR_MSG("Mnesia transaction failed: ~p", [Reason]),
+	    {error, db_failure}
     end.

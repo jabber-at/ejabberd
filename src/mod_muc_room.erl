@@ -165,8 +165,7 @@ normal_state({route, <<"">>,
 	    MinMessageInterval = trunc(gen_mod:get_module_opt(
 					 StateData#state.server_host,
 					 mod_muc, min_message_interval,
-					 fun(MMI) when is_number(MMI) -> MMI end, 0)
-				       * 1000000),
+					 0) * 1000000),
 	    Size = element_size(Packet),
 	    {MessageShaper, MessageShaperInterval} =
 		shaper:update(Activity#activity.message_shaper, Size),
@@ -347,10 +346,7 @@ normal_state({route, Nick, #presence{from = From} = Packet}, StateData) ->
     MinPresenceInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
 				     mod_muc, min_presence_interval,
-                                     fun(I) when is_number(I), I>=0 ->
-                                             I
-                                     end, 0)
-              * 1000000),
+                                     0) * 1000000),
     if (Now >= Activity#activity.presence_time + MinPresenceInterval)
        and (Activity#activity.presence == undefined) ->
 	    NewActivity = Activity#activity{presence_time = Now},
@@ -1156,13 +1152,13 @@ handle_iq_vcard(ToJID, NewId, #iq{type = Type, sub_els = SubEls} = IQ) ->
 -spec stanzaid_pack(binary(), binary()) -> binary().
 stanzaid_pack(OriginalId, Resource) ->
     <<"berd",
-      (misc:encode_base64(<<"ejab\000",
+      (base64:encode(<<"ejab\000",
 		       OriginalId/binary, "\000",
 		       Resource/binary>>))/binary>>.
 
 -spec stanzaid_unpack(binary()) -> {binary(), binary()}.
 stanzaid_unpack(<<"berd", StanzaIdBase64/binary>>) ->
-    StanzaId = misc:decode_base64(StanzaIdBase64),
+    StanzaId = base64:decode(StanzaIdBase64),
     [<<"ejab">>, OriginalId, Resource] =
 	str:tokens(StanzaId, <<"\000">>),
     {OriginalId, Resource}.
@@ -1415,14 +1411,12 @@ get_max_users(StateData) ->
 get_service_max_users(StateData) ->
     gen_mod:get_module_opt(StateData#state.server_host,
 			   mod_muc, max_users,
-                           fun(I) when is_integer(I), I>0 -> I end,
                            ?MAX_USERS_DEFAULT).
 
 -spec get_max_users_admin_threshold(state()) -> pos_integer().
 get_max_users_admin_threshold(StateData) ->
     gen_mod:get_module_opt(StateData#state.server_host,
 			   mod_muc, max_users_admin_threshold,
-                           fun(I) when is_integer(I), I>0 -> I end,
                            5).
 
 -spec room_queue_new(binary(), shaper:shaper(), _) -> p1_queue:queue().
@@ -1430,19 +1424,15 @@ room_queue_new(ServerHost, Shaper, QueueType) ->
     HaveRoomShaper = Shaper /= none,
     HaveMessageShaper = gen_mod:get_module_opt(
 			  ServerHost, mod_muc, user_message_shaper,
-			  fun(A) when is_atom(A) -> A end,
 			  none) /= none,
     HavePresenceShaper = gen_mod:get_module_opt(
 			   ServerHost, mod_muc, user_presence_shaper,
-			   fun(A) when is_atom(A) -> A end,
 			   none) /= none,
     HaveMinMessageInterval = gen_mod:get_module_opt(
 			       ServerHost, mod_muc, min_message_interval,
-			       fun(I) when is_number(I), I>=0 -> I end,
 			       0) /= 0,
     HaveMinPresenceInterval = gen_mod:get_module_opt(
 				ServerHost, mod_muc, min_presence_interval,
-				fun(I) when is_number(I), I>=0 -> I end,
 				0) /= 0,
     if HaveRoomShaper or HaveMessageShaper or HavePresenceShaper
        or HaveMinMessageInterval or HaveMinPresenceInterval ->
@@ -1461,12 +1451,10 @@ get_user_activity(JID, StateData) ->
 	  MessageShaper =
 	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
 						mod_muc, user_message_shaper,
-                                                fun(A) when is_atom(A) -> A end,
 						none)),
 	  PresenceShaper =
 	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
 						mod_muc, user_presence_shaper,
-                                                fun(A) when is_atom(A) -> A end,
 						none)),
 	  #activity{message_shaper = MessageShaper,
 		    presence_shaper = PresenceShaper}
@@ -1477,15 +1465,11 @@ store_user_activity(JID, UserActivity, StateData) ->
     MinMessageInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
 				     mod_muc, min_message_interval,
-				     fun(I) when is_number(I), I>=0 -> I end,
-				     0)
-	      * 1000),
+				     0) * 1000),
     MinPresenceInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
 				     mod_muc, min_presence_interval,
-				     fun(I) when is_number(I), I>=0 -> I end,
-				     0)
-	      * 1000),
+				     0) * 1000),
     Key = jid:tolower(JID),
     Now = p1_time_compat:system_time(micro_seconds),
     Activity1 = clean_treap(StateData#state.activity,
@@ -1788,7 +1772,6 @@ add_new_user(From, Nick, Packet, StateData) ->
     MaxConferences =
 	gen_mod:get_module_opt(StateData#state.server_host,
 			       mod_muc, max_user_conferences,
-                               fun(I) when is_integer(I), I>0 -> I end,
                                10),
     Collision = nick_collision(From, Nick, StateData),
     IsSubscribeRequest = not is_record(Packet, presence),
@@ -2061,10 +2044,10 @@ filter_history(Queue, Now, Nick,
 
 -spec is_room_overcrowded(state()) -> boolean().
 is_room_overcrowded(StateData) ->
-    MaxUsersPresence = gen_mod:get_module_opt(StateData#state.server_host,
-	mod_muc, max_users_presence,
-	fun(MUP) when is_integer(MUP) -> MUP end,
-	?DEFAULT_MAX_USERS_PRESENCE),
+    MaxUsersPresence = gen_mod:get_module_opt(
+			 StateData#state.server_host,
+			 mod_muc, max_users_presence,
+			 ?DEFAULT_MAX_USERS_PRESENCE),
     (?DICT):size(StateData#state.users) > MaxUsersPresence.
 
 -spec presence_broadcast_allowed(jid(), state()) -> boolean().
@@ -2625,7 +2608,7 @@ process_item_change(UJID) ->
 -type admin_action() :: {jid(), affiliation | role,
 			 affiliation() | role(), binary()}.
 
--spec process_item_change(admin_action(), state(), jid()) -> state() | {error, stanza_error()}.
+-spec process_item_change(admin_action(), state(), undefined | jid()) -> state() | {error, stanza_error()}.
 process_item_change(Item, SD, UJID) ->
     try case Item of
 	    {JID, affiliation, owner, _} when JID#jid.luser == <<"">> ->
@@ -2675,8 +2658,15 @@ process_item_change(Item, SD, UJID) ->
 		SD1
 	end
     catch E:R ->
-	    ?ERROR_MSG("failed to set item ~p from ~s: ~p",
-		       [Item, jid:encode(UJID),
+		FromSuffix = case UJID of
+			#jid{} ->
+				JidString = jid:encode(UJID),
+				<<" from ", JidString/binary>>;
+			undefined ->
+				<<"">>
+		end,
+		?ERROR_MSG("failed to set item ~p~s: ~p",
+		       [Item, FromSuffix,
 			{E, {R, erlang:get_stacktrace()}}]),
 	    {error, xmpp:err_internal_server_error()}
     end.
@@ -3114,18 +3104,11 @@ is_allowed_room_name_desc_limits(Options, StateData) ->
     MaxRoomName = gen_mod:get_module_opt(
 		    StateData#state.server_host,
 		    mod_muc, max_room_name,
-		    fun(infinity) -> infinity;
-		       (I) when is_integer(I),
-				I>0 -> I
-		    end, infinity),
+		    infinity),
     MaxRoomDesc = gen_mod:get_module_opt(
 		    StateData#state.server_host,
 		    mod_muc, max_room_desc,
-		    fun(infinity) -> infinity;
-		       (I) when is_integer(I),
-				I>0 ->
-			    I
-		    end, infinity),
+		    infinity),
     (byte_size(RoomName) =< MaxRoomName)
 	andalso (byte_size(RoomDesc) =< MaxRoomDesc).
 
@@ -3151,7 +3134,6 @@ get_default_room_maxusers(RoomState) ->
     DefRoomOpts =
 	gen_mod:get_module_opt(RoomState#state.server_host,
 			       mod_muc, default_room_options,
-                               fun(L) when is_list(L) -> L end,
                                []),
     RoomState2 = set_opts(DefRoomOpts, RoomState),
     (RoomState2#state.config)#config.max_users.
@@ -3713,6 +3695,21 @@ process_iq_mucsub(_From, #iq{type = set, lang = Lang,
     {error, xmpp:err_not_allowed(<<"Subscriptions are not allowed">>, Lang)};
 process_iq_mucsub(From,
 		  #iq{type = set, lang = Lang,
+		      sub_els = [#muc_subscribe{jid = #jid{} = SubJid} = Mucsub]},
+		  StateData) ->
+    FAffiliation = get_affiliation(From, StateData),
+    FRole = get_role(From, StateData),
+    if FRole == moderator; FAffiliation == owner; FAffiliation == admin ->
+	    process_iq_mucsub(SubJid,
+			      #iq{type = set, lang = Lang,
+				  sub_els = [Mucsub#muc_subscribe{jid = undefined}]},
+			      StateData);
+       true ->
+	    Txt = <<"Moderator privileges required">>,
+	    {error, xmpp:err_forbidden(Txt, Lang)}
+    end;
+process_iq_mucsub(From,
+		  #iq{type = set, lang = Lang,
 		      sub_els = [#muc_subscribe{nick = Nick}]} = Packet,
 		  StateData) ->
     LBareJID = jid:tolower(jid:remove_resource(From)),
@@ -3740,6 +3737,20 @@ process_iq_mucsub(From,
 	error ->
 	    SD2 = StateData#state{config = (StateData#state.config)#config{allow_subscription = true}},
 	    add_new_user(From, Nick, Packet, SD2)
+    end;
+process_iq_mucsub(From, #iq{type = set, lang = Lang,
+			    sub_els = [#muc_unsubscribe{jid = #jid{} = UnsubJid}]},
+		  StateData) ->
+    FAffiliation = get_affiliation(From, StateData),
+    FRole = get_role(From, StateData),
+    if FRole == moderator; FAffiliation == owner; FAffiliation == admin ->
+	    process_iq_mucsub(UnsubJid,
+			      #iq{type = set, lang = Lang,
+				  sub_els = [#muc_unsubscribe{jid = undefined}]},
+			      StateData);
+       true ->
+	    Txt = <<"Moderator privileges required">>,
+	    {error, xmpp:err_forbidden(Txt, Lang)}
     end;
 process_iq_mucsub(From, #iq{type = set, sub_els = [#muc_unsubscribe{}]},
 		  StateData) ->

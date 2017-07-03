@@ -25,21 +25,32 @@
 %%%-------------------------------------------------------------------
 
 -module(ejabberd_oauth_mnesia).
+-behaviour(ejabberd_oauth).
 
 -export([init/0,
          store/1,
          lookup/1,
-         clean/1]).
+         clean/1,
+	 use_cache/0]).
 
 -include("ejabberd_oauth.hrl").
 
 init() ->
     ejabberd_mnesia:create(?MODULE, oauth_token,
-                        [{disc_copies, [node()]},
+                        [{disc_only_copies, [node()]},
                          {attributes,
                           record_info(fields, oauth_token)}]),
-    mnesia:add_table_copy(oauth_token, node(), disc_copies),
     ok.
+
+use_cache() ->
+    case mnesia:table_info(oauth_token, storage_type) of
+	disc_only_copies ->
+	    ejabberd_config:get_option(
+	      oauth_use_cache,
+	      ejabberd_config:use_cache(global));
+	_ ->
+	    false
+    end.
 
 store(R) ->
     mnesia:dirty_write(R).
@@ -47,9 +58,9 @@ store(R) ->
 lookup(Token) ->
     case catch mnesia:dirty_read(oauth_token, Token) of
         [R] ->
-            R;
+            {ok, R};
         _ ->
-            false
+            error
     end.
 
 clean(TS) ->

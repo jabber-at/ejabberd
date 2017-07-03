@@ -39,7 +39,7 @@
 -export([process_auth_result/2, process_closed/2, handle_unexpected_info/2,
 	 handle_unexpected_cast/2, process_downgraded/2]).
 %% API
--export([start/3, start_link/3, connect/1, close/1, stop/1, send/2,
+-export([start/3, start_link/3, connect/1, close/1, close/2, stop/1, send/2,
 	 route/2, establish/1, update_state/2, host_up/1, host_down/1]).
 
 -include("ejabberd.hrl").
@@ -54,10 +54,13 @@
 %%%===================================================================
 start(From, To, Opts) ->
     case proplists:get_value(supervisor, Opts, true) of
-	   true ->
-	    supervisor:start_child(ejabberd_s2s_out_sup,
-				   [From, To, Opts]);
-		_ ->
+	true ->
+	    case supervisor:start_child(ejabberd_s2s_out_sup,
+					[From, To, Opts]) of
+		{ok, undefined} -> ignore;
+		Res -> Res
+	    end;
+	_ ->
 	    xmpp_stream_out:start(?MODULE, [ejabberd_socket, From, To, Opts],
 				  ejabberd_config:fsm_limit_opts([]))
     end.
@@ -74,6 +77,11 @@ connect(Ref) ->
 	   (state()) -> state().
 close(Ref) ->
     xmpp_stream_out:close(Ref).
+
+-spec close(pid(), atom()) -> ok;
+	   (state(), atom()) -> state().
+close(Ref, Reason) ->
+    xmpp_stream_out:close(Ref, Reason).
 
 -spec stop(pid()) -> ok;
 	  (state()) -> no_return().
@@ -186,42 +194,21 @@ tls_enabled(#{server := LServer}) ->
 connect_timeout(#{server := LServer}) ->
     ejabberd_config:get_option(
       {outgoing_s2s_timeout, LServer},
-      fun(TimeOut) when is_integer(TimeOut), TimeOut > 0 ->
-              timer:seconds(TimeOut);
-         (infinity) ->
-              infinity
-      end, timer:seconds(10)).
+      timer:seconds(10)).
 
 default_port(#{server := LServer}) ->
-    ejabberd_config:get_option(
-      {outgoing_s2s_port, LServer},
-      fun(I) when is_integer(I), I > 0, I =< 65536 -> I end,
-      5269).
+    ejabberd_config:get_option({outgoing_s2s_port, LServer}, 5269).
 
 address_families(#{server := LServer}) ->
     ejabberd_config:get_option(
       {outgoing_s2s_families, LServer},
-      fun(Families) ->
-	      lists:map(
-		fun(ipv4) -> inet;
-		   (ipv6) -> inet6
-		end, Families)
-      end, [inet, inet6]).
+      [inet, inet6]).
 
 dns_retries(#{server := LServer}) ->
-    ejabberd_config:get_option(
-      {s2s_dns_retries, LServer},
-      fun(I) when is_integer(I), I>=0 -> I end,
-      2).
+    ejabberd_config:get_option({s2s_dns_retries, LServer}, 2).
 
 dns_timeout(#{server := LServer}) ->
-    ejabberd_config:get_option(
-      {s2s_dns_timeout, LServer},
-      fun(I) when is_integer(I), I>=0 ->
-	      timer:seconds(I);
-	 (infinity) ->
-	      infinity
-      end, timer:seconds(10)).
+    ejabberd_config:get_option({s2s_dns_timeout, LServer}, timer:seconds(10)).
 
 handle_auth_success(Mech, #{sockmod := SockMod,
 			    socket := Socket, ip := IP,
@@ -386,10 +373,7 @@ mk_bounce_error(_Lang, _State) ->
 
 -spec get_delay() -> non_neg_integer().
 get_delay() ->
-    MaxDelay = ejabberd_config:get_option(
-		 s2s_max_retry_delay,
-		 fun(I) when is_integer(I), I > 0 -> I end,
-		 300),
+    MaxDelay = ejabberd_config:get_option(s2s_max_retry_delay, 300),
     crypto:rand_uniform(1, MaxDelay).
 
 -spec set_idle_timeout(state()) -> state().
@@ -458,27 +442,36 @@ maybe_report_huge_timeout(Opt, T) when is_integer(T), T >= 1000 ->
 maybe_report_huge_timeout(_, _) ->
     ok.
 
+-spec opt_type(outgoing_s2s_families) -> fun(([ipv4|ipv6]) -> [inet|inet6]);
+	      (outgoing_s2s_port) -> fun((0..65535) -> 0..65535);
+	      (outgoing_s2s_timeout) -> fun((timeout()) -> timeout());
+	      (s2s_dns_retries) -> fun((non_neg_integer()) -> non_neg_integer());
+	      (s2s_dns_timeout) -> fun((timeout()) -> timeout());
+	      (s2s_max_retry_delay) -> fun((pos_integer()) -> pos_integer());
+	      (atom()) -> [atom()].
 opt_type(outgoing_s2s_families) ->
-    fun (Families) ->
-	    true = lists:all(fun (ipv4) -> true;
-				 (ipv6) -> true
-			     end,
-			     Families),
-	    Families
+    fun(Families) ->
+	    lists:map(
+	      fun(ipv4) -> inet;
+		 (ipv6) -> inet6
+	      end, Families)
     end;
 opt_type(outgoing_s2s_port) ->
-    fun (I) when is_integer(I), I > 0, I =< 65536 -> I end;
+    fun (I) when is_integer(I), I > 0, I < 65536 -> I end;
 opt_type(outgoing_s2s_timeout) ->
-    fun (TimeOut) when is_integer(TimeOut), TimeOut > 0 ->
-	    TimeOut;
-	(infinity) -> infinity
+    fun(TimeOut) when is_integer(TimeOut), TimeOut > 0 ->
+	    timer:seconds(TimeOut);
+       (unlimited) ->
+	    infinity;
+       (infinity) ->
+	    infinity
     end;
 opt_type(s2s_dns_retries) ->
     fun (I) when is_integer(I), I >= 0 -> I end;
 opt_type(s2s_dns_timeout) ->
-    fun (TimeOut) when is_integer(TimeOut), TimeOut > 0 ->
-	    TimeOut;
-	(infinity) -> infinity
+    fun(I) when is_integer(I), I>=0 -> timer:seconds(I);
+       (infinity) -> infinity;
+       (unlimited) -> infinity
     end;
 opt_type(s2s_max_retry_delay) ->
     fun (I) when is_integer(I), I > 0 -> I end;

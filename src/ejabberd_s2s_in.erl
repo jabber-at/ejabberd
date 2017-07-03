@@ -21,13 +21,12 @@
 %%%-------------------------------------------------------------------
 -module(ejabberd_s2s_in).
 -behaviour(xmpp_stream_in).
--behaviour(ejabberd_config).
 -behaviour(ejabberd_socket).
 
 %% ejabberd_socket callbacks
 -export([start/2, start_link/2, socket_type/0]).
-%% ejabberd_config callbacks
--export([opt_type/1]).
+%% ejabberd_listener callbacks
+-export([listen_opt_type/1]).
 %% xmpp_stream_in callbacks
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3]).
@@ -42,7 +41,7 @@
 -export([handle_unexpected_info/2, handle_unexpected_cast/2,
 	 reject_unauthenticated_packet/2, process_closed/2]).
 %% API
--export([stop/1, close/1, send/2, update_state/2, establish/1,
+-export([stop/1, close/1, close/2, send/2, update_state/2, establish/1,
 	 host_up/1, host_down/1]).
 
 -include("ejabberd.hrl").
@@ -58,7 +57,10 @@
 start(SockData, Opts) ->
     case proplists:get_value(supervisor, Opts, true) of
 	true ->
-	    supervisor:start_child(ejabberd_s2s_in_sup, [SockData, Opts]);
+	    case supervisor:start_child(ejabberd_s2s_in_sup, [SockData, Opts]) of
+		{ok, undefined} -> ignore;
+		Res -> Res
+	    end;
 	_ ->
 	    xmpp_stream_in:start(?MODULE, [SockData, Opts],
 				 ejabberd_config:fsm_limit_opts(Opts))
@@ -70,6 +72,9 @@ start_link(SockData, Opts) ->
 
 close(Ref) ->
     xmpp_stream_in:close(Ref).
+
+close(Ref, Reason) ->
+    xmpp_stream_in:close(Ref, Reason).
 
 stop(Ref) ->
     xmpp_stream_in:stop(Ref).
@@ -162,7 +167,7 @@ handle_stream_start(_StreamStart, #{lserver := LServer} = State) ->
     case check_to(jid:make(LServer), State) of
 	false ->
 	    send(State, xmpp:serr_host_unknown());
-		      true ->
+	true ->
 	    ServerHost = ejabberd_router:host_of_route(LServer),
 	    State#{server_host => ServerHost}
     end.
@@ -184,7 +189,7 @@ handle_auth_success(RServer, Mech, _AuthModule,
 	      [SockMod:pp(Socket), Mech, RServer, LServer,
 	       ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
     State1 = case ejabberd_s2s:allow_host(ServerHost, RServer) of
-	       true ->
+		 true ->
 		     AuthDomains1 = sets:add_element(RServer, AuthDomains),
 		     change_shaper(State, RServer),
 		     State#{auth_domains => AuthDomains1};
@@ -242,25 +247,20 @@ handle_send(Pkt, Result, #{server_host := LServer} = State) ->
 			    State, [Pkt, Result]).
 
 init([State, Opts]) ->
-    Shaper = gen_mod:get_opt(shaper, Opts, fun acl:shaper_rules_validator/1, none),
+    Shaper = proplists:get_value(shaper, Opts, none),
     TLSOpts1 = lists:filter(
 		 fun({certfile, _}) -> true;
 		    ({ciphers, _}) -> true;
 		    ({dhfile, _}) -> true;
 		    ({cafile, _}) -> true;
+		    ({protocol_options, _}) -> true;
 		    (_) -> false
 		 end, Opts),
-    TLSOpts2 = case lists:keyfind(protocol_options, 1, Opts) of
-		   false -> TLSOpts1;
-		   {_, OptString} ->
-		       ProtoOpts = str:join(OptString, <<$|>>),
-		       [{protocol_options, ProtoOpts}|TLSOpts1]
-		   end,
-    TLSOpts3 = case proplists:get_bool(tls_compression, Opts) of
-                   false -> [compression_none | TLSOpts2];
-                   true -> TLSOpts2
+    TLSOpts2 = case proplists:get_bool(tls_compression, Opts) of
+                   false -> [compression_none | TLSOpts1];
+                   true -> TLSOpts1
     end,
-    State1 = State#{tls_options => TLSOpts3,
+    State1 = State#{tls_options => TLSOpts2,
 		    auth_domains => sets:new(),
 		    xmlns => ?NS_SERVER,
 		    lang => ?MYLANG,
@@ -313,13 +313,13 @@ code_change(_OldVsn, State, _Extra) ->
 -spec check_from_to(jid(), jid(), state()) -> ok | {error, stream_error()}.
 check_from_to(From, To, State) ->
     case check_from(From, State) of
-       true ->
+	true ->
 	    case check_to(To, State) of
-	      true ->
+		true ->
 		    ok;
-                false ->
+		false ->
 		    {error, xmpp:serr_host_unknown()}
-    end;
+	    end;
 	false ->
 	    {error, xmpp:serr_invalid_from()}
     end.
@@ -346,5 +346,38 @@ change_shaper(#{shaper := ShaperName, server_host := ServerHost} = State,
     Shaper = acl:match_rule(ServerHost, ShaperName, jid:make(RServer)),
     xmpp_stream_in:change_shaper(State, Shaper).
 
-opt_type(_) ->
-    [].
+-spec listen_opt_type(shaper) -> fun((any()) -> any());
+		     (certfile) -> fun((binary()) -> binary());
+		     (ciphers) -> fun((binary()) -> binary());
+		     (dhfile) -> fun((binary()) -> binary());
+		     (cafile) -> fun((binary()) -> binary());
+		     (protocol_options) -> fun(([binary()]) -> binary());
+		     (tls_compression) -> fun((boolean()) -> boolean());
+		     (tls) -> fun((boolean()) -> boolean());
+		     (supervisor) -> fun((boolean()) -> boolean());
+		     (max_stanza_type) -> fun((timeout()) -> timeout());
+		     (max_fsm_queue) -> fun((pos_integer()) -> pos_integer());
+		     (atom()) -> [atom()].
+listen_opt_type(shaper) -> fun acl:shaper_rules_validator/1;
+listen_opt_type(certfile) ->
+    fun(S) ->
+	    ejabberd_pkix:add_certfile(S),
+	    iolist_to_binary(S)
+    end;
+listen_opt_type(ciphers) -> ejabberd_s2s:opt_type(s2s_ciphers);
+listen_opt_type(dhfile) -> ejabberd_s2s:opt_type(s2s_dhfile);
+listen_opt_type(cafile) -> ejabberd_s2s:opt_type(s2s_cafile);
+listen_opt_type(protocol_options) -> ejabberd_s2s:opt_type(s2s_protocol_options);
+listen_opt_type(tls_compression) -> ejabberd_s2s:opt_type(s2s_tls_compression);
+listen_opt_type(tls) -> fun(B) when is_boolean(B) -> B end;
+listen_opt_type(supervisor) -> fun(B) when is_boolean(B) -> B end;
+listen_opt_type(max_stanza_size) ->
+    fun(I) when is_integer(I), I>0 -> I;
+       (unlimited) -> infinity;
+       (infinity) -> infinity
+    end;
+listen_opt_type(max_fsm_queue) ->
+    fun(I) when is_integer(I), I>0 -> I end;
+listen_opt_type(_) ->
+    [shaper, certfile, ciphers, dhfile, cafile, protocol_options,
+     tls_compression, tls, max_fsm_queue].

@@ -43,6 +43,7 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("pubsub.hrl").
+-include("mod_roster.hrl").
 
 -define(STDTREE, <<"tree">>).
 -define(STDNODE, <<"flat">>).
@@ -244,18 +245,12 @@ init([ServerHost, Opts]) ->
     ?DEBUG("pubsub init ~p ~p", [ServerHost, Opts]),
     Host = gen_mod:get_opt_host(ServerHost, Opts, <<"pubsub.@HOST@">>),
     ejabberd_router:register_route(Host, ServerHost),
-    Access = gen_mod:get_opt(access_createnode, Opts,
-	    fun acl:access_rules_validator/1, all),
-    PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts,
-	    fun(A) when is_boolean(A) -> A end, true),
-    IQDisc = gen_mod:get_opt(iqdisc, Opts,
-	    fun gen_iq_handler:check_type/1, one_queue),
-    LastItemCache = gen_mod:get_opt(last_item_cache, Opts,
-	    fun(A) when is_boolean(A) -> A end, false),
-    MaxItemsNode = gen_mod:get_opt(max_items_node, Opts,
-	    fun(A) when is_integer(A) andalso A >= 0 -> A end, ?MAXITEMS),
-    MaxSubsNode = gen_mod:get_opt(max_subscriptions_node, Opts,
-	    fun(A) when is_integer(A) andalso A >= 0 -> A end, undefined),
+    Access = gen_mod:get_opt(access_createnode, Opts, all),
+    PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts, true),
+    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
+    LastItemCache = gen_mod:get_opt(last_item_cache, Opts, false),
+    MaxItemsNode = gen_mod:get_opt(max_items_node, Opts, ?MAXITEMS),
+    MaxSubsNode = gen_mod:get_opt(max_subscriptions_node, Opts),
     case gen_mod:db_type(ServerHost, ?MODULE) of
 	mnesia -> pubsub_index:init(Host, ServerHost, Opts);
 	_ -> ok
@@ -263,8 +258,9 @@ init([ServerHost, Opts]) ->
     {Plugins, NodeTree, PepMapping} = init_plugins(Host, ServerHost, Opts),
     DefaultModule = plugin(Host, hd(Plugins)),
     BaseOptions = DefaultModule:options(),
-    DefaultNodeCfg = gen_mod:get_opt(default_node_config, Opts,
-	    fun(A) when is_list(A) -> filter_node_options(A, BaseOptions) end, []),
+    DefaultNodeCfg = filter_node_options(
+		       gen_mod:get_opt(default_node_config, Opts, []),
+		       BaseOptions),
     ejabberd_mnesia:create(?MODULE, pubsub_last_item,
 	[{ram_copies, [node()]},
 	    {attributes, record_info(fields, pubsub_last_item)}]),
@@ -364,8 +360,7 @@ init_send_loop(ServerHost) ->
 
 depends(ServerHost, Opts) ->
     Host = gen_mod:get_opt_host(ServerHost, Opts, <<"pubsub.@HOST@">>),
-    Plugins = gen_mod:get_opt(plugins, Opts,
-			      fun(A) when is_list(A) -> A end, [?STDNODE]),
+    Plugins = gen_mod:get_opt(plugins, Opts, [?STDNODE]),
     lists:flatmap(
       fun(Name) ->
 	      Plugin = plugin(ServerHost, Name),
@@ -380,15 +375,11 @@ depends(ServerHost, Opts) ->
 %% <em>node_plugin</em>. The 'node_' prefix is mandatory.</p>
 %% <p>See {@link node_hometree:init/1} for an example implementation.</p>
 init_plugins(Host, ServerHost, Opts) ->
-    TreePlugin = tree(Host, gen_mod:get_opt(nodetree, Opts,
-		fun(A) when is_binary(A) -> A end,
-		?STDTREE)),
+    TreePlugin = tree(Host, gen_mod:get_opt(nodetree, Opts, ?STDTREE)),
     ?DEBUG("** tree plugin is ~p", [TreePlugin]),
     TreePlugin:init(Host, ServerHost, Opts),
-    Plugins = gen_mod:get_opt(plugins, Opts,
-	    fun(A) when is_list(A) -> A end, [?STDNODE]),
-    PepMapping = gen_mod:get_opt(pep_mapping, Opts,
-	    fun(A) when is_list(A) -> A end, []),
+    Plugins = gen_mod:get_opt(plugins, Opts, [?STDNODE]),
+    PepMapping = gen_mod:get_opt(pep_mapping, Opts, []),
     ?DEBUG("** PEP Mapping : ~p~n", [PepMapping]),
     PluginsOK = lists:foldl(
 	    fun (Name, Acc) ->
@@ -415,9 +406,19 @@ terminate_plugins(Host, ServerHost, Plugins, TreePlugin) ->
     TreePlugin:terminate(Host, ServerHost),
     ok.
 
+get_subscribed(User, Server) ->
+    Items = ejabberd_hooks:run_fold(roster_get, Server, [], [{User, Server}]),
+    lists:filtermap(
+      fun(#roster{jid = LJID, subscription = Sub})
+	    when Sub == both orelse Sub == from ->
+	      {true, LJID};
+	 (_) ->
+	      false
+      end, Items).
+
 send_loop(State) ->
     receive
-	{presence, JID, Pid} ->
+	{presence, JID, _Pid} ->
 	    Host = State#state.host,
 	    ServerHost = State#state.server_host,
 	    DBType = State#state.db_type,
@@ -439,26 +440,21 @@ send_loop(State) ->
 		State#state.plugins),
 	    if not State#state.ignore_pep_from_offline ->
 		    {User, Server, Resource} = LJID,
-		    case catch ejabberd_c2s:get_subscribed(Pid) of
-			Contacts when is_list(Contacts) ->
-			    lists:foreach(
-				fun({U, S, R}) when S == ServerHost ->
-					case user_resources(U, S) of
-					    [] -> %% offline
-						PeerJID = jid:make(U, S, R),
-						self() !  {presence, User, Server, [Resource], PeerJID};
-					    _ -> %% online
-						% this is already handled by presence probe
-						ok
-					end;
-				    (_) ->
-					% we can not do anything in any cases
-					ok
-				end,
-				Contacts);
-			_ ->
-			    ok
-		    end;
+		    Contacts = get_subscribed(User, Server),
+		    lists:foreach(
+		      fun({U, S, R}) when S == ServerHost ->
+			      case user_resources(U, S) of
+				  [] -> %% offline
+				      PeerJID = jid:make(U, S, R),
+				      self() !  {presence, User, Server, [Resource], PeerJID};
+				  _ -> %% online
+				      %% this is already handled by presence probe
+				      ok
+			      end;
+			 (_) ->
+			      %% we can not do anything in any cases
+			      ok
+		      end, Contacts);
 		true ->
 		    ok
 	    end,
@@ -3013,60 +3009,61 @@ c2s_handle_info(C2SState, _) ->
 
 subscribed_nodes_by_jid(NotifyType, SubsByDepth) ->
     NodesToDeliver = fun (Depth, Node, Subs, Acc) ->
-	    NodeName = case Node#pubsub_node.nodeid of
-		{_, N} -> N;
-		Other -> Other
-	    end,
-	    NodeOptions = Node#pubsub_node.options,
-	    lists:foldl(fun({LJID, SubID, SubOptions}, {JIDs, Recipients}) ->
-			case is_to_deliver(LJID, NotifyType, Depth, NodeOptions, SubOptions) of
-			    true ->
-				case state_can_deliver(LJID, SubOptions) of
-				    [] -> {JIDs, Recipients};
-				    JIDsToDeliver ->
-					lists:foldl(
-					    fun(JIDToDeliver, {JIDsAcc, RecipientsAcc}) ->
-						    case lists:member(JIDToDeliver, JIDs) of
-							%% check if the JIDs co-accumulator contains the Subscription Jid,
-							false ->
-							    %%  - if not,
-							    %%  - add the Jid to JIDs list co-accumulator ;
-							    %%  - create a tuple of the Jid, Nidx, and SubID (as list),
-							    %%    and add the tuple to the Recipients list co-accumulator
-							    {[JIDToDeliver | JIDsAcc],
-								[{JIDToDeliver, NodeName, [SubID]}
-								    | RecipientsAcc]};
-							true ->
-							    %% - if the JIDs co-accumulator contains the Jid
-							    %%   get the tuple containing the Jid from the Recipient list co-accumulator
-							    {_, {JIDToDeliver, NodeName1, SubIDs}} =
-								lists:keysearch(JIDToDeliver, 1, RecipientsAcc),
-							    %%   delete the tuple from the Recipients list
-							    % v1 : Recipients1 = lists:keydelete(LJID, 1, Recipients),
-							    % v2 : Recipients1 = lists:keyreplace(LJID, 1, Recipients, {LJID, Nidx1, [SubID | SubIDs]}),
-							    %%   add the SubID to the SubIDs list in the tuple,
-							    %%   and add the tuple back to the Recipients list co-accumulator
-							    % v1.1 : {JIDs, lists:append(Recipients1, [{LJID, Nidx1, lists:append(SubIDs, [SubID])}])}
-							    % v1.2 : {JIDs, [{LJID, Nidx1, [SubID | SubIDs]} | Recipients1]}
-							    % v2: {JIDs, Recipients1}
-							    {JIDsAcc,
-								lists:keyreplace(JIDToDeliver, 1,
-								    RecipientsAcc,
-								    {JIDToDeliver, NodeName1,
-									[SubID | SubIDs]})}
-						    end
-					    end, {JIDs, Recipients}, JIDsToDeliver)
-				end;
-			    false ->
-				{JIDs, Recipients}
-			end
-		end, Acc, Subs)
-    end,
+	NodeName = case Node#pubsub_node.nodeid of
+		       {_, N} -> N;
+		       Other -> Other
+		   end,
+	NodeOptions = Node#pubsub_node.options,
+	lists:foldl(fun({LJID, SubID, SubOptions}, {JIDs, Recipients}) ->
+	    case is_to_deliver(LJID, NotifyType, Depth, NodeOptions, SubOptions) of
+		true ->
+		    case state_can_deliver(LJID, SubOptions) of
+			[] -> {JIDs, Recipients};
+			[LJID] -> {JIDs, [{LJID, NodeName, [SubID]} | Recipients]};
+			JIDsToDeliver ->
+			    lists:foldl(
+				fun(JIDToDeliver, {JIDsAcc, RecipientsAcc}) ->
+					case lists:member(JIDToDeliver, JIDs) of
+					    %% check if the JIDs co-accumulator contains the Subscription Jid,
+					    false ->
+						%%  - if not,
+						%%  - add the Jid to JIDs list co-accumulator ;
+						%%  - create a tuple of the Jid, Nidx, and SubID (as list),
+						%%    and add the tuple to the Recipients list co-accumulator
+						{[JIDToDeliver | JIDsAcc],
+						    [{JIDToDeliver, NodeName, [SubID]}
+							| RecipientsAcc]};
+					    true ->
+						%% - if the JIDs co-accumulator contains the Jid
+						%%   get the tuple containing the Jid from the Recipient list co-accumulator
+						{_, {JIDToDeliver, NodeName1, SubIDs}} =
+						    lists:keysearch(JIDToDeliver, 1, RecipientsAcc),
+						%%   delete the tuple from the Recipients list
+						% v1 : Recipients1 = lists:keydelete(LJID, 1, Recipients),
+						% v2 : Recipients1 = lists:keyreplace(LJID, 1, Recipients, {LJID, Nidx1, [SubID | SubIDs]}),
+						%%   add the SubID to the SubIDs list in the tuple,
+						%%   and add the tuple back to the Recipients list co-accumulator
+						% v1.1 : {JIDs, lists:append(Recipients1, [{LJID, Nidx1, lists:append(SubIDs, [SubID])}])}
+						% v1.2 : {JIDs, [{LJID, Nidx1, [SubID | SubIDs]} | Recipients1]}
+						% v2: {JIDs, Recipients1}
+						{JIDsAcc,
+						    lists:keyreplace(JIDToDeliver, 1,
+							RecipientsAcc,
+							{JIDToDeliver, NodeName1,
+							    [SubID | SubIDs]})}
+					end
+				end, {JIDs, Recipients}, JIDsToDeliver)
+		    end;
+		false ->
+		    {JIDs, Recipients}
+	    end
+	end, Acc, Subs)
+	end,
     DepthsToDeliver = fun({Depth, SubsByNode}, Acc1) ->
-	    lists:foldl(fun({Node, Subs}, Acc2) ->
-			NodesToDeliver(Depth, Node, Subs, Acc2)
-		end, Acc1, SubsByNode)
-    end,
+	lists:foldl(fun({Node, Subs}, Acc2) ->
+			    NodesToDeliver(Depth, Node, Subs, Acc2)
+		    end, Acc1, SubsByNode)
+	end,
     {_, JIDSubs} = lists:foldl(DepthsToDeliver, {[], []}, SubsByDepth),
     JIDSubs.
 

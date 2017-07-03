@@ -27,7 +27,9 @@
 -behaviour(mod_last).
 
 %% API
--export([init/2, import/2, get_last/2, store_last_info/4, remove_user/2]).
+-export([init/2, import/2, get_last/2, store_last_info/4,
+	 remove_user/2, use_cache/1]).
+-export([need_transform/1, transform/1]).
 
 -include("mod_last.hrl").
 -include("logger.hrl").
@@ -37,53 +39,51 @@
 %%%===================================================================
 init(_Host, _Opts) ->
     ejabberd_mnesia:create(?MODULE, last_activity,
-			[{disc_copies, [node()]},
-			 {attributes,
-			  record_info(fields, last_activity)}]),
-    update_table().
+			   [{disc_only_copies, [node()]},
+			    {attributes, record_info(fields, last_activity)}]).
+
+use_cache(Host) ->
+    case mnesia:table_info(last_activity, storage_type) of
+	disc_only_copies ->
+	    gen_mod:get_module_opt(
+	      Host, mod_last, use_cache,
+	      ejabberd_config:use_cache(Host));
+	_ ->
+	    false
+    end.
 
 get_last(LUser, LServer) ->
     case mnesia:dirty_read(last_activity, {LUser, LServer}) of
 	[] ->
-	    not_found;
+	    error;
 	[#last_activity{timestamp = TimeStamp,
 			status = Status}] ->
-	    {ok, TimeStamp, Status}
+	    {ok, {TimeStamp, Status}}
     end.
 
 store_last_info(LUser, LServer, TimeStamp, Status) ->
-    US = {LUser, LServer},
-    F = fun () ->
-		mnesia:write(#last_activity{us = US,
-					    timestamp = TimeStamp,
-					    status = Status})
-	end,
-    mnesia:transaction(F).
+    mnesia:dirty_write(#last_activity{us = {LUser, LServer},
+				      timestamp = TimeStamp,
+				      status = Status}).
 
 remove_user(LUser, LServer) ->
     US = {LUser, LServer},
-    F = fun () -> mnesia:delete({last_activity, US}) end,
-    mnesia:transaction(F).
+    mnesia:dirty_delete({last_activity, US}).
 
 import(_LServer, #last_activity{} = LA) ->
     mnesia:dirty_write(LA).
 
+need_transform(#last_activity{us = {U, S}, status = Status})
+  when is_list(U) orelse is_list(S) orelse is_list(Status) ->
+    ?INFO_MSG("Mnesia table 'last_activity' will be converted to binary", []),
+    true;
+need_transform(_) ->
+    false.
+
+transform(#last_activity{us = {U, S}, status = Status} = R) ->
+    R#last_activity{us = {iolist_to_binary(U), iolist_to_binary(S)},
+		    status = iolist_to_binary(Status)}.
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-update_table() ->
-    Fields = record_info(fields, last_activity),
-    case mnesia:table_info(last_activity, attributes) of
-      Fields ->
-          ejabberd_config:convert_table_to_binary(
-            last_activity, Fields, set,
-            fun(#last_activity{us = {U, _}}) -> U end,
-            fun(#last_activity{us = {U, S}, status = Status} = R) ->
-                    R#last_activity{us = {iolist_to_binary(U),
-                                          iolist_to_binary(S)},
-                                    status = iolist_to_binary(Status)}
-            end);
-      _ ->
-	  ?INFO_MSG("Recreating last_activity table", []),
-	  mnesia:transform_table(last_activity, ignore, Fields)
-    end.

@@ -27,7 +27,8 @@
 
 -author('alexey@process-one.net').
 
--export([get_string/0, uniform/0, uniform/1, bytes/1]).
+-export([get_string/0, uniform/0, uniform/1, uniform/2, bytes/1,
+	 round_robin/1]).
 
 -define(THRESHOLD, 16#10000000000000000).
 
@@ -41,6 +42,9 @@ uniform() ->
 uniform(N) ->
     crypto:rand_uniform(1, N+1).
 
+uniform(N, M) ->
+    crypto:rand_uniform(N, M+1).
+
 -ifdef(STRONG_RAND_BYTES).
 bytes(N) ->
     crypto:strong_rand_bytes(N).
@@ -48,3 +52,7 @@ bytes(N) ->
 bytes(N) ->
     crypto:rand_bytes(N).
 -endif.
+
+-spec round_robin(pos_integer()) -> non_neg_integer().
+round_robin(N) ->
+    p1_time_compat:unique_integer([monotonic, positive]) rem N.

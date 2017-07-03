@@ -25,8 +25,6 @@
 
 -module(mod_last).
 
--behaviour(ejabberd_config).
-
 -author('alexey@process-one.net').
 
 -protocol({xep, 12, '2.0'}).
@@ -36,8 +34,8 @@
 -export([start/2, stop/1, reload/3, process_local_iq/1, export/1,
 	 process_sm_iq/1, on_presence_update/4, import_info/0,
 	 import/5, import_start/2, store_last_info/4, get_last_info/2,
-	 remove_user/2, transform_options/1, mod_opt_type/1,
-	 opt_type/1, register_user/2, depends/2, privacy_check_packet/4]).
+	 remove_user/2, mod_opt_type/1,
+	 register_user/2, depends/2, privacy_check_packet/4]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -47,18 +45,24 @@
 -include("mod_privacy.hrl").
 -include("mod_last.hrl").
 
+-define(LAST_CACHE, last_activity_cache).
+
 -callback init(binary(), gen_mod:opts()) -> any().
 -callback import(binary(), #last_activity{}) -> ok | pass.
 -callback get_last(binary(), binary()) ->
-    {ok, non_neg_integer(), binary()} | not_found | {error, any()}.
--callback store_last_info(binary(), binary(), non_neg_integer(), binary()) -> any().
+    {ok, {non_neg_integer(), binary()}} | error | {error, any()}.
+-callback store_last_info(binary(), binary(), non_neg_integer(), binary()) -> ok | {error, any()}.
 -callback remove_user(binary(), binary()) -> any().
+-callback use_cache(binary()) -> boolean().
+-callback cache_nodes(binary()) -> [node()].
+
+-optional_callbacks([use_cache/1, cache_nodes/1]).
 
 start(Host, Opts) ->
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, fun gen_iq_handler:check_type/1,
-                             one_queue),
+    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
     Mod = gen_mod:db_mod(Host, Opts, ?MODULE),
     Mod:init(Host, Opts),
+    init_cache(Mod, Host, Opts),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
 				  ?NS_LAST, ?MODULE, process_local_iq, IQDisc),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
@@ -94,9 +98,8 @@ reload(Host, NewOpts, OldOpts) ->
        true ->
 	    ok
     end,
-    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
-			      fun gen_iq_handler:check_type/1,
-			      one_queue) of
+    init_cache(NewMod, Host, NewOpts),
+    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts, gen_iq_handler:iqdisc(Host)) of
 	{false, IQDisc, _} ->
 	    gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_LAST,
 					  ?MODULE, process_local_iq, IQDisc),
@@ -121,18 +124,12 @@ process_local_iq(#iq{type = get} = IQ) ->
 %% @doc Get the uptime of the ejabberd node, expressed in seconds.
 %% When ejabberd is starting, ejabberd_config:start/0 stores the datetime.
 get_node_uptime() ->
-    case ejabberd_config:get_option(
-           node_start,
-           fun(S) when is_integer(S), S >= 0 -> S end) of
+    case ejabberd_config:get_option(node_start) of
         undefined ->
             trunc(element(1, erlang:statistics(wall_clock)) / 1000);
         Now ->
             p1_time_compat:system_time(seconds) - Now
     end.
-
--spec now_to_seconds(erlang:timestamp()) -> non_neg_integer().
-now_to_seconds({MegaSecs, Secs, _MicroSecs}) ->
-    MegaSecs * 1000000 + Secs.
 
 %%%
 %%% Serve queries about user last online
@@ -168,7 +165,10 @@ privacy_check_packet(allow, C2SState,
   when T == get; T == set ->
     case xmpp:has_subtag(IQ, #last{}) of
 	true ->
-	    Sub = ejabberd_c2s:get_subscription(From, C2SState),
+	    #jid{luser = LUser, lserver = LServer} = To,
+	    {Sub, _} = ejabberd_hooks:run_fold(
+			 roster_get_jid_info, LServer,
+			 {none, []}, [LUser, LServer, From]),
 	    if Sub == from; Sub == both ->
 		    Pres = #presence{from = To, to = From},
 		    case ejabberd_hooks:run_fold(
@@ -188,13 +188,23 @@ privacy_check_packet(allow, C2SState,
 privacy_check_packet(Acc, _, _, _) ->
     Acc.
 
-%% @spec (LUser::string(), LServer::string()) ->
-%%      {ok, TimeStamp::integer(), Status::string()} | not_found | {error, Reason}
 -spec get_last(binary(), binary()) -> {ok, non_neg_integer(), binary()} |
 				      not_found | {error, any()}.
 get_last(LUser, LServer) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    Mod:get_last(LUser, LServer).
+    Res = case use_cache(Mod, LServer) of
+	      true ->
+		  ets_cache:lookup(
+		    ?LAST_CACHE, {LUser, LServer},
+		    fun() -> Mod:get_last(LUser, LServer) end);
+	      false ->
+		  Mod:get_last(LUser, LServer)
+	  end,
+    case Res of
+	{ok, {TimeStamp, Status}} -> {ok, TimeStamp, Status};
+	error -> not_found;
+	Err -> Err
+    end.
 
 -spec get_last_iq(iq(), binary(), binary()) -> iq().
 get_last_iq(#iq{lang = Lang} = IQ, LUser, LServer) ->
@@ -234,7 +244,16 @@ store_last_info(User, Server, TimeStamp, Status) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    Mod:store_last_info(LUser, LServer, TimeStamp, Status).
+    case use_cache(Mod, LServer) of
+	true ->
+	    ets_cache:update(
+	      ?LAST_CACHE, {LUser, LServer}, {ok, {TimeStamp, Status}},
+	      fun() ->
+		      Mod:store_last_info(LUser, LServer, TimeStamp, Status)
+	      end, cache_nodes(Mod, LServer));
+	false ->
+	    Mod:store_last_info(LUser, LServer, TimeStamp, Status)
+    end.
 
 -spec get_last_info(binary(), binary()) -> {ok, non_neg_integer(), binary()} |
 					   not_found.
@@ -249,7 +268,51 @@ remove_user(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    Mod:remove_user(LUser, LServer).
+    Mod:remove_user(LUser, LServer),
+    ets_cache:delete(?LAST_CACHE, {LUser, LServer}, cache_nodes(Mod, LServer)).
+
+-spec init_cache(module(), binary(), gen_mod:opts()) -> ok.
+init_cache(Mod, Host, Opts) ->
+    case use_cache(Mod, Host) of
+	true ->
+	    CacheOpts = cache_opts(Host, Opts),
+	    ets_cache:new(?LAST_CACHE, CacheOpts);
+	false ->
+	    ets_cache:delete(?LAST_CACHE)
+    end.
+
+-spec cache_opts(binary(), gen_mod:opts()) -> [proplists:property()].
+cache_opts(Host, Opts) ->
+    MaxSize = gen_mod:get_opt(
+		cache_size, Opts,
+		ejabberd_config:cache_size(Host)),
+    CacheMissed = gen_mod:get_opt(
+		    cache_missed, Opts,
+		    ejabberd_config:cache_missed(Host)),
+    LifeTime = case gen_mod:get_opt(
+		      cache_life_time, Opts,
+		      ejabberd_config:cache_life_time(Host)) of
+		   infinity -> infinity;
+		   I -> timer:seconds(I)
+	       end,
+    [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
+
+-spec use_cache(module(), binary()) -> boolean().
+use_cache(Mod, Host) ->
+    case erlang:function_exported(Mod, use_cache, 1) of
+	true -> Mod:use_cache(Host);
+	false ->
+	    gen_mod:get_module_opt(
+	      Host, ?MODULE, use_cache,
+	      ejabberd_config:use_cache(Host))
+    end.
+
+-spec cache_nodes(module(), binary()) -> [node()].
+cache_nodes(Mod, Host) ->
+    case erlang:function_exported(Mod, cache_nodes, 1) of
+	true -> Mod:cache_nodes(Host);
+	false -> ejabberd_cluster:get_nodes()
+    end.
 
 import_info() ->
     [{<<"last">>, 3}].
@@ -273,23 +336,16 @@ export(LServer) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:export(LServer).
 
-transform_options(Opts) ->
-    lists:foldl(fun transform_options/2, [], Opts).
-
-transform_options({node_start, {_, _, _} = Now}, Opts) ->
-    ?WARNING_MSG("Old 'node_start' format detected. This is still supported "
-                 "but it is better to fix your config.", []),
-    [{node_start, now_to_seconds(Now)}|Opts];
-transform_options(Opt, Opts) ->
-    [Opt|Opts].
-
 depends(_Host, _Opts) ->
     [].
 
 mod_opt_type(db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
-mod_opt_type(_) -> [db_type, iqdisc].
-
-opt_type(node_start) ->
-    fun (S) when is_integer(S), S >= 0 -> S end;
-opt_type(_) -> [node_start].
+mod_opt_type(O) when O == cache_life_time; O == cache_size ->
+    fun (I) when is_integer(I), I > 0 -> I;
+        (infinity) -> infinity
+    end;
+mod_opt_type(O) when O == use_cache; O == cache_missed ->
+    fun (B) when is_boolean(B) -> B end;
+mod_opt_type(_) ->
+    [db_type, iqdisc, cache_life_time, cache_size, use_cache, cache_missed].

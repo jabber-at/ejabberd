@@ -23,6 +23,7 @@
 -module(ejabberd_redis_sup).
 
 -behaviour(supervisor).
+-behaviour(ejabberd_config).
 
 %% API
 -export([start_link/0, get_pool_size/0,
@@ -107,23 +108,11 @@ is_redis_configured(Host) ->
     PoolSize = ejabberd_config:has_option({redis_pool_size, Host}),
     ConnTimeoutConfigured = ejabberd_config:has_option(
 			      {redis_connect_timeout, Host}),
-    Modules = ejabberd_config:get_option(
-		{modules, Host},
-		fun(L) when is_list(L) -> L end, []),
-    SMConfigured = ejabberd_config:get_option(
-		     {sm_db_type, Host},
-		     fun(V) -> V end) == redis,
-    RouterConfigured = ejabberd_config:get_option(
-			 {router_db_type, Host},
-			 fun(V) -> V end) == redis,
-    ModuleWithRedisDBConfigured =
-	lists:any(
-	  fun({Module, Opts}) ->
-		  gen_mod:db_type(Host, Opts, Module) == redis
-	  end, Modules),
+    SMConfigured = ejabberd_config:get_option({sm_db_type, Host}) == redis,
+    RouterConfigured = ejabberd_config:get_option({router_db_type, Host}) == redis,
     ServerConfigured or PortConfigured or DBConfigured or PassConfigured or
 	PoolSize or ConnTimeoutConfigured or
-	SMConfigured or RouterConfigured or ModuleWithRedisDBConfigured.
+	SMConfigured or RouterConfigured.
 
 get_specs() ->
     lists:map(
@@ -133,14 +122,19 @@ get_specs() ->
       end, lists:seq(1, get_pool_size())).
 
 get_pool_size() ->
-    ejabberd_config:get_option(
-      redis_pool_size,
-      fun(N) when is_integer(N), N >= 1 -> N end,
-      ?DEFAULT_POOL_SIZE).
+    ejabberd_config:get_option(redis_pool_size, ?DEFAULT_POOL_SIZE) + 1.
 
 iolist_to_list(IOList) ->
     binary_to_list(iolist_to_binary(IOList)).
 
+-spec opt_type(redis_connect_timeout) -> fun((pos_integer()) -> pos_integer());
+	      (redis_db) -> fun((non_neg_integer()) -> non_neg_integer());
+	      (redis_password) -> fun((binary()) -> binary());
+	      (redis_port) -> fun((0..65535) -> 0..65535);
+	      (redis_server) -> fun((binary()) -> binary());
+	      (redis_pool_size) -> fun((pos_integer()) -> pos_integer());
+	      (redis_queue_type) -> fun((ram | file) -> ram | file);
+	      (atom()) -> [atom()].
 opt_type(redis_connect_timeout) ->
     fun (I) when is_integer(I), I > 0 -> I end;
 opt_type(redis_db) ->
@@ -155,5 +149,4 @@ opt_type(redis_queue_type) ->
     fun(ram) -> ram; (file) -> file end;
 opt_type(_) ->
     [redis_connect_timeout, redis_db, redis_password,
-     redis_port, redis_pool_size, redis_server,
-     redis_pool_size, redis_queue_type].
+     redis_port, redis_pool_size, redis_server, redis_queue_type].
