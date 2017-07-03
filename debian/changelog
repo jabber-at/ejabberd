@@ -1,3 +1,9 @@
+ejabberd (1:17.06-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Mathias Ertl <mati@jabber.at>  Mon, 03 Jul 2017 19:29:37 +0200
+
 ejabberd (1:17.04-5) unstable; urgency=low
 
   * Add uuidgen and erl_child_setup to AppArmor config (fixes #19).
