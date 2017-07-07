@@ -1,3 +1,9 @@
+ejabberd (1:17.04-6) unstable; urgency=low
+
+  * Add close_socket.patch.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 07 Jul 2017 20:45:14 +0200
+
 ejabberd (1:17.04-5) unstable; urgency=low
 
   * Add uuidgen and erl_child_setup to AppArmor config (fixes #19).
