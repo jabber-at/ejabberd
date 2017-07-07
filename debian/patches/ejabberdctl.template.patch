@@ -5,7 +5,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/ejabberdctl.template
 +++ b/ejabberdctl.template
-@@ -7,14 +7,14 @@
+@@ -7,13 +7,13 @@
  ERL_PROCESSES=250000
  ERL_MAX_ETS_TABLES=1400
  FIREWALL_WINDOW=""
@@ -13,12 +13,11 @@ Author: Philipp Huebner <debalance@debian.org>
 +ERLANG_NODE=ejabberd
  
  # define default environment variables
- SCRIPT_DIR=`cd ${0%/*} && pwd`
- ERL={{erl}}
- IEX={{bindir}}/iex
- EPMD={{epmd}}
+ ERL="{{erl}}"
+ IEX="{{bindir}}/iex"
+ EPMD="{{epmd}}"
 -INSTALLUSER={{installuser}}
 +INSTALLUSER=ejabberd
- ERL_LIBS={{libdir}}
  
  # check the proper system user is used if defined
+ EXEC_CMD="false"
