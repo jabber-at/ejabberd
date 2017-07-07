@@ -1,6 +1,11 @@
 ejabberd (1:17.06-1) unstable; urgency=low
 
   * New upstream release.
+  * Remove patches applied upstream:
+    
+    * src.mod_stream_mgmt.erl.diff
+    * src.ejabberd_c2s.erl.diff
+    * src.mod_stream_mgmt.diff
 
  -- Mathias Ertl <mati@jabber.at>  Mon, 03 Jul 2017 19:29:37 +0200
 

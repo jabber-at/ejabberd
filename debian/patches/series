@@ -12,6 +12,3 @@ ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 #failed_auth.patch
 fix-includes.diff
-src.mod_stream_mgmt.diff
-src.ejabberd_c2s.erl.diff
-src.mod_stream_mgmt.erl.diff
