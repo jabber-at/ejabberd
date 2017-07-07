@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
 XSBC-Orig-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
 Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-dev, po-debconf, rebar (>= 2.6.0),
- 		elixir,
  		erlang-asn1,
  		erlang-base,
  		erlang-crypto,
@@ -56,7 +55,6 @@ Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}, lsb-base (>=
  		erlang-jiffy         (>= 0.14.8),
  		erlang-xmerl
 Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat,
- 		elixir,
  		ejabberd-contrib     (>> 0.2015.08),
  		erlang-luerl,
  		erlang-oauth2,
