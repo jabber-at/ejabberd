@@ -40,7 +40,7 @@ Vcs-Browser: https://github.com/jabber-at/ejabberd/
 
 Package: ejabberd
 Architecture: any
-Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}, lsb-base (>= 3.0-6)
+Depends: adduser, openssl, ucf, ${misc:Depends}, ${shlibs:Depends}, lsb-base (>= 3.0-6),
  		erlang-base (>= 1:17) | ${erlang-abi:Depends}, ${erlang:Depends},
  		erlang-lager         (>= 3.4.2),
  		erlang-p1-cache-tab  (>= 1.0.9),
