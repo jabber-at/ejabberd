@@ -1,0 +1,22 @@
+Description: Close accepted socket if sockname/peername has failed
+Author: Evgeniy Khramtsov <ekhramtsov@process-one.net>
+Origin: upstream, https://github.com/processone/ejabberd/commit/a35b9dd9cc2
+Bug: https://github.com/processone/ejabberd/issues/1834
+Applied-Upstream: 17.07
+Reviewed-by: Mathias Ertl <mati@jabber.at>
+Last-Update: 2017-07-07
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+diff --git a/src/ejabberd_listener.erl b/src/ejabberd_listener.erl
+index 6dd8e706d8..3ea23d61b3 100644
+--- a/src/ejabberd_listener.erl
++++ b/src/ejabberd_listener.erl
+@@ -302,7 +302,7 @@ accept(ListenSocket, Module, Opts, Interval) ->
+ 			       ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)),
+ 			       PPort, inet_parse:ntoa(Addr), Port]);
+ 		_ ->
+-		    ok
++		    gen_tcp:close(Socket)
+ 	    end,
+ 	    accept(ListenSocket, Module, Opts, NewInterval);
+ 	{error, Reason} ->
