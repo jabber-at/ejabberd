@@ -2,6 +2,7 @@ ejabberd (1:17.06-1) unstable; urgency=low
 
   * New upstream release.
   * Compile with --enable-elixir, --enable-sip and --enable-stun.
+  * Add lsb-base (>= 3.0-6) as dependency (suggested by lintian).
   * Remove patches applied upstream:
     
     * src.mod_stream_mgmt.erl.diff
