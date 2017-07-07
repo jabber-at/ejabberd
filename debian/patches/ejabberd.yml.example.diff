@@ -83,7 +83,7 @@ Author: Philipp Huebner <debalance@debian.org>
      port: 5269
      ip: "::"
 @@ -165,6 +153,11 @@
-     http_bind: true
+     web_admin: true
      ## register: true
      captcha: true
 +    tls: true
@@ -126,7 +126,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -645,7 +638,7 @@
+@@ -647,7 +640,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -135,7 +135,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -702,6 +695,7 @@
+@@ -704,6 +697,7 @@
      access_persistent: muc_create
    mod_muc_admin: {}
    ## mod_muc_log: {}
