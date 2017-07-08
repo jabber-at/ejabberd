@@ -10,6 +10,7 @@
 
 	/bin/bash					rmix,
 	/bin/dash					rmix,
+	/bin/cat					ix,
 	/bin/date					ix,
 	/bin/grep					ix,
 	/bin/ps						ix,
@@ -34,7 +35,7 @@
 
 		/bin/bash				px -> /usr/sbin/ejabberdctl,
 		/bin/dash				px -> /usr/sbin/ejabberdctl,
-		/bin/su					r,
+		/bin/su					mr,
 
 		/etc/environment			r,
 		/etc/default/locale			r,
@@ -63,6 +64,7 @@
 	/usr/bin/seq					ix,
 	/usr/bin/uuidgen				ix,
 
+	/usr/lib/					r,
 	/usr/lib/erlang/bin/erl				ix,
 	/usr/lib/erlang/erts-*/bin/beam*		ix,
 	/usr/lib/erlang/erts-*/bin/child_setup		ix,
