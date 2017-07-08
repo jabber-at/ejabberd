@@ -9,12 +9,14 @@
      fi
  else
      EXEC_CMD="as_current_user"
-@@ -103,7 +103,7 @@
+@@ -103,7 +103,9 @@
  exec_cmd()
  {
      case $EXEC_CMD in
 -        as_install_user) su -c '"$0" $@"' "$INSTALLUSER" -- "$@" ;;
-+        as_install_user) su -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
++        as_install_user) 
++            cd ${SPOOL_DIR}
++            su -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
          as_current_user) "$@" ;;
      esac
  }
