@@ -5,6 +5,7 @@ ejabberd (1:17.07-1) unstable; urgency=low
     /etc/default/ejabberd.
   * Add tls_certfile.patch to fix certfiles when using pure TLS (not
     STARTTLS).
+  * Add mod_privacy.patch (request by Holger Weiss).
 
  -- Mathias Ertl <mati@jabber.at>  Tue, 08 Aug 2017 16:55:25 +0200
 

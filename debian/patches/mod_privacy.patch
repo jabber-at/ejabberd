@@ -1,0 +1,22 @@
+Description: mod_privacy: Don't crash while copying c2s state
+ Don't assume 'privacy_active_list' is set when c2s_copy_session/2 is
+ called.
+Author: Holger Weiss <holger@zedat.fu-berlin.de>
+Origin: upstream, https://github.com/processone/ejabberd/commit/f6bdc6fdb
+Applied-Upstream: 17.07+1
+Last-Update: 2017-08-08
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/mod_privacy.erl
++++ b/src/mod_privacy.erl
+@@ -412,7 +412,9 @@
+ 
+ -spec c2s_copy_session(ejabberd_c2s:state(), c2s_state()) -> c2s_state().
+ c2s_copy_session(State, #{privacy_active_list := List}) ->
+-    State#{privacy_active_list => List}.
++    State#{privacy_active_list => List};
++c2s_copy_session(State, _) ->
++    State.
+ 
+ -spec user_send_packet({stanza(), c2s_state()}) -> {stanza(), c2s_state()}.
+ user_send_packet({#iq{type = Type,
