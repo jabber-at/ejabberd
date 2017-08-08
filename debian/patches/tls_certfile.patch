@@ -1,0 +1,41 @@
+Description: ejabberd_c2s: Fix priority of 'certfile' option
+ Use the 'certfile' listener option rather than a 'domain_certfile' for
+ ejabberd_c2s listeners that have "tls: true" configured.  A
+ 'domain_certfile' should only be preferred for STARTTLS connections.
+Author: Holger Weiss <holger@zedat.fu-berlin.de>
+Origin: upstream, https://github.com/processone/ejabberd/commit/e1aaa1c99dd543b7a72ed6f62336accb85516214
+Bug: https://github.com/processone/ejabberd/issues/1911
+Applied-Upstream: 17.07+1
+Last-Update: 2017-08-08
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/ejabberd_c2s.erl
++++ b/src/ejabberd_c2s.erl
+@@ -289,14 +289,19 @@
+ %%%===================================================================
+ %%% xmpp_stream_in callbacks
+ %%%===================================================================
+-tls_options(#{lserver := LServer, tls_options := DefaultOpts}) ->
+-    TLSOpts1 = case ejabberd_config:get_option(
+-		      {c2s_certfile, LServer},
+-		      ejabberd_config:get_option(
+-			{domain_certfile, LServer})) of
+-		   undefined -> DefaultOpts;
+-		   CertFile -> lists:keystore(certfile, 1, DefaultOpts,
+-					      {certfile, CertFile})
++tls_options(#{lserver := LServer, tls_options := DefaultOpts,
++	      stream_encrypted := Encrypted}) ->
++    TLSOpts1 = case {Encrypted, proplists:get_value(certfile, DefaultOpts)} of
++		   {true, CertFile} when CertFile /= undefined -> DefaultOpts;
++		   {_, _} ->
++		       case ejabberd_config:get_option(
++			      {c2s_certfile, LServer},
++			      ejabberd_config:get_option(
++				{domain_certfile, LServer})) of
++			   undefined -> DefaultOpts;
++			   CertFile -> lists:keystore(certfile, 1, DefaultOpts,
++						      {certfile, CertFile})
++		       end
+ 	       end,
+     TLSOpts2 = case ejabberd_config:get_option(
+                       {c2s_ciphers, LServer}) of

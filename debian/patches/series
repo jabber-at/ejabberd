@@ -15,3 +15,4 @@ fix-includes.diff
 ejabberdctl.template-local.patch
 inet_dist_interface.patch
 firewall_window.patch
+tls_certfile.patch
