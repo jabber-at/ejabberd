@@ -18,3 +18,16 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  AC_CONFIG_MACRO_DIR([m4])
  
+--- a/configure
++++ b/configure
+@@ -1889,8 +1889,8 @@
+ ac_compiler_gnu=$ac_cv_c_compiler_gnu
+ 
+ 
+-REQUIRE_ERLANG_MIN="6.1 (Erlang/OTP 17.1)"
+-REQUIRE_ERLANG_MAX="9.0.0 (No Max)"
++REQUIRE_ERLANG_MIN="6.4 (Erlang/OTP 17.1)"
++REQUIRE_ERLANG_MAX="100.0.0 (No Max)"
+ 
+ 
+ 
