@@ -1,0 +1,20 @@
+Description: Update OTP version check by configure
+Author: Christophe Romain <christophe.romain@process-one.net>
+Origin: upstream, https://github.com/processone/ejabberd/commit/58110e4bc152100078dbc0cb66d4a5257ae645e0
+Applied-Upstream: 17.07+1
+Last-Update: 2017-08-08
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/configure.ac
++++ b/configure.ac
+@@ -3,8 +3,8 @@
+ 
+ AC_PREREQ(2.53)
+ AC_INIT(ejabberd, 17.07, ejabberd@process-one.net, ejabberd)
+-REQUIRE_ERLANG_MIN="6.1 (Erlang/OTP 17.1)"
+-REQUIRE_ERLANG_MAX="9.0.0 (No Max)"
++REQUIRE_ERLANG_MIN="6.4 (Erlang/OTP 17.5)"
++REQUIRE_ERLANG_MAX="100.0.0 (No Max)"
+ 
+ AC_CONFIG_MACRO_DIR([m4])
+ 
