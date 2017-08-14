@@ -1,0 +1,44 @@
+From 64150cc7c5ed60bf6bc422908a1cc39fccde2fe0 Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Sun, 13 Aug 2017 20:31:03 +0200
+Subject: [PATCH] Let 'domain_certfile' take higher precedence
+
+If a 'domain_certfile' is specified, use that instead of the
+'s2s_certfile' (or 'c2s_certfile').
+---
+ src/ejabberd_c2s.erl | 4 ++--
+ src/ejabberd_s2s.erl | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/ejabberd_c2s.erl b/src/ejabberd_c2s.erl
+index a0be2e118e..fe60f344ec 100644
+--- a/src/ejabberd_c2s.erl
++++ b/src/ejabberd_c2s.erl
+@@ -303,9 +303,9 @@ tls_options(#{lserver := LServer, tls_options := DefaultOpts,
+ 		   {true, CertFile} when CertFile /= undefined -> DefaultOpts;
+ 		   {_, _} ->
+ 		       case ejabberd_config:get_option(
+-			      {c2s_certfile, LServer},
++			      {domain_certfile, LServer},
+ 			      ejabberd_config:get_option(
+-				{domain_certfile, LServer})) of
++				{c2s_certfile, LServer})) of
+ 			   undefined -> DefaultOpts;
+ 			   CertFile -> lists:keystore(certfile, 1, DefaultOpts,
+ 						      {certfile, CertFile})
+diff --git a/src/ejabberd_s2s.erl b/src/ejabberd_s2s.erl
+index a614d8c4a6..cb4e5e5ecf 100644
+--- a/src/ejabberd_s2s.erl
++++ b/src/ejabberd_s2s.erl
+@@ -199,9 +199,9 @@ dirty_get_connections() ->
+ -spec tls_options(binary(), [proplists:property()]) -> [proplists:property()].
+ tls_options(LServer, DefaultOpts) ->
+     TLSOpts1 = case ejabberd_config:get_option(
+-		      {s2s_certfile, LServer},
++		      {domain_certfile, LServer},
+ 		      ejabberd_config:get_option(
+-			{domain_certfile, LServer})) of
++			{s2s_certfile, LServer})) of
+ 		   undefined -> DefaultOpts;
+ 		   CertFile -> lists:keystore(certfile, 1, DefaultOpts,
+ 					      {certfile, CertFile})

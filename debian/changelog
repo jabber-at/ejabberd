@@ -1,3 +1,9 @@
+ejabberd (1:17.07-2) unstable; urgency=low
+
+  * Add s2s_vhost.patch to fix s2s certificate selection issues.
+
+ -- Mathias Ertl <mati@jabber.at>  Mon, 14 Aug 2017 09:55:04 +0200
+
 ejabberd (1:17.07-1) unstable; urgency=low
 
   * New upstream release.

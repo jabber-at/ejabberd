@@ -18,3 +18,4 @@ firewall_window.patch
 tls_certfile.patch
 mod_privacy.patch
 otp_version.patch
+s2s_vhost.patch
