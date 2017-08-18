@@ -54,7 +54,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -723,7 +727,7 @@
+@@ -725,7 +729,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -63,7 +63,7 @@
      ##
      ## Set the minimum informational entropy for passwords.
      ##
-@@ -754,6 +758,7 @@
+@@ -756,6 +760,7 @@
      ##   access: register
    mod_roster: {}
    mod_shared_roster: {}

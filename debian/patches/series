@@ -12,10 +12,4 @@ ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 #failed_auth.patch
 fix-includes.diff
-ejabberdctl.template-local.patch
-inet_dist_interface.patch
-firewall_window.patch
-tls_certfile.patch
-mod_privacy.patch
-otp_version.patch
 s2s_vhost.patch

@@ -1,6 +1,6 @@
 --- a/rebar.config
 +++ b/rebar.config
-@@ -42,6 +42,9 @@
+@@ -43,6 +43,9 @@
  	    {i, "deps/fast_xml/include"},
  	    {i, "deps/xmpp/include"},
  	    {i, "deps/p1_utils/include"},
