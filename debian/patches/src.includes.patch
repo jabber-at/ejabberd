@@ -6,7 +6,7 @@ Author: Philipp Huebner <debalance@debian.org>
 
 --- a/src/mod_sip_proxy.erl
 +++ b/src/mod_sip_proxy.erl
-@@ -40,7 +40,7 @@
+@@ -39,7 +39,7 @@
  
  -include("ejabberd.hrl").
  -include("logger.hrl").

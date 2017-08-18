@@ -16,8 +16,8 @@ Author: Philipp Huebner <debalance@debian.org>
  ERL="{{erl}}"
  IEX="{{bindir}}/iex"
  EPMD="{{epmd}}"
--INSTALLUSER={{installuser}}
-+INSTALLUSER=ejabberd
+-INSTALLUSER="{{installuser}}"
++INSTALLUSER="ejabberd"
  
- # check the proper system user is used if defined
- EXEC_CMD="false"
+ # check the proper system user is used
+ case `id -un` in
