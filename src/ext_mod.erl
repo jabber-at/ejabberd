@@ -80,16 +80,18 @@ code_change(_OldVsn, State, _Extra) ->
 get_commands_spec() ->
     [#ejabberd_commands{name = modules_update_specs,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "Update the module source code from Git",
+                        longdesc = "A connection to Internet is required",
                         module = ?MODULE, function = update,
                         args = [],
                         result = {res, rescode}},
      #ejabberd_commands{name = modules_available,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "List the contributed modules available to install",
                         module = ?MODULE, function = available_command,
+                        result_desc = "List of tuples with module name and description",
+                        result_example = [{mod_cron, "Execute scheduled commands"},
+                                          {mod_rest, "ReST frontend"}],
                         args = [],
                         result = {modules, {list,
                                   {module, {tuple,
@@ -97,9 +99,11 @@ get_commands_spec() ->
                                     {summary, string}]}}}}},
      #ejabberd_commands{name = modules_installed,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "List the contributed modules already installed",
                         module = ?MODULE, function = installed_command,
+                        result_desc = "List of tuples with module name and description",
+                        result_example = [{mod_cron, "Execute scheduled commands"},
+                                          {mod_rest, "ReST frontend"}],
                         args = [],
                         result = {modules, {list,
                                   {module, {tuple,
@@ -107,46 +111,64 @@ get_commands_spec() ->
                                     {summary, string}]}}}}},
      #ejabberd_commands{name = module_install,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "Compile, install and start an available contributed module",
                         module = ?MODULE, function = install,
+                        args_desc = ["Module name"],
+                        args_example = [<<"mod_rest">>],
                         args = [{module, binary}],
                         result = {res, rescode}},
      #ejabberd_commands{name = module_uninstall,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "Uninstall a contributed module",
                         module = ?MODULE, function = uninstall,
+                        args_desc = ["Module name"],
+                        args_example = [<<"mod_rest">>],
                         args = [{module, binary}],
                         result = {res, rescode}},
      #ejabberd_commands{name = module_upgrade,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "Upgrade the running code of an installed module",
+                        longdesc = "In practice, this uninstalls and installs the module",
                         module = ?MODULE, function = upgrade,
+                        args_desc = ["Module name"],
+                        args_example = [<<"mod_rest">>],
                         args = [{module, binary}],
                         result = {res, rescode}},
      #ejabberd_commands{name = module_check,
                         tags = [admin,modules],
-                        desc = "",
-                        longdesc = "",
+                        desc = "Check the contributed module repository compliance",
                         module = ?MODULE, function = check,
+                        args_desc = ["Module name"],
+                        args_example = [<<"mod_rest">>],
                         args = [{module, binary}],
                         result = {res, rescode}}
         ].
 %% -- public modules functions
 
 update() ->
-    add_sources(?REPOS),
+    Contrib = maps:put(?REPOS, [], maps:new()),
+    Jungles = lists:foldl(fun({Package, Spec}, Acc) ->
+                Repo = proplists:get_value(url, Spec, ""),
+                Mods = maps:get(Repo, Acc, []),
+                maps:put(Repo, [Package|Mods], Acc)
+        end, Contrib, modules_spec(sources_dir(), "*/*")),
+    Repos = maps:fold(fun(Repo, _Mods, Acc) ->
+                Update = add_sources(Repo),
+                ?INFO_MSG("Update packages from repo ~s: ~p", [Repo, Update]),
+                case Update of
+                    ok -> Acc;
+                    Error -> [{repository, Repo, Error}|Acc]
+                end
+        end, [], Jungles),
     Res = lists:foldl(fun({Package, Spec}, Acc) ->
-                Path = proplists:get_value(url, Spec, ""),
-                Update = add_sources(Package, Path),
+                Repo = proplists:get_value(url, Spec, ""),
+                Update = add_sources(Package, Repo),
                 ?INFO_MSG("Update package ~s: ~p", [Package, Update]),
                 case Update of
                     ok -> Acc;
-                    Error -> [Error|Acc]
+                    Error -> [{Package, Repo, Error}|Acc]
                 end
-        end, [], modules_spec(sources_dir(), "*")),
+        end, Repos, modules_spec(sources_dir(), "*")),
     case Res of
         [] -> ok;
         [Error|_] -> Error
@@ -538,7 +560,9 @@ compile_result(Results) ->
 compile_options() ->
     [verbose, report_errors, report_warnings]
     ++ [{i, filename:join(app_dir(App), "include")}
-        || App <- [fast_xml, xmpp, p1_utils, ejabberd]].
+        || App <- [fast_xml, xmpp, p1_utils, ejabberd]]
+    ++ [{i, filename:join(mod_dir(Mod), "include")}
+        || Mod <- installed()].
 
 app_dir(App) ->
     case code:lib_dir(App) of
@@ -552,6 +576,10 @@ app_dir(App) ->
         Dir ->
             Dir
     end.
+
+mod_dir({Package, Spec}) ->
+    Default = filename:join(modules_dir(), Package),
+    proplists:get_value(path, Spec, Default).
 
 compile_erlang_file(Dest, File) ->
     compile_erlang_file(Dest, File, compile_options()).

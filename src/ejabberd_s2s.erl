@@ -39,7 +39,7 @@
 	 remove_connection/2, start_connection/2, start_connection/3,
 	 dirty_get_connections/0, allow_host/2,
 	 incoming_s2s_number/0, outgoing_s2s_number/0,
-	 stop_all_connections/0,
+	 stop_s2s_connections/0,
 	 clean_temporarily_blocked_table/0,
 	 list_temporarily_blocked_hosts/0,
 	 external_host_overloaded/1, is_temporarly_blocked/1,
@@ -546,25 +546,23 @@ parent_domains(Domain) ->
 
 get_commands_spec() ->
     [#ejabberd_commands{
-        name = incoming_s2s_number,
-			tags = [stats, s2s],
+        name = incoming_s2s_number, tags = [stats, s2s],
         desc = "Number of incoming s2s connections on the node",
-                        policy = admin,
-			module = ?MODULE, function = incoming_s2s_number,
-			args = [], result = {s2s_incoming, integer}},
+	policy = admin,
+	module = ?MODULE, function = incoming_s2s_number,
+	args = [], result = {s2s_incoming, integer}},
      #ejabberd_commands{
-        name = outgoing_s2s_number,
-			tags = [stats, s2s],
+        name = outgoing_s2s_number, tags = [stats, s2s],
         desc = "Number of outgoing s2s connections on the node",
-                        policy = admin,
-			module = ?MODULE, function = outgoing_s2s_number,
-			args = [], result = {s2s_outgoing, integer}},
-     #ejabberd_commands{name = stop_all_connections,
-			tags = [s2s],
-			desc = "Stop all outgoing and incoming connections",
-			policy = admin,
-			module = ?MODULE, function = stop_all_connections,
-			args = [], result = {res, rescode}}].
+	policy = admin,
+	module = ?MODULE, function = outgoing_s2s_number,
+	args = [], result = {s2s_outgoing, integer}},
+     #ejabberd_commands{
+	name = stop_s2s_connections, tags = [s2s],
+	desc = "Stop all s2s outgoing and incoming connections",
+	policy = admin,
+	module = ?MODULE, function = stop_s2s_connections,
+	args = [], result = {res, rescode}}].
 
 %% TODO Move those stats commands to ejabberd stats command ?
 incoming_s2s_number() ->
@@ -580,8 +578,8 @@ supervisor_count(Supervisor) ->
             length(Result)
     end.
 
--spec stop_all_connections() -> ok.
-stop_all_connections() ->
+-spec stop_s2s_connections() -> ok.
+stop_s2s_connections() ->
     lists:foreach(
       fun({_Id, Pid, _Type, _Module}) ->
 	      supervisor:terminate_child(ejabberd_s2s_in_sup, Pid)
@@ -684,7 +682,7 @@ complete_s2s_info([Connection | T], Type, Result) ->
 -spec get_s2s_state(pid()) -> [{status, open | closed | error} | {s2s_pid, pid()}].
 
 get_s2s_state(S2sPid) ->
-    Infos = case gen_fsm:sync_send_all_state_event(S2sPid,
+    Infos = case p1_fsm:sync_send_all_state_event(S2sPid,
 						   get_state_infos)
 		of
 	      {state_infos, Is} -> [{status, open} | Is];
