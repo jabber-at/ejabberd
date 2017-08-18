@@ -87,9 +87,6 @@ md_tag(strong, V) ->
 md_tag(_, V) ->
     V.
 
-unbinarize(binary) -> string;
-unbinarize(Other) -> Other.
-
 perl_gen({Name, integer}, Int, _Indent, HTMLOutput) ->
     [?ARG(Name), ?OP_L(" => "), ?NUM(Int)];
 perl_gen({Name, string}, Str, _Indent, HTMLOutput) ->
@@ -252,7 +249,7 @@ json_call(Name, ArgsDesc, Values, ResultDesc, Result, HTMLOutput) ->
                                 {200, json_gen(ResultDesc, Result, Indent, HTMLOutput)};
                             {{Name0, _}, _} ->
                                 {200, [Indent, ?OP_L("{"), ?STR_A(Name0), ?OP_L(": "),
-                                       json_gen(ResultDesc, Result, Indent, HTMLOutput), Indent, ?OP_L("}")]}
+				       json_gen(ResultDesc, Result, Indent, HTMLOutput), ?OP_L("}")]}
                         end,
     CodeStr = case Code of
                   200 -> <<" 200 OK">>;
@@ -340,48 +337,62 @@ gen_calls(#ejabberd_commands{args_example=Values, args=ArgsDesc,
            end
     end.
 
+format_type({list, {_, {tuple, Els}}}) ->
+    io_lib:format("[~s]", [format_type({tuple, Els})]);
+format_type({list, El}) ->
+    io_lib:format("[~s]", [format_type(El)]);
+format_type({tuple, Els}) ->
+    Args = [format_type(El) || El <- Els],
+    io_lib:format("{~s}", [string:join(Args, ", ")]);
+format_type({Name, Type}) ->
+    io_lib:format("~s::~s", [Name, format_type(Type)]);
+format_type(binary) ->
+    "string";
+format_type(atom) ->
+    "string";
+format_type(Type) ->
+    io_lib:format("~p", [Type]).
+
 gen_param(Name, Type, undefined, HTMLOutput) ->
-    [?TAG(li, [?TAG_R(strong, atom_to_list(Name)), <<" :: ">>,
-               ?RAW(io_lib:format("~p", [unbinarize(Type)]))])];
+    [?TAG(li, [?TAG_R(strong, atom_to_list(Name)), <<" :: ">>, ?RAW(format_type(Type))])];
 gen_param(Name, Type, Desc, HTMLOutput) ->
-    [?TAG(dt, [?TAG_R(strong, atom_to_list(Name)), <<" :: ">>,
-               ?RAW(io_lib:format("~p", [unbinarize(Type)]))]),
+    [?TAG(dt, [?TAG_R(strong, atom_to_list(Name)), <<" :: ">>, ?RAW(format_type(Type))]),
      ?TAG(dd, ?RAW(Desc))].
 
 gen_doc(#ejabberd_commands{name=Name, tags=_Tags, desc=Desc, longdesc=LongDesc,
                            args=Args, args_desc=ArgsDesc,
                            result=Result, result_desc=ResultDesc}=Cmd, HTMLOutput, Langs) ->
-    LDesc = case LongDesc of
-                "" -> Desc;
-                _ -> LongDesc
-            end,
-    ArgsText = case ArgsDesc of
-                   none ->
-                       [?TAG(ul, "args-list", [gen_param(AName, Type, undefined, HTMLOutput)
-                                               || {AName, Type} <- Args])];
-                   _ ->
-                       [?TAG(dl, "args-list", [gen_param(AName, Type, ADesc, HTMLOutput)
-                                               || {{AName, Type}, ADesc} <- lists:zip(Args, ArgsDesc)])]
-               end,
-    ResultText = case Result of
-                   {res,rescode} ->
-                       [?TAG(dl, [gen_param(res, integer,
-                                            "Status code (0 on success, 1 otherwise)",
-                                            HTMLOutput)])];
-                   {res,restuple} ->
-                       [?TAG(dl, [gen_param(res, string,
-                                            "Raw result string",
-                                            HTMLOutput)])];
-                   {RName, Type} ->
-                       case ResultDesc of
-                         none ->
-                             [?TAG(ul, [gen_param(RName, Type, undefined, HTMLOutput)])];
-                         _ ->
-                             [?TAG(dl, [gen_param(RName, Type, ResultDesc, HTMLOutput)])]
-                       end
-                 end,
-
     try
+        LDesc = case LongDesc of
+                    "" -> Desc;
+                    _ -> LongDesc
+                end,
+        ArgsText = case ArgsDesc of
+                       none ->
+                           [?TAG(ul, "args-list", [gen_param(AName, Type, undefined, HTMLOutput)
+                                                   || {AName, Type} <- Args])];
+                       _ ->
+                           [?TAG(dl, "args-list", [gen_param(AName, Type, ADesc, HTMLOutput)
+                                                   || {{AName, Type}, ADesc} <- lists:zip(Args, ArgsDesc)])]
+                   end,
+        ResultText = case Result of
+                       {res,rescode} ->
+                           [?TAG(dl, [gen_param(res, integer,
+                                                "Status code (0 on success, 1 otherwise)",
+                                                HTMLOutput)])];
+                       {res,restuple} ->
+                           [?TAG(dl, [gen_param(res, string,
+                                                "Raw result string",
+                                                HTMLOutput)])];
+                       {RName, Type} ->
+                           case ResultDesc of
+                             none ->
+                                 [?TAG(ul, [gen_param(RName, Type, undefined, HTMLOutput)])];
+                             _ ->
+                                 [?TAG(dl, [gen_param(RName, Type, ResultDesc, HTMLOutput)])]
+                           end
+                     end,
+
 	[?TAG(h1, [?TAG(strong, atom_to_list(Name)), <<" - ">>, ?RAW(Desc)]),
 	 ?TAG(p, ?RAW(LDesc)),
 	 ?TAG(h2, <<"Arguments:">>), ArgsText,
