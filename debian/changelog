@@ -4,6 +4,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
   * No longer pass --libdir=/usr/lib to configure.
   * Merge changes from the package version in Debian unstable (17.08-1):
 
+    * Import preinst.
     * Trivial changes in the AppArmor profile.
     * Use upstream TODO, prerm & templates file.
     * Update po(t) files (Closes: #874269, #874804)

@@ -1,0 +1,73 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  install)
+    # Create /etc/ejabberd if it doesn't already exist
+    mkdir -p /etc/ejabberd
+    # Ejabberd config dir may contain sensitive data, so making it unreadable by
+    # the world.
+    if ! dpkg-statoverride --list /etc/ejabberd >/dev/null; then
+        chmod 750 /etc/ejabberd
+    fi
+
+    # Create a certificate and store it in /etc/ejabberd
+    echo "Generating SSL certificate /etc/ejabberd/ejabberd.pem..."
+    EHOSTNAME=$(hostname -s 2>/dev/null || echo localhost)
+    EDOMAINNAME=$(hostname -d 2>/dev/null || echo localdomain)
+    openssl req -new -x509 -days 365 -nodes -out /etc/ejabberd/ejabberd.pem \
+                -keyout /etc/ejabberd/ejabberd.pem > /dev/null 2>&1 <<+++
+.
+.
+.
+$EDOMAINNAME
+$EHOSTNAME
+ejabberd
+root@$EHOSTNAME.$EDOMAINNAME
++++
+
+    # Ejabberd cert should have appropriate permissions so as to not be readable
+    # by the world.
+    if [ -f /etc/ejabberd/ejabberd.pem ]
+    then
+        if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem >/dev/null; then
+            chmod 640 /etc/ejabberd/ejabberd.pem
+        fi
+    fi
+  ;;
+
+  upgrade)
+    # This flag would determine whether or not debconf would query a user's
+    # preferences - it is used for get_hostname() and  get_username() in debian/config
+    touch /var/lib/ejabberd/.upgrade_flag && chmod 644 /var/lib/ejabberd/.upgrade_flag
+
+    # If the config has an old node configuration (pre ejabberd/nodenamechanges),
+    # use a flag so that debian/config may alert the user of a change and how to
+    # deal with the change
+    node_check="$(debconf-show ejabberd | grep -E 'ejabberd/nodenamechanges' | sed 's/.//2g')"
+    if [ -z "$node_check" ]; then
+      touch /var/lib/ejabberd/.ctlcfg.update
+
+      if grep -Eq '^#?ERLANG_NODE=ejabberd$' /etc/default/ejabberd; then
+        echo "high" > /var/lib/ejabberd/.ctlcfg.update
+      else
+        echo "medium" > /var/lib/ejabberd/.ctlcfg.update
+      fi
+
+      chmod 644 /var/lib/ejabberd/.ctlcfg.update
+    fi
+  ;;
+
+  abort-upgrade)
+    rm -f /var/lib/ejabberd/.upgrade_flag
+  ;;
+
+  *)
+  echo "postinst called with unknown argument \`$1'" >&2
+  exit 0
+  ;;
+esac
+
+#DEBHELPER#
+
+exit 0
