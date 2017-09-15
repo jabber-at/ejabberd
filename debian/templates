@@ -10,17 +10,19 @@
 Template: ejabberd/hostname
 Type: string
 Default: localhost
-_Description: Host name for this Jabber server:
- Please enter the host name of this Jabber server (lowercase).
+_Description: Hostname for this Jabber server:
+ Please enter a hostname for this Jabber server.
+ .
+ If you would like to configure multiple hostnames for this server, you will
+ have to do so manually in /etc/ejabberd/ejabberd.yml after installation.
 
 Template: ejabberd/user
 Type: string
 _Description: Jabber server administrator username:
  Please provide the name of an account to administrate the ejabberd server.
- After the installation of ejabberd you can use this account to log in with any
- Jabber client to do administrative tasks or go to
- https://${hostname}:5280/admin/ and log in with this account to enter the admin
- interface.
+ After the installation of ejabberd, you can log in to this account using
+ either any Jabber client or a web browser pointed at the administrative
+ https://${hostname}:5280/admin/ interface.
  .
  You only need to enter the username part here (such as ${user}), but
  the full Jabber ID (such as ${user}@${hostname}) is required to
@@ -43,12 +45,47 @@ _Description: Re-enter password to verify:
 Template: ejabberd/nomatch
 Type: error
 _Description: Password input error
- The two passwords you entered were not the same. Please try again.
+ The two passwords you entered did not match or were empty. Please try again.
 
 Template: ejabberd/invaliduser
 Type: error
 _Description: Invalid administrator account username
- The username you have typed contains forbidden characters. Please respect the 
- JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you used
- a full JID (e.g. user@hostname), you have to use the same host name
- you typed into the host name configuration step.
+ The username previously specified contains forbidden characters. Please
+ respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5).
+ If you used a full JID (e.g. user@hostname), the hostname needs to match the
+ one previously specified.
+
+Template: ejabberd/invalidhostname
+Type: error
+_Description: Invalid hostname
+ The hostname previously specified contains forbidden characters or is otherwise
+ invalid. Please correct it and try again.
+
+Template: ejabberd/invalidpreseed
+Type: error
+_Description: Invalid preseeded configuration
+ A newer ${preseed} validation is being used and has determined
+ that the currently setup ${preseed} is invalid or incorrectly
+ specified.
+ .
+ If you would like to correct it, please backup your data and run
+ dpkg-reconfigure ejabberd after the upgrade is finished and note that
+ any databases and usernames will be lost or invalidated in this process
+ if the hostname is changed.
+
+Template: ejabberd/nodenamechanges
+Type: note
+_Description: Important changes to nodename (ERLANG_NODE) configuration
+ The nodename has changed to reflect ejabberd's upstream recommended nodename
+ configuration (ejabberd@localhost) which saves effort when moving XMPP domains
+ to a different machine.
+ .
+ This may break the current installation but may easily be fixed by editing
+ the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or to
+ the name it was manually specified.
+ .
+ Another way to fix a broken installation is to use ejabberdctl's mnesia_change_nodename
+ option to change the nodename in the mnesia database. More information on this
+ method may be found on the ejabberd guide
+ (https://docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please
+ make appropriate backups of the database before attempting this method.
