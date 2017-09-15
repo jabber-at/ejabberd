@@ -14,12 +14,18 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
-	# NOTE: We force libdir, because it defaults to /var/lib/x86_64-linux-gnu
-	# on Debian Wheezy.
-	dh_auto_configure -- --enable-odbc --enable-mysql --enable-pgsql --enable-pam \
-	    		--enable-stun --enable-sip \
-			--enable-riak --libdir=/usr/lib \
-			--enable-zlib --enable-iconv --enable-redis --enable-sqlite
+	dh_auto_configure -- \
+		--enable-iconv \
+		--enable-mysql \
+		--enable-odbc \
+		--enable-pam \
+		--enable-pgsql \
+		--enable-redis \
+		--enable-sip \
+		--enable-sqlite \
+		--enable-stun \
+		--enable-riak \
+		--enable-zlib
 
 .PHONY: override_dh_auto_install
 override_dh_auto_install:
@@ -41,8 +47,8 @@ override_dh_auto_install:
 	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
 	
 	# move captcha.sh to /usr/share/ejabberd
-	mv -v $(DESTDIR)/usr/lib/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin/captcha.sh $(DESTDIR)/usr/share/ejabberd/
-	rmdir $(DESTDIR)/usr/lib/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin
+	mv -v $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin/captcha.sh $(DESTDIR)/usr/share/ejabberd/
+	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin
 	
 	# install ufw profile
 	install -m 644 debian/ejabberd.ufw.profile $(DESTDIR)/etc/ufw/applications.d/ejabberd
@@ -70,13 +76,14 @@ override_dh_auto_test:
 override_dh_installdeb:
 	erlang-depends
 	rm -rf $(DESTDIR)/var/lock $(DESTDIR)/usr/bin
-	rm -f $(DESTDIR)/usr/share/doc/ejabberd/COPYING.gz
+	find $(DESTDIR)/usr/ -name COPYING -delete
+	find $(DESTDIR)/usr/ -name COPYING.gz -delete
 	dh_installdeb
 
 .PHONY: override_dh_auto_clean
 override_dh_auto_clean:
 	rm -f Makefile config.log config.status vars.config priv/sql
 	rm -rf .rebar deps ebin include/XmppAddr.hrl src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
-	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example
+	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example ejabberd.service
 	dh_auto_clean
 	debconf-updatepo
