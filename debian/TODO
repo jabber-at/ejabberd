@@ -1,1 +1,4 @@
-* the debconf question asking for the admin user shouldn't allow an empty input
+* find a way to add comments to all translations, that parameters such as
+  ${user}@${hostname} must not be translated
+* update default ejabberd.yml:
+    listening option 'resend_on_timeout' is deprecated: use 'resend_on_timeout' option from mod_stream_mgmt module
