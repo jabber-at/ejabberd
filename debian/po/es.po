@@ -16,29 +16,38 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 2.0.1-2\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2015-07-22 19:04+0200\n"
-"PO-Revision-Date: 2015-07-22 20:17+0100\n"
+"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"PO-Revision-Date: 2017-09-01 10:06+0200\n"
 "Last-Translator: Badlop <badlop@ono.com>\n"
-"Language-Team: Spanish <es@li.org>\n"
+"Language-Team: Spanish <debian-l10n-spanish@lists.debian.org>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.6.10\n"
+"X-Generator: Poedit 1.8.7.1\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Host name for this Jabber server:"
+msgid "Hostname for this Jabber server:"
 msgstr "Nombre de dominio para este servidor Jabber:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Please enter the host name of this Jabber server (lowercase)."
+msgid "Please enter a hostname for this Jabber server."
+msgstr "Por favor indica el nombre de dominio para este servidor Jabber."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"If you would like to configure multiple hostnames for this server, you will "
+"have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
 msgstr ""
-"Por favor indica el nombre de dominio para este servidor Jabber (en "
-"minúsculas)."
+"Si quieres configurar varios nombres de dominio en este servidor, tendrás "
+"que hacerlo manualmente editando el fichero /etc/ejabberd/ejabberd.yml "
+"después de la instalación."
 
 #. Type: string
 #. Description
@@ -51,10 +60,9 @@ msgstr "Nombre de usuario del administrador del servidor Jabber:"
 #: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
-"After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to https://"
-"${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface."
+"After the installation of ejabberd, you can log in to this account using "
+"either any Jabber client or a web browser pointed at the administrative "
+"https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Por favor indica el nombre deseado para una cuenta de administrador en el "
 "servidor ejabberd. Después de la instalación de ejabberd podrás usar esta "
@@ -121,7 +129,8 @@ msgstr "Error en la introducción de la contraseña"
 #. Type: error
 #. Description
 #: ../templates:6001
-msgid "The two passwords you entered were not the same. Please try again."
+msgid ""
+"The two passwords you entered did not match or were empty. Please try again."
 msgstr ""
 "Las dos contraseñas que has tecleado no coinciden. Por favor inténtalo de "
 "nuevo."
@@ -136,10 +145,10 @@ msgstr "El nombre de usuario de la cuenta de administrador no es válido"
 #. Description
 #: ../templates:7001
 msgid ""
-"The username you have typed contains forbidden characters. Please respect "
-"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-"used a full JID (e.g. user@hostname), you have to use the same host name you "
-"typed into the host name configuration step."
+"The username previously specified contains forbidden characters. Please "
+"respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
+"If you used a full JID (e.g. user@hostname), the hostname needs to match the "
+"one previously specified."
 msgstr ""
 "El nombre de usuario que has indicado contiene caracteres no permitidos. Por "
 "favor respeta la sintaxis de JID (http://tools.ietf.org/html/"
@@ -147,27 +156,98 @@ msgstr ""
 "user@hostname), has de usar el mismo nombre de dominio que diste antes al "
 "configurar el nombre de dominio."
 
-#~ msgid "The username of an admin account for ejabberd:"
-#~ msgstr "Cuenta de administrador en ejabberd:"
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid "Invalid hostname"
+msgstr "Nombre de dominio no válido"
 
-#~ msgid "The password for the admin account:"
-#~ msgstr "La contraseña de la cuenta del administrador:"
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid ""
+"The hostname previously specified contains forbidden characters or is "
+"otherwise invalid. Please correct it and try again."
+msgstr ""
+"El nombre de dominio que has especificado incluye caracteres no permitidos, "
+"o es inválido por alguna otra razón. Por favor corrígelo e inténtalo de "
+"nuevo."
 
-#~ msgid "The password for the admin account again for verification:"
-#~ msgstr ""
-#~ "Introduce de nuevo la contraseña para la cuenta de administrador para "
-#~ "verificación:"
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid "Invalid preseeded configuration"
+msgstr "La configuración preliminar no es válida"
 
-#~ msgid ""
-#~ "Please reenter the password for the administrative user for verification."
-#~ msgstr ""
-#~ "Por favor introduce de nuevo la contraseña de la cuenta de administrador "
-#~ "para verificación."
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"A newer ${preseed} validation is being used and has determined that the "
+"currently setup ${preseed} is invalid or incorrectly specified."
+msgstr ""
+"Una nueva validación de ${preseed} está siendo usada, y ha determinado que "
+"el ${preseed} actual es inválido o está mal especificado."
 
-#~ msgid "The passwords do not match!"
-#~ msgstr "¡Las contraseñas no coinciden!"
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"If you would like to correct it, please backup your data and run dpkg-"
+"reconfigure ejabberd after the upgrade is finished and note that any "
+"databases and usernames will be lost or invalidated in this process if the "
+"hostname is changed."
+msgstr ""
+"Si quisieras corregirlo, guarda una copia de de tus datos y ejecuta \"dpkg-"
+"reconfigure ejabberd\" cuando la actualización haya terminado, y ten en "
+"cuenta que la base de datos y los usuarios se habrán perdido o quedado "
+"inservibles después de este proceso si se cambia el nombre de dominio."
 
-#, fuzzy
-#~| msgid "The username of an admin account for ejabberd:"
-#~ msgid "The username of the admin account is invalid!"
-#~ msgstr "Cuenta de administrador en ejabberd:"
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid "Important changes to nodename (ERLANG_NODE) configuration"
+msgstr ""
+"Cambios importantes en la configuración del nombre de nodo (ERLANG_NODE)"
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"The nodename has changed to reflect ejabberd's upstream recommended nodename "
+"configuration (ejabberd@localhost) which saves effort when moving XMPP "
+"domains to a different machine."
+msgstr ""
+"El nombre del nodo ha cambiado para reflejar el nombre de nodo recomendado "
+"en la configuración por defecto (ejabberd@localhost), lo cual te ahorrará "
+"esfuerzo si luego quieres mover dominios XMPP a otra máquina."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"This may break the current installation but may easily be fixed by editing "
+"the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
+"to the name it was manually specified."
+msgstr ""
+"Esto podría estropear tu instalación actual, pero puedes arreglarlo "
+"fácilmente editando la opción ERLANG_NODE en el fichero /etc/default/"
+"ejabberd y poniendo de nuevo 'ejabberd' o el nombre que estaba indicado "
+"manualmente."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"Another way to fix a broken installation is to use ejabberdctl's "
+"mnesia_change_nodename option to change the nodename in the mnesia database. "
+"More information on this method may be found on the ejabberd guide (https://"
+"docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
+"make appropriate backups of the database before attempting this method."
+msgstr ""
+"Otra forma de arreglar una instalación defectuosa es usar el comando "
+"\"ejabberdctl mnesia_change_nodename\" para cambiar el nombre de nodo en la "
+"base de datos de Mnesia. Puedes encontrar más información de este método en "
+"la Guia de ejabberd (https://docs.ejabberd.im/admin/guide/managing/#change-"
+"computer-hostname). Por favor haz las correspondientes copias de seguridad "
+"antes de intentar este método."

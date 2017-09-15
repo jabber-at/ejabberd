@@ -3,34 +3,43 @@
 # This file is distributed under the same license as the ejabberd package.
 #
 # Luísa Lourenço <kikentai@gmail.com>, 2007.
-# Américo Monteiro <a_monteiro@gmx.com>, 2015.
+# Américo Monteiro <a_monteiro@gmx.com>, 2015, 2017.
 msgid ""
 msgstr ""
-"Project-Id-Version: ejabberd\n"
+"Project-Id-Version: ejabberd 17.07-2\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2015-07-22 19:04+0200\n"
-"PO-Revision-Date: 2015-08-09 11:19+0100\n"
+"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"PO-Revision-Date: 2017-09-04 18:11+0000\n"
 "Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
-"Language-Team: Portuguese <traduz@debianpt.org>\n"
+"Language-Team: Portuguese <>\n"
 "Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Lokalize 1.4\n"
+"X-Generator: Lokalize 2.0\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Host name for this Jabber server:"
+msgid "Hostname for this Jabber server:"
 msgstr "Nome de máquina para este servidor Jabber:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Please enter the host name of this Jabber server (lowercase)."
+msgid "Please enter a hostname for this Jabber server."
+msgstr "Por favor insira um nome de máquina para este servidor Jabber."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"If you would like to configure multiple hostnames for this server, you will "
+"have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
 msgstr ""
-"Por favor insira o nome de máquina deste servidor Jabber (em minúsculas)."
+"Se desejar configurar múltiplos nomes de máquina para este servidor, você "
+"terá de fazê-lo manualmente em /etc/ejabberd/ejabberd.yml após a instalação."
 
 #. Type: string
 #. Description
@@ -43,16 +52,14 @@ msgstr "Nome do utilizador administrador do servidor Jabber:"
 #: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
-"After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to https://"
-"${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface."
+"After the installation of ejabberd, you can log in to this account using "
+"either any Jabber client or a web browser pointed at the administrative "
+"https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Por favor forneça o nome de uma conta para administrar o servidor Jabber. "
-"Após a instalação do ejabberd você pode usar esta conta para iniciar sessão "
-"com qualquer cliente Jabber e fazer tarefas administrativas ou ir a "
-"https://${hostname}:5280/admin/ e iniciar sessão com esta conta para entrar "
-"na interface de administrador."
+"Após a instalação do ejabberd, você pode iniciar sessão nesta conta seja "
+"usando qualquer cliente Jabber ou um navegador web apontado à interface "
+"administrativa https://${hostname}:5280/admin/."
 
 #. Type: string
 #. Description
@@ -113,9 +120,11 @@ msgstr "Erro na entrada da palavra passe"
 #. Type: error
 #. Description
 #: ../templates:6001
-msgid "The two passwords you entered were not the same. Please try again."
+msgid ""
+"The two passwords you entered did not match or were empty. Please try again."
 msgstr ""
-"As duas palavras passe que inseriu não são iguais. Por favor tente de novo."
+"As duas palavras passe que inseriu não correspondem ou estão vazias. "
+"Por favor tente de novo."
 
 #. Type: error
 #. Description
@@ -127,15 +136,107 @@ msgstr "Nome de utilizador inválido para a conta de administrador"
 #. Description
 #: ../templates:7001
 msgid ""
-"The username you have typed contains forbidden characters. Please respect "
-"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-"used a full JID (e.g. user@hostname), you have to use the same host name you "
-"typed into the host name configuration step."
+"The username previously specified contains forbidden characters. Please "
+"respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
+"If you used a full JID (e.g. user@hostname), the hostname needs to match the "
+"one previously specified."
 msgstr ""
-"O nome de utilizador que você escreveu contém caracteres proibidos. "
-"Por favor respeite a sintaxe JID (http://tools.ietf.org/html/rfc6122#"
-"appendix-A.5). Se você usou um ID completo (ex. utilizador@nome-máquina), "
-"você tem de usar o mesmo nome de máquina que escreveu no passo de "
-"configuração do nome da máquina."
+"O nome de utilizador especificado anteriormente contém caracteres proibidos. "
+"Por favor respeite a sintaxe JID (https://tools.ietf.org/html/rfc6122#appendix"
+"-A.5). Se você usou um JID completo (ex. utilizador@nome-máquina), o nome de "
+"máquina precisa de corresponder ao especificado anteriormente."
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid "Invalid hostname"
+msgstr "Nome de máquina inválido"
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid ""
+"The hostname previously specified contains forbidden characters or is "
+"otherwise invalid. Please correct it and try again."
+msgstr ""
+"O nome de máquina anteriormente especificado contém caracteres proibidos ou é "
+"inválido por outro motivo. Por favor corrija-o e tente de novo."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid "Invalid preseeded configuration"
+msgstr "Configuração de preseeded inválida"
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"A newer ${preseed} validation is being used and has determined that the "
+"currently setup ${preseed} is invalid or incorrectly specified."
+msgstr ""
+"É usada uma nova validação de ${preseed} e determinou que a configuração "
+"actual de ${preseed} é inválida ou está especificada incorrectamente."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"If you would like to correct it, please backup your data and run dpkg-"
+"reconfigure ejabberd after the upgrade is finished and note that any "
+"databases and usernames will be lost or invalidated in this process if the "
+"hostname is changed."
+msgstr ""
+"Se desejar corrigi-la, por favor faça cópia de segurança dos seus dados e "
+"corra dpkg-reconfigure ejabberd após a actualização estar terminada e "
+"note que quaisquer bases de dados e nomes de utilizadores serão perdidos "
+"ou invalidados neste processo se o nome de máquina for alterado."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid "Important changes to nodename (ERLANG_NODE) configuration"
+msgstr "Alterações importantes na configuração de nodename (ERLANG_NODE)"
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"The nodename has changed to reflect ejabberd's upstream recommended nodename "
+"configuration (ejabberd@localhost) which saves effort when moving XMPP "
+"domains to a different machine."
+msgstr ""
+"O nodename alterou para reflectir a configuração de nodename recomendada "
+"pelo autor do programa (ejabberd@localhost) a qual poupa esforços quando se "
+"domínios XMPP para uma máquina diferente."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"This may break the current installation but may easily be fixed by editing "
+"the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
+"to the name it was manually specified."
+msgstr ""
+"Isto pode quebrar a instalação actual mas pode facilmente ser corrigido "
+"ao editar a opção ERLANG_NODE em /etc/default/ejabberd seja de volta "
+"para ejabberd ou para o nome que foi especificado manualmente."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"Another way to fix a broken installation is to use ejabberdctl's "
+"mnesia_change_nodename option to change the nodename in the mnesia database. "
+"More information on this method may be found on the ejabberd guide (https://"
+"docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
+"make appropriate backups of the database before attempting this method."
+msgstr ""
+"Outra maneira de corrigir uma instalação quebrada é usar a opção "
+"mnesia_change_nodename do ejabberdctl para alterar o nodename na "
+"base de dados mnesia. Mais informação sobre este método pode ser encontrada "
+"no guia do ejabberd (https://docs.ejabberd.im/admin/guide/managing/#change-"
+"computer-hostname). Por favor faça cópias de segurança apropriadas da base "
+"de dados antes de tentar este método."
 
 

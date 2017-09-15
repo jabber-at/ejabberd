@@ -3,14 +3,14 @@
 # This file is distributed under the same license as the ejabberd package.
 # Sander Devrieze <s.devrieze@pandora.be>, 2006.
 # Jeroen Schot <schot@a-eskwadraat.nl>, 2012.
-# Frans Spiesschaert <Frans.Spiesschaert@yucom.be>, 2015.
+# Frans Spiesschaert <Frans.Spiesschaert@yucom.be>, 2015, 2017.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ejabberd 2.1.9-1\n"
+"Project-Id-Version: ejabberd 17.07-2\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2015-07-22 19:04+0200\n"
-"PO-Revision-Date: 2015-08-05 23:27+0200\n"
+"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"PO-Revision-Date: 2017-09-10 17:07+0200\n"
 "Last-Translator: Frans Spiesschaert <Frans.Spiesschaert@yucom.be>\n"
 "Language-Team: Debian Dutch l10n Team <debian-l10n-dutch@lists.debian.org>\n"
 "Language: nl\n"
@@ -18,19 +18,30 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Gtranslator 2.91.6\n"
+"X-Generator: Gtranslator 2.91.7\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Host name for this Jabber server:"
-msgstr "Computernaam van deze Jabber-server:"
+msgid "Hostname for this Jabber server:"
+msgstr "Computernaam voor deze Jabber-server:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Please enter the host name of this Jabber server (lowercase)."
-msgstr "Voer de computernaam in van deze Jabber-server (in kleine letters)."
+msgid "Please enter a hostname for this Jabber server."
+msgstr "Voer een computernaam in voor deze Jabber-server."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"If you would like to configure multiple hostnames for this server, you will "
+"have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
+msgstr ""
+"Indien u voor deze server verschillende computernamen wilt configureren, "
+"zult u dit na de installatie handmatig moeten doen in /etc/ejabberd/ejabberd."
+"yml."
 
 #. Type: string
 #. Description
@@ -43,16 +54,14 @@ msgstr "Gebruikersnaam van de beheerder van de Jabber-server:"
 #: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
-"After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to https://"
-"${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface."
+"After the installation of ejabberd, you can log in to this account using "
+"either any Jabber client or a web browser pointed at the administrative "
+"https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Geef de naam op van een account om de ejabberd-server te beheren. Na de "
-"installatie van ejabberd kunt u dit account gebruiken om u met om het even "
-"welke Jabber-client aan te melden en beheerstaken uit te voeren. U kunt ook "
-"naar https://${computernaam}:5280/admin/ surfen en u daar aanmelden met dit "
-"account om naar de beheerdersinterface gaan."
+"installatie van ejabberd kunt u zich met dit account aanmelden met behulp "
+"van om het even welke Jabber-client of van een web-browser die ingesteld "
+"wordt op de beheerdersinterface https://${hostname}:5280/admin/."
 
 #. Type: string
 #. Description
@@ -62,9 +71,9 @@ msgid ""
 "full Jabber ID (such as ${user}@${hostname}) is required to access the "
 "ejabberd web interface."
 msgstr ""
-"U dient hier enkel het onderdeel gebruiksnaam (zoals ${gebruiker}) in te "
-"voeren. Het volledige Jabber-ID (zoals ${gebruiker}@${computernaam} is "
-"evenwel vereist om toegang te krijgen tot de webinterface van ejabberd."
+"U dient hier enkel het onderdeel gebruikersnaam (zoals ${user}) in te "
+"voeren. Het volledige Jabber-ID (zoals ${user}@${hostname} is evenwel "
+"vereist om toegang te krijgen tot de webinterface van ejabberd."
 
 #. Type: string
 #. Description
@@ -113,8 +122,11 @@ msgstr "Fout bij het invoeren van het wachtwoord"
 #. Type: error
 #. Description
 #: ../templates:6001
-msgid "The two passwords you entered were not the same. Please try again."
-msgstr "De twee ingevoerde wachtwoorden komen niet overeen. Probeer opnieuw."
+msgid ""
+"The two passwords you entered did not match or were empty. Please try again."
+msgstr ""
+"De twee ingevoerde wachtwoorden komen niet overeen of waren leeg. Probeer "
+"opnieuw."
 
 #. Type: error
 #. Description
@@ -126,16 +138,113 @@ msgstr "Ongeldige gebruikersnaam voor het beheerdersaccount"
 #. Description
 #: ../templates:7001
 msgid ""
-"The username you have typed contains forbidden characters. Please respect "
-"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-"used a full JID (e.g. user@hostname), you have to use the same host name you "
-"typed into the host name configuration step."
+"The username previously specified contains forbidden characters. Please "
+"respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
+"If you used a full JID (e.g. user@hostname), the hostname needs to match the "
+"one previously specified."
 msgstr ""
-"De gebruikersnaam die u typte bevat ongeldige tekens. Gelieve de syntaxis "
-"van JID (http://tools.ietf.org/html/rfc6122#appendix-A.5) te respecteren. "
-"Indien u een volledig JID (bijvoorbeeld gebruiker@computernaam) gebruikte, "
-"dient u dezelfde computernaam te gebruiken als die welke u tijdens het "
-"configureren van de computernaam invoerde."
+"De gebruikersnaam die u eerder opgaf bevat ongeldige tekens. Gelieve de "
+"syntaxis van JID (http://tools.ietf.org/html/rfc6122#appendix-A.5) te "
+"respecteren. Indien u een volledige JID (bijvoorbeeld "
+"gebruiker@computernaam) gebruikte, moet de computernaam overeenkomen met die "
+"welke u eerder opgaf."
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid "Invalid hostname"
+msgstr "Ongeldige computernaam"
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid ""
+"The hostname previously specified contains forbidden characters or is "
+"otherwise invalid. Please correct it and try again."
+msgstr ""
+"De computernaam die u eerder opgaf bevat ongeldige tekens of is om een "
+"andere reden ongeldig. Corrigeer en probeer opnieuw."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid "Invalid preseeded configuration"
+msgstr "Ongeldige vooraf ingestelde configuratie"
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"A newer ${preseed} validation is being used and has determined that the "
+"currently setup ${preseed} is invalid or incorrectly specified."
+msgstr ""
+"Er wordt een recentere ${preseed}-validering gebruikt en daarbij werd "
+"vastgesteld dat de momenteel ingestelde ${preseed} ongeldig is of foutief "
+"ingegeven werd."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"If you would like to correct it, please backup your data and run dpkg-"
+"reconfigure ejabberd after the upgrade is finished and note that any "
+"databases and usernames will be lost or invalidated in this process if the "
+"hostname is changed."
+msgstr ""
+"Indien u dit wilt corrigeren, moet u een reservekopie maken van uw gegevens "
+"en de opdracht 'dpkg-reconfigure ejabberd' uitvoeren na het beëindigen van "
+"de opwaardering. U moet weten dat bij deze procedure alle gegevensbestanden "
+"en gebruikersnamen verloren zullen gaan of ongeldig zullen worden als de "
+"computernaam gewijzigd wordt."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid "Important changes to nodename (ERLANG_NODE) configuration"
+msgstr ""
+"Belangrijke wijzigingen aan de configuratie van de node-naam (ERLANG_NODE)"
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"The nodename has changed to reflect ejabberd's upstream recommended nodename "
+"configuration (ejabberd@localhost) which saves effort when moving XMPP "
+"domains to a different machine."
+msgstr ""
+"De node-naam werd gewijzigd om beter te beantwoorden aan de door de "
+"ontwikkelaars van ejabberd aanbevolen configuratie van de node-naam "
+"(ejabberd@localhost), hetgeen minder werk vraagt om XMPP-domeinen naar een "
+"andere machine te verplaatsen."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"This may break the current installation but may easily be fixed by editing "
+"the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
+"to the name it was manually specified."
+msgstr ""
+"Dit kan de huidige installatie defect maken, hetgeen eenvoudig gerepareerd "
+"kan worden door de optie ERLANG_NODE in /etc/default/ejabberd ofwel terug te "
+"zetten naar ejabberd of naar de naam die handmatig opgegeven werd."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"Another way to fix a broken installation is to use ejabberdctl's "
+"mnesia_change_nodename option to change the nodename in the mnesia database. "
+"More information on this method may be found on the ejabberd guide (https://"
+"docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
+"make appropriate backups of the database before attempting this method."
+msgstr ""
+"Een andere manier om een defecte installatie te repareren is de optie "
+"mnesia_change_nodename van ejabberdctl gebruiken om de node-naam in de "
+"mnesia-database te wijzigen. Meer informatie over deze methode is te vinden "
+"in de ejabberd-handleiding (https://docs.ejabberd.im/admin/guide/managing/"
+"#change-computer-hostname). Maak op een passende manier een reservekopie van "
+"het gegevensbestand vooraleer u deze werkwijze gebruikt."
 
 #~ msgid "The username of an admin account for ejabberd:"
 #~ msgstr "De gebruikersnaam van een beheerdersaccount voor ejabberd:"
@@ -153,6 +262,5 @@ msgstr ""
 #~ msgid "The passwords do not match!"
 #~ msgstr "De wachtwoorden komen niet overeen!"
 
-#~| msgid "The username of an admin account for ejabberd:"
 #~ msgid "The username of the admin account is invalid!"
 #~ msgstr "De gebruikersnaam van het beheerdersaccount is ongeldig!"

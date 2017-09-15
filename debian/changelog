@@ -4,6 +4,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
 
     * Trivial changes in the AppArmor profile.
     * Use upstream TODO file.
+    * Update po(t) files (Closes: #874269, #874804)
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
 

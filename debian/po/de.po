@@ -1,7 +1,7 @@
 # translation of po-debconf template to German
 # Copyright (C) 2006, Matthias Julius <twerner@debian.org>
 # Copyright (C) 2008,2015 Helge Kreutzmann <debian@helgefjell.de>
-# Copyright (C) 2015, Philipp Huebner <debalance@debian.org>
+# Copyright (C) 2015,2017 Philipp Huebner <debalance@debian.org>
 # Copyrgith (C) Torsten Werner <twerner@debian.org>
 # This file is distributed under the same license as the ejabberd package.
 #
@@ -9,26 +9,37 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd 15.03-2\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2015-07-22 19:04+0200\n"
-"PO-Revision-Date: 2015-08-03 21:41+0200\n"
-"Last-Translator: Torsten Werner <twerner@debian.org>\n"
-"Language-Team: de <debian-l10n-german@lists.debian.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"PO-Revision-Date: 2017-09-02 19:12+0200\n"
+"Last-Translator: Philipp Huebner <debalance@debian.org>\n"
+"Language-Team: German <debian-l10n-german@lists.debian.org>\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 2.0.3\n"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Host name for this Jabber server:"
+msgid "Hostname for this Jabber server:"
 msgstr "Der Name für diesen Jabber-Server:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-msgid "Please enter the host name of this Jabber server (lowercase)."
-msgstr "Geben Sie bitte (in Kleinbuchstaben) den Namen dieses Jabber-Servers an."
+msgid "Please enter a hostname for this Jabber server."
+msgstr "Geben Sie bitte den Namen dieses Jabber-Servers an."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"If you would like to configure multiple hostnames for this server, you will "
+"have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
+msgstr ""
+"Wenn Sie mehrere Namen für diesen Server konfigurieren möchten, müssen Sie "
+"das nach der Installation manuell in /etc/ejabberd/ejabberd.yml tun."
 
 #. Type: string
 #. Description
@@ -41,12 +52,11 @@ msgstr "Benutzername des Jabber-Server-Administrators:"
 #: ../templates:3001
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
-"After the installation of ejabberd you can use this account to log in with "
-"any Jabber client to do administrative tasks or go to https://"
-"${hostname}:5280/admin/ and log in with this account to enter the admin "
-"interface."
+"After the installation of ejabberd, you can log in to this account using "
+"either any Jabber client or a web browser pointed at the administrative "
+"https://${hostname}:5280/admin/ interface."
 msgstr ""
-"Geben Sie bitte den Namen für ein Konto an, das den Ejabberd-Server "
+"Geben Sie bitte den Namen für ein Konto an, das den ejabberd-Server "
 "verwalten kann. Nach der Installation können Sie mit Hilfe dieses Kontos und "
 "eines beliebigen Jabber-Clients Verwaltungsaufgaben durchführen oder sich "
 "unter https://${hostname}:5280/admin/ an der Administratorschnittstelle "
@@ -111,10 +121,11 @@ msgstr "Passworteingabefehler"
 #. Type: error
 #. Description
 #: ../templates:6001
-msgid "The two passwords you entered were not the same. Please try again."
+msgid ""
+"The two passwords you entered did not match or were empty. Please try again."
 msgstr ""
-"Die zwei Passwörter waren nicht identisch, bitte versuchen Sie es noch "
-"einmal."
+"Die zwei eingegebenen Passwörter waren nicht identisch, bitte versuchen Sie "
+"es noch einmal."
 
 #. Type: error
 #. Description
@@ -126,13 +137,106 @@ msgstr "Ungültiger Benutzername für administratives Konto"
 #. Description
 #: ../templates:7001
 msgid ""
-"The username you have typed contains forbidden characters. Please respect "
-"the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-"used a full JID (e.g. user@hostname), you have to use the same host name you "
-"typed into the host name configuration step."
+"The username previously specified contains forbidden characters. Please "
+"respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
+"If you used a full JID (e.g. user@hostname), the hostname needs to match the "
+"one previously specified."
 msgstr ""
 "Der von Ihnen eingegebene Benutzername enthält verbotene Zeichen. Bitte "
 "berücksichtigen Sie die JID-Syntax (http://tools.ietf.org/html/"
 "rfc6122#appendix-A.5). Falls Sie eine volle JID verwendet haben (z.B. "
 "Benuztzer@Rechnername), müssen Sie den gleichen Rechnernamen verwenden, den "
 "Sie auch im Konfigurationsschritt für den Rechnernamen eingegeben haben."
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid "Invalid hostname"
+msgstr "Ungültiger Name"
+
+#. Type: error
+#. Description
+#: ../templates:8001
+msgid ""
+"The hostname previously specified contains forbidden characters or is "
+"otherwise invalid. Please correct it and try again."
+msgstr ""
+"Der zuvor angegebene Name enthält ungültige Zeichen oder ist anderweitig "
+"ungültig. Bitte korrigieren Sie ihn und versuchen es erneut."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid "Invalid preseeded configuration"
+msgstr "Ungültige voreingestellte Konfiguration"
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"A newer ${preseed} validation is being used and has determined that the "
+"currently setup ${preseed} is invalid or incorrectly specified."
+msgstr ""
+"Es wurde eine neuere ${preseed}-Validierung verwendet welche festgestellt "
+"hat, dass die aktuelle Konfiguration ungültig bzw. fehlerhaft ist."
+
+#. Type: error
+#. Description
+#: ../templates:9001
+msgid ""
+"If you would like to correct it, please backup your data and run dpkg-"
+"reconfigure ejabberd after the upgrade is finished and note that any "
+"databases and usernames will be lost or invalidated in this process if the "
+"hostname is changed."
+msgstr ""
+"Falls Sie dies korrigieren möchten, sichern Sie bitte Ihre Daten und führen "
+"dpkg-reconfigure ejabberd aus nachdem die Aktualisierung abgeschlossen ist. "
+"Seien Sie sich bewusst, dass alle Datenbanken und Konten verlorgen gehen, "
+"wenn dabei der Name des Jabber-Servers geändert wird."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid "Important changes to nodename (ERLANG_NODE) configuration"
+msgstr "Wichtige Änderung der Konfiguration von ERLANG_NODE"
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"The nodename has changed to reflect ejabberd's upstream recommended nodename "
+"configuration (ejabberd@localhost) which saves effort when moving XMPP "
+"domains to a different machine."
+msgstr ""
+"Der Nodename wurde geändert um den Vorgaben der ejabberd-Entwicklern zu "
+"folgen (ejabberd@localhost). Das macht es deutlich einfacher, XMPP-Domains "
+"auf einen anderen Server umzuziehen."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"This may break the current installation but may easily be fixed by editing "
+"the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
+"to the name it was manually specified."
+msgstr ""
+"Dies könnte Probleme in der aktuellen Installation verursachen, ist aber "
+"einfach zu korrigieren indem die Option ERLANG_NODE in /etc/default/ejabberd "
+"zurück auf ejabberd oder den zuvor manuell eingestellten Wert gesetzt wird."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+msgid ""
+"Another way to fix a broken installation is to use ejabberdctl's "
+"mnesia_change_nodename option to change the nodename in the mnesia database. "
+"More information on this method may be found on the ejabberd guide (https://"
+"docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
+"make appropriate backups of the database before attempting this method."
+msgstr ""
+"Eine andere Möglichkeit, eine nun defekte Installation zu reparieren, ist "
+"die Benutzung der ejabberdctl mnesia_change_nodename Option um den Nodenamen "
+"in der mnesia-Datenbank zu ändern. Genauere Informationen zu dieser Methode "
+"können in der ejabberd-Anleitung gefunden werden (https://docs.ejabberd.im/"
+"admin/guide/managing/#change-computer-hostname). Bitte erzeugen Sie "
+"angemessene Backups der Datenbank bevor Sie diese Methode ausprobieren."
