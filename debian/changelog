@@ -1,3 +1,11 @@
+ejabberd (1:17.08-2) unstable; urgency=low
+
+  * Merge changes from the package version in Debian unstable (17.08-1):
+
+    * Trivial changes in the AppArmor profile.
+
+ -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
+
 ejabberd (1:17.08-1) unstable; urgency=low
 
   * New upstream release.
