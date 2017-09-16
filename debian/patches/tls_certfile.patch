@@ -5,7 +5,7 @@ Description: ejabberd_c2s: Fix priority of 'certfile' option
 Author: Holger Weiss <holger@zedat.fu-berlin.de>
 Origin: upstream, https://github.com/processone/ejabberd/commit/e1aaa1c99dd543b7a72ed6f62336accb85516214
 Bug: https://github.com/processone/ejabberd/issues/1911
-Applied-Upstream: 17.07+1
+Applied-Upstream: 17.08+1
 Last-Update: 2017-08-08
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
