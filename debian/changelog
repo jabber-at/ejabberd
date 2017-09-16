@@ -12,6 +12,8 @@ ejabberd (1:17.08-2) unstable; urgency=low
     * Update copyright notices.
     * Updated Standards-Version: 4.1.0 (no changes needed)
     * Merge changes in debian/control.
+    * Add 1a58a201f8fe8d628f1d75f532eba07ba9a030b1.patch, fixes mod_strangers
+      for mod_mam messages.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
 
