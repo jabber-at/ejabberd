@@ -2,6 +2,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
 
   * Remove stray copyright files.
   * No longer pass --libdir=/usr/lib to configure.
+  * Remove old debug_scram.patch.
   * Merge changes from the package version in Debian unstable (17.08-1):
 
     * Import preinst.
