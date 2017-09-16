@@ -1,10 +1,10 @@
 --- a/ejabberd.service.template
 +++ b/ejabberd.service.template
-@@ -12,6 +12,7 @@
+@@ -11,6 +11,7 @@
  RestartSec=5
  ExecStart=/bin/sh -c '/usr/sbin/ejabberdctl start && /usr/sbin/ejabberdctl started'
  ExecStop=/bin/sh -c '/usr/sbin/ejabberdctl stop && /usr/sbin/ejabberdctl stopped'
 +ExecReload=/bin/sh -c '/usr/sbin/ejabberdctl reload_config'
+ Type=forking
+ Restart=on-failure
  PIDFile=/run/ejabberd/ejabberd.pid
- PrivateDevices=true
- ProtectSystem=full
