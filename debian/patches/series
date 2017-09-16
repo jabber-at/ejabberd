@@ -1,7 +1,6 @@
 Makefile.in.diff
 rebar.config.diff
 src.includes.patch
-#src.ext_mod.erl.patch
 ejabberdctl.template.patch
 ejabberd.init.template.patch
 ejabberd.service.template.patch
@@ -10,6 +9,5 @@ examples.mtr.patch
 ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
-#failed_auth.patch
 fix-includes.diff
 s2s_vhost.patch
