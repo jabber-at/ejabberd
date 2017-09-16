@@ -9,6 +9,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
     * Use upstream NEWS, TODO, prerm, postinst & templates file.
     * Update po(t) files (Closes: #874269, #874804)
     * debian/rules clean: remove ejabberd.service created by upstream makefile
+    * Update copyright notices.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
 
