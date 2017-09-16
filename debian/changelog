@@ -26,7 +26,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
     * Add 1a58a201f8fe8d628f1d75f532eba07ba9a030b1.patch, fixes mod_strangers
       for mod_mam messages.
     * Use upstream versions of patches: src.includes.patch and
-      ejabberd.service.template.patch
+      ejabberd.service.template.patch and rebar.config.diff.
     * Merge changes to ejabberdctl.template.patch, ejabberd.yml.example.diff and
       examples.mtr.patch.
 
