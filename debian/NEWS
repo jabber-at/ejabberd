@@ -1,3 +1,34 @@
+ejabberd (17.08-1) unstable; urgency=medium
+
+  The ERLANG_NODE default option has been changed to reflect ejabberd's
+  upstream recommended nodename (ejabberd@localhost) which saves effort
+  when moving XMPP domains to a different machine.
+
+  This may break the current installation but may easily be fixed by
+  editing the ERLANG_NODE option in /etc/default/ejabberd back to the
+  previous default ('ejabberd' without a specified hostname) or you may
+  follow the guide here
+  (https://docs.ejabberd.im/admin/guide/managing/#change-computer-hostname)
+  which will make changes to the mnesia database that will allow the
+  new nodename to take effect. Please take caution and make appropriate
+  backups of the database before attempting this method.
+
+ -- Neil Castelino <neil.fl93@gmail.com>  Wed, 30 Aug 2017 00:54:13 -0400
+
+ejabberd (17.07-1) unstable; urgency=medium
+
+  When upgrading an existing system, you need to care about few required
+  changes. In order to enable S2S dialback, stream management (XEP-0178),
+  legacy client auth or the new anti-spam feature, the following modules
+  should be added to ejabberd’s configuration:
+
+    mod_s2s_dialback
+    mod_stream_mgmt
+    mod_legacy_auth
+    mod_block_strangers
+
+ -- Philipp Huebner <debalance@debian.org>  Fri, 14 Jul 2017 11:48:26 +0200
+
 ejabberd (16.06-1) unstable; urgency=medium
 
   If you are using or intend to use sqlite3, oauth2 or xmlrpc with ejabberd

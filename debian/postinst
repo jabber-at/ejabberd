@@ -17,7 +17,6 @@ setup_ejabberd()
     # the world.
     if ! dpkg-statoverride --list /etc/ejabberd >/dev/null; then
 	chown root:ejabberd /etc/ejabberd
-	chmod 750 /etc/ejabberd
     fi
 
     # The users database dir /var/lib/ejabberd must be writable by user ejabberd.
@@ -33,40 +32,23 @@ setup_ejabberd()
 	chown ejabberd:adm /var/log/ejabberd
 	chmod 2750 /var/log/ejabberd
 	if dpkg --compare-versions "$2" lt '2.1.4'; then
-	    find /var/log/ejabberd -type f -name '*.log*' \
-		| while read f; do
-		    chown ejabberd:adm "$f"
-		    chmod 0640 "$f"
-	    done
+	    find /var/log/ejabberd -type f -name '*.log*' -exec chown ejabberd:adm {} \+ -exec chmod 0640 {} \+
 	fi
     fi
 
-    # Making /etc/ejabberd/ejabberd.pem if it does not exist.
-    ( cd /etc/ejabberd
-    if [ ! -f ejabberd.pem ]
+    # Chown the cert so ejabberd user can use it but not be accessible by the
+    # world.
+    ( if [ -f /etc/ejabberd/ejabberd.pem ]
     then
-	echo "Generating SSL certificate /etc/ejabberd/ejabberd.pem..."
-	EHOSTNAME=$(hostname -s 2>/dev/null || echo localhost)
-	EDOMAINNAME=$(hostname -d 2>/dev/null || echo localdomain)
-	openssl req -new -x509 -days 365 -nodes -out ejabberd.pem \
-		    -keyout ejabberd.pem > /dev/null 2>&1 <<+++
-.
-.
-.
-$EDOMAINNAME
-$EHOSTNAME
-ejabberd
-root@$EHOSTNAME.$EDOMAINNAME
-+++
-    fi
-    if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem >/dev/null; then
-	chown root:ejabberd /etc/ejabberd/ejabberd.pem
-	chmod 640 /etc/ejabberd/ejabberd.pem
+        if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem >/dev/null; then
+            chown root:ejabberd /etc/ejabberd/ejabberd.pem
+        fi
     fi
     )
 
     db_get ejabberd/hostname
     HOST="$RET"
+
     db_get ejabberd/user
     USER="$RET"
     db_get ejabberd/password
@@ -74,32 +56,38 @@ root@$EHOSTNAME.$EDOMAINNAME
     sed -e     "s/  - \"localhost\"/  - \"$HOST\"/ ;
 		s/  ## admin/  admin/ ;
 		0,/  ##   user/s/  ##   user/     user/ ;
-		s/  ##     - \"aleksey@localhost\"/       - \"$USER@$HOST\"/ ;
-		s/.*ermine.*//" $CONFIG_SOURCE > $TEMPFILE
-    ucf --three-way --debconf-ok $TEMPFILE $CONFIG_TARGET
+		s/.*ermine.*//" $CONFIG_SOURCE > "$TEMPFILE"
+    # Since username is optional and we let the user set up the admin account
+    # if there is no input to debconf's query, we use the given username or
+    # leave it empty
+    if [ -n "$USER" ]; then
+		  sed -i "s/  ##     - \"aleksey@localhost\"/       - \"$USER@$HOST\"/" "$TEMPFILE"
+    else
+      sed -i "s/  ##     - \"aleksey@localhost\"/       - \"\"/" "$TEMPFILE"
+    fi
+    ucf --three-way --debconf-ok "$TEMPFILE" "$CONFIG_TARGET"
     db_stop
 
     # Making ejabberd config readable only by ejabberd user.
-    chown ejabberd:ejabberd $CONFIG_TARGET
-    chmod 600 $CONFIG_TARGET
+    chown ejabberd:ejabberd "$CONFIG_TARGET"
+    chmod 600 "$CONFIG_TARGET"
 }
 
 register_admin()
 {
-    if [ -n "$USER" -a -n "$PASSWD" ]; then
-	echo -n "Waiting for ejabberd to register admin user"
+    if [ -n "$USER" ] && [ -n "$PASSWD" ]; then
+	echo "Waiting for ejabberd to register admin user"
 
 	if ejabberdctl status >/dev/null || test $? = 1 ; then
 	    # Ejabberd is starting ($? = 1) or running ($? = 0) already.
 	    cnt=0
 	    flag=1
 	    while ! ejabberdctl status >/dev/null ; do
-		echo -n "."
-		cnt=`expr $cnt + 1`
+		cnt=$((cnt + 1))
 		if [ $cnt -ge 60 ] ; then
 		    echo
 		    echo "Can't register admin user \"$USER@$HOST\"."
-		    echo -n "Ejabberd is starting too long."
+		    echo "Ejabberd is taking too long to start."
 		    flag=0
 		    break
 		fi
@@ -108,14 +96,15 @@ register_admin()
 
 	    echo
 	    if [ $flag -eq 1 ] ; then
-		if ! status=$(ejabberdctl register "$USER" "$HOST" "$PASSWD") ; then
-		    if echo $status | grep -q "already registered" ; then
+		if ejabberdctl registered_users "$HOST" | grep -q "^${USER}$"; then
 			echo "Admin user \"$USER@$HOST\" is already registered. Password IS NOT changed."
-		    else
-			echo "Can't register admin user \"$USER@$HOST\"."
-		    fi
 		else
-		    echo "Admin user \"$USER@$HOST\" is registered successfully."
+			status=$(ejabberdctl register "$USER" "$HOST" "$PASSWD")
+			if echo "$status" | grep -q "successfully registered" ; then
+				echo "Admin user \"$USER@$HOST\" is registered successfully."
+			else
+				echo "Can't register admin user \"$USER@$HOST\". ($status)"
+			fi
 		fi
 	    fi
 	else
@@ -128,7 +117,7 @@ register_admin()
 
 case "$1" in
     configure|reconfigure)
-	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd 2> /dev/null
+	adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd 2> /dev/null || true
 	setup_ejabberd "$@"
     ;;
 
