@@ -1,12 +1,19 @@
 Description: adjust ejabberd.yml.example to sane defaults
  ejabberd's default configuration needs to be altered to be
- a useful on Debian systems
+ useful on Debian systems
 Author: Philipp Huebner <debalance@debian.org>
 
-Index: ejabberd/ejabberd.yml.example
-===================================================================
---- ejabberd.orig/ejabberd.yml.example
-+++ ejabberd/ejabberd.yml.example
+--- a/ejabberd.yml.example
++++ b/ejabberd.yml.example
+@@ -23,7 +23,7 @@
+ ###   Example of folded string:
+ ###   > Art thou not Romeo,
+ ###     and a Montague?
+-
++---
+ ###.  =======
+ ###'  LOGGING
+ 
 @@ -39,23 +39,10 @@
  loglevel: 4
  
@@ -34,7 +41,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -88,7 +75,7 @@ log_rate_limit: 100
+@@ -88,7 +75,7 @@
  ##
  ## hosts: Domains served by ejabberd.
  ## You can define one or several, for example:
@@ -43,7 +50,7 @@ Index: ejabberd/ejabberd.yml.example
  ##   - "example.net"
  ##   - "example.com"
  ##   - "example.org"
-@@ -107,53 +94,39 @@ hosts:
+@@ -107,53 +94,39 @@
  ###'  LISTENING PORTS
  
  ## Define common macros used by listeners
@@ -58,13 +65,13 @@ Index: ejabberd/ejabberd.yml.example
 -##   'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
 +define_macro:
 +  'CERTFILE': "/etc/ejabberd/ejabberd.pem"
-+  'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
++##  'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
 +  'TLSOPTS':
 +    - "no_sslv3"
 +    - "no_tlsv1"
 +    - "cipher_server_preference"
 +    - "no_compression"
-+  'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 4096
++##  'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
  
  ##
  ## listen: The ports ejabberd will listen on, which service each is handled
@@ -88,8 +95,8 @@ Index: ejabberd/ejabberd.yml.example
 +    starttls_required: true
 +    certfile: 'CERTFILE'
 +    protocol_options: 'TLSOPTS'
-+    dhfile: 'DHFILE'
-+    ciphers: 'CIPHERS'
+     ## dhfile: 'DHFILE'
+     ## ciphers: 'CIPHERS'
 -    ##
 -    ## To enforce TLS encryption for client connections,
 -    ## use this instead of the "starttls" option:
@@ -114,7 +121,7 @@ Index: ejabberd/ejabberd.yml.example
      port: 5280
      ip: "::"
      module: ejabberd_http
-@@ -164,18 +137,21 @@ listen:
+@@ -164,18 +137,21 @@
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -123,8 +130,6 @@ Index: ejabberd/ejabberd.yml.example
 +    tls: true
 +    certfile: 'CERTFILE'
 +    protocol_options: 'TLSOPTS'
-+    dhfile: 'DHFILE'
-+    ciphers: 'CIPHERS'
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
    ##
@@ -141,7 +146,7 @@ Index: ejabberd/ejabberd.yml.example
    ##      roster: "both"
    ##      message: "outgoing"
    ##      presence: "roster"
-@@ -193,7 +169,7 @@ listen:
+@@ -193,7 +169,7 @@
    ##
    ## ejabberd_stun: Handles STUN Binding requests
    ##
@@ -150,7 +155,7 @@ Index: ejabberd/ejabberd.yml.example
    ##   port: 3478
    ##   transport: udp
    ##   module: ejabberd_stun
-@@ -201,7 +177,7 @@ listen:
+@@ -201,7 +177,7 @@
    ##
    ## To handle XML-RPC requests that provide admin credentials:
    ##
@@ -159,7 +164,7 @@ Index: ejabberd/ejabberd.yml.example
    ##   port: 4560
    ##   ip: "::"
    ##   module: ejabberd_xmlrpc
-@@ -210,7 +186,7 @@ listen:
+@@ -210,7 +186,7 @@
    ##
    ## To enable secure http upload
    ##
@@ -168,7 +173,7 @@ Index: ejabberd/ejabberd.yml.example
    ##   port: 5444
    ##   ip: "::"
    ##   module: ejabberd_http
-@@ -224,7 +200,7 @@ listen:
+@@ -224,7 +200,7 @@
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -177,7 +182,13 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -239,11 +232,11 @@
+@@ -234,16 +210,16 @@
+ ## Allowed values are: false optional required required_trusted
+ ## You must specify a certificate file.
+ ##
+-## s2s_use_starttls: required
++s2s_use_starttls: required
+ 
  ##
  ## s2s_certfile: Specify a certificate file.
  ##
@@ -191,7 +202,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## domain_certfile: Specify a different certificate for each served hostname.
-@@ -286,7 +262,7 @@ auth_method: internal
+@@ -286,7 +262,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -200,7 +211,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -465,7 +441,7 @@ acl:
+@@ -465,7 +441,7 @@
  
    ## Local users: don't modify this.
    ##
@@ -209,7 +220,7 @@ Index: ejabberd/ejabberd.yml.example
      user_regexp: ""
  
    ##
-@@ -539,24 +515,24 @@ access_rules:
+@@ -539,24 +515,24 @@
    announce:
      - allow: admin
    ## Only admins can use the configuration interface:
@@ -240,7 +251,7 @@ Index: ejabberd/ejabberd.yml.example
    ##   - deny:
    ##     - ip: "XXX.XXX.XXX.XXX/32"
    ##   - deny:
-@@ -590,9 +566,9 @@ api_permissions:
+@@ -590,9 +566,9 @@
    "admin access":
      who:
        - access:
@@ -253,7 +264,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -613,7 +589,7 @@ api_permissions:
+@@ -613,7 +589,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -262,7 +273,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -647,7 +623,7 @@ language: "en"
+@@ -647,7 +623,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -271,7 +282,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -665,7 +641,7 @@ language: "en"
+@@ -665,7 +641,7 @@
  ##
  ## Modules enabled in all ejabberd virtual hosts.
  ##
@@ -280,7 +291,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_adhoc: {}
    mod_admin_extra: {}
    mod_announce: # recommends mod_adhoc
-@@ -694,7 +670,7 @@ modules:
+@@ -694,7 +670,7 @@
    ## You might want to setup a SQL backend for MAM because the mnesia database is
    ## limited to 2GB which might be exceeded on large servers
    ## mod_mam: {} # for xep0313, mnesia is limited to 2GB, better use an SQL backend
@@ -289,7 +300,7 @@ Index: ejabberd/ejabberd.yml.example
      ## host: "conference.@HOST@"
      access:
        - allow
-@@ -705,7 +681,7 @@ modules:
+@@ -705,7 +681,7 @@
    mod_muc_admin: {}
    ## mod_muc_log: {}
    ## mod_multicast: {}
@@ -298,7 +309,7 @@ Index: ejabberd/ejabberd.yml.example
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
    ## mod_pres_counter:
-@@ -714,14 +690,14 @@ modules:
+@@ -714,14 +690,14 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
@@ -315,7 +326,7 @@ Index: ejabberd/ejabberd.yml.example
        - "flat"
        - "hometree"
        - "pep" # pep requires mod_caps
-@@ -760,7 +736,8 @@ modules:
+@@ -760,7 +736,8 @@
      ##
      ##   access_from: deny
      ##   access: register
