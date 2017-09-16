@@ -1,10 +1,10 @@
 Author: Gerfried Fuchs <rhonda@debian.at>	vim:ft=diff:
 Description: Fix syntax problems with the example scripts
 
-Index: VCS/examples/mtr/ejabberd
+Index: ejabberd/examples/mtr/ejabberd
 ===================================================================
---- VCS.orig/examples/mtr/ejabberd
-+++ VCS/examples/mtr/ejabberd
+--- ejabberd.orig/examples/mtr/ejabberd
++++ ejabberd/examples/mtr/ejabberd
 @@ -44,9 +44,8 @@ force*)
          ;;
  esac
@@ -16,10 +16,10 @@ Index: VCS/examples/mtr/ejabberd
      exit 0
  fi
  
-Index: VCS/examples/mtr/ejabberd-netbsd.sh
+Index: ejabberd/examples/mtr/ejabberd-netbsd.sh
 ===================================================================
---- VCS.orig/examples/mtr/ejabberd-netbsd.sh
-+++ VCS/examples/mtr/ejabberd-netbsd.sh
+--- ejabberd.orig/examples/mtr/ejabberd-netbsd.sh
++++ ejabberd/examples/mtr/ejabberd-netbsd.sh
 @@ -8,8 +8,7 @@ if [ ! pkg_info erlang 1>/dev/null 2>&1
      make
      make install

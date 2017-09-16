@@ -27,7 +27,8 @@ ejabberd (1:17.08-2) unstable; urgency=low
       for mod_mam messages.
     * Use upstream versions of patches: src.includes.patch and
       ejabberd.service.template.patch
-    * Merge changes to ejabberdctl.template.patch, ejabberd.yml.example.diff
+    * Merge changes to ejabberdctl.template.patch, ejabberd.yml.example.diff and
+      examples.mtr.patch.
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
 
