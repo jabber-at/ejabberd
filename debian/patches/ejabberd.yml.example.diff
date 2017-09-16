@@ -3,8 +3,10 @@ Description: adjust ejabberd.yml.example to sane defaults
  a useful on Debian systems
 Author: Philipp Huebner <debalance@debian.org>
 
---- a/ejabberd.yml.example
-+++ b/ejabberd.yml.example
+Index: ejabberd/ejabberd.yml.example
+===================================================================
+--- ejabberd.orig/ejabberd.yml.example
++++ ejabberd/ejabberd.yml.example
 @@ -39,23 +39,10 @@
  loglevel: 4
  
@@ -32,6 +34,15 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## overload protection: If you want to limit the number of messages per second
+@@ -88,7 +75,7 @@ log_rate_limit: 100
+ ##
+ ## hosts: Domains served by ejabberd.
+ ## You can define one or several, for example:
+-## hosts: 
++## hosts:
+ ##   - "example.net"
+ ##   - "example.com"
+ ##   - "example.org"
 @@ -107,15 +94,15 @@
  ###'  LISTENING PORTS
  
