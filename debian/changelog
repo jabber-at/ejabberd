@@ -30,7 +30,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
     * Merge changes to ejabberdctl.template.patch, ejabberd.yml.example.diff,
       ejabberd.yml.example.diff and examples.mtr.patch.
 
- -- Mathias Ertl <mati@jabber.at>  Fri, 18 Aug 2017 23:47:32 +0200
+ -- Mathias Ertl <mati@jabber.at>  Sat, 16 Sep 2017 12:51:33 +0200
 
 ejabberd (1:17.08-1) unstable; urgency=low
 
