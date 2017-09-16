@@ -2,7 +2,17 @@ ejabberd (1:17.08-2) unstable; urgency=low
 
   * Remove stray copyright files.
   * No longer pass --libdir=/usr/lib to configure.
-  * Remove old debug_scram.patch and tls_certfile.patch.
+  * Remove old patches applied upstream and no longer included anyway:
+  
+    * debug_scram.patch
+    * failed_auth.patch
+    * firewall_window.patch
+    * inet_dist_interface.patch
+    * mod_privacy.patch
+    * otp_version.patch
+    * src.ext_mod.erl.patch
+    * tls_certfile.patch
+
   * Merge changes from the package version in Debian unstable (17.08-1):
 
     * Import preinst.
