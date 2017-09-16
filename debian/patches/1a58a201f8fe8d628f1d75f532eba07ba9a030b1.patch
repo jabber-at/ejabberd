@@ -9,8 +9,10 @@ Fixes #1713
  src/mod_block_strangers.erl | 54 ++++++++++++++++++++++++++++++---------------
  1 file changed, 36 insertions(+), 18 deletions(-)
 
---- a/src/mod_block_strangers.erl
-+++ b/src/mod_block_strangers.erl
+Index: ejabberd/src/mod_block_strangers.erl
+===================================================================
+--- ejabberd.orig/src/mod_block_strangers.erl
++++ ejabberd/src/mod_block_strangers.erl
 @@ -32,7 +32,7 @@
  -export([start/2, stop/1, reload/3,
           depends/2, mod_opt_type/1]).
@@ -18,7 +20,7 @@ Fixes #1713
 --export([filter_packet/1]).
 +-export([filter_packet/1, filter_offline_msg/1]).
  
- -include("xmpp.hrl").
+ -include_lib("p1_xmpp/include/xmpp.hrl").
  -include("ejabberd.hrl").
 @@ -43,34 +43,54 @@
  start(Host, _Opts) ->
@@ -85,7 +87,7 @@ Fixes #1713
  	    case Sub of
  		none ->
  		    Drop = gen_mod:get_module_opt(LServer, ?MODULE, drop, true),
-@@ -85,18 +105,16 @@
+@@ -85,18 +105,16 @@ filter_packet({#message{} = Msg, State}
  		    end,
  		    if
  			Drop ->
