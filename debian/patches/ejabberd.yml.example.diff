@@ -3,8 +3,10 @@ Description: adjust ejabberd.yml.example to sane defaults
  useful on Debian systems
 Author: Philipp Huebner <debalance@debian.org>
 
---- a/ejabberd.yml.example
-+++ b/ejabberd.yml.example
+Index: ejabberd/ejabberd.yml.example
+===================================================================
+--- ejabberd.orig/ejabberd.yml.example
++++ ejabberd/ejabberd.yml.example
 @@ -23,7 +23,7 @@
  ###   Example of folded string:
  ###   > Art thou not Romeo,
@@ -41,7 +43,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -88,7 +75,7 @@
+@@ -88,7 +75,7 @@ log_rate_limit: 100
  ##
  ## hosts: Domains served by ejabberd.
  ## You can define one or several, for example:
@@ -50,7 +52,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##   - "example.net"
  ##   - "example.com"
  ##   - "example.org"
-@@ -107,53 +94,39 @@
+@@ -107,53 +94,39 @@ hosts:
  ###'  LISTENING PORTS
  
  ## Define common macros used by listeners
@@ -121,7 +123,7 @@ Author: Philipp Huebner <debalance@debian.org>
      port: 5280
      ip: "::"
      module: ejabberd_http
-@@ -164,18 +137,21 @@
+@@ -164,18 +137,21 @@ listen:
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -146,7 +148,7 @@ Author: Philipp Huebner <debalance@debian.org>
    ##      roster: "both"
    ##      message: "outgoing"
    ##      presence: "roster"
-@@ -193,7 +169,7 @@
+@@ -193,7 +169,7 @@ listen:
    ##
    ## ejabberd_stun: Handles STUN Binding requests
    ##
@@ -155,7 +157,7 @@ Author: Philipp Huebner <debalance@debian.org>
    ##   port: 3478
    ##   transport: udp
    ##   module: ejabberd_stun
-@@ -201,7 +177,7 @@
+@@ -201,7 +177,7 @@ listen:
    ##
    ## To handle XML-RPC requests that provide admin credentials:
    ##
@@ -164,7 +166,7 @@ Author: Philipp Huebner <debalance@debian.org>
    ##   port: 4560
    ##   ip: "::"
    ##   module: ejabberd_xmlrpc
-@@ -210,7 +186,7 @@
+@@ -210,7 +186,7 @@ listen:
    ##
    ## To enable secure http upload
    ##
@@ -173,7 +175,7 @@ Author: Philipp Huebner <debalance@debian.org>
    ##   port: 5444
    ##   ip: "::"
    ##   module: ejabberd_http
-@@ -224,7 +200,7 @@
+@@ -224,7 +200,7 @@ listen:
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -182,7 +184,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -234,16 +210,16 @@
+@@ -234,16 +210,16 @@ listen:
  ## Allowed values are: false optional required required_trusted
  ## You must specify a certificate file.
  ##
@@ -202,7 +204,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## domain_certfile: Specify a different certificate for each served hostname.
-@@ -286,7 +262,7 @@
+@@ -286,7 +262,7 @@ auth_method: internal
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -211,7 +213,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -465,7 +441,7 @@
+@@ -465,7 +441,7 @@ acl:
  
    ## Local users: don't modify this.
    ##
@@ -220,7 +222,7 @@ Author: Philipp Huebner <debalance@debian.org>
      user_regexp: ""
  
    ##
-@@ -539,24 +515,24 @@
+@@ -539,24 +515,24 @@ access_rules:
    announce:
      - allow: admin
    ## Only admins can use the configuration interface:
@@ -251,7 +253,7 @@ Author: Philipp Huebner <debalance@debian.org>
    ##   - deny:
    ##     - ip: "XXX.XXX.XXX.XXX/32"
    ##   - deny:
-@@ -590,9 +566,9 @@
+@@ -590,9 +566,9 @@ api_permissions:
    "admin access":
      who:
        - access:
@@ -264,7 +266,7 @@ Author: Philipp Huebner <debalance@debian.org>
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -613,7 +589,7 @@
+@@ -613,7 +589,7 @@ api_permissions:
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -273,7 +275,7 @@ Author: Philipp Huebner <debalance@debian.org>
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -647,7 +623,7 @@
+@@ -647,7 +623,7 @@ language: "en"
  ##
  ## Full path to a script that generates the image.
  ##
@@ -282,7 +284,7 @@ Author: Philipp Huebner <debalance@debian.org>
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -665,7 +641,7 @@
+@@ -665,7 +641,7 @@ language: "en"
  ##
  ## Modules enabled in all ejabberd virtual hosts.
  ##
@@ -291,7 +293,7 @@ Author: Philipp Huebner <debalance@debian.org>
    mod_adhoc: {}
    mod_admin_extra: {}
    mod_announce: # recommends mod_adhoc
-@@ -694,7 +670,7 @@
+@@ -694,7 +670,7 @@ modules:
    ## You might want to setup a SQL backend for MAM because the mnesia database is
    ## limited to 2GB which might be exceeded on large servers
    ## mod_mam: {} # for xep0313, mnesia is limited to 2GB, better use an SQL backend
@@ -300,7 +302,7 @@ Author: Philipp Huebner <debalance@debian.org>
      ## host: "conference.@HOST@"
      access:
        - allow
-@@ -705,7 +681,7 @@
+@@ -705,7 +681,7 @@ modules:
    mod_muc_admin: {}
    ## mod_muc_log: {}
    ## mod_multicast: {}
@@ -309,7 +311,7 @@ Author: Philipp Huebner <debalance@debian.org>
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
    ## mod_pres_counter:
-@@ -714,14 +690,14 @@
+@@ -714,14 +690,14 @@ modules:
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
@@ -326,7 +328,7 @@ Author: Philipp Huebner <debalance@debian.org>
        - "flat"
        - "hometree"
        - "pep" # pep requires mod_caps
-@@ -760,7 +736,8 @@
+@@ -760,7 +736,8 @@ modules:
      ##
      ##   access_from: deny
      ##   access: register
