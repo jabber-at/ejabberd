@@ -7,14 +7,7 @@ Index: ejabberd/ejabberdctl.template
 ===================================================================
 --- ejabberd.orig/ejabberdctl.template
 +++ ejabberd/ejabberdctl.template
-@@ -7,13 +7,13 @@
- ERL_PROCESSES=250000
- ERL_MAX_ETS_TABLES=1400
- FIREWALL_WINDOW=""
--ERLANG_NODE=ejabberd@localhost
-+ERLANG_NODE=ejabberd
- 
- # define default environment variables
+@@ -13,7 +13,7 @@ ERLANG_NODE=ejabberd@localhost
  ERL="{{erl}}"
  IEX="{{bindir}}/iex"
  EPMD="{{epmd}}"

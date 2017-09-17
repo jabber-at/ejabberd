@@ -7,18 +7,6 @@ Index: ejabberd/ejabberdctl.cfg.example
 ===================================================================
 --- ejabberd.orig/ejabberdctl.cfg.example
 +++ ejabberd/ejabberdctl.cfg.example
-@@ -132,9 +132,9 @@
- #   The same as previous, but erlang will use long hostname
- #   (see erl (1) manual for details)
- #
--# Default: ejabberd@localhost
-+# Default: ejabberd
- #
--#ERLANG_NODE=ejabberd@localhost
-+#ERLANG_NODE=ejabberd
- 
- #.
- #' EJABBERD_PID_PATH: ejabberd PID file
 @@ -146,7 +146,7 @@
  #
  # Default: don't write PID file
