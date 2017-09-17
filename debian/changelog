@@ -2,6 +2,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
 
   * Remove stray copyright files.
   * No longer pass --libdir=/usr/lib to configure.
+  * Remove fix-includes, this is fixed in other patches already.
   * Remove old patches applied upstream and no longer included anyway:
   
     * debug_scram.patch

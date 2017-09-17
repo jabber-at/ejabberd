@@ -10,5 +10,4 @@ ejabberdctl.cfg.example.diff
 ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 1a58a201f8fe8d628f1d75f532eba07ba9a030b1.patch
-#fix-includes.diff
 s2s_vhost.patch
