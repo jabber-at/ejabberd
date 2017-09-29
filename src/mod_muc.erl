@@ -61,6 +61,7 @@
 	 count_online_rooms/1,
 	 register_online_user/4,
 	 unregister_online_user/4,
+	 iq_set_register_info/5,
 	 count_online_rooms_by_user/3,
 	 get_online_rooms_by_user/3,
 	 can_use_nick/4]).
@@ -680,7 +681,7 @@ iq_disco_items(_ServerHost, _Host, _From, Lang, _MaxRoomsDiscoItems, _Node, _RSM
 
 -spec get_room_disco_item({binary(), binary(), pid()},
 			  term()) -> {ok, disco_item()} |
-							   {error, timeout | notfound}.
+				     {error, timeout | notfound}.
 get_room_disco_item({Name, Host, Pid}, Query) ->
 	    RoomJID = jid:make(Name, Host),
 	    try p1_fsm:sync_send_all_state_event(Pid, Query, 100) of
@@ -688,9 +689,9 @@ get_room_disco_item({Name, Host, Pid}, Query) ->
 		    {ok, #disco_item{jid = RoomJID, name = Desc}};
 		false ->
 		    {error, notfound}
-	    catch _:{timeout, _} ->
+	    catch _:{timeout, {p1_fsm, _, _}} ->
 		    {error, timeout};
-		  _:{noproc, _} ->
+		  _:{_, {p1_fsm, _, _}} ->
 		    {error, notfound}
     end.
 
