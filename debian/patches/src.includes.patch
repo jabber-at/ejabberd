@@ -454,7 +454,7 @@ Index: ejabberd/src/mod_block_strangers.erl
 +++ ejabberd/src/mod_block_strangers.erl
 @@ -34,7 +34,7 @@
  
- -export([filter_packet/1]).
+ -export([filter_packet/1, filter_offline_msg/1]).
  
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -725,7 +725,7 @@ Index: ejabberd/src/mod_muc.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc.erl
 +++ ejabberd/src/mod_muc.erl
-@@ -71,7 +71,7 @@
+@@ -72,7 +72,7 @@
  
  -include("ejabberd.hrl").
  -include("logger.hrl").
@@ -1189,9 +1189,9 @@ Index: ejabberd/src/mod_vcard_ldap.erl
  -include("eldap.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
+ -include("translate.hrl").
  
  -define(PROCNAME, ejabberd_mod_vcard_ldap).
- 
 Index: ejabberd/src/mod_vcard_mnesia.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_mnesia.erl
@@ -1204,7 +1204,7 @@ Index: ejabberd/src/mod_vcard_mnesia.erl
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("mod_vcard.hrl").
  -include("logger.hrl").
- 
+ -include("translate.hrl").
 Index: ejabberd/src/mod_vcard_riak.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_riak.erl
@@ -1586,7 +1586,7 @@ Index: ejabberd/src/mod_sip.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sip.erl
 +++ ejabberd/src/mod_sip.erl
-@@ -51,7 +51,7 @@ mod_opt_type(_) ->
+@@ -51,7 +51,7 @@
  	 locate/1, mod_opt_type/1, depends/2]).
  
  -include("ejabberd.hrl").
