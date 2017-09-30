@@ -15,6 +15,7 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 override_dh_auto_configure:
 	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
 	dh_auto_configure -- \
+		--enable-graphics \
 		--enable-iconv \
 		--enable-mysql \
 		--enable-odbc \
