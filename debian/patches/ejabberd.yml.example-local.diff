@@ -1,22 +1,22 @@
---- a/ejabberd.yml.example
-+++ b/ejabberd.yml.example
-@@ -96,13 +96,13 @@
+Index: ejabberd/ejabberd.yml.example
+===================================================================
+--- ejabberd.orig/ejabberd.yml.example
++++ ejabberd/ejabberd.yml.example
+@@ -96,12 +96,10 @@
  ## Define common macros used by listeners
  define_macro:
-   'CERTFILE': "/etc/ejabberd/ejabberd.pem"
--##  'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
-+  'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
-   'TLSOPTS':
-     - "no_sslv3"
-     - "no_tlsv1"
-     - "cipher_server_preference"
-     - "no_compression"
--##  'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
-+##  'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 4096
- 
- ##
- ## listen: The ports ejabberd will listen on, which service each is handled
-@@ -117,7 +117,7 @@
+    'CERTFILE': "/etc/ejabberd/ejabberd.pem"
+-##   'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
++   'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
+    'TLSOPTS':
+      - "no_sslv2"
+      - "no_sslv3"
+-##     - "no_tlsv1"
+-##     - "no_tlsv1_1"
+      - "cipher_server_preference"
+      - "no_compression"
+ ##   'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
+@@ -119,7 +117,7 @@
      certfile: 'CERTFILE'
      protocol_options: 'TLSOPTS'
      ## dhfile: 'DHFILE'
@@ -25,7 +25,7 @@
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-@@ -141,6 +141,8 @@
+@@ -143,6 +141,8 @@
      tls: true
      certfile: 'CERTFILE'
      protocol_options: 'TLSOPTS'
@@ -34,7 +34,7 @@
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
    ##
-@@ -646,6 +648,7 @@
+@@ -648,6 +648,7 @@
    mod_admin_extra: {}
    mod_announce: # recommends mod_adhoc
      access: announce
@@ -42,7 +42,7 @@
    mod_blocking: {} # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
-@@ -654,7 +657,10 @@
+@@ -656,7 +657,10 @@
    ## mod_delegation: {} # for xep0356
    mod_disco: {}
    mod_echo: {}
@@ -54,7 +54,7 @@
    mod_bosh: {}
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
-@@ -684,9 +690,9 @@
+@@ -686,9 +690,9 @@
    mod_offline:
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -67,7 +67,7 @@
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -707,7 +713,7 @@
+@@ -709,7 +713,7 @@
      ##
      ## Protect In-Band account registrations with CAPTCHA.
      ##
@@ -76,7 +76,7 @@
      ##
      ## Set the minimum informational entropy for passwords.
      ##
-@@ -739,6 +745,7 @@
+@@ -741,6 +745,7 @@
    mod_roster:
      versioning: true
    mod_shared_roster: {}
