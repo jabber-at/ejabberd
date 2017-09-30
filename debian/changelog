@@ -1,5 +1,6 @@
-ejabberd (1:17.08-2) unstable; urgency=low
+ejabberd (1:17.09-1) unstable; urgency=low
 
+  * New upstream release.
   * Default erlang node is changed to "ejabberd@localhost", following the
     same changes in the upstream Debian package. This is also the same as
     the mainline default. 
@@ -36,7 +37,7 @@ ejabberd (1:17.08-2) unstable; urgency=low
     * Merge changes to ejabberdctl.template.patch, ejabberd.yml.example.diff,
       ejabberd.yml.example.diff and examples.mtr.patch.
 
- -- Mathias Ertl <mati@jabber.at>  Sat, 16 Sep 2017 12:51:33 +0200
+ -- Mathias Ertl <mati@jabber.at>  Sat, 30 Sep 2017 13:43:58 +0200
 
 ejabberd (1:17.08-1) unstable; urgency=low
 
