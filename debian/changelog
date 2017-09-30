@@ -19,6 +19,8 @@ ejabberd (1:17.09-1) unstable; urgency=low
     * otp_version.patch
     * src.ext_mod.erl.patch
     * tls_certfile.patch
+    * 1a58a201f8fe8d628f1d75f532eba07ba9a030b1.patch
+    * s2s_vhost.patch
 
   * Merge changes from the package version in Debian unstable (17.08-1):
 
