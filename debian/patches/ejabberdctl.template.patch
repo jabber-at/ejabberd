@@ -7,7 +7,7 @@ Index: ejabberd/ejabberdctl.template
 ===================================================================
 --- ejabberd.orig/ejabberdctl.template
 +++ ejabberd/ejabberdctl.template
-@@ -13,7 +13,7 @@ ERLANG_NODE=ejabberd@localhost
+@@ -14,7 +14,7 @@
  ERL="{{erl}}"
  IEX="{{bindir}}/iex"
  EPMD="{{epmd}}"
@@ -15,8 +15,8 @@ Index: ejabberd/ejabberdctl.template
 +INSTALLUSER=ejabberd
  
  # check the proper system user is used
- case `id -un` in
-@@ -108,7 +108,9 @@ export ERL_LIBS
+ case $(id -un) in
+@@ -109,7 +109,9 @@
  exec_cmd()
  {
      case $EXEC_CMD in
