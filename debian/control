@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-de
  		erlang-asn1,
  		erlang-base,
  		erlang-crypto,
- 		erlang-dev (>= 1:17),
+ 		erlang-dev (>= 1:17.5),
  		erlang-eunit,
  		erlang-inets,
  		erlang-lager         (>= 3.4.2),
