@@ -35,7 +35,7 @@
 	 check_password/6, check_password_with_authmodule/4,
 	 check_password_with_authmodule/6, try_register/3,
 	 get_users/0, get_users/1, password_to_scram/1,
-	 get_users/2, export/1, import_info/0,
+	 get_users/2, import_info/0,
 	 count_users/1, import/5, import_start/2,
 	 count_users/2, get_password/2,
 	 get_password_s/2, get_password_with_authmodule/2,
@@ -735,8 +735,8 @@ auth_modules(Server) ->
     LServer = jid:nameprep(Server),
     Default = ejabberd_config:default_db(LServer, ?MODULE),
     Methods = ejabberd_config:get_option({auth_method, LServer}, [Default]),
-    [misc:binary_to_atom(<<"ejabberd_auth_",
-			   (misc:atom_to_binary(M))/binary>>)
+    [ejabberd:module_name([<<"ejabberd">>, <<"auth">>,
+			   misc:atom_to_binary(M)])
      || M <- Methods].
 
 -spec match_passwords(password(), password(),
@@ -797,9 +797,6 @@ validate_credentials(User, Server, Password) ->
 		    end
 	    end
     end.
-
-export(Server) ->
-    ejabberd_auth_mnesia:export(Server).
 
 import_info() ->
     [{<<"users">>, 3}].

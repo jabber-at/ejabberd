@@ -40,9 +40,7 @@
 
 -include("ejabberd.hrl").
 -include("ejabberd_sql_pt.hrl").
-
--record(passwd, {us = {<<"">>, <<"">>} :: {binary(), binary()} | '$1',
-                 password = <<"">> :: binary() | scram() | '_'}).
+-include("ejabberd_auth.hrl").
 
 start(_Host) ->
     ok.
@@ -108,9 +106,12 @@ export(_Server) ->
     [{passwd,
       fun(Host, #passwd{us = {LUser, LServer}, password = Password})
          when LServer == Host ->
-              [?SQL("delete from users where username=%(LUser)s;"),
-               ?SQL("insert into users(username, password) "
-                    "values (%(LUser)s, %(Password)s);")];
+              [?SQL("delete from users where username=%(LUser)s and %(LServer)H;"),
+               ?SQL_INSERT(
+                  "users",
+                  ["username=%(LUser)s",
+                   "server_host=%(LServer)s",
+                   "password=%(Password)s"])];
          (_Host, _R) ->
               []
       end}].

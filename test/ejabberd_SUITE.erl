@@ -460,6 +460,7 @@ db_tests(_) ->
        muc_tests:single_cases(),
        offline_tests:single_cases(),
        mam_tests:single_cases(),
+       push_tests:single_cases(),
        test_unregister]},
      muc_tests:master_slave_cases(),
      privacy_tests:master_slave_cases(),
@@ -469,7 +470,8 @@ db_tests(_) ->
      mam_tests:master_slave_cases(),
      vcard_tests:master_slave_cases(),
      announce_tests:master_slave_cases(),
-     carbons_tests:master_slave_cases()].
+     carbons_tests:master_slave_cases(),
+     push_tests:master_slave_cases()].
 
 ldap_tests() ->
     [{ldap_tests, [sequence],
@@ -918,12 +920,12 @@ presence_broadcast(Config) ->
     %% 2) welcome message
     %% 3) presence broadcast
     IQ = #iq{type = get,
-	     from = ServerJID,
+	     from = JID,
 	     sub_els = [#disco_info{node = Node}]} = recv_iq(Config),
     #message{type = normal} = recv_message(Config),
     #presence{from = JID, to = JID} = recv_presence(Config),
     send(Config, #iq{type = result, id = IQ#iq.id,
-		     to = ServerJID, sub_els = [Info]}),
+		     to = JID, sub_els = [Info]}),
     %% We're trying to read our feature from ejabberd database
     %% with exponential back-off as our IQ response may be delayed.
     [Feature] =
