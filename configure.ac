@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, 17.09, ejabberd@process-one.net, ejabberd)
+AC_INIT(ejabberd, 17.11, ejabberd@process-one.net, ejabberd)
 REQUIRE_ERLANG_MIN="6.4 (Erlang/OTP 17.5)"
 REQUIRE_ERLANG_MAX="100.0.0 (No Max)"
 
@@ -83,6 +83,14 @@ AC_ARG_ENABLE(roster_gateway_workaround,
   no)  roster_gateway_workaround=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-roster-gateway-workaround) ;;
 esac],[roster_gateway_workaround=false])
+
+AC_ARG_ENABLE(new_sql_schema,
+[AC_HELP_STRING([--enable-new-sql-schema], [use new SQL schema (default: no)])],
+[case "${enableval}" in
+  yes) new_sql_schema=true ;;
+  no)  new_sql_schema=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-new-sql-schema) ;;
+esac],[new_sql_schema=false])
 
 AC_ARG_ENABLE(full_xml,
 [AC_HELP_STRING([--enable-full-xml], [use XML features in XMPP stream (ex: CDATA) (default: no, requires XML compliant clients)])],
@@ -273,6 +281,7 @@ fi
 
 AC_SUBST(hipe)
 AC_SUBST(roster_gateway_workaround)
+AC_SUBST(new_sql_schema)
 AC_SUBST(full_xml)
 AC_SUBST(db_type)
 AC_SUBST(odbc)

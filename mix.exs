@@ -32,10 +32,28 @@ defmodule Ejabberd.Mixfile do
                          ++ cond_apps()]
   end
 
+  defp if_function_exported(mod, fun, arity, okResult) do
+    :code.ensure_loaded(mod)
+    if :erlang.function_exported(mod, fun, arity) do
+      okResult
+    else
+      []
+    end
+  end
+
   defp erlc_options do
     # Use our own includes + includes from all dependencies
     includes = ["include"] ++ deps_include(["fast_xml", "xmpp", "p1_utils"])
-    [:debug_info, {:d, :ELIXIR_ENABLED}] ++ Enum.map(includes, fn(path) -> {:i, path} end)
+    [:debug_info, {:d, :ELIXIR_ENABLED}] ++ cond_options() ++ Enum.map(includes, fn(path) -> {:i, path} end) ++
+    if_function_exported(:crypto, :strong_rand_bytes, 1, [{:d, :STRONG_RAND_BYTES}]) ++
+    if_function_exported(:rand, :uniform, 1, [{:d, :RAND_UNIFORM}]) ++
+    if_function_exported(:gb_sets, :iterator_from, 2, [{:d, :GB_SETS_ITERATOR_FROM}]) ++
+    if_function_exported(:public_key, :short_name_hash, 1, [{:d, :SHORT_NAME_HASH}])
+  end
+
+  defp cond_options do
+    for {:true, option} <- [{config(:graphics), {:d, :GRAPHICS}}], do:
+    option
   end
 
   defp deps do
@@ -52,7 +70,8 @@ defmodule Ejabberd.Mixfile do
      {:jiffy, "~> 0.14.7"},
      {:p1_oauth2, "~> 0.6.1"},
      {:distillery, "~> 1.0"},
-     {:ex_doc, ">= 0.0.0", only: :dev}]
+     {:ex_doc, ">= 0.0.0", only: :dev},
+     {:fs, "~> 2.12.0"}]
     ++ cond_deps()
   end
 
@@ -75,7 +94,8 @@ defmodule Ejabberd.Mixfile do
                          {config(:pam), {:epam, "~> 1.0"}},
                          {config(:tools), {:luerl, github: "rvirding/luerl", tag: "v0.2"}},
                          {config(:tools), {:meck, "~> 0.8.4"}},
-                         {config(:tools), {:moka, github: "processone/moka", tag: "1.0.5c"}}], do:
+                         {config(:tools), {:moka, github: "processone/moka", tag: "1.0.5c"}},
+                         {config(:graphics), {:eimp, github: "processone/eimp", tag: "1.0.1"}}], do:
       dep
   end
 
@@ -85,7 +105,8 @@ defmodule Ejabberd.Mixfile do
                          {config(:pgsql), :p1_pgsql},
                          {config(:sqlite), :sqlite3},
                          {config(:zlib), :ezlib},
-                         {config(:iconv), :iconv}], do:
+                         {config(:iconv), :iconv},
+                         {config(:graphics), :eimp}], do:
       app
   end
 
@@ -132,7 +153,12 @@ defmodule Mix.Tasks.Compile.Asn1 do
     mappings     = Enum.zip(source_paths, dest_paths)
     options      = project[:asn1_options] || []
 
-    Erlang.compile(manifest(), mappings, :asn1, :erl, opts[:force], fn
+    force = case opts[:force] do
+        :true -> [force: true]
+        _ -> [force: false]
+    end
+
+    Erlang.compile(manifest(), mappings, :asn1, :erl, force, fn
       input, output ->
         options = options ++ [:noobj, outdir: Erlang.to_erl_file(Path.dirname(output))]
         case :asn1ct.compile(Erlang.to_erl_file(input), options) do
