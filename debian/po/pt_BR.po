@@ -3,22 +3,25 @@
 # This file is distributed under the same license as the ejabberd package.
 # Alex de Oliveira Silva <enerv@host.sk>, 2007.
 # Felipe Augusto van de Wiel (faw) <faw@debian.org>, 2008.
-# Adriano Rafael Gomes <adrianorg@arg.eti.br>, 2015.
+# Adriano Rafael Gomes <adrianorg@debian.org>, 2015-2017.
 #
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
-"PO-Revision-Date: 2017-08-31 16:54-0400\n"
-"Last-Translator: Adriano Rafael Gomes <adrianorg@arg.eti.br>\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
+"PO-Revision-Date: 2017-11-28 20:59-0200\n"
+"Last-Translator: Adriano Rafael Gomes <adrianorg@debian.org>\n"
 "Language-Team: Brazilian Portuguese <debian-l10n-portuguese@lists.debian."
 "org>\n"
 "Language: pt_BR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.8.7.1\n"
 
 #. Type: string
 #. Description
@@ -30,9 +33,7 @@ msgstr "Nome de máquina para este servidor Jabber:"
 #. Description
 #: ../templates:2001
 msgid "Please enter a hostname for this Jabber server."
-msgstr ""
-"Por favor, informe o nome de máquina deste servidor Jabber (letras "
-"minúsculas)."
+msgstr "Por favor, informe um nome de máquina para este servidor Jabber."
 
 #. Type: string
 #. Description
@@ -41,9 +42,9 @@ msgid ""
 "If you would like to configure multiple hostnames for this server, you will "
 "have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
 msgstr ""
-"Se você deseja configurar vários nomes de máquinas para este servidor, você "
-"terá que fazer isso manualmente em /etc/ejabberd/ejabberd.yml depois da "
-"instalação"
+"Se você deseja configurar múltiplos nomes de máquina para este servidor, "
+"você deverá fazer isso manualmente em /etc/ejabberd/ejabberd.yml após a "
+"instalação."
 
 #. Type: string
 #. Description
@@ -51,6 +52,10 @@ msgstr ""
 msgid "Jabber server administrator username:"
 msgstr "Nome de usuário do administrador do servidor Jabber:"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -61,11 +66,14 @@ msgid ""
 "https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Por favor, forneça o nome de uma conta para administrar o servidor ejabberd. "
-"Depois da instalação do ejabberd, você pode usar esta conta para logar com "
-"qualquer cliente Jabber para realizar tarefas administrativas ou acessar "
-"https://${hostname}:5280/admin/ e efetuar o login com esta conta para entrar "
-"na interface administrativa."
+"Depois da instalação do ejabberd, você poderá logar nessa conta usando "
+"qualquer cliente Jabber ou um navegador web apontado para a interface "
+"administrativa https://${hostname}:5280/admin/."
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -128,7 +136,8 @@ msgstr "Erro de entrada de senha"
 msgid ""
 "The two passwords you entered did not match or were empty. Please try again."
 msgstr ""
-"As duas senhas que você digitou não são iguais. Por favor, tente novamente."
+"As duas senhas que você digitou não conferem ou estão vazias. Por favor, "
+"tente novamente."
 
 #. Type: error
 #. Description
@@ -145,18 +154,17 @@ msgid ""
 "If you used a full JID (e.g. user@hostname), the hostname needs to match the "
 "one previously specified."
 msgstr ""
-"O nome de usuário que você digitou contém caracteres proibidos. Por favor, "
-"respeite a sintaxe JID (http://tools.ietf.org/html/rfc6122#appendix-A.5). Se "
-"você usou um JID completo (por exemplo, usuario@nomedemaquina), você deve "
-"usar o mesmo nome de máquina que você digitou no passo de configuração do "
-"nome de máquina."
+"O nome de usuário especificado anteriormente contém caracteres proibidos. "
+"Por favor, respeite a sintaxe JID (https://tools.ietf.org/html/"
+"rfc6122#appendix-A.5). Se você usou um JID completo (por exemplo, "
+"usuario@nomedemaquina), o nome de máquina deve conferir com o especificado "
+"anteriormente."
 
-# Nome da máquina inválido
 #. Type: error
 #. Description
 #: ../templates:8001
 msgid "Invalid hostname"
-msgstr "Nome da máquina inválido"
+msgstr "Nome de máquina inválido"
 
 #. Type: error
 #. Description
@@ -165,15 +173,19 @@ msgid ""
 "The hostname previously specified contains forbidden characters or is "
 "otherwise invalid. Please correct it and try again."
 msgstr ""
-"O nome de máquina contem especificamente caracteres proibidos ou inválidos. "
-"Por favor corrija e tente novamente."
+"O nome de máquina especificado anteriormente contém caracteres proibidos ou "
+"é inválido de alguma outra maneira. Por favor, corrija-o e tente novamente."
 
 #. Type: error
 #. Description
 #: ../templates:9001
 msgid "Invalid preseeded configuration"
-msgstr "Configuração do preseed inválida"
+msgstr "Configuração pré-alimentada inválida"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: error
 #. Description
 #: ../templates:9001
@@ -181,8 +193,8 @@ msgid ""
 "A newer ${preseed} validation is being used and has determined that the "
 "currently setup ${preseed} is invalid or incorrectly specified."
 msgstr ""
-"Uma validação $ {preseed} mais nova está sendo usada e determinou que a "
-"configuração atual $ {preseed} é inválida ou foi especificada incorretamente."
+"Uma validação ${preseed} mais nova está sendo usada e determinou que a "
+"configuração atual ${preseed} é inválida ou está especificada incorretamente."
 
 #. Type: error
 #. Description
@@ -193,16 +205,16 @@ msgid ""
 "databases and usernames will be lost or invalidated in this process if the "
 "hostname is changed."
 msgstr ""
-"Se você quiser corrigi-lo, por favor faça backup de seus dados e execute "
-"dpkg-reconfigure ejabberd após a conclusão da atualização e observe que "
-"qualquer banco de dados e nomes de usuários serão perdidos ou invalidados "
-"nesse processo se o nome de máquina for alterado."
+"Se você deseja corrigir isso, por favor, faça cópia de segurança dos seus "
+"dados e execute dpkg-reconfigure ejabberd depois da atualização finalizar, e "
+"note que quaisquer bancos de dados e nomes de usuário serão perdidos ou "
+"invalidados nesse processo, caso o nome de máquina seja alterado."
 
 #. Type: note
 #. Description
 #: ../templates:10001
 msgid "Important changes to nodename (ERLANG_NODE) configuration"
-msgstr "Alterações importantes na configuração nodename (ERLANG_NODE)"
+msgstr "Alterações importantes na configuração de nome de nodo (ERLANG_NODE)"
 
 #. Type: note
 #. Description
@@ -212,9 +224,9 @@ msgid ""
 "configuration (ejabberd@localhost) which saves effort when moving XMPP "
 "domains to a different machine."
 msgstr ""
-"O nodename mudou para refletir a configuração de nodename recomendada "
-"upstream do ejabberd (ejabberd@localhost) que economiza esforço ao mover "
-"domínios XMPP para uma máquina diferente."
+"O nome de nodo foi alterado para refletir a configuração de nome de nodo "
+"recomendada pelo \"upstream\" (ejabberd@localhost), o que poupa esforços ao "
+"mover domínios XMPP para uma máquina diferente."
 
 #. Type: note
 #. Description
@@ -224,9 +236,9 @@ msgid ""
 "the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
 "to the name it was manually specified."
 msgstr ""
-"Isto pode quebrar a instalação atual, mas pode ser corrigido facilmente "
-"editando a opção ERLANG_NODE em /etc /default /ejabberd novamente para "
-"ejabberd ou para o nome que foi especificado manualmente."
+"Isso pode quebrar a instalação atual, mas pode ser facilmente corrigido "
+"editando a opção ERLANG_NODE em /etc/default/ejabberd de volta para ejabberd "
+"ou para o nome que havia sido especificado manualmente."
 
 #. Type: note
 #. Description
@@ -238,9 +250,27 @@ msgid ""
 "docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
 "make appropriate backups of the database before attempting this method."
 msgstr ""
-"Outra maneira de corrigir uma instalação quebrada é usar a opção "
-"mnesia_change_nodename do ejabberdctl para alterar o nodename no banco de "
-"dados mnesia. Mais informações sobre este método podem ser encontradas no "
-"guia de ejabberd (https://docs.ejabberd.im/admin/guide/managing/#change-"
-"computer-hostname). Por favor, Faça backups apropriados do banco de dados "
-"antes de tentar esse método."
+"Outra forma de corrigir uma instalação quebrada é usar a opção "
+"mnesia_change_nodename do ejabberdctl para alterar o nome de nodo no banco "
+"de dados mnesia. Mais informação sobre esse método pode ser encontrada no "
+"guia do ejabberd (https://docs.ejabberd.im/admin/guide/managing/#change-"
+"computer-hostname). Por favor, faça cópias de segurança apropriadas do banco "
+"de dados antes de tentar esse método."
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "ERL_OPTIONS para este servidor Jabber:"
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
+msgstr ""
+"Para executar o servidor ejabberd com opções Erlang personalizadas, informe-"
+"as aqui. Também é possível defini-las editando /etc/ejabberd/ejabberdctl."
+"cfg. Veja a página de manual erl(1) para mais informação."

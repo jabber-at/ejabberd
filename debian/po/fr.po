@@ -1,41 +1,41 @@
 # Translation of ejabberd debconf templates to French
 # Copyright (C) 2008 Florentin Duneau <fduneau@gmail.com>
 # This file is distributed under the same license as the ejabberd package.
-# 
-# 
+#
+#
 # Florentin Duneau <f.baced@wanadoo.fr>, 2006.
 # Florentin Duneau <fduneau@gmail.com>, 2008.
-# Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>, 2015.
+# Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>, 2015, 2017.
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
-"PO-Revision-Date: 2015-07-22 21:06+0200\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
+"PO-Revision-Date: 2017-09-07 00:47+0100\n"
 "Last-Translator: Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>\n"
 "Language-Team: French <debian-l10n-french@lists.debian.org>\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Lokalize 1.5\n"
+"X-Generator: Lokalize 2.0\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "Host name for this Jabber server:"
 msgid "Hostname for this Jabber server:"
 msgstr "Nom d'hôte du serveur Jabber :"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "Please enter the host name of this Jabber server (lowercase)."
 msgid "Please enter a hostname for this Jabber server."
-msgstr "Veuillez indiquer le nom d'hôte (en minuscules) du serveur Jabber."
+msgstr "Veuillez indiquer un nom d'hôte pour le serveur Jabber."
 
 #. Type: string
 #. Description
@@ -44,6 +44,9 @@ msgid ""
 "If you would like to configure multiple hostnames for this server, you will "
 "have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
 msgstr ""
+"Si vous souhaitez configurer plusieurs noms d'hôtes pour ce serveur, vous "
+"devrez le faire manuellement dans /etc/ejabberd/ejabberd.yml après "
+"l'installation."
 
 #. Type: string
 #. Description
@@ -54,13 +57,6 @@ msgstr "Identifiant de l'administrateur du serveur Jabber :"
 #. Type: string
 #. Description
 #: ../templates:3001
-#, fuzzy
-#| msgid ""
-#| "Please provide the name of an account to administrate the ejabberd "
-#| "server. After the installation of ejabberd you can use this account to "
-#| "log in with any Jabber client to do administrative tasks or go to https://"
-#| "${hostname}:5280/admin/ and log in with this account to enter the admin "
-#| "interface."
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd, you can log in to this account using "
@@ -68,9 +64,9 @@ msgid ""
 "https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Veuillez indiquer un identifiant afin d'administrer le serveur ejabberd. "
-"Après l'installation, vous pourrez utilisez cette identité pour vous "
-"connecter avec tout client Jabber ou l'interface d'administration sur "
-"https://${hostname}:5280/admin/ pour réaliser des tâches administratives."
+"Après l'installation, vous pouvez vous connecter à ce compte avec tout "
+"client Jabber ou un navigateur web pointant sur l'interface d'administration "
+"https://${hostname}:5280/admin/."
 
 #. Type: string
 #. Description
@@ -119,7 +115,7 @@ msgid ""
 "Please enter the same administrator password again to verify that you have "
 "typed it correctly."
 msgstr ""
-"Veuillez entrer à nouveau le mot de passe administrateur pour vérifier que  "
+"Veuillez entrer à nouveau le mot de passe administrateur pour vérifier que "
 "vous l'avez entré correctement."
 
 #. Type: error
@@ -131,11 +127,11 @@ msgstr "Erreur d'entrée du mot de passe"
 #. Type: error
 #. Description
 #: ../templates:6001
-#, fuzzy
-#| msgid "The two passwords you entered were not the same. Please try again."
 msgid ""
 "The two passwords you entered did not match or were empty. Please try again."
-msgstr "Les mots de passe saisis ne correspondent pas. Veuillez recommencer."
+msgstr ""
+"Les deux mots de passe saisis ne correspondent pas ou sont vides. Veuillez "
+"recommencer."
 
 #. Type: error
 #. Description
@@ -146,29 +142,23 @@ msgstr "Identifiant du compte administrateur non valable"
 #. Type: error
 #. Description
 #: ../templates:7001
-#, fuzzy
-#| msgid ""
-#| "The username you have typed contains forbidden characters. Please respect "
-#| "the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-#| "used a full JID (e.g. user@hostname), you have to use the same host name "
-#| "you typed into the host name configuration step."
 msgid ""
 "The username previously specified contains forbidden characters. Please "
 "respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
 "If you used a full JID (e.g. user@hostname), the hostname needs to match the "
 "one previously specified."
 msgstr ""
-"L'identifiant que vous avez entré contient des caractères interdits. "
+"L'identifiant que vous venez d'entrer contient des caractères interdits. "
 "Veuillez respecter la syntaxe de l'identité Jabber (JID)(http://tools.ietf."
 "org/html/rfc6122#appendix-A.5). Si vous utilisez une identité Jabber "
-"complète (par exemple, user@hostname), vous devez utiliser le même nom "
-"d'hôte que vous avez entré lors de l'étape de configuration du nom d'hôte."
+"complète (par exemple, user@hostname), le nom d'hôte doit correspondre à "
+"celui que vous avez entré précédemment."
 
 #. Type: error
 #. Description
 #: ../templates:8001
 msgid "Invalid hostname"
-msgstr ""
+msgstr "Nom d'hôte non valable"
 
 #. Type: error
 #. Description
@@ -177,12 +167,14 @@ msgid ""
 "The hostname previously specified contains forbidden characters or is "
 "otherwise invalid. Please correct it and try again."
 msgstr ""
+"Le nom d'hôte précédemment entré contient des caractères interdits ou n'est "
+"pas valable pour d'autres raisons. Veuillez le corriger et recommencer."
 
 #. Type: error
 #. Description
 #: ../templates:9001
 msgid "Invalid preseeded configuration"
-msgstr ""
+msgstr "Préconfiguration non valable"
 
 #. Type: error
 #. Description
@@ -191,6 +183,9 @@ msgid ""
 "A newer ${preseed} validation is being used and has determined that the "
 "currently setup ${preseed} is invalid or incorrectly specified."
 msgstr ""
+"Une validation de ${preseed} plus récente est utilisée et a déterminé que le "
+"${preseed} actuellement configuré n'est pas valable ou pas correctement "
+"indiquée."
 
 #. Type: error
 #. Description
@@ -201,12 +196,17 @@ msgid ""
 "databases and usernames will be lost or invalidated in this process if the "
 "hostname is changed."
 msgstr ""
+"Si vous souhaitez le corriger, veuillez sauvegarder vos données et exécuter "
+"dpkg-reconfigure ejabberd après la fin de la mise à niveau et notez que tous "
+"les noms d'utilisateur et les bases de données seront perdus ou invalidés si "
+"le nom d'hôte est modifié."
 
 #. Type: note
 #. Description
 #: ../templates:10001
 msgid "Important changes to nodename (ERLANG_NODE) configuration"
 msgstr ""
+"Modifications importantes de la configuration du nom de nœud (ERLANG_NODE)"
 
 #. Type: note
 #. Description
@@ -216,6 +216,9 @@ msgid ""
 "configuration (ejabberd@localhost) which saves effort when moving XMPP "
 "domains to a different machine."
 msgstr ""
+"Le nom de nœud a été modifié pour refléter la configuration recommandée par "
+"les développeurs amont d'ejabberd (ejabberd@localhost), ce qui évite des "
+"efforts lorsque les domaines XMPP sont déplacés sur une machine différente."
 
 #. Type: note
 #. Description
@@ -225,6 +228,9 @@ msgid ""
 "the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
 "to the name it was manually specified."
 msgstr ""
+"Cela peut casser l'installation actuelle, mais peut être facilement corrigé "
+"en modifiant l'option ERLANG_NODE dans /etc/default/ejabberd soit en "
+"revenant à ejabberd soit pour le nom défini manuellement."
 
 #. Type: note
 #. Description
@@ -236,26 +242,43 @@ msgid ""
 "docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
 "make appropriate backups of the database before attempting this method."
 msgstr ""
+"Un autre moyen de corriger une installation cassée est d'utiliser l'option "
+"« mnesia change nodename » d'ejabberdctl pour modifier le nom de nœud dans "
+"la base de données mnesia. Plus d'informations sur cette méthode se trouvent "
+"dans le guide d'ejabberd (https://docs.ejabberd.im/admin/guide/managing/"
+"#change-computer-hostname). Veuillez faire les sauvegardes appropriées de la "
+"base de données avant d'essayer cette méthode."
 
-#~ msgid "The username of an admin account for ejabberd:"
-#~ msgstr "Identifiant du compte administrateur d'ejabberd :"
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
+#. Type: string
+#. Description
+#: ../templates:11001
+#, fuzzy
+#| msgid "Hostname for this Jabber server:"
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "Nom d'hôte du serveur Jabber :"
 
-#~ msgid "The password for the admin account:"
-#~ msgstr "Mot de passe du compte administrateur :"
-
-#~ msgid "The password for the admin account again for verification:"
-#~ msgstr "Mot de passe du compte administrateur :"
-
-#~ msgid ""
-#~ "Please reenter the password for the administrative user for verification."
-#~ msgstr ""
-#~ "Veuillez indiquer de nouveau le mot de passe de l'utilisateur "
-#~ "administrateur pour vérification."
-
-#~ msgid "The passwords do not match!"
-#~ msgstr "Mots de passe différents"
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
+msgstr ""
 
 #, fuzzy
-#~| msgid "The username of an admin account for ejabberd:"
-#~ msgid "The username of the admin account is invalid!"
-#~ msgstr "Identifiant du compte administrateur d'ejabberd :"
+#~| msgid ""
+#~| "If you would like to configure multiple hostnames for this server, you "
+#~| "will have to do so manually in /etc/ejabberd/ejabberd.yml after "
+#~| "installation."
+#~ msgid ""
+#~ "If you would like a customized set of options, you may enter it here. You "
+#~ "may also edit /etc/ejabberd/ejabberdctl.cfg later if you desire."
+#~ msgstr ""
+#~ "Si vous souhaitez configurer plusieurs noms d'hôtes pour ce serveur, vous "
+#~ "devrez le faire manuellement dans /etc/ejabberd/ejabberd.yml après "
+#~ "l'installation."

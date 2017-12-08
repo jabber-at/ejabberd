@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
 "PO-Revision-Date: 2017-09-06 22:29+0200\n"
 "Last-Translator: Iñaki Larrañaga Murgoitio <dooteo@zundan.com>\n"
 "Language-Team: Basque <debian-l10n-basque@lists.debian.org>\n"
@@ -19,6 +19,10 @@ msgstr ""
 "X-Generator: Lokalize 1.5\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:2001
@@ -40,8 +44,7 @@ msgid ""
 msgstr ""
 "Zerbitzari honentzako hainbat ostalari-izen konfiguratzea nahi izanez gero, "
 "eskuz ezarri beharko duzu /etc/ejabberd/ejabberd.yml fitxategian "
-"instalazioaren "
-"ostean."
+"instalazioaren ostean."
 
 #. Type: string
 #. Description
@@ -72,9 +75,8 @@ msgid ""
 "full Jabber ID (such as ${user}@${hostname}) is required to access the "
 "ejabberd web interface."
 msgstr ""
-"Idatzi hemen erabiltzaile-izenaren zatia (${user} gisa), baina "
-"Jabber ID osoa (${user}@${hostname}) behar da "
-"ejabberd-eko web interfazera sartzeko."
+"Idatzi hemen erabiltzaile-izenaren zatia (${user} gisa), baina Jabber ID "
+"osoa (${user}@${hostname}) behar da ejabberd-eko web interfazera sartzeko."
 
 #. Type: string
 #. Description
@@ -142,10 +144,9 @@ msgid ""
 "one previously specified."
 msgstr ""
 "Aurrez zehaztutako erabiltzaile-izenak debekatutako karaktereak ditu. "
-"Jarraitu ezazu JID-ren (Jabberren IDa) sintaxia "
-"(https://tools.ietf.org/html/rfc6122#appendix-A.5). "
-"JID osoa (adib. erabiltzailea@ostalari-izena) erabili baduzu, ostalari-izenak "
-"aurrez emandakoarekin bat etorri behar du."
+"Jarraitu ezazu JID-ren (Jabberren IDa) sintaxia (https://tools.ietf.org/html/"
+"rfc6122#appendix-A.5). JID osoa (adib. erabiltzailea@ostalari-izena) erabili "
+"baduzu, ostalari-izenak aurrez emandakoarekin bat etorri behar du."
 
 #. Type: error
 #. Description
@@ -160,8 +161,8 @@ msgid ""
 "The hostname previously specified contains forbidden characters or is "
 "otherwise invalid. Please correct it and try again."
 msgstr ""
-"Aurrez emandako ostalari-izenak debekatutako karaktereak ditu, "
-"edo bestela baliogabea da. Zuzendu ezazu eta saiatu berriro."
+"Aurrez emandako ostalari-izenak debekatutako karaktereak ditu, edo bestela "
+"baliogabea da. Zuzendu ezazu eta saiatu berriro."
 
 #. Type: error
 #. Description
@@ -177,9 +178,8 @@ msgid ""
 "A newer ${preseed} validation is being used and has determined that the "
 "currently setup ${preseed} is invalid or incorrectly specified."
 msgstr ""
-"${preseed} egiaztapen berriagoa erabiltzen ari da eta uneko "
-"${preseed} aurre-konfigurazioa baliogabea edo oker zehaztuta dagoela "
-"atzeman da."
+"${preseed} egiaztapen berriagoa erabiltzen ari da eta uneko ${preseed} aurre-"
+"konfigurazioa baliogabea edo oker zehaztuta dagoela atzeman da."
 
 #. Type: error
 #. Description
@@ -190,9 +190,9 @@ msgid ""
 "databases and usernames will be lost or invalidated in this process if the "
 "hostname is changed."
 msgstr ""
-"Zuzentzea nahi izanez gero, egin zure datuen babes-kopia eta exekutatu "
-"'dpkg-reconfigure ejabberd' komandoa bertsio-berritzea amaitzen denean. "
-"Jakin ezazu edozer datu-base eta erabiltzaile-izen galdu edo baliogabetuta "
+"Zuzentzea nahi izanez gero, egin zure datuen babes-kopia eta exekutatu 'dpkg-"
+"reconfigure ejabberd' komandoa bertsio-berritzea amaitzen denean. Jakin "
+"ezazu edozer datu-base eta erabiltzaile-izen galdu edo baliogabetuta "
 "geratuko direla ostalari-izena aldatzen bada."
 
 #. Type: note
@@ -210,9 +210,8 @@ msgid ""
 "domains to a different machine."
 msgstr ""
 "Nodo-izena aldatu egin da ejabberd-en bertsio berrian nodo-izenaren "
-"konfigurazioaren gomendioak jarraitzeko (ejabberd@localhost), "
-"XMPP domeinuak beste ordenagailu batera eramatean lanak aurrezten "
-"baititu."
+"konfigurazioaren gomendioak jarraitzeko (ejabberd@localhost), XMPP domeinuak "
+"beste ordenagailu batera eramatean lanak aurrezten baititu."
 
 #. Type: note
 #. Description
@@ -222,9 +221,9 @@ msgid ""
 "the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
 "to the name it was manually specified."
 msgstr ""
-"Honek uneko instalazioa apurtu dezake, hala ere erraz konpon daiteke "
-"/etc/default/ejabberd fitxategiko ERLANG_NODE parametroa editatuz "
-"baita ejabberd-era edo eskuz zehaztutako izenera itzuliz."
+"Honek uneko instalazioa apurtu dezake, hala ere erraz konpon daiteke /etc/"
+"default/ejabberd fitxategiko ERLANG_NODE parametroa editatuz baita ejabberd-"
+"era edo eskuz zehaztutako izenera itzuliz."
 
 #. Type: note
 #. Description
@@ -237,8 +236,41 @@ msgid ""
 "make appropriate backups of the database before attempting this method."
 msgstr ""
 "Hautsitako instalazio bat konpontzeko beste modu bat ejabberdctl-en "
-"mnesia_change_nodename aukera nodo-izenera aldatzea da mnesia "
-"datu-basean. Honi buruzko informazio gehiago ejabberd eskuliburuan "
-"(https://docs.ejabberd.im/admin/guide/managing/#change-computer-hostname) "
-"aurki dezakezu. Egin itzazu datu-baseen babes-kopiak bide hau jorratu "
-"aurretik."
+"mnesia_change_nodename aukera nodo-izenera aldatzea da mnesia datu-basean. "
+"Honi buruzko informazio gehiago ejabberd eskuliburuan (https://docs.ejabberd."
+"im/admin/guide/managing/#change-computer-hostname) aurki dezakezu. Egin "
+"itzazu datu-baseen babes-kopiak bide hau jorratu aurretik."
+
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
+#. Type: string
+#. Description
+#: ../templates:11001
+#, fuzzy
+#| msgid "Hostname for this Jabber server:"
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "Jabber zerbitzari honen ostalari-izena:"
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
+msgstr ""
+
+#, fuzzy
+#~| msgid ""
+#~| "If you would like to configure multiple hostnames for this server, you "
+#~| "will have to do so manually in /etc/ejabberd/ejabberd.yml after "
+#~| "installation."
+#~ msgid ""
+#~ "If you would like a customized set of options, you may enter it here. You "
+#~ "may also edit /etc/ejabberd/ejabberdctl.cfg later if you desire."
+#~ msgstr ""
+#~ "Zerbitzari honentzako hainbat ostalari-izen konfiguratzea nahi izanez "
+#~ "gero, eskuz ezarri beharko duzu /etc/ejabberd/ejabberd.yml fitxategian "
+#~ "instalazioaren ostean."

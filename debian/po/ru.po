@@ -11,19 +11,23 @@
 #
 #    Developers do not need to manually edit POT or PO files.
 # Sergei Golovan <sgolovan@nes.ru>, 2007.
-# Sergey Alyoshin <alyoshin.s@gmail.com>, 2008, 2015.
+# Sergey Alyoshin <alyoshin.s@gmail.com>, 2008, 2015, 2017.
 #
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 msgid ""
 msgstr ""
-"Project-Id-Version: 15.03-2\n"
+"Project-Id-Version: 17.11-1\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
-"PO-Revision-Date: 2015-07-25 12:15+0300\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
+"PO-Revision-Date: 2017-12-03 10:18+0300\n"
 "Last-Translator: Sergey Alyoshin <alyoshin.s@gmail.com>\n"
 "Language-Team: Russian <debian-l10n-russian@lists.debian.org>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms:  nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
@@ -31,18 +35,14 @@ msgstr ""
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "Host name for this Jabber server:"
 msgid "Hostname for this Jabber server:"
 msgstr "Имя хоста для этого Jabber-сервера:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
-#, fuzzy
-#| msgid "Please enter the host name of this Jabber server (lowercase)."
 msgid "Please enter a hostname for this Jabber server."
-msgstr "Введите имя хоста для вашего Jabber-сервера (строчными буквами)."
+msgstr "Введите имя хоста для этого Jabber-сервера."
 
 #. Type: string
 #. Description
@@ -51,6 +51,8 @@ msgid ""
 "If you would like to configure multiple hostnames for this server, you will "
 "have to do so manually in /etc/ejabberd/ejabberd.yml after installation."
 msgstr ""
+"Если вы желаете настроить несколько имён хостов для данного сервера, то "
+"должны сделать это вручную в /etc/ejabberd/ejabberd.yml после установки."
 
 #. Type: string
 #. Description
@@ -58,16 +60,13 @@ msgstr ""
 msgid "Jabber server administrator username:"
 msgstr "Пользователь для администрирования Jabber-сервера:"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
-#, fuzzy
-#| msgid ""
-#| "Please provide the name of an account to administrate the ejabberd "
-#| "server. After the installation of ejabberd you can use this account to "
-#| "log in with any Jabber client to do administrative tasks or go to https://"
-#| "${hostname}:5280/admin/ and log in with this account to enter the admin "
-#| "interface."
 msgid ""
 "Please provide the name of an account to administrate the ejabberd server. "
 "After the installation of ejabberd, you can log in to this account using "
@@ -75,11 +74,14 @@ msgid ""
 "https://${hostname}:5280/admin/ interface."
 msgstr ""
 "Введите имя учётной записи администратора сервера ejabberd. После установки "
-"ejabberd вы сможете подключаться к нему с помощью Jabber- клиента, используя "
-"эту учётную запись и администрировать сервер. Или использовать интерфейс "
-"администратора по адресу https://${hostname}:5280/admin/ с этой учётной "
-"записью."
+"ejabberd вы сможете подключаться к нему, используя эту учётную запись, и "
+"администрировать сервер с помощью Jabber-клиента или использовать интерфейс "
+"администратора по адресу https://${hostname}:5280/admin/"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -139,11 +141,9 @@ msgstr "Ошибка ввода пароля"
 #. Type: error
 #. Description
 #: ../templates:6001
-#, fuzzy
-#| msgid "The two passwords you entered were not the same. Please try again."
 msgid ""
 "The two passwords you entered did not match or were empty. Please try again."
-msgstr "Введённые пароли не совпадают. Попробуйте ещё раз."
+msgstr "Введённые пароли не совпадают или пусты. Попробуйте ещё раз."
 
 #. Type: error
 #. Description
@@ -154,12 +154,6 @@ msgstr "Неверное имя пользователя учётной запи
 #. Type: error
 #. Description
 #: ../templates:7001
-#, fuzzy
-#| msgid ""
-#| "The username you have typed contains forbidden characters. Please respect "
-#| "the  JID syntax (http://tools.ietf.org/html/rfc6122#appendix-A.5). If you "
-#| "used a full JID (e.g. user@hostname), you have to use the same host name "
-#| "you typed into the host name configuration step."
 msgid ""
 "The username previously specified contains forbidden characters. Please "
 "respect the JID syntax (https://tools.ietf.org/html/rfc6122#appendix-A.5). "
@@ -167,15 +161,15 @@ msgid ""
 "one previously specified."
 msgstr ""
 "Введённое имя пользователя содержит недопустимые символы. Учитывайте "
-"синтаксис JID (http://tools.ietf.org/html/rfc6122#appendix-A.5). Если вы "
-"используете полный JID (например, user@hostname), то вам следует "
-"использовать то же имя хоста, что было указано вами на шаге настройки хоста."
+"синтаксис JID (https://tools.ietf.org/html/rfc6122#appendix-A.5). Если вы "
+"используете полный JID (например, user@hostname), то имя хоста должно "
+"соответствовать указанному ранее."
 
 #. Type: error
 #. Description
 #: ../templates:8001
 msgid "Invalid hostname"
-msgstr ""
+msgstr "Неверное имя хоста"
 
 #. Type: error
 #. Description
@@ -184,13 +178,19 @@ msgid ""
 "The hostname previously specified contains forbidden characters or is "
 "otherwise invalid. Please correct it and try again."
 msgstr ""
+"Ранее указанное имя хоста содержит недопустимые символы или неверно. "
+"Исправьте и попробуйте ещё раз."
 
 #. Type: error
 #. Description
 #: ../templates:9001
 msgid "Invalid preseeded configuration"
-msgstr ""
+msgstr "Неверная автоматизированная настройка"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: error
 #. Description
 #: ../templates:9001
@@ -198,6 +198,8 @@ msgid ""
 "A newer ${preseed} validation is being used and has determined that the "
 "currently setup ${preseed} is invalid or incorrectly specified."
 msgstr ""
+"Используемая новая проверка ${preseed} определила, что текущая настройка "
+"${preseed} неверна или некорректно указана."
 
 #. Type: error
 #. Description
@@ -208,12 +210,16 @@ msgid ""
 "databases and usernames will be lost or invalidated in this process if the "
 "hostname is changed."
 msgstr ""
+"Если вы хотите это исправить, сделайте резервную копию ваших данных и "
+"выполните dpkg-reconfigure ejabberd после завершения обновления и проверьте "
+"потерю или недействительность баз данных и пользователей в процессе при "
+"изменении имени хоста."
 
 #. Type: note
 #. Description
 #: ../templates:10001
 msgid "Important changes to nodename (ERLANG_NODE) configuration"
-msgstr ""
+msgstr "Важные изменения в настройке имени узла (ERLANG_NODE)"
 
 #. Type: note
 #. Description
@@ -223,6 +229,9 @@ msgid ""
 "configuration (ejabberd@localhost) which saves effort when moving XMPP "
 "domains to a different machine."
 msgstr ""
+"Имя узла было изменено для соответствия рекомендациям по настройке ejabberd "
+"для вышестоящего имени узла (ejabberd@localhost), что экономит усилия при "
+"переносе домена XMPP на другую машину."
 
 #. Type: note
 #. Description
@@ -232,6 +241,9 @@ msgid ""
 "the ERLANG_NODE option in /etc/default/ejabberd either back to ejabberd or "
 "to the name it was manually specified."
 msgstr ""
+"Это может повредить текущую установку, что легко исправить изменением опции "
+"ERLANG_NODE в /etc/default/ejabberd обратно в ejabberd или в имя указанное "
+"вручную."
 
 #. Type: note
 #. Description
@@ -242,4 +254,24 @@ msgid ""
 "More information on this method may be found on the ejabberd guide (https://"
 "docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
 "make appropriate backups of the database before attempting this method."
+msgstr ""
+"Другой способ исправить повреждённую установку, опцию mnesia_change_nodename "
+"из ejabberdctl для изменения имени узла в базе данных mnesia. Информацию об "
+"этом способе см. в руководстве ejabberd (https://docs.ejabberd.im/admin/"
+"guide/managing/#change-computer-hostname). Сделайте соответствующие "
+"резервные копии базы данных перед применением данного способа."
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "ERL_OPTIONS для этого Jabber-сервера:"
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
 msgstr ""

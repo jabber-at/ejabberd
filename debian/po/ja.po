@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd 2.0.5-1.1\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
 "PO-Revision-Date: 2016-02-22 12:08+0900\n"
 "Last-Translator: Takuma Yamada <tyamada@takumayamada.com>\n"
 "Language-Team: 日本語 <debian-japanese@lists.debian.org>\n"
@@ -18,6 +18,10 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: Gtranslator 2.91.6\n"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:2001
@@ -231,4 +235,25 @@ msgid ""
 "More information on this method may be found on the ejabberd guide (https://"
 "docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please "
 "make appropriate backups of the database before attempting this method."
+msgstr ""
+
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
+#. Type: string
+#. Description
+#: ../templates:11001
+#, fuzzy
+#| msgid "Host name for this Jabber server:"
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "この Jabber サーバのホスト名:"
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
 msgstr ""

@@ -12,12 +12,16 @@
 #
 # Badlop <badlop@ono.com>, 2006.
 #
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 msgid ""
 msgstr ""
 "Project-Id-Version: 2.0.1-2\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-08-27 23:58-0400\n"
-"PO-Revision-Date: 2017-09-01 10:06+0200\n"
+"POT-Creation-Date: 2017-11-21 23:34-0500\n"
+"PO-Revision-Date: 2017-11-30 16:56+0100\n"
 "Last-Translator: Badlop <badlop@ono.com>\n"
 "Language-Team: Spanish <debian-l10n-spanish@lists.debian.org>\n"
 "Language: es\n"
@@ -55,6 +59,10 @@ msgstr ""
 msgid "Jabber server administrator username:"
 msgstr "Nombre de usuario del administrador del servidor Jabber:"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -70,6 +78,10 @@ msgstr ""
 "en la web de administración https://${hostname}:5280/admin/ y entrar "
 "indicando la Jabber ID completa."
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -179,6 +191,10 @@ msgstr ""
 msgid "Invalid preseeded configuration"
 msgstr "La configuración preliminar no es válida"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: error
 #. Description
 #: ../templates:9001
@@ -251,3 +267,22 @@ msgstr ""
 "la Guia de ejabberd (https://docs.ejabberd.im/admin/guide/managing/#change-"
 "computer-hostname). Por favor haz las correspondientes copias de seguridad "
 "antes de intentar este método."
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid "ERL_OPTIONS for this ejabberd server:"
+msgstr "ERL_OPTIONS para este servidor ejabberd:"
+
+#. Type: string
+#. Description
+#: ../templates:11001
+msgid ""
+"To run the ejabberd server with customized Erlang options, enter them here. "
+"It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
+"See the erl(1) man page for more information."
+msgstr ""
+"Para iniciar el servidor ejabberd con opciones Erlang personalizadas, "
+"indícalas aquí. También es posible indicarlas editando el fichero /etc/"
+"ejabberd/ejabberdctl.cfg. Mira la página del manual de erl(1) para más "
+"información."
