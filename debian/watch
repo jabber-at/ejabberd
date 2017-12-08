@@ -1,5 +1,4 @@
 version=3
 
-http://www.process-one.net/en/ejabberd/archive/ \
+https://www.process-one.net/en/ejabberd/archive/ \
    /downloads/ejabberd/[\d.]+/ejabberd-([\d.]+)[_\d]*.tgz
-
