@@ -6,6 +6,20 @@
 #
 # Even minor modifications require translation updates and such
 # changes should be coordinated with translators and reviewers.
+#
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
+#
+# Short explanation on the variables:
+# ${hostname}: holds the value of the hostname which the user provides debconf with
+# ${user}: holds the value of the admin user which the user provides debconf with
+# ${preseed}: holds either the value "username" or "hostname" and changes
+#             depending on the context and is handled in debian/config. The
+#             preseed variable changes what ejabberd/invalidpreseed will
+#             complain to the user about without the need for a redundant
+#             template. This was added post hostname/username validation in debconf.
 
 Template: ejabberd/hostname
 Type: string
@@ -89,3 +103,11 @@ _Description: Important changes to nodename (ERLANG_NODE) configuration
  method may be found on the ejabberd guide
  (https://docs.ejabberd.im/admin/guide/managing/#change-computer-hostname). Please
  make appropriate backups of the database before attempting this method.
+
+Template: ejabberd/erlangopts
+Type: string
+Default: -env ERL_CRASH_DUMP_BYTES 0
+_Description: ERL_OPTIONS for this ejabberd server:
+ To run the ejabberd server with customized Erlang options, enter them here.
+ It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg.
+ See the erl(1) man page for more information.
