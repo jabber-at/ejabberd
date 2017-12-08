@@ -4,157 +4,187 @@ set -e
 
 get_passwd()
 {
-  db_get ejabberd/user
-  if [ -n "$RET" ]; then
-    db_input medium ejabberd/password || true
-    db_input medium ejabberd/verify || true
-    db_go || true
-    db_get ejabberd/password
-    PASSWORD="$RET"
-    db_get ejabberd/verify
-    VERIFY="$RET"
-    if [ -z "$PASSWORD" ] || [ "$PASSWORD" != "$VERIFY" ]; then
-      db_input medium ejabberd/nomatch || true
-      db_go || true
-      get_passwd
-    fi
-  fi
+	db_get ejabberd/user
+	if [ -n "$RET" ]; then
+		db_input medium ejabberd/password || true
+		db_input medium ejabberd/verify || true
+		db_go || true
+		db_get ejabberd/password
+		PASSWORD="$RET"
+		db_get ejabberd/verify
+		VERIFY="$RET"
+		if [ -z "$PASSWORD" ] || [ "$PASSWORD" != "$VERIFY" ]; then
+			db_input medium ejabberd/nomatch || true
+			db_go || true
+			get_passwd
+		fi
+	fi
 }
 
 validate_hostname()
 {
-  HOST="$1"
-  if [ -z "$HOST" ] || echo "$HOST" | grep -Evq '(^[a-z0-9]+$)|^([a-z0-9]*\.)+([a-z0-9]|[a-z0-9][a-z0-9_-]*[a-z0-9]\.)*([a-z0-9]+)$'; then
-    echo 1
-  else
-    echo 0
-  fi
+	HOST="$1"
+	if [ -z "$HOST" ] || echo "$HOST" | grep -Evq '(^[a-z0-9]+$)|^([a-z0-9]*\.)+([a-z0-9]|[a-z0-9][a-z0-9_-]*[a-z0-9]\.)*([a-z0-9]+)$'; then
+		echo 1
+	else
+		echo 0
+	fi
 }
 
 get_hostname()
 {
-  # If there is no hostname registered in the debconf database (new install)
-  # or if invoked by dpkg-reconfigure
-  db_get ejabberd/hostname
-  if [ -z "$RET" ] || ( [ -n "$RET" ] && [ ! -f /var/lib/ejabberd/.upgrade_flag ] ); then
-    db_input medium ejabberd/hostname || true
-    db_go || true
+	# If there is no hostname registered in the debconf database (new install)
+	# or if invoked by dpkg-reconfigure
+	db_get ejabberd/hostname
+	if [ -z "$RET" ] || [ -z "$2" ] || ( [ -n "$RET" ] && [ "$1" = "reconfigure" ] ); then
+		db_input medium ejabberd/hostname || true
+		db_go || true
 
-    db_get ejabberd/hostname
-    # Convert hostname to lowercase if user entered in uppercase alphabets,
-    # save it back to the debconf database, and read it back
-    db_set ejabberd/hostname "$(echo "$RET" | sed -e 's/\(.*\)/\L\1/')" && \
-      db_get ejabberd/hostname && \
-      HOST="$RET"
+		db_get ejabberd/hostname
+		# Convert hostname to lowercase if user entered in uppercase alphabets,
+		# save it back to the debconf database, and read it back
+		db_set ejabberd/hostname "$(echo "$RET" | sed -e 's/\(.*\)/\L\1/')" && \
+			db_get ejabberd/hostname && \
+			HOST="$RET"
 
-    # Check hostname for invalid characters
-    # If there were invalid characters, show error and ask again
-    if [ "$(validate_hostname "$HOST")" != 0 ]; then
-	db_reset ejabberd/hostname
-        db_input medium ejabberd/invalidhostname || true
-        db_go || true
-	get_hostname
-    fi
-  # If this is an upgrade but the previous values of hostname registerd in
-  # debconf database are invalid according to the validation standards at the
-  # time of writing, we show a warning to the user and continue the upgrade
-  elif [ -n "$RET" ] && [ "$(validate_hostname "$RET")" != 0 ] && [ -f /var/lib/ejabberd/.upgrade_flag ]; then
-    db_subst ejabberd/invalidpreseed preseed "hostname"
-    db_input medium ejabberd/invalidpreseed || true
-    db_go || true
-  fi
+		# Check hostname for invalid characters
+		# If there were invalid characters, show error and ask again
+		# Check for .postinst.flag as well - it means that the upgrade
+		# failed. If so, we don't want to force a user to change config
+		if [ "$(validate_hostname "$HOST")" != 0 ] && [ ! -f /var/lib/ejabberd/.postinst.flag ]; then
+			db_reset ejabberd/hostname
+			db_input medium ejabberd/invalidhostname || true
+			db_go || true
+			get_hostname "$1" "$2"
+		fi
+	# If this is an upgrade but the previous values of hostname registerd in
+	# debconf database are invalid according to the validation standards at the
+	# time of writing, we show a warning to the user if it hasn't been shown
+	# already and continue the upgrade
+	elif [ -n "$RET" ] && [ "$(validate_hostname "$RET")" != 0 ] && [ -n "$2" ]; then
+		if [ ! -f /var/lib/ejabberd/.invalid_hostname_reported ]; then
+			db_subst ejabberd/invalidpreseed preseed "hostname"
+			db_input medium ejabberd/invalidpreseed || true
+			db_go || true
+			touch /var/lib/ejabberd/.invalid_hostname_reported && chmod 644 /var/lib/ejabberd/.invalid_hostname_reported
+		fi
+	fi
 }
 
 validate_username()
 {
-  USER="$1"
-  if [ -z "$USER" ] || echo "$USER" | grep -Evq '^[[:alnum:]_\.-]+$'; then
-    echo 1
-  else
-    echo 0
-  fi
+	USER="$1"
+	if [ -z "$USER" ] || echo "$USER" | grep -Evq '^[[:alnum:]_\.-]+$'; then
+		echo 1
+	else
+		echo 0
+	fi
 }
 
 get_username()
 {
-  db_get ejabberd/hostname
-  HOST="$RET"
-  db_get ejabberd/user
-  USER="$RET"
+	db_get ejabberd/hostname
+	HOST="$RET"
+	db_get ejabberd/user
+	USER="$RET"
 
-  # If there is no username registered in the debconf database (new install)
-  # or if invoked by dpkg-reconfigure
-  if [ -z "$USER" ] || ( [ -n "$USER" ] && [ ! -f /var/lib/ejabberd/.upgrade_flag ] ) ; then
-    db_input medium ejabberd/user || true
-    db_go || true
+	# If there is no username registered in the debconf database (new install)
+	# or if invoked by dpkg-reconfigure
+	if [ -z "$USER" ] || [ -z "$2" ] || ( [ -n "$USER" ] && [ "$1" = "reconfigure" ] ); then
+		db_input medium ejabberd/user || true
+		db_go || true
 
-    db_get ejabberd/user
-  
-    # If username is not empty, check it for invalid characters
-    if [ -n "$RET" ]; then
-      # Strip the hostname if user entered it as a JID
-      USER=$(echo "$RET" | sed -e "s/\(.*\)@$HOST/\1/")
-      db_set ejabberd/user "$USER"
-  
-      # Check for invalid characters
-      if [ "$(validate_username "$USER")" != 0 ]; then
-        db_reset ejabberd/user
-        db_reset ejabberd/password
-        db_reset ejabberd/verify
-        db_input medium ejabberd/invaliduser || true
-        db_go || true
-        get_username
-      fi
-    fi
-  # If this is an upgrade but the previous values of username registerd in
-  # debconf database are invalid according to the validation standards at the
-  # time of writing, we show a warning to the user and continue the upgrade
-  elif [ -n "$RET" ] && [ "$(validate_username "$USER")" != 0 ] && [ -f /var/lib/ejabberd/.upgrade_flag ]; then
-    db_subst ejabberd/invalidpreseed preseed "username"
-    db_input medium ejabberd/invalidpreseed || true
-    db_go || true
-  fi
+		db_get ejabberd/user
+
+		# If username is not empty, check it for invalid characters
+		if [ -n "$RET" ]; then
+			# Strip the hostname if user entered it as a JID
+			USER=$(echo "$RET" | sed -e "s/\(.*\)@$HOST/\1/")
+			db_set ejabberd/user "$USER"
+
+			# Check for invalid characters
+			# Check for .postinst.flag as well - it means that the upgrade
+			# failed. If so, we don't want to force a user to change config
+			if [ "$(validate_username "$USER")" != 0 ] && [ ! -f /var/lib/ejabberd/.postinst.flag ]; then
+				db_reset ejabberd/user
+				db_reset ejabberd/password
+				db_reset ejabberd/verify
+				db_input medium ejabberd/invaliduser || true
+				db_go || true
+				get_username "$1" "$2"
+			fi
+		fi
+	# If this is an upgrade but the previous values of username registerd in
+	# debconf database are invalid according to the validation standards at the
+	# time of writing, we show a warning to the user if we haven't already
+	# and continue the upgrade
+	elif [ -n "$RET" ] && [ "$(validate_username "$USER")" != 0 ] && [ -n "$2" ]; then
+		if [ ! -f /var/lib/ejabberd/.invalid_username_reported ]; then
+			db_subst ejabberd/invalidpreseed preseed "username"
+			db_input medium ejabberd/invalidpreseed || true
+			db_go || true
+			touch /var/lib/ejabberd/.invalid_username_reported && chmod 644 /var/lib/ejabberd/.invalid_username_reported
+		fi
+	fi
 }
 
 get_credentials()
 {
-  db_get ejabberd/user
-  USER=${RET:-admin}
-  db_subst ejabberd/user user "$USER"
-  db_get ejabberd/hostname
-  HOST=${RET:-hostname}
-  db_subst ejabberd/user hostname "$HOST"
+	db_get ejabberd/user
+	USER=${RET:-admin}
+	db_subst ejabberd/user user "$USER"
+	db_get ejabberd/hostname
+	HOST=${RET:-hostname}
+	db_subst ejabberd/user hostname "$HOST"
 
-  get_username
-  get_passwd
+	get_username "$1" "$2"
+	get_passwd
+}
+
+get_erlang_options() {
+	db_get ejabberd/erlangopts
+
+	db_input medium ejabberd/erlangopts || true
+	db_go || true
+	db_get ejabberd/erlangopts
 }
 
 # Source debconf library.
 . /usr/share/debconf/confmodule
 
-get_hostname
+# https://manpages.debian.org/unstable/debconf-doc/debconf-devel.7.en.html#THE_CONFIG_SCRIPT
+# $1 - configure/reconfigure
+# $2 - version number
+action="$1"
+previous_version="$2"
+
+get_hostname "$action" "$previous_version"
 
 FLAG="/var/lib/ejabberd/.admin_registered"
 if [ ! -f $FLAG ]; then
-  get_credentials
+	get_credentials "$action" "$previous_version"
 fi
 
-# Remove upgrade flag as it is not needed anymore.
-# Note that if unremoved, it will cause dpkg-reconfigure to skip its queries
-rm -f /var/lib/ejabberd/.upgrade_flag
+get_erlang_options "$action" "$previous_version"
 
-# If the user was not informed about the change in nodename, we show the user a
-# high priority note on how to deal with changes. If not, show it as a medium
-# priority (noted in the flag file)
-if [ -f /var/lib/ejabberd/.ctlcfg.update ]; then
-  msg_priority=$(cat /var/lib/ejabberd/.ctlcfg.update)
-  if [ -n "$msg_priority" ] && ( [ "$msg_priority" = "high" ] || [ "$msg_priority" = "medium" ] ); then
-    db_input "$msg_priority" ejabberd/nodenamechanges || true
-    db_go || true
-  fi
-  # we don't need it anymore since debconf-show ejabberd should note whether
-  # or not ejabberd/nodenamechanges has been viewed
-  rm -f /var/lib/ejabberd/.ctlcfg.update
+# If the config has an old node configuration (pre ejabberd/nodenamechanges),
+# use a flag so that debian/config may alert the user of a change and how to
+# deal with the change
+# Here, the nodename changes were introduced in 17.08
+# If the nodename was modified by the user, show it as a medium priority rather
+#   than a high priority
+nodenamechanges_shown="$(debconf-show ejabberd | grep -E 'ejabberd/nodenamechanges' | sed 's/.//2g')"
+if [ -n "$2" ] && dpkg --compare-versions "$2" lt 17.08; then
+	if [ -z "$nodenamechanges_shown" ] || [ "$nodenamechanges_shown" != "*" ]; then
+		priority=""
+		if grep -Eq '^#?ERLANG_NODE=ejabberd$' /etc/default/ejabberd; then
+			priority="high"
+		else
+			priority="medium"
+		fi
+		db_input "$priority" ejabberd/nodenamechanges || true
+		db_go || true
+	fi
 fi
 
 exit 0

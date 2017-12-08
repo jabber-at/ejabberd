@@ -7,6 +7,7 @@ ejabberd (1:17.11-1) unstable; urgency=low
   * Switched debian/watch to https
   * Set apparmor profile to complain (Closes: #883143)
   * Update all translations
+  * Fix issue where debian/config did not work well with apt
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 30 Sep 2017 13:43:58 +0200
 
