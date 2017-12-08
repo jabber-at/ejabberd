@@ -8,33 +8,33 @@ set -e
 CONFIG_TARGET=/etc/ejabberd/ejabberd.yml
 
 if [ -f /usr/share/debconf/confmodule ]; then
-    . /usr/share/debconf/confmodule
+	. /usr/share/debconf/confmodule
 fi
 
 case "$1" in
-    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
-    ;;
+	remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+		;;
 
-    purge)
-	if which ucf >/dev/null ; then
-	    ucf --purge $CONFIG_TARGET
-	fi
-	rm -f $CONFIG_TARGET
-	rm -f /etc/ejabberd/ejabberd.pem /etc/ejabberd/ejabberd.yml.ucf-old
-	rm -Rf /var/log/ejabberd /var/lib/ejabberd
-	rm -Rf /var/run/ejabberd || true
-	rm -f /etc/default/ejabberd
-	rm -f /root/.rnd || true
-	if which deluser >/dev/null ; then
-	    deluser ejabberd || true
-	    delgroup ejabberd || true
-	fi
-    ;;
+	purge)
+		if which ucf >/dev/null ; then
+			ucf --purge $CONFIG_TARGET
+		fi
+		rm -f $CONFIG_TARGET
+		rm -f /etc/ejabberd/ejabberd.pem /etc/ejabberd/ejabberd.yml.ucf-old
+		rm -Rf /var/log/ejabberd /var/lib/ejabberd
+		rm -Rf /var/run/ejabberd || true
+		rm -f /etc/default/ejabberd
+		rm -f /root/.rnd || true
+		if which deluser >/dev/null ; then
+			deluser ejabberd || true
+			delgroup ejabberd || true
+		fi
+		;;
 
-    *)
-        echo "postrm called with unknown argument \`$1'" >&2
-        exit 1
-    ;;
+	*)
+		echo "postrm called with unknown argument \`$1'" >&2
+		exit 1
+		;;
 esac
 
 #DEBHELPER#
