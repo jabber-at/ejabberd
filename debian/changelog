@@ -1,3 +1,10 @@
+ejabberd (1:17.11-1) unstable; urgency=low
+
+  * New upstream release.
+  * Refreshed patches for 17.11
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 30 Sep 2017 13:43:58 +0200
+
 ejabberd (1:17.09-1) unstable; urgency=low
 
   * New upstream release.
