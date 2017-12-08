@@ -1,6 +1,6 @@
 #include <tunables/global>
 
-/usr/sbin/ejabberdctl {
+/usr/sbin/ejabberdctl flags=(complain) {
 	#include <abstractions/base>
 	#include <abstractions/consoles>
 	#include <abstractions/nameservice>
