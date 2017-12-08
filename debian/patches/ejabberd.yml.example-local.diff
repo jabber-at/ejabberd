@@ -2,48 +2,16 @@ Index: ejabberd/ejabberd.yml.example
 ===================================================================
 --- ejabberd.orig/ejabberd.yml.example
 +++ ejabberd/ejabberd.yml.example
-@@ -96,12 +96,10 @@
- ## Define common macros used by listeners
- define_macro:
-    'CERTFILE': "/etc/ejabberd/ejabberd.pem"
--##   'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
-+   'CIPHERS': "ECDH:DH:!3DES:!aNULL:!eNULL:!MEDIUM@STRENGTH"
-    'TLSOPTS':
-      - "no_sslv2"
-      - "no_sslv3"
--##     - "no_tlsv1"
--##     - "no_tlsv1_1"
-      - "cipher_server_preference"
-      - "no_compression"
- ##   'DHFILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
-@@ -119,7 +117,7 @@
-     certfile: 'CERTFILE'
-     protocol_options: 'TLSOPTS'
-     ## dhfile: 'DHFILE'
--    ## ciphers: 'CIPHERS'
-+    ciphers: 'CIPHERS'
-     max_stanza_size: 65536
-     shaper: c2s_shaper
-     access: c2s
-@@ -143,6 +141,8 @@
-     tls: true
-     certfile: 'CERTFILE'
-     protocol_options: 'TLSOPTS'
-+    ## dhfile: 'DHFILE'
-+    ciphers: 'CIPHERS'
-   ##
-   ## ejabberd_service: Interact with external components (transports, ...)
-   ##
-@@ -648,6 +648,7 @@
+@@ -676,6 +676,7 @@
    mod_admin_extra: {}
-   mod_announce: # recommends mod_adhoc
+   mod_announce:   # recommends mod_adhoc
      access: announce
 +  mod_block_strangers: {}
-   mod_blocking: {} # requires mod_privacy
+   mod_blocking: {}   # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
-@@ -656,7 +657,10 @@
-   ## mod_delegation: {} # for xep0356
+@@ -684,7 +685,10 @@
+   ## mod_delegation: {}   # for xep0356
    mod_disco: {}
    mod_echo: {}
 -  mod_irc: {}
@@ -54,7 +22,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_bosh: {}
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
-@@ -686,9 +690,9 @@
+@@ -714,9 +718,9 @@
    mod_offline:
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -67,16 +35,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -709,7 +713,7 @@
-     ##
-     ## Protect In-Band account registrations with CAPTCHA.
-     ##
--    ##   captcha_protected: true
-+    captcha_protected: true
-     ##
-     ## Set the minimum informational entropy for passwords.
-     ##
-@@ -741,6 +745,7 @@
+@@ -769,6 +773,7 @@
    mod_roster:
      versioning: true
    mod_shared_roster: {}
