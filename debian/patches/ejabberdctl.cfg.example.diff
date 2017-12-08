@@ -7,6 +7,18 @@ Index: ejabberd/ejabberdctl.cfg.example
 ===================================================================
 --- ejabberd.orig/ejabberdctl.cfg.example
 +++ ejabberd/ejabberdctl.cfg.example
+@@ -114,9 +114,9 @@
+ # It might be useful to add "-pa /usr/local/lib/ejabberd/ebin" if you
+ # want to add local modules in this path.
+ #
+-# Default: ""
++# Default: "-env ERL_CRASH_DUMP_BYTES 0"
+ #
+-#ERL_OPTIONS=""
++ERL_OPTIONS="-env ERL_CRASH_DUMP_BYTES 0"
+ 
+ #.
+ #' ERLANG_NODE: Erlang node name
 @@ -146,7 +146,7 @@
  #
  # Default: don't write PID file

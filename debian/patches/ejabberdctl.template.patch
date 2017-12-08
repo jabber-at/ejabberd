@@ -7,7 +7,7 @@ Index: ejabberd/ejabberdctl.template
 ===================================================================
 --- ejabberd.orig/ejabberdctl.template
 +++ ejabberd/ejabberdctl.template
-@@ -14,7 +14,7 @@
+@@ -15,7 +15,7 @@ SCRIPT_DIR=$(cd "${0%/*}" && pwd)
  ERL="{{erl}}"
  IEX="{{bindir}}/iex"
  EPMD="{{epmd}}"
@@ -16,7 +16,7 @@ Index: ejabberd/ejabberdctl.template
  
  # check the proper system user is used
  case $(id -un) in
-@@ -109,7 +109,9 @@
+@@ -110,7 +110,9 @@ export ERL_LIBS
  exec_cmd()
  {
      case $EXEC_CMD in
