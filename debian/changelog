@@ -11,7 +11,7 @@ ejabberd (1:17.11-1) unstable; urgency=low
   * Fix issue where debian/config did not work well with apt
   * Improved logrotate configuration (from 17.08-3)
 
- -- Mathias Ertl <mati@jabber.at>  Sat, 30 Sep 2017 13:43:58 +0200
+ -- Mathias Ertl <mati@jabber.at>  Sat, 09 Dec 2017 13:03:26 +0100
 
 ejabberd (1:17.09-1) unstable; urgency=low
 
