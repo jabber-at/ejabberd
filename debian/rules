@@ -25,7 +25,6 @@ override_dh_auto_configure:
 		--enable-sip \
 		--enable-sqlite \
 		--enable-stun \
-		--enable-riak \
 		--enable-zlib
 
 .PHONY: override_dh_auto_install
