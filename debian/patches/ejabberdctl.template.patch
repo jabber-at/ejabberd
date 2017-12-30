@@ -7,7 +7,7 @@ Index: ejabberd/ejabberdctl.template
 ===================================================================
 --- ejabberd.orig/ejabberdctl.template
 +++ ejabberd/ejabberdctl.template
-@@ -15,7 +15,7 @@ SCRIPT_DIR=$(cd "${0%/*}" && pwd)
+@@ -15,7 +15,7 @@
  ERL="{{erl}}"
  IEX="{{bindir}}/iex"
  EPMD="{{epmd}}"
@@ -16,14 +16,14 @@ Index: ejabberd/ejabberdctl.template
  
  # check the proper system user is used
  case $(id -un) in
-@@ -110,7 +110,9 @@ export ERL_LIBS
+@@ -110,7 +110,9 @@
  exec_cmd()
  {
      case $EXEC_CMD in
--        as_install_user) su -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
-+        as_install_user)
+-        as_install_user) su -s /bin/sh -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
++        as_install_user) 
 +            cd ${SPOOL_DIR}
-+            su -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
++            su -s /bin/sh -c '"$0" "$@"' "$INSTALLUSER" -- "$@" ;;
          as_current_user) "$@" ;;
      esac
  }
