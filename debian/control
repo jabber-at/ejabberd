@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), dh-apparmor, dh-systemd (>= 1.5), libsqlite3-de
  		erlang-asn1,
  		erlang-base,
  		erlang-crypto,
- 		erlang-dev (>= 1:17),
+ 		erlang-dev (>= 1:17.5),
  		erlang-eunit,
  		erlang-fs-listener,
  		erlang-inets,
@@ -44,7 +44,7 @@ Package: ejabberd
 Architecture: any
 Pre-Depends: openssl
 Depends: adduser, ucf, ${misc:Depends}, ${shlibs:Depends},  lsb-base (>= 3.0-6),
- 		erlang-base (>= 1:17) | ${erlang-abi:Depends}, ${erlang:Depends},
+ 		erlang-base (>= 1:17.5) | ${erlang-abi:Depends}, ${erlang:Depends},
  		erlang-fs-listener,
  		erlang-jiffy         (>= 0.14.8),
  		erlang-jose,

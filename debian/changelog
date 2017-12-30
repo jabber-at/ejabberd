@@ -2,6 +2,7 @@ ejabberd (1:17.11-1) unstable; urgency=low
 
   * New upstream release.
   * Refreshed patches for 17.11
+  * Depend on erlang 17.5 or greater
   * Remove old limits config for open files
   * Remove riak support
 
