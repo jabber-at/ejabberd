@@ -591,6 +591,7 @@ get_states(Nidx) ->
 	       fun({SJID, Aff, Subs}) ->
 		       JID = decode_jid(SJID),
 		       #pubsub_state{stateid = {JID, Nidx},
+				     nodeidx = Nidx,
 				     items = itemids(Nidx, JID),
 				     affiliation = decode_affiliation(Aff),
 				     subscriptions = decode_subscriptions(Subs)}
@@ -654,14 +655,7 @@ get_items(Nidx, _From, undefined) ->
 	      " from pubsub_item where nodeid='", SNidx/binary, "'",
 	      " order by creation asc">>]) of
 	{selected, _, AllItems} ->
-	    Count = length(AllItems),
-	    if Count =< ?MAXITEMS ->
-		{result, {[raw_to_item(Nidx, RItem) || RItem <- AllItems], undefined}};
-	       true ->
-		RItems = lists:sublist(AllItems, ?MAXITEMS),
-		Rsm = rsm_page(Count, 0, 0, RItems),
-		{result, {[raw_to_item(Nidx, RItem) || RItem <- RItems], Rsm}}
-	    end;
+	    {result, {[raw_to_item(Nidx, RItem) || RItem <- AllItems], undefined}};
 	_ ->
 	    {result, {[], undefined}}
     end;
@@ -997,6 +991,7 @@ raw_to_item(Nidx, {ItemId, SJID, Creation, Modification, XML}) ->
 	El -> [El]
     end,
     #pubsub_item{itemid = {ItemId, Nidx},
+	nodeidx = Nidx,
 	creation = {decode_now(Creation), jid:remove_resource(JID)},
 	modification = {decode_now(Modification), JID},
 	payload = Payload}.

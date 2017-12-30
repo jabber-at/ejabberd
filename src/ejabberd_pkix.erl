@@ -28,7 +28,7 @@
 %% API
 -export([start_link/0, add_certfile/1, format_error/1, opt_type/1,
 	 get_certfile/1, try_certfile/1, route_registered/1,
-	 config_reloaded/0, certs_dir/0]).
+	 config_reloaded/0, certs_dir/0, ca_file/0, get_default_certfile/0]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
@@ -40,6 +40,7 @@
 		notify = false :: boolean(),
 		paths = [] :: [file:filename()],
 		certs = #{} :: map(),
+		graph :: digraph:graph(),
 		keys = [] :: [public_key:private_key()]}).
 
 -type state() :: #state{}.
@@ -53,6 +54,8 @@
 -type bad_cert() :: {bad_cert, bad_cert_reason()}.
 -type cert_error() :: not_cert | not_der | not_pem | encrypted.
 -export_type([cert_error/0]).
+
+-define(CA_CACHE, ca_cache).
 
 %%%===================================================================
 %%% API
@@ -117,6 +120,15 @@ format_error(Why) ->
 
 -spec get_certfile(binary()) -> {ok, binary()} | error.
 get_certfile(Domain) ->
+    case get_certfile_no_default(Domain) of
+	{ok, Path} ->
+	    {ok, Path};
+	error ->
+	    get_default_certfile()
+    end.
+
+-spec get_certfile_no_default(binary()) -> {ok, binary()} | error.
+get_certfile_no_default(Domain) ->
     case ejabberd_idna:domain_utf8_to_ascii(Domain) of
 	false ->
 	    error;
@@ -139,20 +151,47 @@ get_certfile(Domain) ->
 	    end
     end.
 
+-spec get_default_certfile() -> {ok, binary()} | error.
+get_default_certfile() ->
+    case ets:first(?MODULE) of
+	'$end_of_table' ->
+	    error;
+	Domain ->
+	    case ets:lookup(?MODULE, Domain) of
+		[{_, Path}|_] ->
+		    {ok, Path};
+		[] ->
+		    error
+	    end
+    end.
+
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 config_reloaded() ->
+    case use_cache() of
+	true -> init_cache();
+	false -> delete_cache()
+    end,
     gen_server:call(?MODULE, config_reloaded, 60000).
 
 opt_type(ca_path) ->
-    fun(Path) -> iolist_to_binary(Path) end;
+    fun(Path) -> binary_to_list(Path) end;
+opt_type(ca_file) ->
+    fun(Path) ->
+	    binary_to_list(misc:try_read_file(Path))
+    end;
 opt_type(certfiles) ->
     fun(CertList) ->
 	    [binary_to_list(Path) || Path <- CertList]
     end;
+opt_type(O) when O == c2s_certfile; O == s2s_certfile; O == domain_certfile ->
+    fun(File) ->
+	    ?WARNING_MSG("option '~s' is deprecated, use 'certfiles' instead", [O]),
+	    misc:try_read_file(File)
+    end;
 opt_type(_) ->
-    [ca_path, certfiles].
+    [ca_path, ca_file, certfiles, c2s_certfile, s2s_certfile, domain_certfile].
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -170,10 +209,12 @@ init([]) ->
 		       erlang:function_exported(
 			 public_key, short_name_hash, 1)
 	       end,
-    if Validate -> check_ca_dir();
+    if Validate -> check_ca();
        true -> ok
     end,
-    State = #state{validate = Validate, notify = Notify},
+    G = digraph:new([acyclic]),
+    init_cache(),
+    State = #state{validate = Validate, notify = Notify, graph = G},
     case filelib:ensure_dir(filename:join(certs_dir(), "foo")) of
 	ok ->
 	    clean_dir(certs_dir()),
@@ -192,11 +233,15 @@ init([]) ->
 handle_call({add_certfile, Path}, _, State) ->
     case add_certfile(Path, State) of
 	{ok, State1} ->
-	    case build_chain_and_check(State1) of
-		{ok, State2} ->
-		    {reply, ok, State2};
-		Err ->
-		    {reply, Err, State}
+	    if State /= State1 ->
+		    case build_chain_and_check(State1) of
+			{ok, State2} ->
+			    {reply, ok, State2};
+			Err ->
+			    {reply, Err, State1}
+		    end;
+	       true ->
+		    {reply, ok, State1}
 	    end;
 	{Err, State1} ->
 	    {reply, Err, State1}
@@ -204,7 +249,7 @@ handle_call({add_certfile, Path}, _, State) ->
 handle_call({route_registered, Host}, _, State) ->
     case add_certfiles(Host, State) of
 	{ok, NewState} ->
-	    case get_certfile(Host) of
+	    case get_certfile_no_default(Host) of
 		{ok, _} -> ok;
 		error ->
 		    ?WARNING_MSG("No certificate found matching '~s': strictly "
@@ -268,12 +313,25 @@ certfiles_from_config_options() ->
     [c2s_certfile, s2s_certfile, domain_certfile].
 
 -spec get_certfiles_from_config_options(state()) -> [binary()].
-get_certfiles_from_config_options(State) ->
+get_certfiles_from_config_options(_State) ->
     Global = case ejabberd_config:get_option(certfiles) of
 		 undefined ->
 		     [];
 		 Paths ->
-		     lists:flatmap(fun filelib:wildcard/1, Paths)
+		     lists:flatmap(
+		       fun(Path) ->
+			       case wildcard(Path) of
+				   [] ->
+				       ?WARNING_MSG(
+					  "Path ~s is empty, please "
+					  "make sure ejabberd has "
+					  "sufficient rights to read it",
+					  [Path]),
+				       [];
+				   Fs ->
+				       Fs
+			       end
+		       end, Paths)
 	     end,
     Local = lists:flatmap(
 	      fun(OptHost) ->
@@ -288,6 +346,7 @@ get_certfiles_from_config_options(State) ->
 
 -spec add_certfiles(state()) -> {ok, state()} | {error, bad_cert()}.
 add_certfiles(State) ->
+    ?DEBUG("Reading certificates", []),
     Paths = get_certfiles_from_config_options(State),
     State1 = lists:foldl(
 	       fun(Path, Acc) ->
@@ -344,18 +403,22 @@ add_certfile(Path, State) ->
 
 -spec build_chain_and_check(state()) -> ok | {error, bad_cert()}.
 build_chain_and_check(State) ->
-    ?DEBUG("Rebuilding certificate chains from ~s",
-	   [str:join(State#state.paths, <<", ">>)]),
-    CertPaths = get_cert_paths(maps:keys(State#state.certs)),
+    ?DEBUG("Building certificates graph", []),
+    CertPaths = get_cert_paths(maps:keys(State#state.certs), State#state.graph),
+    ?DEBUG("Finding matched certificate keys", []),
     case match_cert_keys(CertPaths, State#state.keys) of
 	{ok, Chains} ->
+	    ?DEBUG("Storing certificate chains", []),
 	    CertFilesWithDomains = store_certs(Chains, []),
 	    ets:delete_all_objects(?MODULE),
 	    lists:foreach(
 	      fun({Path, Domain}) ->
+		      fast_tls:add_certfile(Domain, Path),
 		      ets:insert(?MODULE, {Domain, Path})
 	      end, CertFilesWithDomains),
+	    ?DEBUG("Validating certificates", []),
 	    Errors = validate(CertPaths, State#state.validate),
+	    ?DEBUG("Subscribing to file events", []),
 	    subscribe(State),
 	    lists:foreach(
 	      fun({Cert, Why}) ->
@@ -476,21 +539,43 @@ decode_certs(PemEntries) ->
 
 -spec validate([{path, [cert()]}], boolean()) -> [{cert(), bad_cert()}].
 validate(Paths, true) ->
-    lists:flatmap(
+    {ok, Re} = re:compile("^[a-f0-9]+\\.[0-9]+$", [unicode]),
+    Hashes = case file:list_dir(ca_dir()) of
+		 {ok, Files} ->
+		     lists:foldl(
+		       fun(File, Acc) ->
+			       try re:run(File, Re) of
+				   {match, _} ->
+				       [Hash|_] = string:tokens(File, "."),
+				       Path = filename:join(ca_dir(), File),
+				       dict:append(Hash, Path, Acc);
+				   nomatch ->
+				       Acc
+			       catch _:badarg ->
+				       ?ERROR_MSG("Regexp failure on ~w", [File]),
+				       Acc
+			       end
+		       end, dict:new(), Files);
+		 {error, Why} ->
+		     ?ERROR_MSG("Failed to list directory ~s: ~s",
+			       [ca_dir(), file:format_error(Why)]),
+		     dict:new()
+	     end,
+    lists:filtermap(
       fun({path, Path}) ->
-	      case validate_path(Path) of
+	      case validate_path(Path, Hashes) of
 		  ok ->
-		      [];
+		      false;
 		  {error, Cert, Reason} ->
-		      [{Cert, Reason}]
+		      {true, {Cert, Reason}}
 	      end
       end, Paths);
 validate(_, _) ->
     [].
 
--spec validate_path([cert()]) -> ok | {error, cert(), bad_cert()}.
-validate_path([Cert|_] = Certs) ->
-    case find_local_issuer(Cert) of
+-spec validate_path([cert()], dict:dict()) -> ok | {error, cert(), bad_cert()}.
+validate_path([Cert|_] = Certs, Cache) ->
+    case find_local_issuer(Cert, Cache) of
 	{ok, IssuerCert} ->
 	    try public_key:pkix_path_validation(IssuerCert, Certs, []) of
 		{ok, _} ->
@@ -519,6 +604,10 @@ validate_path([Cert|_] = Certs) ->
 ca_dir() ->
     ejabberd_config:get_option(ca_path, "/etc/ssl/certs").
 
+-spec ca_file() -> string() | undefined.
+ca_file() ->
+    ejabberd_config:get_option(ca_file).
+
 -spec certs_dir() -> string().
 certs_dir() ->
     MnesiaDir = mnesia:system_info(directory),
@@ -527,7 +616,7 @@ certs_dir() ->
 -spec clean_dir(file:filename_all()) -> ok.
 clean_dir(Dir) ->
     ?DEBUG("Cleaning directory ~s", [Dir]),
-    Files = filelib:wildcard(filename:join(Dir, "*")),
+    Files = wildcard(filename:join(Dir, "*")),
     lists:foreach(
       fun(Path) ->
 	      case filelib:is_file(Path) of
@@ -538,11 +627,12 @@ clean_dir(Dir) ->
 	      end
       end, Files).
 
--spec check_ca_dir() -> ok.
-check_ca_dir() ->
-    case filelib:wildcard(filename:join(ca_dir(), "*.0")) of
-	[] ->
-	    Hint = "configuring 'ca_path' option might help",
+-spec check_ca() -> ok.
+check_ca() ->
+    CAFile = ca_file(),
+    case wildcard(filename:join(ca_dir(), "*.0")) of
+	[] when CAFile == undefined ->
+	    Hint = "configuring 'ca_path' or 'ca_file' options might help",
 	    case file:list_dir(ca_dir()) of
 		{error, Why} ->
 		    ?WARNING_MSG("failed to read CA directory ~s: ~s; ~s",
@@ -556,30 +646,87 @@ check_ca_dir() ->
 	    ok
     end.
 
--spec find_local_issuer(cert()) -> {ok, cert()} | {error, {bad_cert, unknown_ca}}.
-find_local_issuer(Cert) ->
+-spec find_local_issuer(cert(), dict:dict()) -> {ok, cert()} |
+						{error, {bad_cert, unknown_ca}}.
+find_local_issuer(Cert, Hashes) ->
+    case find_issuer_in_dir(Cert, Hashes) of
+	{ok, IssuerCert} ->
+	    {ok, IssuerCert};
+	{error, Reason} ->
+	    case ca_file() of
+		undefined -> {error, Reason};
+		CAFile -> find_issuer_in_file(Cert, CAFile)
+	    end
+    end.
+
+-spec find_issuer_in_dir(cert(), dict:dict())
+      -> {{ok, cert()} | {error, {bad_cert, unknown_ca}}, dict:dict()}.
+find_issuer_in_dir(Cert, Cache) ->
     {ok, {_, IssuerID}} = public_key:pkix_issuer_id(Cert, self),
     Hash = short_name_hash(IssuerID),
-    filelib:fold_files(
-      ca_dir(), Hash ++ "\\.[0-9]+", false,
-      fun(_, {ok, IssuerCert}) ->
-	      {ok, IssuerCert};
-	 (CertFile, Acc) ->
-	      try
-		  {ok, Data} = file:read_file(CertFile),
-		  {ok, [IssuerCert|_], _} = pem_decode(Data),
-		  case public_key:pkix_is_issuer(Cert, IssuerCert) of
-		      true ->
-			  {ok, IssuerCert};
-		      false ->
-			  Acc
-		  end
-	      catch _:{badmatch, {error, Why}} ->
-		      ?ERROR_MSG("failed to read CA certificate from \"~s\": ~s",
-				 [CertFile, format_error(Why)]),
-		      Acc
+    Files = case dict:find(Hash, Cache) of
+		{ok, L} -> L;
+		error -> []
+	    end,
+    lists:foldl(
+      fun(_, {ok, _IssuerCert} = Acc) ->
+	      Acc;
+	 (Path, Err) ->
+	      case read_ca_file(Path) of
+		  {ok, [IssuerCert|_]} ->
+		      case public_key:pkix_is_issuer(Cert, IssuerCert) of
+			  true ->
+			      {ok, IssuerCert};
+			  false ->
+			      Err
+		      end;
+		  error ->
+		      Err
 	      end
-      end, {error, {bad_cert, unknown_ca}}).
+      end, {error, {bad_cert, unknown_ca}}, Files).
+
+-spec find_issuer_in_file(cert(), file:filename_all() | undefined)
+      -> {ok, cert()} | {error, {bad_cert, unknown_ca}}.
+find_issuer_in_file(_Cert, undefined) ->
+    {error, {bad_cert, unknown_ca}};
+find_issuer_in_file(Cert, CAFile) ->
+    case read_ca_file(CAFile) of
+	{ok, IssuerCerts} ->
+	    lists:foldl(
+	      fun(_, {ok, _} = Res) ->
+		      Res;
+		 (IssuerCert, Err) ->
+		      case public_key:pkix_is_issuer(Cert, IssuerCert) of
+			  true -> {ok, IssuerCert};
+			  false -> Err
+		      end
+	      end, {error, {bad_cert, unknown_ca}}, IssuerCerts);
+	error ->
+	    {error, {bad_cert, unknown_ca}}
+    end.
+
+-spec read_ca_file(file:filename_all()) -> {ok, [cert()]} | error.
+read_ca_file(Path) ->
+    case use_cache() of
+	true ->
+	    ets_cache:lookup(?CA_CACHE, Path,
+			     fun() -> do_read_ca_file(Path) end);
+	false ->
+	    do_read_ca_file(Path)
+    end.
+
+-spec do_read_ca_file(file:filename_all()) -> {ok, [cert()]} | error.
+do_read_ca_file(Path) ->
+    try
+	{ok, Data} = file:read_file(Path),
+	{ok, IssuerCerts, _} = pem_decode(Data),
+	{ok, IssuerCerts}
+    catch _:{badmatch, {error, Why}} ->
+	    ?ERROR_MSG("Failed to read CA certificate "
+		       "from \"~s\": ~s",
+		       [Path, format_error(Why)]),
+	    error
+    end.
 
 -spec match_cert_keys([{path, [cert()]}], [priv_key()])
       -> {ok, [{cert(), priv_key()}]} | {error, {bad_cert, missing_priv_key}}.
@@ -630,35 +777,52 @@ pubkey_from_privkey(#'DSAPrivateKey'{p = P, q = Q, g = G, y = Y}) ->
 pubkey_from_privkey(#'ECPrivateKey'{publicKey = Key}) ->
     #'ECPoint'{point = Key}.
 
--spec get_cert_paths([cert()]) -> [{path, [cert()]}].
-get_cert_paths(Certs) ->
-    G = digraph:new([acyclic]),
-    lists:foreach(
+-spec get_cert_paths([cert()], digraph:graph()) -> [{path, [cert()]}].
+get_cert_paths(Certs, G) ->
+    {NewCerts, OldCerts} =
+	lists:partition(
+	  fun(Cert) ->
+		  case digraph:vertex(G, Cert) of
+		      false ->
+			  digraph:add_vertex(G, Cert),
+			  true;
+		      {_, _} ->
+			  false
+		  end
+	  end, Certs),
+    add_edges(G, NewCerts, OldCerts),
+    add_edges(G, OldCerts, NewCerts),
+    add_edges(G, NewCerts, NewCerts),
+    lists:flatmap(
       fun(Cert) ->
-    	      digraph:add_vertex(G, Cert)
-      end, Certs),
-    lists:foreach(
-      fun({Cert1, Cert2}) when Cert1 /= Cert2 ->
-	      case public_key:pkix_is_issuer(Cert1, Cert2) of
-		  true ->
-		      digraph:add_edge(G, Cert1, Cert2);
-		  false ->
+	      case digraph:in_degree(G, Cert) of
+		  0 ->
+		      get_cert_path(G, [Cert]);
+		  _ ->
+		      []
+	      end
+      end, Certs).
+
+add_edges(G, [Cert1|T], L) ->
+    case public_key:pkix_is_self_signed(Cert1) of
+	true ->
+	    ok;
+	false ->
+	    lists:foreach(
+	      fun(Cert2) when Cert1 /= Cert2 ->
+		      case public_key:pkix_is_issuer(Cert1, Cert2) of
+			  true ->
+			      digraph:add_edge(G, Cert1, Cert2);
+			  false ->
+			      ok
+		      end;
+		 (_) ->
 		      ok
-	      end;
-	 (_) ->
-	      ok
-      end, [{Cert1, Cert2} || Cert1 <- Certs, Cert2 <- Certs]),
-    Paths = lists:flatmap(
-	      fun(Cert) ->
-		      case digraph:in_degree(G, Cert) of
-			  0 ->
-			      get_cert_path(G, [Cert]);
-			  _ ->
-			      []
-		      end
-	      end, Certs),
-    digraph:delete(G),
-    Paths.
+	      end, L)
+    end,
+    add_edges(G, T, L);
+add_edges(_, [], _) ->
+    ok.
 
 get_cert_path(G, [Root|_] = Acc) ->
     case digraph:out_edges(G, Root) of
@@ -723,3 +887,30 @@ start_fs() ->
 		       [Reason]),
 	    false
     end.
+
+wildcard(Path) when is_binary(Path) ->
+    wildcard(binary_to_list(Path));
+wildcard(Path) ->
+    filelib:wildcard(Path).
+
+-spec use_cache() -> boolean().
+use_cache() ->
+    ejabberd_config:use_cache(global).
+
+-spec init_cache() -> ok.
+init_cache() ->
+    ets_cache:new(?CA_CACHE, cache_opts()).
+
+-spec delete_cache() -> ok.
+delete_cache() ->
+    ets_cache:delete(?CA_CACHE).
+
+-spec cache_opts() -> [proplists:property()].
+cache_opts() ->
+    MaxSize = ejabberd_config:cache_size(global),
+    CacheMissed = ejabberd_config:cache_missed(global),
+    LifeTime = case ejabberd_config:cache_life_time(global) of
+                   infinity -> infinity;
+                   I -> timer:seconds(I)
+               end,
+    [{max_size, MaxSize}, {cache_missed, CacheMissed}, {life_time, LifeTime}].
