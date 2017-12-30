@@ -177,16 +177,17 @@ set_timeout(#{owner := Owner} = State, Timeout) when Owner == self() ->
 set_timeout(_, _) ->
     erlang:error(badarg).
 
-get_transport(#{sockmod := SockMod, socket := Socket, owner := Owner})
+get_transport(#{socket := Socket, owner := Owner})
   when Owner == self() ->
-    SockMod:get_transport(Socket);
+    xmpp_socket:get_transport(Socket);
 get_transport(_) ->
     erlang:error(badarg).
 
--spec change_shaper(state(), shaper:shaper()) -> ok.
-change_shaper(#{sockmod := SockMod, socket := Socket, owner := Owner}, Shaper)
+-spec change_shaper(state(), shaper:shaper()) -> state().
+change_shaper(#{socket := Socket, owner := Owner} = State, Shaper)
   when Owner == self() ->
-    SockMod:change_shaper(Socket, Shaper);
+    Socket1 = xmpp_socket:change_shaper(Socket, Shaper),
+    State#{socket => Socket1};
 change_shaper(_, _) ->
     erlang:error(badarg).
 
@@ -209,16 +210,15 @@ format_error(Err) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-init([Module, {SockMod, Socket}, Opts]) ->
+init([Module, {_SockMod, Socket}, Opts]) ->
     Encrypted = proplists:get_bool(tls, Opts),
-    SocketMonitor = SockMod:monitor(Socket),
-    case SockMod:peername(Socket) of
+    SocketMonitor = xmpp_socket:monitor(Socket),
+    case xmpp_socket:peername(Socket) of
 	{ok, IP} ->
 	    Time = p1_time_compat:monotonic_time(milli_seconds),
 	    State = #{owner => self(),
 		      mod => Module,
 		      socket => Socket,
-		      sockmod => SockMod,
 		      socket_monitor => SocketMonitor,
 		      stream_timeout => {timer:seconds(30), Time},
 		      stream_direction => in,
@@ -247,7 +247,7 @@ init([Module, {SockMod, Socket}, Opts]) ->
 		    TLSOpts = try Module:tls_options(State1)
 			      catch _:undef -> []
 			      end,
-		    case SockMod:starttls(Socket, TLSOpts) of
+		    case xmpp_socket:starttls(Socket, TLSOpts) of
 			{ok, TLSSocket} ->
 			    State2 = State1#{socket => TLSSocket},
 			    {_, State3, Timeout} = noreply(State2),
@@ -314,6 +314,10 @@ handle_info({'$gen_event', {xmlstreamstart, Name, Attrs}},
 		      send_pkt(State1, Err)
 	      end
       end);
+handle_info({'$gen_event', {xmlstreamend, _}}, State) ->
+    noreply(process_stream_end({stream, reset}, State));
+handle_info({'$gen_event', closed}, State) ->
+    noreply(process_stream_end({socket, closed}, State));
 handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
     State1 = send_header(State),
     noreply(
@@ -327,6 +331,15 @@ handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
 			    xmpp:serr_not_well_formed(Txt, Lang)
 		    end,
 	      send_pkt(State1, Err)
+      end);
+handle_info({'$gen_event', El}, #{stream_state := wait_for_stream} = State) ->
+    error_logger:error_msg("unexpected event from XML driver: ~p; "
+			   "xmlstreamstart was expected", [El]),
+    State1 = send_header(State),
+    noreply(
+      case is_disconnected(State1) of
+	  true -> State1;
+	  false -> send_pkt(State1, xmpp:serr_invalid_xml())
       end);
 handle_info({'$gen_event', {xmlstreamelement, El}},
 	    #{xmlns := NS, mod := Mod} = State) ->
@@ -354,10 +367,6 @@ handle_info({'$gen_all_state_event', {xmlstreamcdata, Data}},
     noreply(try Mod:handle_cdata(Data, State)
 	    catch _:undef -> State
 	    end);
-handle_info({'$gen_event', {xmlstreamend, _}}, State) ->
-    noreply(process_stream_end({stream, reset}, State));
-handle_info({'$gen_event', closed}, State) ->
-    noreply(process_stream_end({socket, closed}, State));
 handle_info(timeout, #{mod := Mod} = State) ->
     Disconnected = is_disconnected(State),
     noreply(try Mod:handle_timeout(State)
@@ -369,6 +378,21 @@ handle_info(timeout, #{mod := Mod} = State) ->
 handle_info({'DOWN', MRef, _Type, _Object, _Info},
 	    #{socket_monitor := MRef} = State) ->
     noreply(process_stream_end({socket, closed}, State));
+handle_info({tcp, _, Data}, #{socket := Socket} = State) ->
+    noreply(
+      case xmpp_socket:recv(Socket, Data) of
+	  {ok, NewSocket} ->
+	      State#{socket => NewSocket};
+	  {error, Reason} when is_atom(Reason) ->
+	      process_stream_end({socket, Reason}, State);
+	  {error, Reason} ->
+	      %% TODO: make fast_tls return atoms
+	      process_stream_end({tls, Reason}, State)
+      end);
+handle_info({tcp_closed, _}, State) ->
+    handle_info({'$gen_event', closed}, State);
+handle_info({tcp_error, _, Reason}, State) ->
+    noreply(process_stream_end({socket, Reason}, State));
 handle_info(Info, #{mod := Mod} = State) ->
     noreply(try Mod:handle_info(Info, State)
 	    catch _:undef -> State
@@ -555,8 +579,6 @@ process_element(Pkt, #{stream_state := StateName, lang := Lang} = State) ->
 	    send_pkt(State, #sasl_failure{reason = 'aborted'});
 	#sasl_success{} ->
 	    State;
-	#compress{} when StateName == wait_for_sasl_response ->
-	    send_pkt(State, #compress_failure{reason = 'setup-failed'});
 	#compress{} ->
 	    process_compress(Pkt, State);
 	#handshake{} when StateName == wait_for_handshake ->
@@ -604,8 +626,8 @@ process_authenticated_packet(Pkt, #{mod := Mod} = State) ->
 
 -spec process_bind(xmpp_element(), state()) -> state().
 process_bind(#iq{type = set, sub_els = [_]} = Pkt,
-	     #{xmlns := ?NS_CLIENT, mod := Mod} = State) ->
-    case xmpp:get_subtag(Pkt, #bind{}) of
+	     #{xmlns := ?NS_CLIENT, mod := Mod, lang := MyLang} = State) ->
+    try xmpp:try_subtag(Pkt, #bind{}) of
 	#bind{resource = R} ->
 	    case Mod:bind(R, State) of
 		{ok, #{user := U, server := S, resource := NewR} = State1}
@@ -622,6 +644,11 @@ process_bind(#iq{type = set, sub_els = [_]} = Pkt,
 		    Err = xmpp:err_not_authorized(),
 		    send_error(State, Pkt, Err)
 	    end
+    catch _:{xmpp_codec, Why} ->
+	    Txt = xmpp:io_format_error(Why),
+	    Lang = select_lang(MyLang, xmpp:get_lang(Pkt)),
+	    Err = xmpp:err_bad_request(Txt, Lang),
+	    send_error(State, Pkt, Err)
     end;
 process_bind(Pkt, #{mod := Mod} = State) ->
     try Mod:handle_unbinded_packet(Pkt, State)
@@ -679,17 +706,20 @@ process_stream_established(#{mod := Mod} = State) ->
     end.
 
 -spec process_compress(compress(), state()) -> state().
-process_compress(#compress{}, #{stream_compressed := true} = State) ->
+process_compress(#compress{},
+		 #{stream_compressed := Compressed,
+		   stream_authenticated := Authenticated} = State)
+  when Compressed or not Authenticated ->
     send_pkt(State, #compress_failure{reason = 'setup-failed'});
 process_compress(#compress{methods = HisMethods},
-		 #{socket := Socket, sockmod := SockMod, mod := Mod} = State) ->
+		 #{socket := Socket, mod := Mod} = State) ->
     MyMethods = try Mod:compress_methods(State)
 		catch _:undef -> []
 		end,
     CommonMethods = lists_intersection(MyMethods, HisMethods),
     case lists:member(<<"zlib">>, CommonMethods) of
 	true ->
-	    case SockMod:compress(Socket) of
+	    case xmpp_socket:compress(Socket) of
 		{ok, ZlibSocket} ->
 		    State1 = send_pkt(State, #compressed{}),
 		    case is_disconnected(State1) of
@@ -714,13 +744,13 @@ process_compress(#compress{methods = HisMethods},
 process_starttls(#{stream_encrypted := true} = State) ->
     process_starttls_failure(already_encrypted, State);
 process_starttls(#{socket := Socket,
-		   sockmod := SockMod, mod := Mod} = State) ->
+		   mod := Mod} = State) ->
     case is_starttls_available(State) of
 	true ->
 	    TLSOpts = try Mod:tls_options(State)
 		      catch _:undef -> []
 		      end,
-	    case SockMod:starttls(Socket, TLSOpts) of
+	    case xmpp_socket:starttls(Socket, TLSOpts) of
 		{ok, TLSSocket} ->
 		    State1 = send_pkt(State, #starttls_proceed{}),
 		    case is_disconnected(State1) of
@@ -798,12 +828,13 @@ process_sasl_result({error, Reason, User}, State) ->
 
 -spec process_sasl_success([cyrsasl:sasl_property()], binary(), state()) -> state().
 process_sasl_success(Props, ServerOut,
-		     #{socket := Socket, sockmod := SockMod,
+		     #{socket := Socket,
 		       mod := Mod, sasl_mech := Mech} = State) ->
     User = identity(Props),
     AuthModule = proplists:get_value(auth_module, Props),
-    SockMod:reset_stream(Socket),
-    State1 = send_pkt(State, #sasl_success{text = ServerOut}),
+    Socket1 = xmpp_socket:reset_stream(Socket),
+    State0 = State#{socket => Socket1},
+    State1 = send_pkt(State0, #sasl_success{text = ServerOut}),
     case is_disconnected(State1) of
 	true -> State1;
 	false ->
@@ -898,7 +929,8 @@ get_sasl_feature(_) ->
     [].
 
 -spec get_compress_feature(state()) -> [compression()].
-get_compress_feature(#{stream_compressed := false, mod := Mod} = State) ->
+get_compress_feature(#{stream_compressed := false, mod := Mod,
+		       stream_authenticated := true} = State) ->
     try Mod:compress_methods(State) of
 	[] -> [];
 	Ms -> [#compression{methods = Ms}]
@@ -1073,17 +1105,17 @@ send_trailer(State) ->
     close_socket(State).
 
 -spec socket_send(state(), xmpp_element() | xmlel() | trailer) -> ok | {error, inet:posix()}.
-socket_send(#{socket := Sock, sockmod := SockMod,
+socket_send(#{socket := Sock,
 	      stream_state := StateName,
 	      xmlns := NS,
 	      stream_header_sent := true}, Pkt) ->
     case Pkt of
 	trailer ->
-	    SockMod:send_trailer(Sock);
+	    xmpp_socket:send_trailer(Sock);
 	#stream_start{} when StateName /= disconnected ->
-	    SockMod:send_header(Sock, xmpp:encode(Pkt));
+	    xmpp_socket:send_header(Sock, xmpp:encode(Pkt));
 	_ when StateName /= disconnected ->
-	    SockMod:send_element(Sock, xmpp:encode(Pkt, NS));
+	    xmpp_socket:send_element(Sock, xmpp:encode(Pkt, NS));
 	_ ->
 	    {error, closed}
     end;
@@ -1091,8 +1123,8 @@ socket_send(_, _) ->
     {error, closed}.
 
 -spec close_socket(state()) -> state().
-close_socket(#{sockmod := SockMod, socket := Socket} = State) ->
-    SockMod:close(Socket),
+close_socket(#{socket := Socket} = State) ->
+    xmpp_socket:close(Socket),
     State#{stream_timeout => infinity,
 	   stream_state => disconnected}.
 

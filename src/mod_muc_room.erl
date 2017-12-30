@@ -331,7 +331,8 @@ normal_state({route, <<"">>,
     catch _:{xmpp_codec, Why} ->
 	    ErrTxt = xmpp:io_format_error(Why),
 	    Err = xmpp:err_bad_request(ErrTxt, Lang),
-	    ejabberd_router:route_error(IQ0, Err)
+	    ejabberd_router:route_error(IQ0, Err),
+	    {next_state, normal_state, StateData}
     end;
 normal_state({route, <<"">>, #iq{} = IQ}, StateData) ->
     Err = xmpp:err_bad_request(),
@@ -693,7 +694,7 @@ terminate(Reason, _StateName, StateData) ->
 		sub_els = [#muc_user{items = [#muc_item{affiliation = none,
 							reason = ReasonT,
 							role = none}],
-				     status_codes = [332]}]},
+				     status_codes = [332,110]}]},
     (?DICT):fold(fun (LJID, Info, _) ->
 			 Nick = Info#user.nick,
 			 case Reason of
@@ -1011,22 +1012,25 @@ do_process_presence(Nick, #presence{from = From, type = available, lang = Lang} 
 			  {(StateData#state.config)#config.allow_visitor_nickchange,
 			   is_visitor(From, StateData)}} of
 			{_, _, {false, true}} ->
+			    Packet1 = Packet#presence{sub_els = [#muc{}]},
 			    ErrText = <<"Visitors are not allowed to change their "
 					"nicknames in this room">>,
 			    Err = xmpp:err_not_allowed(ErrText, Lang),
-			    ejabberd_router:route_error(Packet, Err),
+			    ejabberd_router:route_error(Packet1, Err),
 			    StateData;
 			{true, _, _} ->
+			    Packet1 = Packet#presence{sub_els = [#muc{}]},
 			    ErrText = <<"That nickname is already in use by another "
 					"occupant">>,
 			    Err = xmpp:err_conflict(ErrText, Lang),
-			    ejabberd_router:route_error(Packet, Err),
+			    ejabberd_router:route_error(Packet1, Err),
 			    StateData;
 			{_, false, _} ->
+			    Packet1 = Packet#presence{sub_els = [#muc{}]},
 			    ErrText = <<"That nickname is registered by another "
 					"person">>,
 			    Err = xmpp:err_conflict(ErrText, Lang),
-			    ejabberd_router:route_error(Packet, Err),
+			    ejabberd_router:route_error(Packet1, Err),
 			    StateData;
 			_ ->
 				    change_nick(From, Nick, StateData)
@@ -1241,6 +1245,17 @@ expulse_participant(Packet, From, StateData, Reason1) ->
 	    send_new_presence(From, NewState, StateData)
     end,
     remove_online_user(From, NewState).
+
+-spec get_owners(state()) -> [jid:jid()].
+get_owners(StateData) ->
+    ?DICT:fold(
+       fun(LJID, owner, Acc) ->
+	       [jid:make(LJID)|Acc];
+	  (LJID, {owner, _}, Acc) ->
+	       [jid:make(LJID)|Acc];
+	  (_, _, Acc) ->
+	       Acc
+       end, [], StateData#state.affiliations).
 
 -spec set_affiliation(jid(), affiliation(), state()) -> state().
 set_affiliation(JID, Affiliation, StateData) ->
@@ -3196,7 +3211,8 @@ get_config(Lang, StateData, From) ->
 	 {allow_visitor_nickchange, Config#config.allow_visitor_nickchange},
 	 {allow_voice_requests, Config#config.allow_voice_requests},
 	 {allow_subscription, Config#config.allow_subscription},
-	 {voice_request_min_interval, Config#config.voice_request_min_interval}]
+	 {voice_request_min_interval, Config#config.voice_request_min_interval},
+	 {pubsub, Config#config.pubsub}]
 	++
 	case ejabberd_captcha:is_feature_available() of
 	    true -> [{captcha_protected, Config#config.captcha_protected}];
@@ -3278,6 +3294,7 @@ set_config(Opts, Config, ServerHost, Lang) ->
 	 ({whois, anyone}, C) -> C#config{anonymous = false};
 	 ({maxusers, V}, C) -> C#config{max_users = V};
 	 ({enablelogging, V}, C) -> C#config{logging = V};
+	 ({pubsub, V}, C) -> C#config{pubsub = V};
 	 ({captcha_whitelist, Js}, C) ->
 	      LJIDs = [jid:tolower(J) || J <- Js],
 	      C#config{captcha_whitelist = ?SETS:from_list(LJIDs)};
@@ -3482,6 +3499,9 @@ set_opts([{Opt, Val} | Opts], StateData) ->
 		StateData#state{config =
 				    (StateData#state.config)#config{vcard =
 									Val}};
+	    pubsub ->
+		StateData#state{config =
+				    (StateData#state.config)#config{pubsub = Val}};
 	    allow_subscription ->
 		StateData#state{config =
 				    (StateData#state.config)#config{allow_subscription = Val}};
@@ -3548,6 +3568,7 @@ make_opts(StateData) ->
      ?MAKE_CONFIG_OPT(#config.presence_broadcast),
      ?MAKE_CONFIG_OPT(#config.voice_request_min_interval),
      ?MAKE_CONFIG_OPT(#config.vcard),
+     ?MAKE_CONFIG_OPT(#config.pubsub),
      {captcha_whitelist,
       (?SETS):to_list((StateData#state.config)#config.captcha_whitelist)},
      {affiliations,
@@ -3629,10 +3650,17 @@ process_iq_disco_info(_From, #iq{type = get, lang = Lang}, StateData) ->
 
 -spec iq_disco_info_extras(binary(), state()) -> xdata().
 iq_disco_info_extras(Lang, StateData) ->
-    Fs = [{description, (StateData#state.config)#config.description},
-	  {occupants, ?DICT:size(StateData#state.users)}],
+    Fs1 = [{description, (StateData#state.config)#config.description},
+	   {occupants, ?DICT:size(StateData#state.users)},
+	   {contactjid, get_owners(StateData)}],
+    Fs2 = case (StateData#state.config)#config.pubsub of
+	      Node when is_binary(Node), Node /= <<"">> ->
+		  [{pubsub, Node}|Fs1];
+	      _ ->
+		  Fs1
+	  end,
     #xdata{type = result,
-	   fields = muc_roominfo:encode(Fs, Lang)}.
+	   fields = muc_roominfo:encode(Fs2, Lang)}.
 
 -spec process_iq_disco_items(jid(), iq(), state()) ->
 				    {error, stanza_error()} | {result, disco_items()}.
@@ -3979,7 +4007,7 @@ route_invitation(From, Invitation, Lang, StateData) ->
 %% Otherwise, an error message is sent to the sender.
 -spec handle_roommessage_from_nonparticipant(message(), state(), jid()) -> ok.
 handle_roommessage_from_nonparticipant(Packet, StateData, From) ->
-    case xmpp:get_subtag(Packet, #muc_user{}) of
+    try xmpp:try_subtag(Packet, #muc_user{}) of
 	#muc_user{decline = #muc_decline{to = #jid{} = To} = Decline} = XUser ->
 	    NewDecline = Decline#muc_decline{to = undefined, from = From},
 	    NewXUser = XUser#muc_user{decline = NewDecline},
@@ -3990,6 +4018,10 @@ handle_roommessage_from_nonparticipant(Packet, StateData, From) ->
 	    ErrText = <<"Only occupants are allowed to send messages "
 			"to the conference">>,
 	    Err = xmpp:err_not_acceptable(ErrText, xmpp:get_lang(Packet)),
+	    ejabberd_router:route_error(Packet, Err)
+    catch _:{xmpp_codec, Why} ->
+	    Txt = xmpp:io_format_error(Why),
+	    Err = xmpp:err_bad_request(Txt, xmpp:get_lang(Packet)),
 	    ejabberd_router:route_error(Packet, Err)
     end.
 
