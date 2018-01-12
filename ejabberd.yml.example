@@ -120,12 +120,16 @@ hosts:
 ###.  =================
 ###'  TLS configuration
 
+## Note that the following configuration is the default
+## configuration of the TLS driver, so you don't need to
+## uncomment it.
+##
 ## define_macro:
 ##   'TLS_CIPHERS': "HIGH:!aNULL:!eNULL:!3DES:@STRENGTH"
 ##   'TLS_OPTIONS':
-##      - "no_sslv3"
-##      - "cipher_server_preference"
-##      - "no_compression"
+##     - "no_sslv3"
+##     - "cipher_server_preference"
+##     - "no_compression"
 ##   'DH_FILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
 ##
 ## c2s_dhfile: 'DH_FILE'
