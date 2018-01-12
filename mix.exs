@@ -3,7 +3,7 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "17.12.0",
+     version: "18.1.0",
      description: description(),
      elixir: "~> 1.4",
      elixirc_paths: ["lib"],
@@ -59,19 +59,21 @@ defmodule Ejabberd.Mixfile do
   defp deps do
     [{:lager, "~> 3.4.0"},
      {:p1_utils, "~> 1.0"},
-     {:fast_xml, "~> 1.1", manager: :rebar},
+     {:fast_xml, "~> 1.1"},
      {:xmpp, "~> 1.1"},
      {:cache_tab, "~> 1.0"},
      {:stringprep, "~> 1.0"},
      {:fast_yaml, "~> 1.0"},
      {:fast_tls, "~> 1.0"},
-     {:stun, github: "processone/stun", tag: "1.0.17", override: true, manager: :rebar},
-     {:esip, github: "processone/esip", tag: "1.0.18", override: true, manager: :rebar},
+     {:stun, "~> 1.0"},
+     {:esip, "~> 1.0"},
+     {:p1_mysql, "~> 1.0"},
+     {:p1_pgsql, "~> 1.1"},
      {:jiffy, "~> 0.14.7"},
      {:p1_oauth2, "~> 0.6.1"},
      {:distillery, "~> 1.0"},
      {:ex_doc, ">= 0.0.0", only: :dev},
-     {:fs, "~> 2.12.0"}]
+     {:fs, "~> 3.4"}]
     ++ cond_deps()
   end
 
@@ -84,9 +86,7 @@ defmodule Ejabberd.Mixfile do
   end
 
   defp cond_deps do
-    for {:true, dep} <- [{config(:mysql), {:p1_mysql, "~> 1.0"}},
-                         {config(:pgsql), {:p1_pgsql, "~> 1.1"}},
-                         {config(:sqlite), {:sqlite3, "~> 1.1"}},
+    for {:true, dep} <- [{config(:sqlite), {:sqlite3, "~> 1.1"}},
                          {config(:riak), {:riakc, "~> 2.4"}},
                          {config(:redis), {:eredis, "~> 1.0"}},
                          {config(:zlib), {:ezlib, github: "processone/ezlib", tag: "1.0.3", override: true, manager: :rebar}},
