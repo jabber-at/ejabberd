@@ -57,23 +57,22 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## If your system provides only a single CA file (CentOS/FreeBSD):
  ## ca_file: "/etc/ssl/certs/ca-bundle.pem"
-@@ -120,20 +108,21 @@
- ###.  =================
- ###'  TLS configuration
- 
+@@ -124,20 +112,20 @@
+ ## configuration of the TLS driver, so you don't need to
+ ## uncomment it.
+ ##
 -## define_macro:
 -##   'TLS_CIPHERS': "HIGH:!aNULL:!eNULL:!3DES:@STRENGTH"
 -##   'TLS_OPTIONS':
--##      - "no_sslv3"
--##      - "cipher_server_preference"
--##      - "no_compression"
+-##     - "no_sslv3"
+-##     - "cipher_server_preference"
+-##     - "no_compression"
 +define_macro:
 +   'TLS_CIPHERS': "HIGH:!aNULL:!eNULL:!3DES:@STRENGTH"
 +   'TLS_OPTIONS':
-+      - "no_sslv3"
-+      - "no_tlsv1"
-+      - "cipher_server_preference"
-+      - "no_compression"
++     - "no_sslv3"
++     - "cipher_server_preference"
++     - "no_compression"
  ##   'DH_FILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
  ##
  ## c2s_dhfile: 'DH_FILE'
@@ -89,7 +88,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ===============
  ###'  LISTENING PORTS
-@@ -147,21 +136,7 @@
+@@ -151,21 +139,7 @@
      port: 5222
      ip: "::"
      module: ejabberd_c2s
@@ -112,7 +111,7 @@ Index: ejabberd/ejabberd.yml.example
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-@@ -180,7 +155,10 @@
+@@ -184,7 +158,10 @@
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -124,7 +123,7 @@ Index: ejabberd/ejabberd.yml.example
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
    ##
-@@ -238,13 +216,13 @@
+@@ -242,13 +219,13 @@
    ##   request_handlers:
    ##     "": mod_http_upload
    ##   tls: true
@@ -140,7 +139,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -254,7 +232,7 @@
+@@ -258,7 +235,7 @@
  ## Allowed values are: false, optional or required
  ## You must specify 'certfiles' option
  ##
@@ -149,7 +148,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## S2S whitelist or blacklist
-@@ -288,7 +266,7 @@
+@@ -292,7 +269,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -158,7 +157,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -556,14 +534,14 @@
+@@ -560,14 +537,14 @@
    ## Only allow to register from localhost
    trusted_network:
      - allow: loopback
@@ -181,7 +180,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ## ===============
  ## API PERMISSIONS
-@@ -592,9 +570,9 @@
+@@ -596,9 +573,9 @@
    "admin access":
      who:
        - access:
@@ -194,7 +193,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -615,7 +593,7 @@
+@@ -619,7 +596,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -203,7 +202,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -649,7 +627,7 @@
+@@ -653,7 +630,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -212,7 +211,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -667,29 +645,29 @@
+@@ -671,29 +648,29 @@
  ## In order to use the acme certificate acquiring through "Let's Encrypt"
  ## an http listener has to be configured to listen to port 80 so that
  ## the authorization challenges posed by "Let's Encrypt" can be solved.
@@ -256,7 +255,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  =======
  ###'  MODULES
-@@ -700,14 +678,14 @@
+@@ -704,14 +681,14 @@
  modules:
    mod_adhoc: {}
    mod_admin_extra: {}
@@ -275,7 +274,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_disco: {}
    mod_echo: {}
    mod_irc: {}
-@@ -756,43 +734,44 @@
+@@ -760,43 +737,44 @@
      plugins:
        - "flat"
        - "hometree"
@@ -354,7 +353,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_shared_roster: {}
    mod_stats: {}
    mod_time: {}
-@@ -804,7 +783,8 @@
+@@ -808,7 +786,8 @@
    ##   convert:
    ##     webp: jpeg
    mod_version: {}

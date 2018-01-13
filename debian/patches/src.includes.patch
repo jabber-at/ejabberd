@@ -520,7 +520,7 @@ Index: ejabberd/src/mod_disco.erl
 @@ -42,7 +42,7 @@
  -include("ejabberd.hrl").
  -include("logger.hrl").
- 
+ -include("translate.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include_lib("stdlib/include/ms_transform.hrl").
@@ -576,8 +576,8 @@ Index: ejabberd/src/mod_http_upload.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
+ -include("translate.hrl").
  
- -record(state,
 Index: ejabberd/src/mod_irc.erl
 ===================================================================
 --- ejabberd.orig/src/mod_irc.erl
@@ -589,8 +589,8 @@ Index: ejabberd/src/mod_irc.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("mod_irc.hrl").
+ -include("translate.hrl").
  
- -define(DEFAULT_IRC_ENCODING, <<"iso8859-15">>).
 Index: ejabberd/src/mod_irc_connection.erl
 ===================================================================
 --- ejabberd.orig/src/mod_irc_connection.erl
@@ -706,8 +706,8 @@ Index: ejabberd/src/mod_muc.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("mod_muc.hrl").
+ -include("translate.hrl").
  
- -record(state,
 Index: ejabberd/src/mod_muc_admin.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc_admin.erl
@@ -767,7 +767,7 @@ Index: ejabberd/src/mod_multicast.erl
 @@ -45,7 +45,7 @@
  -include("ejabberd.hrl").
  -include("logger.hrl").
- 
+ -include("translate.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  
@@ -952,9 +952,9 @@ Index: ejabberd/src/mod_proxy65_service.erl
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
+ -include("translate.hrl").
  
  -define(PROCNAME, ejabberd_mod_proxy65_service).
- 
 Index: ejabberd/src/mod_pubsub.erl
 ===================================================================
 --- ejabberd.orig/src/mod_pubsub.erl
@@ -967,7 +967,7 @@ Index: ejabberd/src/mod_pubsub.erl
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("pubsub.hrl").
  -include("mod_roster.hrl").
- 
+ -include("translate.hrl").
 Index: ejabberd/src/mod_register.erl
 ===================================================================
 --- ejabberd.orig/src/mod_register.erl
@@ -1151,8 +1151,8 @@ Index: ejabberd/src/mod_vcard.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("mod_vcard.hrl").
+ -include("translate.hrl").
  
- -define(JUD_MATCHES, 30).
 Index: ejabberd/src/mod_vcard_ldap.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_ldap.erl
