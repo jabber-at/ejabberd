@@ -57,7 +57,7 @@ Depends: adduser, ucf, ${misc:Depends}, ${shlibs:Depends},  lsb-base (>= 3.0-6),
  		erlang-p1-tls        (>= 1.0.20),
  		erlang-p1-utils      (>= 1.0.10),
  		erlang-p1-xml        (>= 1.1.28),
- 		erlang-p1-xmpp       (<= 1.1.20),
+ 		erlang-p1-xmpp       (= 1.1.19-0.1~afa90),
  		erlang-p1-yaml       (>= 1.0.12),
  		erlang-p1-zlib       (>= 1.0.3),
  		erlang-xmerl
