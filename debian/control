@@ -24,11 +24,11 @@ Build-Depends: debhelper (>= 9.20160709), dh-apparmor, libsqlite3-dev, po-debcon
  		erlang-p1-sip        (>= 1.0.21),
  		erlang-p1-sqlite3    (>= 1.1.5),
  		erlang-p1-stringprep (>= 1.0.10),
- 		erlang-p1-stun       (>= 1:1.0.21),
+ 		erlang-p1-stun       (>= 1:1.0.20),
  		erlang-p1-tls        (>= 1.0.20),
  		erlang-p1-utils      (>= 1.0.10),
  		erlang-p1-xml        (>= 1.1.28),
- 		erlang-p1-xmpp       (>= 1:1.1.20),
+ 		erlang-p1-xmpp       (>= 1:1.1.19),
  		erlang-p1-yaml       (>= 1.0.12),
  		erlang-p1-zlib       (>= 1.0.3),
  		erlang-parsetools,
@@ -69,14 +69,14 @@ Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsm
  		erlang-p1-pgsql      (>= 1.1.4),
  		erlang-p1-sip        (>= 1.0.21),
  		erlang-p1-sqlite3    (>= 1.1.5),
- 		erlang-p1-stun       (>= 1:1.0.21),
+ 		erlang-p1-stun       (>= 1:1.0.20),
  		erlang-redis-client  (>= 1.0.8)
-Breaks: ejabberd-contrib (<= 0.2017.07), ejabberd-mod-http-upload, erlang-p1-xmpp (>= 1:1.1)
-Replaces: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload, erlang-p1-xmpp (>= 1:1.1)
+Breaks: ejabberd-contrib (<= 0.2017.07), ejabberd-mod-http-upload
+Replaces: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
 Provides: xmpp-server, stun-server, turn-server
 Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
  ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702),
- ejabberd-mod-http-upload, ejabberd-mod-mam-mnesia, ejabberd-mod-logsession, erlang-p1-xmpp (>= 1:1.1)
+ ejabberd-mod-http-upload, ejabberd-mod-mam-mnesia, ejabberd-mod-logsession
 Description: distributed, fault-tolerant Jabber/XMPP server
  ejabberd is a Jabber/XMPP server written in Erlang, featuring:
   * distributed operation with load-balancing across a cluster;
