@@ -1,0 +1,38 @@
+From e8f1de878519582b262fa62f90fe134e5315667a Mon Sep 17 00:00:00 2001
+From: Holger Weiss <holger@zedat.fu-berlin.de>
+Date: Wed, 24 Jan 2018 11:49:31 +0100
+Subject: [PATCH] mod_block_strangers: Bounce groupchat to bare JID
+
+If a blocked message is of type 'groupchat', address the error message
+to the bare JID (rather than sending it as MUC PM).
+---
+ src/mod_block_strangers.erl | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/mod_block_strangers.erl b/src/mod_block_strangers.erl
+index d427ef9a6e..e865754e2f 100644
+--- a/src/mod_block_strangers.erl
++++ b/src/mod_block_strangers.erl
+@@ -106,7 +106,8 @@ check_message(#message{from = From, to = To, lang = Lang} = Msg) ->
+ 			Drop ->
+ 			    Txt = <<"Messages from strangers are rejected">>,
+ 			    Err = xmpp:err_policy_violation(Txt, Lang),
+-			    ejabberd_router:route_error(Msg, Err),
++			    Msg1 = maybe_adjust_from(Msg),
++			    ejabberd_router:route_error(Msg1, Err),
+ 			    deny;
+ 			true ->
+ 			    allow
+@@ -118,6 +119,12 @@ check_message(#message{from = From, to = To, lang = Lang} = Msg) ->
+ 	    allow
+     end.
+ 
++-spec maybe_adjust_from(message()) -> message().
++maybe_adjust_from(#message{type = groupchat, from = From} = Msg) ->
++    Msg#message{from = jid:remove_resource(From)};
++maybe_adjust_from(#message{} = Msg) ->
++    Msg.
++
+ -spec check_subscription(jid(), jid()) -> none | some.
+ check_subscription(From, To) ->
+     {LocalUser, LocalServer, _} = jid:tolower(To),
