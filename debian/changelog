@@ -2,7 +2,7 @@ ejabberd (1:17.04-6) unstable; urgency=low
 
   * Add webmin patch, requested by a user.
 
- -- Mathias Ertl <mati@jabber.at>  Fri, 02 Jun 2017 19:29:06 +0200
+ -- Mathias Ertl <mati@jabber.at>  Tue, 30 Jan 2018 19:52:03 +0100
 
 ejabberd (1:17.04-5) unstable; urgency=low
 
