@@ -15,3 +15,4 @@ fix-includes.diff
 src.mod_stream_mgmt.diff
 src.ejabberd_c2s.erl.diff
 src.mod_stream_mgmt.erl.diff
+webmin.diff

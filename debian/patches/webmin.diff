@@ -1,0 +1,52 @@
+From 68dee8cbb3d6d60dc9607d28037c40cf545d8dbc Mon Sep 17 00:00:00 2001
+From: Badlop <badlop@process-one.net>
+Date: Fri, 25 Aug 2017 12:44:53 +0200
+Subject: [PATCH] Fix deletion of multiple offline messages using WebAdmin
+ (#1962)
+
+---
+ src/mod_offline.erl | 27 +++++++++++++++------------
+ 1 file changed, 15 insertions(+), 12 deletions(-)
+
+Index: ejabberd/src/mod_offline.erl
+===================================================================
+--- ejabberd.orig/src/mod_offline.erl
++++ ejabberd/src/mod_offline.erl
+@@ -775,22 +775,25 @@
+     Mod = gen_mod:db_mod(LServer, ?MODULE),
+     case lists:keysearch(<<"delete">>, 1, Query) of
+ 	{value, _} ->
+-	    case lists:keyfind(<<"selected">>, 1, Query) of
+-		{_, Seq} ->
+-		    case catch binary_to_integer(Seq) of
+-			I when is_integer(I), I>=0 ->
+-			    Mod:remove_message(LUser, LServer, I),
+-			    ok;
+-			_ ->
+-			    nothing
+-		    end;
+-		false ->
+-		    nothing
+-	    end;
++	    user_queue_parse_query(LUser, LServer, Query, Mod);
+ 	_ ->
+ 	    nothing
+     end.
+ 
++user_queue_parse_query(LUser, LServer, Query, Mod) ->
++    case lists:keytake(<<"selected">>, 1, Query) of
++	{value, {_, Seq}, Query2} ->
++	    case catch binary_to_integer(Seq) of
++		I when is_integer(I), I>=0 ->
++		    Mod:remove_message(LUser, LServer, I);
++		_ ->
++		    nothing
++	    end,
++	    user_queue_parse_query(LUser, LServer, Query2, Mod);
++	false ->
++	    nothing
++    end.
++
+ us_to_list({User, Server}) ->
+     jid:encode({User, Server, <<"">>}).
+ 
