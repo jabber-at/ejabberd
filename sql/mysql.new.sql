@@ -113,10 +113,10 @@ CREATE TABLE archive (
 ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE FULLTEXT INDEX i_text ON archive(txt);
-CREATE INDEX i_archive_sh_username_timestamp USING BTREE ON archive(server_host(191), username,timestamp);
+CREATE INDEX i_archive_sh_username_timestamp USING BTREE ON archive(server_host(191), username(191), timestamp);
+CREATE INDEX i_archive_sh_username_peer USING BTREE ON archive(server_host(191), username(191), peer(191));
+CREATE INDEX i_archive_sh_username_bare_peer USING BTREE ON archive(server_host(191), username(191), bare_peer(191));
 CREATE INDEX i_archive_sh_timestamp USING BTREE ON archive(server_host(191), timestamp);
-CREATE INDEX i_archive_sh_peer USING BTREE ON archive(server_host(191), peer);
-CREATE INDEX i_archive_sh_bare_peer USING BTREE ON archive(server_host(191), bare_peer);
 
 CREATE TABLE archive_prefs (
     username varchar(191) NOT NULL,
@@ -422,7 +422,7 @@ CREATE TABLE carboncopy (
     PRIMARY KEY (server_host(191), username(191), resource(191))
 ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE INDEX i_carboncopy_sh_user ON carboncopy (server_host, username(75));
+CREATE INDEX i_carboncopy_sh_user ON carboncopy (server_host(191), username(75));
 
 CREATE TABLE proxy65 (
     sid text NOT NULL,
@@ -446,4 +446,4 @@ CREATE TABLE push_session (
     PRIMARY KEY (server_host(191), username(191), timestamp)
 );
 
-CREATE UNIQUE INDEX i_push_session_susn ON push_session (server_host, username(191), service(191), node(191));
+CREATE UNIQUE INDEX i_push_session_susn ON push_session (server_host(191), username(191), service(191), node(191));

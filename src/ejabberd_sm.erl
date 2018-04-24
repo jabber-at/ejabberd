@@ -43,7 +43,7 @@
 	 open_session/5,
 	 open_session/6,
 	 close_session/4,
-	 check_in_subscription/6,
+	 check_in_subscription/2,
 	 bounce_offline_message/1,
 	 disconnect_removed_user/2,
 	 get_user_resources/2,
@@ -58,7 +58,7 @@
 	 get_vh_session_list/1,
 	 get_vh_session_number/1,
 	 get_vh_by_backend/1,
-	 register_iq_handler/5,
+	 register_iq_handler/4,
 	 unregister_iq_handler/2,
 	 force_update_presence/1,
 	 connected_users/0,
@@ -80,7 +80,8 @@
 	 host_down/1,
 	 make_sid/0,
 	 clean_cache/1,
-	 config_reloaded/0
+	 config_reloaded/0,
+	 is_online/1
 	]).
 
 -export([init/1, handle_call/3, handle_cast/2,
@@ -183,10 +184,9 @@ close_session(SID, User, Server, Resource) ->
     ejabberd_hooks:run(sm_remove_connection_hook,
 		       JID#jid.lserver, [SID, JID, Info]).
 
--spec check_in_subscription(boolean(), binary(), binary(), jid(),
-			    subscribe | subscribed | unsubscribe | unsubscribed,
-			    binary()) -> boolean() | {stop, false}.
-check_in_subscription(Acc, User, Server, _JID, _Type, _Reason) ->
+-spec check_in_subscription(boolean(), presence()) -> boolean() | {stop, false}.
+check_in_subscription(Acc, #presence{to = To}) ->
+    #jid{user = User, server = Server} = To,
     case ejabberd_auth:user_exists(User, Server) of
       true -> Acc;
       false -> {stop, false}
@@ -397,11 +397,11 @@ get_vh_session_number(Server) ->
     Mod = get_sm_backend(LServer),
     length(online(get_sessions(Mod, LServer))).
 
--spec register_iq_handler(binary(), binary(), atom(), atom(), list()) -> ok.
+-spec register_iq_handler(binary(), binary(), atom(), atom()) -> ok.
 
-register_iq_handler(Host, XMLNS, Module, Fun, Opts) ->
+register_iq_handler(Host, XMLNS, Module, Fun) ->
     ?GEN_SERVER:cast(?MODULE,
-		    {register_iq_handler, Host, XMLNS, Module, Fun, Opts}).
+		    {register_iq_handler, Host, XMLNS, Module, Fun}).
 
 -spec unregister_iq_handler(binary(), binary()) -> ok.
 
@@ -448,19 +448,13 @@ init([]) ->
 handle_call(_Request, _From, State) ->
     Reply = ok, {reply, Reply, State}.
 
-handle_cast({register_iq_handler, Host, XMLNS, Module,
-	     Function, Opts},
+handle_cast({register_iq_handler, Host, XMLNS, Module, Function},
 	    State) ->
     ets:insert(sm_iqtable,
-	       {{Host, XMLNS}, Module, Function, Opts}),
+	       {{Host, XMLNS}, Module, Function}),
     {noreply, State};
 handle_cast({unregister_iq_handler, Host, XMLNS},
 	    State) ->
-    case ets:lookup(sm_iqtable, {Host, XMLNS}) of
-      [{_, Module, Function, Opts}] ->
-	  gen_iq_handler:stop_iq_handler(Module, Function, Opts);
-      _ -> ok
-    end,
     ets:delete(sm_iqtable, {Host, XMLNS}),
     {noreply, State};
 handle_cast(_Msg, State) -> {noreply, State}.
@@ -627,19 +621,14 @@ do_route(To, Term) ->
     end.
 
 -spec do_route(stanza()) -> any().
-do_route(#presence{from = From, to = To, type = T, status = Status} = Packet)
+do_route(#presence{to = To, type = T} = Packet)
   when T == subscribe; T == subscribed; T == unsubscribe; T == unsubscribed ->
     ?DEBUG("processing subscription:~n~s", [xmpp:pp(Packet)]),
-    #jid{user = User, server = Server,
-	 luser = LUser, lserver = LServer} = To,
-    Reason = if T == subscribe -> xmpp:get_text(Status);
-		true -> <<"">>
-	     end,
+    #jid{luser = LUser, lserver = LServer} = To,
     case is_privacy_allow(Packet) andalso
 	ejabberd_hooks:run_fold(
 	  roster_in_subscription,
-	  LServer, false,
-	  [User, Server, From, T, Reason]) of
+	  LServer, false, [Packet]) of
 	true ->
 	    Mod = get_sm_backend(LServer),
 	    lists:foreach(
@@ -867,8 +856,8 @@ process_iq(#iq{to = To, type = T, lang = Lang, sub_els = [El]} = Packet)
     XMLNS = xmpp:get_ns(El),
     Host = To#jid.lserver,
     case ets:lookup(sm_iqtable, {Host, XMLNS}) of
-	[{_, Module, Function, Opts}] ->
-	    gen_iq_handler:handle(Host, Module, Function, Opts, Packet);
+	[{_, Module, Function}] ->
+	    gen_iq_handler:handle(Host, Module, Function, Packet);
 	[] ->
 	    Txt = <<"No module is handling this query">>,
 	    Err = xmpp:err_service_unavailable(Txt, Lang),

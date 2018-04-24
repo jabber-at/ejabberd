@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, 18.01, ejabberd@process-one.net, ejabberd)
+AC_INIT(ejabberd, 18.03, ejabberd@process-one.net, ejabberd)
 REQUIRE_ERLANG_MIN="6.4 (Erlang/OTP 17.5)"
 REQUIRE_ERLANG_MAX="100.0.0 (No Max)"
 
@@ -244,14 +244,6 @@ AC_ARG_ENABLE(sip,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-sip) ;;
 esac],[if test "x$sip" = "x"; then sip=false; fi])
 
-AC_ARG_ENABLE(graphics,
-[AC_HELP_STRING([--enable-graphics], [enable support for graphic images manipulation (default: yes)])],
-[case "${enableval}" in
-  yes) graphics=true ;;
-  no)  graphics=false ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-graphics) ;;
-esac],[if test "x$graphics" = "x"; then graphics=true; fi])
-
 AC_CONFIG_FILES([Makefile
 		 vars.config
 		 src/ejabberd.app.src])
@@ -269,6 +261,19 @@ if test "$ENABLEUSER" != ""; then
   echo "allow this system user to start ejabberd: $ENABLEUSER"
   AC_SUBST([INSTALLUSER], [$ENABLEUSER])
 fi
+ENABLEGROUP=""
+AC_ARG_ENABLE(group,
+  [AS_HELP_STRING([--enable-group[[[[=GROUP]]]]], [allow this system group to start ejabberd (default: no)])],
+  [case "${enableval}" in
+     yes) ENABLEGROUP=`groups |head -n 1` ;;
+     no) ENABLEGROUP="" ;;
+     *) ENABLEGROUP=$enableval
+   esac],
+  [])
+if test "$ENABLEGROUP" != ""; then
+  echo "allow this system group to start ejabberd: $ENABLEGROUP"
+  AC_SUBST([INSTALLGROUP], [$ENABLEGROUP])
+fi
 
 ERLANG_DEPRECATED_TYPES_CHECK
 
@@ -278,6 +283,17 @@ if test "$sqlite" = "true"; then
       AC_MSG_ERROR(SQLite3 library >= 3.6.19 was not found)
    fi
 fi
+
+enabled_backends=""
+for backend in odbc mysql pgsql sqlite riak redis; do
+    if eval test x\${$backend} = xtrue; then
+       if test "x$enabled_backends" = "x"; then
+          enabled_backends=$backend
+       else
+          enabled_backends="$enabled_backends, $backend"
+       fi
+    fi
+done
 
 AC_SUBST(hipe)
 AC_SUBST(roster_gateway_workaround)
@@ -297,12 +313,12 @@ AC_SUBST(iconv)
 AC_SUBST(stun)
 AC_SUBST(sip)
 AC_SUBST(debug)
-AC_SUBST(graphics)
 AC_SUBST(tools)
 AC_SUBST(latest_deps)
 AC_SUBST(system_deps)
 AC_SUBST(CFLAGS)
 AC_SUBST(CPPFLAGS)
 AC_SUBST(LDFLAGS)
+AC_SUBST(enabled_backends)
 
 AC_OUTPUT

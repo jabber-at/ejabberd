@@ -37,7 +37,8 @@
 	 get_local_features/5, get_local_services/5,
 	 process_sm_iq_items/1, process_sm_iq_info/1,
 	 get_sm_identity/5, get_sm_features/5, get_sm_items/5,
-	 get_info/5, transform_module_options/1, mod_opt_type/1, depends/2]).
+	 get_info/5, transform_module_options/1, mod_opt_type/1,
+	 mod_options/1, depends/2]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -50,23 +51,20 @@
 -type items_acc() :: {error, stanza_error()} | {result, [disco_item()]} | empty.
 
 start(Host, Opts) ->
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
 				  ?NS_DISCO_ITEMS, ?MODULE,
-				  process_local_iq_items, IQDisc),
+				  process_local_iq_items),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
 				  ?NS_DISCO_INFO, ?MODULE,
-				  process_local_iq_info, IQDisc),
+				  process_local_iq_info),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-				  ?NS_DISCO_ITEMS, ?MODULE, process_sm_iq_items,
-				  IQDisc),
+				  ?NS_DISCO_ITEMS, ?MODULE, process_sm_iq_items),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-				  ?NS_DISCO_INFO, ?MODULE, process_sm_iq_info,
-				  IQDisc),
+				  ?NS_DISCO_INFO, ?MODULE, process_sm_iq_info),
     catch ets:new(disco_extra_domains,
 		  [named_table, ordered_set, public,
 		   {heir, erlang:group_leader(), none}]),
-    ExtraDomains = gen_mod:get_opt(extra_domains, Opts, []),
+    ExtraDomains = gen_mod:get_opt(extra_domains, Opts),
     lists:foreach(fun (Domain) ->
 			  register_extra_domain(Host, Domain)
 		  end,
@@ -115,7 +113,7 @@ stop(Host) ->
     ok.
 
 reload(Host, NewOpts, OldOpts) ->
-    case gen_mod:is_equal_opt(extra_domains, NewOpts, OldOpts, []) of
+    case gen_mod:is_equal_opt(extra_domains, NewOpts, OldOpts) of
 	{false, NewDomains, OldDomains} ->
 	    lists:foreach(
 	      fun(Domain) ->
@@ -125,23 +123,6 @@ reload(Host, NewOpts, OldOpts) ->
 	      fun(Domain) ->
 		      unregister_extra_domain(Host, Domain)
 	      end, OldDomains -- NewDomains);
-	true ->
-	    ok
-    end,
-    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts, gen_iq_handler:iqdisc(Host)) of
-	{false, IQDisc, _} ->
-	    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
-					  ?NS_DISCO_ITEMS, ?MODULE,
-					  process_local_iq_items, IQDisc),
-	    gen_iq_handler:add_iq_handler(ejabberd_local, Host,
-					  ?NS_DISCO_INFO, ?MODULE,
-					  process_local_iq_info, IQDisc),
-	    gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-					  ?NS_DISCO_ITEMS, ?MODULE, process_sm_iq_items,
-					  IQDisc),
-	    gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-					  ?NS_DISCO_INFO, ?MODULE, process_sm_iq_info,
-					  IQDisc);
 	true ->
 	    ok
     end.
@@ -197,7 +178,7 @@ process_local_iq_info(#iq{type = get, lang = Lang,
 			 binary(), binary()) ->	[identity()].
 get_local_identity(Acc, _From, To, <<"">>, _Lang) ->
     Host = To#jid.lserver,
-    Name = gen_mod:get_module_opt(Host, ?MODULE, name, ?T("ejabberd")),
+    Name = gen_mod:get_module_opt(Host, ?MODULE, name),
     Acc ++ [#identity{category = <<"server">>,
 		      type = <<"im">>,
 		      name = Name}];
@@ -440,7 +421,7 @@ get_info(Acc, _, _, _Node, _) -> Acc.
 
 -spec get_fields(binary(), module()) -> [xdata_field()].
 get_fields(Host, Module) ->
-    Fields = gen_mod:get_module_opt(Host, ?MODULE, server_info, []),
+    Fields = gen_mod:get_module_opt(Host, ?MODULE, server_info),
     Fields1 = lists:filter(fun ({Modules, _, _}) ->
 				   case Modules of
 				       all -> true;
@@ -457,7 +438,6 @@ depends(_Host, _Opts) ->
 
 mod_opt_type(extra_domains) ->
     fun (Hs) -> [iolist_to_binary(H) || H <- Hs] end;
-mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
 mod_opt_type(name) -> fun iolist_to_binary/1;
 mod_opt_type(server_info) ->
     fun (L) ->
@@ -468,5 +448,9 @@ mod_opt_type(server_info) ->
 			      {Mods, Name, URLs}
 		      end,
 		      L)
-    end;
-mod_opt_type(_) -> [extra_domains, iqdisc, server_info, name].
+    end.
+
+mod_options(_Host) ->
+    [{extra_domains, []},
+     {server_info, []},
+     {name, ?T("ejabberd")}].

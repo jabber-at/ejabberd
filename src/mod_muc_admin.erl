@@ -37,10 +37,10 @@
 	 get_user_rooms/2, get_room_occupants/2,
 	 get_room_occupants_number/2, send_direct_invitation/5,
 	 change_room_option/4, get_room_options/2,
-	 set_room_affiliation/4, get_room_affiliations/2,
+	 set_room_affiliation/4, get_room_affiliations/2, get_room_affiliation/3,
 	 web_menu_main/2, web_page_main/2, web_menu_host/3,
 	 subscribe_room/4, unsubscribe_room/2, get_subscribers/2,
-	 web_page_host/3, mod_opt_type/1, get_commands_spec/0]).
+	 web_page_host/3, mod_options/1, get_commands_spec/0]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
@@ -313,8 +313,17 @@ get_commands_spec() ->
 								 {affiliation, atom},
 								 {reason, string}
 								]}}
-						}}}
-    ].
+						}}},
+	 #ejabberd_commands{name = get_room_affiliation, tags = [muc_room],
+			desc = "Get affiliation of a user in MUC room",
+			module = ?MODULE, function = get_room_affiliation,
+			args_desc = ["Room name", "MUC service", "User JID"],
+			args_example = ["room1", "muc.example.com", "user1@example.com"],
+			result_desc = "Affiliation of the user",
+			result_example = member,
+			args = [{name, binary}, {service, binary}, {jid, binary}],
+			result = {affiliation, atom}}
+	].
 
 
 %%%
@@ -569,8 +578,10 @@ prepare_room_info(Room_info) ->
 %%       ok | error
 %% @doc Create a room immediately with the default options.
 create_room(Name1, Host1, ServerHost) ->
-    create_room_with_opts(Name1, Host1, ServerHost, []),
-    change_room_option(Name1, Host1, <<"persistent">>, <<"true">>).
+    case create_room_with_opts(Name1, Host1, ServerHost, []) of
+        ok -> change_room_option(Name1, Host1, <<"persistent">>, <<"true">>);
+        Error -> Error
+    end.
 
 create_room_with_opts(Name1, Host1, ServerHost, CustomRoomOpts) ->
     true = (error /= (Name = jid:nodeprep(Name1))),
@@ -578,7 +589,7 @@ create_room_with_opts(Name1, Host1, ServerHost, CustomRoomOpts) ->
 
     %% Get the default room options from the muc configuration
     DefRoomOpts = gen_mod:get_module_opt(ServerHost, mod_muc,
-					 default_room_options, []),
+					 default_room_options),
     %% Change default room options as required
     FormattedRoomOpts = [format_room_option(Opt, Val) || {Opt, Val}<-CustomRoomOpts],
     RoomOpts = lists:ukeymerge(1,
@@ -589,14 +600,13 @@ create_room_with_opts(Name1, Host1, ServerHost, CustomRoomOpts) ->
     mod_muc:store_room(ServerHost, Host, Name, RoomOpts),
 
     %% Get all remaining mod_muc parameters that might be utilized
-    Access = gen_mod:get_module_opt(ServerHost, mod_muc, access, all),
-    AcCreate = gen_mod:get_module_opt(ServerHost, mod_muc, access_create, all),
-    AcAdmin = gen_mod:get_module_opt(ServerHost, mod_muc, access_admin, none),
-    AcPer = gen_mod:get_module_opt(ServerHost, mod_muc, access_persistent, all),
-    HistorySize = gen_mod:get_module_opt(ServerHost, mod_muc, history_size, 20),
-    RoomShaper = gen_mod:get_module_opt(ServerHost, mod_muc, room_shaper, none),
-    QueueType = gen_mod:get_module_opt(ServerHost, mod_muc, queue_type,
-				       ejabberd_config:default_queue_type(ServerHost)),
+    Access = gen_mod:get_module_opt(ServerHost, mod_muc, access),
+    AcCreate = gen_mod:get_module_opt(ServerHost, mod_muc, access_create),
+    AcAdmin = gen_mod:get_module_opt(ServerHost, mod_muc, access_admin),
+    AcPer = gen_mod:get_module_opt(ServerHost, mod_muc, access_persistent),
+    HistorySize = gen_mod:get_module_opt(ServerHost, mod_muc, history_size),
+    RoomShaper = gen_mod:get_module_opt(ServerHost, mod_muc, room_shaper),
+    QueueType = gen_mod:get_module_opt(ServerHost, mod_muc, queue_type),
 
     %% If the room does not exist yet in the muc_online_room
     case mod_muc:find_online_room(Name, Host) of
@@ -698,7 +708,7 @@ create_rooms_file(Filename) ->
     file:close(F),
     %% Read the default room options defined for the first virtual host
     DefRoomOpts = gen_mod:get_module_opt(?MYNAME, mod_muc,
-					 default_room_options, []),
+					 default_room_options),
     [muc_create_room(?MYNAME, A, DefRoomOpts) || A <- Rooms],
 	ok.
 
@@ -1034,6 +1044,25 @@ get_room_affiliations(Name, Service) ->
     end.
 
 %%----------------------------
+%% Get Room Affiliation
+%%----------------------------
+
+%% @spec(Name::binary(), Service::binary(), JID::binary()) ->
+%%    {Affiliation::string()}
+%% @doc Get affiliation of a user in the room Name@Service.
+
+get_room_affiliation(Name, Service, JID) ->
+	case mod_muc:find_online_room(Name, Service) of
+	{ok, Pid} ->
+		%% Get the PID of the online room, then request its state
+		{ok, StateData} = p1_fsm:sync_send_all_state_event(Pid, get_state),
+		UserJID = jid:decode(JID),
+		mod_muc_room:get_affiliation(UserJID, StateData);
+	error ->
+		throw({error, "The room does not exist."})
+	end.
+
+%%----------------------------
 %% Change Room Affiliation
 %%----------------------------
 
@@ -1215,4 +1244,4 @@ find_hosts(ServerHost) ->
 	    []
     end.
 
-mod_opt_type(_) -> [].
+mod_options(_) -> [].

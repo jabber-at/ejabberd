@@ -31,7 +31,7 @@
 -behaviour(gen_mod).
 
 %% API
--export([start/2, stop/1, reload/3, mod_opt_type/1, depends/2]).
+-export([start/2, stop/1, reload/3, mod_opt_type/1, depends/2, mod_options/1]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
@@ -61,7 +61,6 @@ stop(Host) ->
 reload(_Host, _NewOpts, _OldOpts) ->
     ok.
 
-mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
 mod_opt_type(namespaces) ->
     fun(L) ->
 	    lists:map(
@@ -70,9 +69,10 @@ mod_opt_type(namespaces) ->
 		      Access = proplists:get_value(access, Opts, none),
 		      {NS, Attrs, Access}
 	      end, L)
-    end;
-mod_opt_type(_) ->
-    [namespaces, iqdisc].
+    end.
+
+mod_options(_Host) ->
+    [{namespaces, []}].
 
 depends(_, _) ->
     [].
@@ -151,7 +151,7 @@ handle_cast({component_connected, Host}, State) ->
     ServerHost = State#state.server_host,
     To = jid:make(Host),
     NSAttrsAccessList = gen_mod:get_module_opt(
-			  ServerHost, ?MODULE, namespaces, []),
+			  ServerHost, ?MODULE, namespaces),
     lists:foreach(
       fun({NS, _Attrs, Access}) ->
 	      case acl:match_rule(ServerHost, Access, To) of
@@ -240,7 +240,7 @@ process_iq(#iq{to = To, lang = Lang, sub_els = [SubEl]} = IQ, Type) ->
     case dict:find({NS, Type}, Delegations) of
 	{ok, {Host, _}} ->
 	    Delegation = #delegation{
-			    forwarded = #forwarded{xml_els = [xmpp:encode(IQ)]}},
+			    forwarded = #forwarded{sub_els = [IQ]}},
 	    NewFrom = jid:make(LServer),
 	    NewTo = jid:make(Host),
 	    ejabberd_router:route_iq(
@@ -259,9 +259,10 @@ process_iq(#iq{to = To, lang = Lang, sub_els = [SubEl]} = IQ, Type) ->
 process_iq_result(#iq{from = From, to = To, id = ID, lang = Lang} = IQ,
 		  #iq{type = result} = ResIQ) ->
     try
-	#delegation{forwarded = #forwarded{xml_els = [SubEl]}} =
+	CodecOpts = ejabberd_config:codec_options(To#jid.lserver),
+	#delegation{forwarded = #forwarded{sub_els = [SubEl]}} =
 	    xmpp:get_subtag(ResIQ, #delegation{}),
-	case xmpp:decode(SubEl, ?NS_CLIENT, [ignore_els]) of
+	case xmpp:decode(SubEl, ?NS_CLIENT, CodecOpts) of
 	    #iq{from = To, to = From, type = Type, id = ID} = Reply
 	      when Type == error; Type == result ->
 		ejabberd_router:route(Reply)
@@ -292,7 +293,7 @@ process_disco_info(State, Type, Host, NS, Info) ->
 			   sub_els = [#delegation{delegated = [#delegated{ns = NS}]}]},
 	    Delegations = dict:store({NS, Type}, {Host, Info}, State#state.delegations),
 	    gen_iq_handler:add_iq_handler(Type, State#state.server_host, NS,
-					  ?MODULE, Type, gen_iq_handler:iqdisc(Host)),
+					  ?MODULE, Type),
 	    ejabberd_router:route(Msg),
 	    ?INFO_MSG("Namespace '~s' is delegated to external component '~s'",
 		      [NS, Host]),
