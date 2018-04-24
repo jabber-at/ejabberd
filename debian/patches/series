@@ -9,4 +9,3 @@ ejabberd.yml.example.diff
 ejabberd.yml.example-local.diff
 src.includes.patch
 rebar.config.diff
-e8f1de87851.patch

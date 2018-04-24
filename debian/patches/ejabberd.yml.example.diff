@@ -121,16 +121,9 @@ Index: ejabberd/ejabberd.yml.example
 +    protocol_options: 'TLS_OPTIONS'
 +
    ##
-   ## ejabberd_service: Interact with external components (transports, ...)
-   ##
-@@ -242,13 +219,13 @@
-   ##   request_handlers:
-   ##     "": mod_http_upload
-   ##   tls: true
--  ##   protocol_options: 'TLSOPTS'
-+  ##   protocol_options: 'TLS_OPTIONS'
-   ##   dhfile: 'DHFILE'
-   ##   ciphers: 'CIPHERS'
+   ## Direct-TLS for C2S (XEP-0368). A good practice is to forward
+   ## traffic from port 443 to this port, possibly multiplexing it
+@@ -263,7 +240,7 @@
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -139,7 +132,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -258,7 +235,7 @@
+@@ -273,7 +250,7 @@
  ## Allowed values are: false, optional or required
  ## You must specify 'certfiles' option
  ##
@@ -148,7 +141,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## S2S whitelist or blacklist
-@@ -292,7 +269,7 @@
+@@ -307,7 +284,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -157,7 +150,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -560,14 +537,14 @@
+@@ -580,14 +557,14 @@
    ## Only allow to register from localhost
    trusted_network:
      - allow: loopback
@@ -180,7 +173,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ## ===============
  ## API PERMISSIONS
-@@ -596,9 +573,9 @@
+@@ -616,9 +593,9 @@
    "admin access":
      who:
        - access:
@@ -193,7 +186,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -619,7 +596,7 @@
+@@ -639,7 +616,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -202,7 +195,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -653,7 +630,7 @@
+@@ -673,7 +650,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -211,7 +204,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -671,29 +648,29 @@
+@@ -691,29 +668,29 @@
  ## In order to use the acme certificate acquiring through "Let's Encrypt"
  ## an http listener has to be configured to listen to port 80 so that
  ## the authorization challenges posed by "Let's Encrypt" can be solved.
@@ -255,7 +248,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  =======
  ###'  MODULES
-@@ -704,14 +681,14 @@
+@@ -724,14 +701,14 @@
  modules:
    mod_adhoc: {}
    mod_admin_extra: {}
@@ -274,88 +267,19 @@ Index: ejabberd/ejabberd.yml.example
    mod_disco: {}
    mod_echo: {}
    mod_irc: {}
-@@ -760,43 +737,44 @@
-     plugins:
-       - "flat"
-       - "hometree"
--      - "pep" # pep requires mod_caps
-+      - "pep"   # pep requires mod_caps
-   mod_push: {}
-   mod_push_keepalive: {}
-   ## mod_register:
--    ##
--    ## Protect In-Band account registrations with CAPTCHA.
--    ##
--    ##   captcha_protected: true
--    ##
--    ## Set the minimum informational entropy for passwords.
--    ##
--    ##   password_strength: 32
--    ##
--    ## After successful registration, the user receives
--    ## a message with this subject and body.
--    ##
--    ##   welcome_message:
--    ##     subject: "Welcome!"
--    ##     body: |-
--    ##       Hi.
--    ##       Welcome to this XMPP server.
--    ##
--    ## When a user registers, send a notification to
--    ## these XMPP accounts.
--    ##
--    ##   registration_watchers:
--    ##     - "admin1@example.org"
--    ##
--    ## Only clients in the server machine can register accounts
--    ##
--    ##   ip_access: trusted_network
--    ##
--    ## Local c2s or remote s2s users cannot register accounts
--    ##
--    ##   access_from: deny
--    ##   access: register
+@@ -824,7 +801,8 @@
+     ##
+     ##   access_from: deny
+     ##   access: register
 -  mod_roster: {}
-+  ##
-+  ## Protect In-Band account registrations with CAPTCHA.
-+  ##
-+  ##   captcha_protected: true
-+  ##
-+  ## Set the minimum informational entropy for passwords.
-+  ##
-+  ##   password_strength: 32
-+  ##
-+  ## After successful registration, the user receives
-+  ## a message with this subject and body.
-+  ##
-+  ##   welcome_message:
-+  ##     subject: "Welcome!"
-+  ##     body: |-
-+  ##       Hi.
-+  ##       Welcome to this XMPP server.
-+  ##
-+  ## When a user registers, send a notification to
-+  ## these XMPP accounts.
-+  ##
-+  ##   registration_watchers:
-+  ##     - "admin1@example.org"
-+  ##
-+  ## Only clients in the server machine can register accounts
-+  ##
-+  ##   ip_access: trusted_network
-+  ##
-+  ## Local c2s or remote s2s users cannot register accounts
-+  ##
-+  ##   access_from: deny
-+  ##   access: register
 +  mod_roster:
-+    versioning: true
++        versioning: true
    mod_shared_roster: {}
    mod_stats: {}
    mod_time: {}
-@@ -808,7 +786,8 @@
-   ##   convert:
-   ##     webp: jpeg
+@@ -833,7 +811,8 @@
+   mod_vcard_xupdate: {}
+   mod_avatar: {}
    mod_version: {}
 -  mod_stream_mgmt: {}
 +  mod_stream_mgmt:
