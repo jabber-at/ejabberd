@@ -1,3 +1,10 @@
+ejabberd (1:18.03-1) unstable; urgency=low
+
+  * New upstream release.
+  * Remove erlang-fs-listener dependency, in line with ejabberd.
+
+ -- Mathias Ertl <mati@jabber.at>  Tue, 24 Apr 2018 18:39:53 +0200
+
 ejabberd (1:18.01-2) unstable; urgency=low
 
   * Add patch to bounce groupchat to bare JID
