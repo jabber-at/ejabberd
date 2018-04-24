@@ -33,7 +33,7 @@
 -behaviour(gen_server).
 -behaviour(gen_mod).
 
--export([start/2, stop/1, get_sm_features/5,
+-export([start/2, stop/1, get_sm_features/5, mod_options/1,
 	 process_local_iq/1, process_sm_iq/1, string2lower/1,
 	 remove_user/2, export/1, import_info/0, import/5, import_start/2,
 	 depends/2, process_search/1, process_vcard/1, get_vcard/2,
@@ -48,7 +48,6 @@
 -include("mod_vcard.hrl").
 -include("translate.hrl").
 
--define(JUD_MATCHES, 30).
 -define(VCARD_CACHE, vcard_cache).
 
 -callback init(binary(), gen_mod:opts()) -> any().
@@ -89,16 +88,15 @@ init([Host, Opts]) ->
     init_cache(Mod, Host, Opts),
     ejabberd_hooks:add(remove_user, Host, ?MODULE,
 		       remove_user, 50),
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,
-				  ?NS_VCARD, ?MODULE, process_local_iq, IQDisc),
+				  ?NS_VCARD, ?MODULE, process_local_iq),
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,
-				  ?NS_VCARD, ?MODULE, process_sm_iq, IQDisc),
+				  ?NS_VCARD, ?MODULE, process_sm_iq),
     ejabberd_hooks:add(disco_sm_features, Host, ?MODULE,
 		       get_sm_features, 50),
     ejabberd_hooks:add(vcard_iq_set, Host, ?MODULE, vcard_iq_set, 50),
-    MyHosts = gen_mod:get_opt_hosts(Host, Opts, <<"vjud.@HOST@">>),
-    Search = gen_mod:get_opt(search, Opts, false),
+    MyHosts = gen_mod:get_opt_hosts(Host, Opts),
+    Search = gen_mod:get_opt(search, Opts),
     if Search ->
 	    lists:foreach(
 	      fun(MyHost) ->
@@ -109,20 +107,20 @@ init([Host, Opts]) ->
 		      ejabberd_hooks:add(
 			disco_local_identity, MyHost, ?MODULE, disco_identity, 100),
 		      gen_iq_handler:add_iq_handler(
-			ejabberd_local, MyHost, ?NS_SEARCH, ?MODULE, process_search, IQDisc),
+			ejabberd_local, MyHost, ?NS_SEARCH, ?MODULE, process_search),
 		      gen_iq_handler:add_iq_handler(
-			ejabberd_local, MyHost, ?NS_VCARD, ?MODULE, process_vcard, IQDisc),
+			ejabberd_local, MyHost, ?NS_VCARD, ?MODULE, process_vcard),
 		      gen_iq_handler:add_iq_handler(
 			ejabberd_local, MyHost, ?NS_DISCO_ITEMS, mod_disco,
-			process_local_iq_items, IQDisc),
+			process_local_iq_items),
 		      gen_iq_handler:add_iq_handler(
 			ejabberd_local, MyHost, ?NS_DISCO_INFO, mod_disco,
-			process_local_iq_info, IQDisc),
+			process_local_iq_info),
 		      case Mod:is_search_supported(Host) of
 			  false ->
 			      ?WARNING_MSG("vcard search functionality is "
 					   "not implemented for ~s backend",
-					   [gen_mod:db_type(Host, Opts, ?MODULE)]);
+					   [gen_mod:get_opt(db_type, Opts)]);
 			  true ->
 			      ejabberd_router:register_route(MyHost, Host)
 		      end
@@ -289,7 +287,7 @@ disco_features(Acc, _From, _To, _Node, _Lang) ->
 		     binary(),  binary()) -> [identity()].
 disco_identity(Acc, _From, To, <<"">>, Lang) ->
     Host = ejabberd_router:host_of_route(To#jid.lserver),
-    Name = gen_mod:get_module_opt(Host, ?MODULE, name, ?T("vCard User Search")),
+    Name = gen_mod:get_module_opt(Host, ?MODULE, name),
     [#identity{category = <<"directory">>,
 	       type = <<"user">>,
 	       name = translate:translate(Lang, Name)}|Acc];
@@ -467,9 +465,8 @@ item_to_field(Items) ->
 search(LServer, XFields) ->
     Data = [{Var, Vals} || #xdata_field{var = Var, values = Vals} <- XFields],
     Mod = gen_mod:db_mod(LServer, ?MODULE),
-    AllowReturnAll = gen_mod:get_module_opt(LServer, ?MODULE, allow_return_all,
-                                            false),
-    MaxMatch = gen_mod:get_module_opt(LServer, ?MODULE, matches, ?JUD_MATCHES),
+    AllowReturnAll = gen_mod:get_module_opt(LServer, ?MODULE, allow_return_all),
+    MaxMatch = gen_mod:get_module_opt(LServer, ?MODULE, matches),
     Mod:search(LServer, Data, AllowReturnAll, MaxMatch).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -492,16 +489,10 @@ init_cache(Mod, Host, Opts) ->
     end.
 
 -spec cache_opts(binary(), gen_mod:opts()) -> [proplists:property()].
-cache_opts(Host, Opts) ->
-    MaxSize = gen_mod:get_opt(
-		cache_size, Opts,
-		ejabberd_config:cache_size(Host)),
-    CacheMissed = gen_mod:get_opt(
-		    cache_missed, Opts,
-		    ejabberd_config:cache_missed(Host)),
-    LifeTime = case gen_mod:get_opt(
-		      cache_life_time, Opts,
-		      ejabberd_config:cache_life_time(Host)) of
+cache_opts(_Host, Opts) ->
+    MaxSize = gen_mod:get_opt(cache_size, Opts),
+    CacheMissed = gen_mod:get_opt(cache_missed, Opts),
+    LifeTime = case gen_mod:get_opt(cache_life_time, Opts) of
 		   infinity -> infinity;
 		   I -> timer:seconds(I)
 	       end,
@@ -511,10 +502,7 @@ cache_opts(Host, Opts) ->
 use_cache(Mod, Host) ->
     case erlang:function_exported(Mod, use_cache, 1) of
 	true -> Mod:use_cache(Host);
-	false ->
-	    gen_mod:get_module_opt(
-	      Host, ?MODULE, use_cache,
-	      ejabberd_config:use_cache(Host))
+	false -> gen_mod:get_module_opt(Host, ?MODULE, use_cache)
     end.
 
 -spec cache_nodes(module(), binary()) -> [node()].
@@ -549,22 +537,28 @@ mod_opt_type(name) -> fun iolist_to_binary/1;
 mod_opt_type(host) -> fun iolist_to_binary/1;
 mod_opt_type(hosts) ->
     fun (L) -> lists:map(fun iolist_to_binary/1, L) end;
-mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
 mod_opt_type(matches) ->
     fun (infinity) -> infinity;
 	(I) when is_integer(I), I > 0 -> I
     end;
 mod_opt_type(search) ->
     fun (B) when is_boolean(B) -> B end;
-mod_opt_type(search_all_hosts) ->
-    fun (B) when is_boolean(B) -> B end;
 mod_opt_type(O) when O == cache_life_time; O == cache_size ->
     fun (I) when is_integer(I), I > 0 -> I;
         (infinity) -> infinity
     end;
 mod_opt_type(O) when O == use_cache; O == cache_missed ->
-    fun (B) when is_boolean(B) -> B end;
-mod_opt_type(_) ->
-    [allow_return_all, db_type, host, hosts, iqdisc, matches,
-     search, search_all_hosts, cache_life_time, cache_size,
-     use_cache, cache_missed, name].
+    fun (B) when is_boolean(B) -> B end.
+
+mod_options(Host) ->
+    [{allow_return_all, false},
+     {host, <<"vjud.@HOST@">>},
+     {hosts, []},
+     {matches, 30},
+     {search, false},
+     {name, ?T("vCard User Search")},
+     {db_type, ejabberd_config:default_db(Host, ?MODULE)},
+     {use_cache, ejabberd_config:use_cache(Host)},
+     {cache_size, ejabberd_config:cache_size(Host)},
+     {cache_missed, ejabberd_config:cache_missed(Host)},
+     {cache_life_time, ejabberd_config:cache_life_time(Host)}].

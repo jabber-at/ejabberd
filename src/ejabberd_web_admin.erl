@@ -74,27 +74,15 @@ get_acl_rule([<<"vhosts">>], _) ->
 %% The pages of a vhost are only accesible if the user is admin of that vhost:
 get_acl_rule([<<"server">>, VHost | _RPath], Method)
     when Method =:= 'GET' orelse Method =:= 'HEAD' ->
-    AC = gen_mod:get_module_opt(VHost, ejabberd_web_admin,
-				access, configure),
-    ACR = gen_mod:get_module_opt(VHost, ejabberd_web_admin,
-				 access_readonly, webadmin_view),
-    {VHost, [AC, ACR]};
+    {VHost, [configure, webadmin_view]};
 get_acl_rule([<<"server">>, VHost | _RPath], 'POST') ->
-    AC = gen_mod:get_module_opt(VHost, ejabberd_web_admin,
-				access, configure),
-    {VHost, [AC]};
+    {VHost, [configure]};
 %% Default rule: only global admins can access any other random page
 get_acl_rule(_RPath, Method)
     when Method =:= 'GET' orelse Method =:= 'HEAD' ->
-    AC = gen_mod:get_module_opt(global, ejabberd_web_admin,
-				access, configure),
-    ACR = gen_mod:get_module_opt(global, ejabberd_web_admin,
-				 access_readonly, webadmin_view),
-    {global, [AC, ACR]};
+    {global, [configure, webadmin_view]};
 get_acl_rule(_RPath, 'POST') ->
-    AC = gen_mod:get_module_opt(global, ejabberd_web_admin,
-				access, configure),
-    {global, [AC]}.
+    {global, [configure]}.
 
 %%%==================================
 %%%% Menu Items Access
@@ -275,7 +263,7 @@ get_auth_account(HostOfRule, AccessRule, User, Server,
     case ejabberd_auth:check_password(User, <<"">>, Server, Pass) of
       true ->
 	  case acl:any_rules_allowed(HostOfRule, AccessRule,
-			    jid:make(User, Server))
+				     jid:make(User, Server))
 	      of
 	    false -> {unauthorized, <<"unprivileged-account">>};
 	    true -> {ok, {User, Server}}
@@ -1274,7 +1262,7 @@ get_offlinemsg_module(Server) ->
     end.
 
 get_lastactivity_menuitem_list(Server) ->
-    case gen_mod:db_type(Server, mod_last) of
+    case gen_mod:get_module_opt(Server, mod_last, db_type) of
       mnesia -> [{<<"last-activity">>, <<"Last Activity">>}];
       _ -> []
     end.

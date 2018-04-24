@@ -3,7 +3,7 @@ defmodule Ejabberd.Mixfile do
 
   def project do
     [app: :ejabberd,
-     version: "18.1.0",
+     version: "18.3.0",
      description: description(),
      elixir: "~> 1.4",
      elixirc_paths: ["lib"],
@@ -28,7 +28,8 @@ defmodule Ejabberd.Mixfile do
      applications: [:ssl, :os_mon],
      included_applications: [:lager, :mnesia, :inets, :p1_utils, :cache_tab,
                              :fast_tls, :stringprep, :fast_xml, :xmpp,
-                             :stun, :fast_yaml, :esip, :jiffy, :p1_oauth2, :fs]
+                             :stun, :fast_yaml, :esip, :jiffy, :p1_oauth2,
+                             :eimp, :base64url, :jose]
                          ++ cond_apps()]
   end
 
@@ -73,7 +74,9 @@ defmodule Ejabberd.Mixfile do
      {:p1_oauth2, "~> 0.6.1"},
      {:distillery, "~> 1.0"},
      {:ex_doc, ">= 0.0.0", only: :dev},
-     {:fs, "~> 3.4"}]
+     {:eimp, "~> 1.0"},
+     {:base64url, "~> 0.0.1"},
+     {:jose, "~> 1.8"}]
     ++ cond_deps()
   end
 
@@ -89,13 +92,12 @@ defmodule Ejabberd.Mixfile do
     for {:true, dep} <- [{config(:sqlite), {:sqlite3, "~> 1.1"}},
                          {config(:riak), {:riakc, "~> 2.4"}},
                          {config(:redis), {:eredis, "~> 1.0"}},
-                         {config(:zlib), {:ezlib, github: "processone/ezlib", tag: "1.0.3", override: true, manager: :rebar}},
+                         {config(:zlib), {:ezlib, "~> 1.0"}},
                          {config(:iconv), {:iconv, "~> 1.0"}},
                          {config(:pam), {:epam, "~> 1.0"}},
-                         {config(:tools), {:luerl, github: "rvirding/luerl", tag: "v0.2"}},
+                         {config(:tools), {:luerl, "~> 0.3.1"}},
                          {config(:tools), {:meck, "~> 0.8.4"}},
-                         {config(:tools), {:moka, github: "processone/moka", tag: "1.0.5c"}},
-                         {config(:graphics), {:eimp, github: "processone/eimp", tag: "1.0.1"}}], do:
+                         {config(:tools), {:moka, github: "processone/moka", tag: "1.0.5c"}}], do:
       dep
   end
 
@@ -105,8 +107,7 @@ defmodule Ejabberd.Mixfile do
                          {config(:pgsql), :p1_pgsql},
                          {config(:sqlite), :sqlite3},
                          {config(:zlib), :ezlib},
-                         {config(:iconv), :iconv},
-                         {config(:graphics), :eimp}], do:
+                         {config(:iconv), :iconv}], do:
       app
   end
 

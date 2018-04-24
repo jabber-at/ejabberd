@@ -230,6 +230,7 @@ init([Module, {_SockMod, Socket}, Opts]) ->
 		      stream_encrypted => Encrypted,
 		      stream_version => {1,0},
 		      stream_authenticated => false,
+		      codec_options => [ignore_els],
 		      xmlns => ?NS_CLIENT,
 		      lang => <<"">>,
 		      user => <<"">>,
@@ -333,8 +334,8 @@ handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
 	      send_pkt(State1, Err)
       end);
 handle_info({'$gen_event', El}, #{stream_state := wait_for_stream} = State) ->
-    error_logger:error_msg("unexpected event from XML driver: ~p; "
-			   "xmlstreamstart was expected", [El]),
+    error_logger:warning_msg("unexpected event from XML driver: ~p; "
+			     "xmlstreamstart was expected", [El]),
     State1 = send_header(State),
     noreply(
       case is_disconnected(State1) of
@@ -342,9 +343,9 @@ handle_info({'$gen_event', El}, #{stream_state := wait_for_stream} = State) ->
 	  false -> send_pkt(State1, xmpp:serr_invalid_xml())
       end);
 handle_info({'$gen_event', {xmlstreamelement, El}},
-	    #{xmlns := NS, mod := Mod} = State) ->
+	    #{xmlns := NS, mod := Mod, codec_options := Opts} = State) ->
     noreply(
-      try xmpp:decode(El, NS, [ignore_els]) of
+      try xmpp:decode(El, NS, Opts) of
 	  Pkt ->
 	      State1 = try Mod:handle_recv(El, Pkt, State)
 		       catch _:undef -> State
@@ -367,11 +368,12 @@ handle_info({'$gen_all_state_event', {xmlstreamcdata, Data}},
     noreply(try Mod:handle_cdata(Data, State)
 	    catch _:undef -> State
 	    end);
-handle_info(timeout, #{mod := Mod} = State) ->
+handle_info(timeout, #{mod := Mod, lang := Lang} = State) ->
     Disconnected = is_disconnected(State),
     noreply(try Mod:handle_timeout(State)
 	    catch _:undef when not Disconnected ->
-		    send_pkt(State, xmpp:serr_connection_timeout());
+		    Txt = <<"Idle connection">>,
+		    send_pkt(State, xmpp:serr_connection_timeout(Txt, Lang));
 		  _:undef ->
 		    stop(State)
 	    end);
@@ -834,13 +836,13 @@ process_sasl_success(Props, ServerOut,
     AuthModule = proplists:get_value(auth_module, Props),
     Socket1 = xmpp_socket:reset_stream(Socket),
     State0 = State#{socket => Socket1},
-    State1 = send_pkt(State0, #sasl_success{text = ServerOut}),
+    State1 = try Mod:handle_auth_success(User, Mech, AuthModule, State0)
+	     catch _:undef -> State
+	     end,
     case is_disconnected(State1) of
 	true -> State1;
 	false ->
-	    State2 = try Mod:handle_auth_success(User, Mech, AuthModule, State1)
-		     catch _:undef -> State1
-		     end,
+	    State2 = send_pkt(State1, #sasl_success{text = ServerOut}),
 	    case is_disconnected(State2) of
 		true -> State2;
 		false ->
@@ -865,16 +867,22 @@ process_sasl_continue(ServerOut, NewSASLState, State) ->
 process_sasl_failure(Err, User,
 		     #{mod := Mod, sasl_mech := Mech, lang := Lang} = State) ->
     {Reason, Text} = format_sasl_error(Mech, Err),
-    State1 = send_pkt(State, #sasl_failure{reason = Reason,
-					   text = xmpp:mk_text(Text, Lang)}),
+    State1 = try Mod:handle_auth_failure(User, Mech, Text, State)
+	     catch _:undef -> State
+	     end,
     case is_disconnected(State1) of
 	true -> State1;
 	false ->
-	    State2 = try Mod:handle_auth_failure(User, Mech, Text, State1)
-		     catch _:undef -> State1
-		     end,
-	    State3 = maps:remove(sasl_state, maps:remove(sasl_mech, State2)),
-	    State3#{stream_state => wait_for_sasl_request}
+	    State2 = send_pkt(State1,
+			      #sasl_failure{reason = Reason,
+					    text = xmpp:mk_text(Text, Lang)}),
+	    case is_disconnected(State2) of
+		true -> State2;
+		false ->
+		    State3 = maps:remove(sasl_state,
+					 maps:remove(sasl_mech, State2)),
+		    State3#{stream_state => wait_for_sasl_request}
+	    end
     end.
 
 -spec process_sasl_abort(state()) -> state().

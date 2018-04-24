@@ -27,10 +27,10 @@
 -author('holger@zedat.fu-berlin.de').
 -protocol({xep, 357, '0.2'}).
 
--behavior(gen_mod).
+-behaviour(gen_mod).
 
 %% gen_mod callbacks.
--export([start/2, stop/1, reload/3, mod_opt_type/1, depends/2]).
+-export([start/2, stop/1, reload/3, mod_opt_type/1, mod_options/1, depends/2]).
 
 %% ejabberd_hooks callbacks.
 -export([disco_sm_features/5, c2s_session_pending/1, c2s_copy_session/2,
@@ -92,11 +92,10 @@
 %%--------------------------------------------------------------------
 -spec start(binary(), gen_mod:opts()) -> ok.
 start(Host, Opts) ->
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(Host)),
     Mod = gen_mod:db_mod(Host, Opts, ?MODULE),
     Mod:init(Host, Opts),
     init_cache(Mod, Host, Opts),
-    register_iq_handlers(Host, IQDisc),
+    register_iq_handlers(Host),
     register_hooks(Host),
     ejabberd_commands:register_commands(get_commands_spec()).
 
@@ -119,13 +118,6 @@ reload(Host, NewOpts, OldOpts) ->
 	    NewMod:init(Host, NewOpts);
        true ->
 	    ok
-    end,
-    case gen_mod:is_equal_opt(iqdisc, NewOpts, OldOpts,
-			      gen_iq_handler:iqdisc(Host)) of
-	{false, IQDisc, _} ->
-	    register_iq_handlers(Host, IQDisc);
-	true ->
-	    ok
     end.
 
 -spec depends(binary(), gen_mod:opts()) -> [{module(), hard | soft}].
@@ -140,11 +132,14 @@ mod_opt_type(O) when O == cache_life_time; O == cache_size ->
        (infinity) -> infinity
     end;
 mod_opt_type(O) when O == use_cache; O == cache_missed ->
-    fun (B) when is_boolean(B) -> B end;
-mod_opt_type(iqdisc) ->
-    fun gen_iq_handler:check_type/1;
-mod_opt_type(_) ->
-    [db_type, cache_life_time, cache_size, use_cache, cache_missed, iqdisc].
+    fun (B) when is_boolean(B) -> B end.
+
+mod_options(Host) ->
+    [{db_type, ejabberd_config:default_db(Host, ?MODULE)},
+     {use_cache, ejabberd_config:use_cache(Host)},
+     {cache_size, ejabberd_config:cache_size(Host)},
+     {cache_missed, ejabberd_config:cache_missed(Host)},
+     {cache_life_time, ejabberd_config:cache_life_time(Host)}].
 
 %%--------------------------------------------------------------------
 %% ejabberd command callback.
@@ -165,7 +160,7 @@ delete_old_sessions(Days) ->
     DBTypes = lists:usort(
 		lists:map(
 		  fun(Host) ->
-			  case gen_mod:db_type(Host, ?MODULE) of
+			  case gen_mod:get_module_opt(Host, ?MODULE, db_type) of
 			      sql -> {sql, Host};
 			      Other -> {Other, global}
 			  end
@@ -244,10 +239,10 @@ disco_sm_features(Acc, _From, _To, _Node, _Lang) ->
 %%--------------------------------------------------------------------
 %% IQ handlers.
 %%--------------------------------------------------------------------
--spec register_iq_handlers(binary(), gen_iq_handler:type()) -> ok.
-register_iq_handlers(Host, IQDisc) ->
+-spec register_iq_handlers(binary()) -> ok.
+register_iq_handlers(Host) ->
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PUSH_0,
-				  ?MODULE, process_iq, IQDisc).
+				  ?MODULE, process_iq).
 
 -spec unregister_iq_handlers(binary()) -> ok.
 unregister_iq_handlers(Host) ->
@@ -441,7 +436,7 @@ notify(LUser, LServer, Clients) ->
 	     fun((iq() | timeout) -> any())) -> ok.
 notify(LServer, PushLJID, Node, XData, HandleResponse) ->
     From = jid:make(LServer),
-    Item = #ps_item{xml_els = [xmpp:encode(#push_notification{})]},
+    Item = #ps_item{sub_els = [#push_notification{}]},
     PubSub = #pubsub{publish = #ps_publish{node = Node, items = [Item]},
 		     publish_options = XData},
     IQ = #iq{type = set,
@@ -579,23 +574,17 @@ drop_online_sessions(LUser, LServer, Clients) ->
 init_cache(Mod, Host, Opts) ->
     case use_cache(Mod, Host) of
 	true ->
-	    CacheOpts = cache_opts(Host, Opts),
+	    CacheOpts = cache_opts(Opts),
 	    ets_cache:new(?PUSH_CACHE, CacheOpts);
 	false ->
 	    ets_cache:delete(?PUSH_CACHE)
     end.
 
--spec cache_opts(binary(), gen_mod:opts()) -> [proplists:property()].
-cache_opts(Host, Opts) ->
-    MaxSize = gen_mod:get_opt(
-		cache_size, Opts,
-		ejabberd_config:cache_size(Host)),
-    CacheMissed = gen_mod:get_opt(
-		    cache_missed, Opts,
-		    ejabberd_config:cache_missed(Host)),
-    LifeTime = case gen_mod:get_opt(
-		      cache_life_time, Opts,
-		      ejabberd_config:cache_life_time(Host)) of
+-spec cache_opts(gen_mod:opts()) -> [proplists:property()].
+cache_opts(Opts) ->
+    MaxSize = gen_mod:get_opt(cache_size, Opts),
+    CacheMissed = gen_mod:get_opt(cache_missed, Opts),
+    LifeTime = case gen_mod:get_opt(cache_life_time, Opts) of
 		   infinity -> infinity;
 		   I -> timer:seconds(I)
 	       end,
@@ -605,10 +594,7 @@ cache_opts(Host, Opts) ->
 use_cache(Mod, Host) ->
     case erlang:function_exported(Mod, use_cache, 1) of
 	true -> Mod:use_cache(Host);
-	false ->
-	    gen_mod:get_module_opt(
-	      Host, ?MODULE, use_cache,
-	      ejabberd_config:use_cache(Host))
+	false -> gen_mod:get_module_opt(Host, ?MODULE, use_cache)
     end.
 
 -spec cache_nodes(module(), binary()) -> [node()].

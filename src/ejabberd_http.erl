@@ -651,7 +651,7 @@ parse_lang(Langs) ->
     end.
 
 % Code below is taken (with some modifications) from the yaws webserver, which
-% is distributed under the folowing license:
+% is distributed under the following license:
 %
 % This software (the yaws webserver) is free software.
 % Parts of this software is Copyright (c) Claes Wikstrom <klacke@hyber.org>
@@ -994,6 +994,10 @@ listen_opt_type(default_host) ->
     fun(A) -> A end;
 listen_opt_type(custom_headers) ->
     fun expand_custom_headers/1;
+listen_opt_type(inet) -> fun(B) when is_boolean(B) -> B end;
+listen_opt_type(inet6) -> fun(B) when is_boolean(B) -> B end;
+listen_opt_type(backlog) ->
+    fun(I) when is_integer(I), I>0 -> I end;
 listen_opt_type(_) ->
     %% TODO
     fun(A) -> A end.

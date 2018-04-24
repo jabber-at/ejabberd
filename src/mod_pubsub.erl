@@ -52,7 +52,7 @@
 
 %% exports for hooks
 -export([presence_probe/3, caps_add/3, caps_update/3,
-    in_subscription/6, out_subscription/4,
+    in_subscription/2, out_subscription/1,
     on_self_presence/1, on_user_offline/2, remove_user/2,
     disco_local_identity/5, disco_local_features/5,
     disco_local_items/5, disco_sm_identity/5,
@@ -91,7 +91,7 @@
 %% API and gen_server callbacks
 -export([start/2, stop/1, init/1,
     handle_call/3, handle_cast/2, handle_info/2,
-    terminate/2, code_change/3, depends/2, mod_opt_type/1]).
+    terminate/2, code_change/3, depends/2, mod_opt_type/1, mod_options/1]).
 
 %%====================================================================
 %% API
@@ -241,12 +241,11 @@ stop(Host) ->
 init([ServerHost, Opts]) ->
     process_flag(trap_exit, true),
     ?DEBUG("pubsub init ~p ~p", [ServerHost, Opts]),
-    Hosts = gen_mod:get_opt_hosts(ServerHost, Opts, <<"pubsub.@HOST@">>),
-    Access = gen_mod:get_opt(access_createnode, Opts, all),
-    PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts, true),
-    IQDisc = gen_mod:get_opt(iqdisc, Opts, gen_iq_handler:iqdisc(ServerHost)),
-    LastItemCache = gen_mod:get_opt(last_item_cache, Opts, false),
-    MaxItemsNode = gen_mod:get_opt(max_items_node, Opts, ?MAXITEMS),
+    Hosts = gen_mod:get_opt_hosts(ServerHost, Opts),
+    Access = gen_mod:get_opt(access_createnode, Opts),
+    PepOffline = gen_mod:get_opt(ignore_pep_from_offline, Opts),
+    LastItemCache = gen_mod:get_opt(last_item_cache, Opts),
+    MaxItemsNode = gen_mod:get_opt(max_items_node, Opts),
     MaxSubsNode = gen_mod:get_opt(max_subscriptions_node, Opts),
     ejabberd_mnesia:create(?MODULE, pubsub_last_item,
 			   [{ram_copies, [node()]},
@@ -255,15 +254,15 @@ init([ServerHost, Opts]) ->
 	lists:flatmap(
 	  fun(Host) ->
 		  ejabberd_router:register_route(Host, ServerHost),
-		  case gen_mod:db_type(ServerHost, ?MODULE) of
+		  case gen_mod:get_module_opt(ServerHost, ?MODULE, db_type) of
 		      mnesia -> pubsub_index:init(Host, ServerHost, Opts);
 		      _ -> ok
 		  end,
 		  {Plugins, NodeTree, PepMapping} = init_plugins(Host, ServerHost, Opts),
 		  DefaultModule = plugin(Host, hd(Plugins)),
 		  DefaultNodeCfg = merge_config(
-				     gen_mod:get_opt(default_node_config, Opts, []),
-				     DefaultModule:options()),
+				     [gen_mod:get_opt(default_node_config, Opts),
+				      DefaultModule:options()]),
 		  lists:foreach(
 		    fun(H) ->
 			    T = gen_mod:get_module_proc(H, config),
@@ -284,17 +283,17 @@ init([ServerHost, Opts]) ->
 			    end
 		    end, [Host, ServerHost]),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_DISCO_INFO,
-						?MODULE, process_disco_info, IQDisc),
+						?MODULE, process_disco_info),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_DISCO_ITEMS,
-						?MODULE, process_disco_items, IQDisc),
+						?MODULE, process_disco_items),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUBSUB,
-						?MODULE, process_pubsub, IQDisc),
+						?MODULE, process_pubsub),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_PUBSUB_OWNER,
-						?MODULE, process_pubsub_owner, IQDisc),
+						?MODULE, process_pubsub_owner),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_VCARD,
-						?MODULE, process_vcard, IQDisc),
+						?MODULE, process_vcard),
 		  gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_COMMANDS,
-						?MODULE, process_commands, IQDisc),
+						?MODULE, process_commands),
 		  Plugins
 	  end, Hosts),
     ejabberd_hooks:add(c2s_self_presence, ServerHost,
@@ -330,16 +329,16 @@ init([ServerHost, Opts]) ->
 	    ejabberd_hooks:add(disco_sm_items, ServerHost,
 		?MODULE, disco_sm_items, 75),
 	    gen_iq_handler:add_iq_handler(ejabberd_sm, ServerHost,
-		?NS_PUBSUB, ?MODULE, iq_sm, IQDisc),
+		?NS_PUBSUB, ?MODULE, iq_sm),
 	    gen_iq_handler:add_iq_handler(ejabberd_sm, ServerHost,
-		?NS_PUBSUB_OWNER, ?MODULE, iq_sm, IQDisc);
+		?NS_PUBSUB_OWNER, ?MODULE, iq_sm);
 	false ->
 	    ok
     end,
     NodeTree = config(ServerHost, nodetree),
     Plugins = config(ServerHost, plugins),
     PepMapping = config(ServerHost, pep_mapping),
-    DBType = gen_mod:db_type(ServerHost, ?MODULE),
+    DBType = gen_mod:get_module_opt(ServerHost, ?MODULE, db_type),
     {ok, #state{hosts = Hosts, server_host = ServerHost,
 		access = Access, pep_mapping = PepMapping,
 		ignore_pep_from_offline = PepOffline,
@@ -347,9 +346,10 @@ init([ServerHost, Opts]) ->
 		max_items_node = MaxItemsNode, nodetree = NodeTree,
 		plugins = Plugins, db_type = DBType}}.
 
-depends(ServerHost, Opts) ->
-    Host = gen_mod:get_opt_host(ServerHost, Opts, <<"pubsub.@HOST@">>),
-    Plugins = gen_mod:get_opt(plugins, Opts, [?STDNODE]),
+depends(ServerHost, Opts0) ->
+    Opts = Opts0 ++ mod_options(ServerHost),
+    [Host|_] = gen_mod:get_opt_hosts(ServerHost, Opts),
+    Plugins = gen_mod:get_opt(plugins, Opts),
     lists:flatmap(
       fun(Name) ->
 	      Plugin = plugin(ServerHost, Name),
@@ -364,22 +364,18 @@ depends(ServerHost, Opts) ->
 %% <em>node_plugin</em>. The 'node_' prefix is mandatory.</p>
 %% <p>See {@link node_hometree:init/1} for an example implementation.</p>
 init_plugins(Host, ServerHost, Opts) ->
-    TreePlugin = tree(Host, gen_mod:get_opt(nodetree, Opts, ?STDTREE)),
+    TreePlugin = tree(Host, gen_mod:get_opt(nodetree, Opts)),
     ?DEBUG("** tree plugin is ~p", [TreePlugin]),
     TreePlugin:init(Host, ServerHost, Opts),
-    Plugins = gen_mod:get_opt(plugins, Opts, [?STDNODE]),
-    PepMapping = gen_mod:get_opt(pep_mapping, Opts, []),
+    Plugins = gen_mod:get_opt(plugins, Opts),
+    PepMapping = gen_mod:get_opt(pep_mapping, Opts),
     ?DEBUG("** PEP Mapping : ~p~n", [PepMapping]),
     PluginsOK = lists:foldl(
 	    fun (Name, Acc) ->
 		    Plugin = plugin(Host, Name),
-		    case catch apply(Plugin, init, [Host, ServerHost, Opts]) of
-			{'EXIT', _Error} ->
-			    Acc;
-			_ ->
-			    ?DEBUG("** init ~s plugin", [Name]),
-			    [Name | Acc]
-		    end
+		    apply(Plugin, init, [Host, ServerHost, Opts]),
+		    ?DEBUG("** init ~s plugin", [Name]),
+		    [Name | Acc]
 	    end,
 	    [], Plugins),
     {lists:reverse(PluginsOK), TreePlugin, PepMapping}.
@@ -604,22 +600,17 @@ on_user_offline(C2SState, _Reason) ->
 %% subscription hooks handling functions
 %%
 
--spec out_subscription(
-	binary(), binary(), jid(),
-	subscribed | unsubscribed | subscribe | unsubscribe) -> boolean().
-out_subscription(User, Server, To, subscribed) ->
-    send_last_pep(jid:make(User, Server), To),
-    true;
-out_subscription(_, _, _, _) ->
-    true.
+-spec out_subscription(presence()) -> any().
+out_subscription(#presence{type = subscribed, from = From, to = To}) ->
+    send_last_pep(jid:remove_resource(From), To);
+out_subscription(_) ->
+    ok.
 
--spec in_subscription(boolean(), binary(), binary(), jid(),
-		      subscribe | subscribed | unsubscribe | unsubscribed,
-		      binary()) -> true.
-in_subscription(_, User, Server, Owner, unsubscribed, _) ->
-    unsubscribe_user(jid:make(User, Server), Owner),
+-spec in_subscription(boolean(), presence()) -> true.
+in_subscription(_, #presence{to = To, from = Owner, type = unsubscribed}) ->
+    unsubscribe_user(jid:remove_resource(To), Owner),
     true;
-in_subscription(_, _, _, _, _, _) ->
+in_subscription(_, _) ->
     true.
 
 unsubscribe_user(Entity, Owner) ->
@@ -694,12 +685,17 @@ remove_user(User, Server) ->
 				    ({#pubsub_node{nodeid = {H, N}, type = Type}, owner})
 					    when N == HomeTreeBase, Type == <<"hometree">> ->
 					delete_node(H, N, Entity);
-				    ({#pubsub_node{id = Nidx}, publisher}) ->
+				    ({#pubsub_node{id = Nidx}, _}) ->
+					{result, State} = node_action(Host, PType,
+							get_state,
+							[Nidx, jid:tolower(Entity)]),
+					ItemIds = State#pubsub_state.items,
 					node_action(Host, PType,
-					    set_affiliation,
-					    [Nidx, Entity, none]);
-				    (_) ->
-					ok
+						    remove_extra_items,
+						    [Nidx, 0, ItemIds]),
+					node_action(Host, PType,
+						    set_affiliation,
+						    [Nidx, Entity, none])
 				end,
 				Affs)
 		    end,
@@ -980,8 +976,7 @@ iq_disco_info(ServerHost, Host, SNode, From, Lang) ->
 		 end,
     case Node of
 	<<>> ->
-	    Name = gen_mod:get_module_opt(ServerHost, ?MODULE, name,
-					  ?T("Publish-Subscribe")),
+	    Name = gen_mod:get_module_opt(ServerHost, ?MODULE, name),
 	    {result,
 	     #disco_info{
 		identities = [#identity{
@@ -1113,7 +1108,7 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 		      publish_options = XData, configure = _, _ = undefined}} ->
 	    ServerHost = serverhost(Host),
 	    case Items of
-		[#ps_item{id = ItemId, xml_els = Payload}] ->
+		[#ps_item{id = ItemId, sub_els = Payload}] ->
 		    case decode_publish_options(XData, Lang) of
 			{error, _} = Err ->
 			    Err;
@@ -1122,7 +1117,7 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 					 Payload, PubOpts, Access)
 		    end;
 		[] ->
-		    {error, extended_error(xmpp:err_bad_request(), err_item_required())};
+		    publish_item(Host, ServerHost, Node, From, <<>>, [], [], Access);
 		_ ->
 		    {error, extended_error(xmpp:err_bad_request(), err_invalid_payload())}
 	    end;
@@ -1486,7 +1481,9 @@ create_node(Host, ServerHost, <<>>, Owner, Type, Access, Configuration) ->
     end;
 create_node(Host, ServerHost, Node, Owner, GivenType, Access, Configuration) ->
     Type = select_type(ServerHost, Host, Node, GivenType),
-    NodeOptions = merge_config(Configuration, node_options(Host, Type)),
+    NodeOptions = merge_config(
+		    [node_config(Node, ServerHost),
+		     Configuration, node_options(Host, Type)]),
     CreateNode =
 	fun() ->
 		Parent = case node_call(Host, Type, node_to_path, [Node]) of
@@ -1793,19 +1790,15 @@ publish_item(Host, ServerHost, Node, Publisher, ItemId, Payload, PubOpts, Access
 		PayloadSize > PayloadMaxSize ->
 		    {error, extended_error(xmpp:err_not_acceptable(),
 					   err_payload_too_big())};
-		(PayloadCount == 0) and (Payload == []) ->
-		    {error, extended_error(xmpp:err_bad_request(),
-					   err_payload_required())};
-		(PayloadCount > 1) or (PayloadCount == 0) ->
-		    {error, extended_error(xmpp:err_bad_request(),
-					   err_invalid_payload())};
-		(DeliverPayloads == false) and (PersistItems == false) and
-			(PayloadSize > 0) ->
-		    {error, extended_error(xmpp:err_bad_request(),
-					   err_item_forbidden())};
-		((DeliverPayloads == true) or (PersistItems == true)) and (PayloadSize == 0) ->
+		(DeliverPayloads or PersistItems) and (PayloadCount == 0) ->
 		    {error, extended_error(xmpp:err_bad_request(),
 					   err_item_required())};
+		(DeliverPayloads or PersistItems) and (PayloadCount > 1) ->
+		    {error, extended_error(xmpp:err_bad_request(),
+					   err_invalid_payload())};
+		(not (DeliverPayloads or PersistItems)) and (PayloadCount > 0) ->
+		    {error, extended_error(xmpp:err_bad_request(),
+					   err_item_forbidden())};
 		true ->
 		    node_call(Host, Type, publish_item,
 			[Nidx, Publisher, PublishModel, MaxItems, ItemId, Payload, PubOpts])
@@ -2011,8 +2004,12 @@ get_items(Host, Node, From, SubId, _MaxItems, ItemIds, RSM) ->
 				     Host, From, Owners, AccessModel, AllowedGroups),
 			case ItemIds of
 			    [ItemId] ->
-				node_call(Host, Type, get_item,
-					  [Nidx, ItemId, From, AccessModel, PS, RG, undefined]);
+				case node_call(Host, Type, get_item,
+					       [Nidx, ItemId, From, AccessModel, PS, RG, undefined])
+				of
+				    {error, _} -> {result, {[], undefined}};
+				    Result -> Result
+				end;
 			    _ ->
 				node_call(Host, Type, get_items,
 					  [Nidx, From, AccessModel, PS, RG, SubId, RSM])
@@ -2513,8 +2510,8 @@ get_roster_info(_, _, {<<>>, <<>>, _}, _) ->
     {false, false};
 get_roster_info(OwnerUser, OwnerServer, {SubscriberUser, SubscriberServer, _}, AllowedGroups) ->
     LJID = {SubscriberUser, SubscriberServer, <<>>},
-    {Subscription, Groups} = ejabberd_hooks:run_fold(roster_get_jid_info,
-	    OwnerServer, {none, []},
+    {Subscription, _Ask, Groups} = ejabberd_hooks:run_fold(roster_get_jid_info,
+	    OwnerServer, {none, none, []},
 	    [OwnerUser, OwnerServer, LJID]),
     PresenceSubscription = Subscription == both orelse
 	Subscription == from orelse
@@ -2659,7 +2656,7 @@ broadcast_publish_item(Host, Node, Nidx, Type, NodeOptions, ItemId, From, Payloa
     case get_collection_subscriptions(Host, Node) of
 	SubsByDepth when is_list(SubsByDepth) ->
 	    EventItem0 = case get_option(NodeOptions, deliver_payloads) of
-			     true -> #ps_item{xml_els = Payload, id = ItemId};
+			     true -> #ps_item{sub_els = Payload, id = ItemId};
 			     false -> #ps_item{id = ItemId}
 			 end,
 	    EventItem = case get_option(NodeOptions, itemreply, none) of
@@ -2831,7 +2828,7 @@ get_options_for_subs(Host, Nidx, Subs, true) ->
 
 broadcast_stanza(Host, _Node, _Nidx, _Type, NodeOptions, SubsByDepth, NotifyType, BaseStanza, SHIM) ->
     NotificationType = get_option(NodeOptions, notification_type, headline),
-    BroadcastAll = get_option(NodeOptions, broadcast_all_resources), %% XXX this is not standard, but usefull
+    BroadcastAll = get_option(NodeOptions, broadcast_all_resources), %% XXX this is not standard, but useful
     Stanza = add_message_type(
 	       xmpp:set_from(BaseStanza, service_jid(Host)),
 	       NotificationType),
@@ -3159,6 +3156,20 @@ node_owners_call(Host, Type, Nidx, []) ->
 node_owners_call(_Host, _Type, _Nidx, Owners) ->
     Owners.
 
+node_config(Node, ServerHost) ->
+    Opts = gen_mod:get_module_opt(ServerHost, ?MODULE, force_node_config),
+    node_config(Node, ServerHost, Opts).
+
+node_config(Node, ServerHost, [{RE, Opts}|NodeOpts]) ->
+    case re:run(Node, RE) of
+	{match, _} ->
+	    Opts;
+	nomatch ->
+	    node_config(Node, ServerHost, NodeOpts)
+    end;
+node_config(_, _, []) ->
+    [].
+
 %% @spec (Host, Options) -> MaxItems
 %%         Host = host()
 %%         Options = [Option]
@@ -3221,7 +3232,9 @@ set_configure(Host, Node, From, Config, Lang) ->
 				      [] -> node_options(Host, Type);
 				      _ -> Options
 				  end,
-			NewOpts = merge_config(Config, OldOpts),
+			NewOpts = merge_config(
+				    [node_config(Node, serverhost(Host)),
+				     Config, OldOpts]),
 			case tree_call(Host,
 				       set_node,
 				       [N#pubsub_node{options = NewOpts}]) of
@@ -3244,12 +3257,9 @@ set_configure(Host, Node, From, Config, Lang) ->
 	    Other
     end.
 
--spec merge_config([proplists:property()], [proplists:property()]) -> [proplists:property()].
-merge_config(CustomConfig, DefaultConfig) ->
-    lists:foldl(
-      fun({Opt, Val}, Acc) ->
-	      lists:keystore(Opt, 1, Acc, {Opt, Val})
-      end, DefaultConfig, CustomConfig).
+-spec merge_config([[proplists:property()]]) -> [proplists:property()].
+merge_config(ListOfConfigs) ->
+    lists:ukeysort(1, lists:flatten(ListOfConfigs)).
 
 -spec decode_node_config(undefined | xdata(), binary(), binary()) ->
 				pubsub_node_config:result() |
@@ -3421,7 +3431,7 @@ subscription_plugin(Host) ->
 
 -spec submodule(host(), binary(), binary()) -> atom().
 submodule(Host, Type, Name) ->
-    case gen_mod:db_type(serverhost(Host), ?MODULE) of
+    case gen_mod:get_module_opt(serverhost(Host), ?MODULE, db_type) of
 	mnesia -> ejabberd:module_name([<<"pubsub">>, Type, Name]);
 	Db -> ejabberd:module_name([<<"pubsub">>, Type, Name, misc:atom_to_binary(Db)])
     end.
@@ -3518,17 +3528,17 @@ tree_call({_User, Server, _Resource}, Function, Args) ->
 tree_call(Host, Function, Args) ->
     Tree = tree(Host),
     ?DEBUG("tree_call apply(~s, ~s, ~p) @ ~s", [Tree, Function, Args, Host]),
-    catch apply(Tree, Function, Args).
+    apply(Tree, Function, Args).
 
 tree_action(Host, Function, Args) ->
     ?DEBUG("tree_action ~p ~p ~p", [Host, Function, Args]),
     ServerHost = serverhost(Host),
     Fun = fun () -> tree_call(Host, Function, Args) end,
-    case gen_mod:db_type(ServerHost, ?MODULE) of
+    case gen_mod:get_module_opt(ServerHost, ?MODULE, db_type) of
 	mnesia ->
-	    catch mnesia:sync_dirty(Fun);
+	    mnesia:sync_dirty(Fun);
 	sql ->
-	    case catch ejabberd_sql:sql_bloc(ServerHost, Fun) of
+	    case ejabberd_sql:sql_bloc(ServerHost, Fun) of
 		{atomic, Result} ->
 		    Result;
 		{aborted, Reason} ->
@@ -3536,15 +3546,8 @@ tree_action(Host, Function, Args) ->
 		    ErrTxt = <<"Database failure">>,
 		    {error, xmpp:err_internal_server_error(ErrTxt, ?MYLANG)}
 	    end;
-	Other ->
-	    case catch Fun() of
-		{'EXIT', _} ->
-		    ?ERROR_MSG("unsupported backend: ~p~n", [Other]),
-		    ErrTxt = <<"Database failure">>,
-		    {error, xmpp:err_internal_server_error(ErrTxt, ?MYLANG)};
-		Result ->
-		    Result
-	    end
+	_ ->
+	    Fun()
     end.
 
 %% @doc <p>node plugin call.</p>
@@ -3592,27 +3595,21 @@ transaction(Host, Node, Action, Trans) ->
 
 transaction(Host, Fun, Trans) ->
     ServerHost = serverhost(Host),
-    DBType = gen_mod:db_type(ServerHost, ?MODULE),
-    Retry = case DBType of
-	sql -> 2;
-	_ -> 1
-    end,
-    transaction_retry(Host, ServerHost, Fun, Trans, DBType, Retry).
+    DBType = gen_mod:get_module_opt(ServerHost, ?MODULE, db_type),
+    do_transaction(ServerHost, Fun, Trans, DBType).
 
-transaction_retry(_Host, _ServerHost, _Fun, _Trans, _DBType, 0) ->
-    {error, xmpp:err_internal_server_error(<<"Database failure">>, ?MYLANG)};
-transaction_retry(Host, ServerHost, Fun, Trans, DBType, Count) ->
+do_transaction(ServerHost, Fun, Trans, DBType) ->
     Res = case DBType of
 	mnesia ->
-	    catch mnesia:Trans(Fun);
+	    mnesia:Trans(Fun);
 	sql ->
 	    SqlFun = case Trans of
 		transaction -> sql_transaction;
 		_ -> sql_bloc
 	    end,
-	    catch ejabberd_sql:SqlFun(ServerHost, Fun);
+	    ejabberd_sql:SqlFun(ServerHost, Fun);
 	_ ->
-	    catch Fun()
+	    Fun()
     end,
     case Res of
 	{result, Result} ->
@@ -3625,12 +3622,6 @@ transaction_retry(Host, ServerHost, Fun, Trans, DBType, Count) ->
 	    {error, Error};
 	{aborted, Reason} ->
 	    ?ERROR_MSG("transaction return internal error: ~p~n", [{aborted, Reason}]),
-	    {error, xmpp:err_internal_server_error(<<"Database failure">>, ?MYLANG)};
-	{'EXIT', {timeout, _} = Reason} ->
-	    ?ERROR_MSG("transaction return internal error: ~p~n", [Reason]),
-	    transaction_retry(Host, ServerHost, Fun, Trans, DBType, Count - 1);
-	{'EXIT', Reason} ->
-	    ?ERROR_MSG("transaction return internal error: ~p~n", [{'EXIT', Reason}]),
 	    {error, xmpp:err_internal_server_error(<<"Database failure">>, ?MYLANG)};
 	Other ->
 	    ?ERROR_MSG("transaction return internal error: ~p~n", [Other]),
@@ -3743,7 +3734,7 @@ uniqid() ->
 
 -spec itemsEls([#pubsub_item{}]) -> [ps_item()].
 itemsEls(Items) ->
-    [#ps_item{id = ItemId, xml_els = Payload}
+    [#ps_item{id = ItemId, sub_els = Payload}
      || #pubsub_item{itemid = {ItemId, _}, payload = Payload} <- Items].
 
 -spec add_message_type(message(), message_type()) -> message().
@@ -3861,13 +3852,23 @@ mod_opt_type(hosts) ->
     fun (L) -> lists:map(fun iolist_to_binary/1, L) end;
 mod_opt_type(ignore_pep_from_offline) ->
     fun (A) when is_boolean(A) -> A end;
-mod_opt_type(iqdisc) -> fun gen_iq_handler:check_type/1;
 mod_opt_type(last_item_cache) ->
     fun (A) when is_boolean(A) -> A end;
 mod_opt_type(max_items_node) ->
     fun (A) when is_integer(A) andalso A >= 0 -> A end;
 mod_opt_type(max_subscriptions_node) ->
-    fun (A) when is_integer(A) andalso A >= 0 -> A end;
+    fun(A) when is_integer(A) andalso A >= 0 -> A;
+       (undefined) -> undefined
+    end;
+mod_opt_type(force_node_config) ->
+    fun(NodeOpts) ->
+	    lists:map(
+	      fun({Node, Opts}) ->
+		      {ok, RE} = re:compile(
+				   ejabberd_regexp:sh_to_awk(Node)),
+		      {RE, lists:keysort(1, Opts)}
+	      end, NodeOpts)
+    end;
 mod_opt_type(default_node_config) ->
     fun (A) when is_list(A) -> A end;
 mod_opt_type(nodetree) ->
@@ -3875,9 +3876,20 @@ mod_opt_type(nodetree) ->
 mod_opt_type(pep_mapping) ->
     fun (A) when is_list(A) -> A end;
 mod_opt_type(plugins) ->
-    fun (A) when is_list(A) -> A end;
-mod_opt_type(_) ->
-    [access_createnode, db_type, host, hosts, name,
-     ignore_pep_from_offline, iqdisc, last_item_cache,
-     max_items_node, nodetree, pep_mapping, plugins,
-     max_subscriptions_node, default_node_config].
+    fun (A) when is_list(A) -> A end.
+
+mod_options(Host) ->
+    [{access_createnode, all},
+     {db_type, ejabberd_config:default_db(Host, ?MODULE)},
+     {host, <<"pubsub.@HOST@">>},
+     {hosts, []},
+     {name, ?T("Publish-Subscribe")},
+     {ignore_pep_from_offline, true},
+     {last_item_cache, false},
+     {max_items_node, ?MAXITEMS},
+     {nodetree, ?STDTREE},
+     {pep_mapping, []},
+     {plugins, [?STDNODE]},
+     {max_subscriptions_node, undefined},
+     {default_node_config, []},
+     {force_node_config, []}].

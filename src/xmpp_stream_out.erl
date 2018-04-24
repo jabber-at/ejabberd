@@ -244,6 +244,7 @@ init([Mod, _SockMod, From, To, Opts]) ->
 	      lang => <<"">>,
 	      remote_server => To,
 	      xmlns => ?NS_SERVER,
+	      codec_options => [ignore_els],
 	      stream_direction => out,
 	      stream_timeout => {timer:seconds(30), Time},
 	      stream_id => new_id(),
@@ -347,9 +348,9 @@ handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
 	      send_pkt(State1, Err)
       end);
 handle_info({'$gen_event', {xmlstreamelement, El}},
-	    #{xmlns := NS, mod := Mod} = State) ->
+	    #{xmlns := NS, mod := Mod, codec_options := Opts} = State) ->
     noreply(
-      try xmpp:decode(El, NS, [ignore_els]) of
+      try xmpp:decode(El, NS, Opts) of
 	  Pkt ->
 	      State1 = try Mod:handle_recv(El, Pkt, State)
 		       catch _:undef -> State
@@ -376,11 +377,12 @@ handle_info({'$gen_event', {xmlstreamend, _}}, State) ->
     noreply(process_stream_end({stream, reset}, State));
 handle_info({'$gen_event', closed}, State) ->
     noreply(process_stream_end({socket, closed}, State));
-handle_info(timeout, #{mod := Mod} = State) ->
+handle_info(timeout, #{mod := Mod, lang := Lang} = State) ->
     Disconnected = is_disconnected(State),
     noreply(try Mod:handle_timeout(State)
 	    catch _:undef when not Disconnected ->
-		    send_pkt(State, xmpp:serr_connection_timeout());
+		    Txt = <<"Idle connection">>,
+		    send_pkt(State, xmpp:serr_connection_timeout(Txt, Lang));
 		  _:undef ->
 		    stop(State)
 	    end);
@@ -561,8 +563,10 @@ process_features(StreamFeatures,
 				#sasl_mechanisms{list = Mechs} ->
 				    process_sasl_mechanisms(Mechs, State2);
 				false ->
-				    process_sasl_failure(
-				      <<"Peer provided no SASL mechanisms">>, State2)
+				    Txt = <<"Peer provided no SASL mechanisms; "
+					    "most likely it doesn't accept "
+					    "our certificate">>,
+				    process_sasl_failure(Txt, State2)
 			    catch _:{xmpp_codec, Why} ->
 				    Txt = xmpp:io_format_error(Why),
 				    process_sasl_failure(Txt, State1)

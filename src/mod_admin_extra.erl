@@ -30,7 +30,7 @@
 
 -include("logger.hrl").
 
--export([start/2, stop/1, reload/3, mod_opt_type/1,
+-export([start/2, stop/1, reload/3, mod_options/1,
 	 get_commands_spec/0, depends/2]).
 
 % Commands API
@@ -59,6 +59,7 @@
 	 add_rosteritem/7, delete_rosteritem/4,
 	 process_rosteritems/5, get_roster/2, push_roster/3,
 	 push_roster_all/1, push_alltoall/2,
+	 push_roster_item/5, build_roster_item/3,
 
 	 % Private storage
 	 private_get/4, private_set/3,
@@ -224,7 +225,7 @@ get_commands_spec() ->
 			result_desc = "Status code: 0 on success, 1 otherwise"},
      #ejabberd_commands{name = check_password_hash, tags = [accounts],
 			desc = "Check if the password hash is correct",
-			longdesc = "Allowed hash methods: md5, sha.",
+			longdesc = "Allows hash methods from crypto application",
 			module = ?MODULE, function = check_password_hash,
 			args = [{user, binary}, {host, binary}, {passwordhash, binary},
 				{hashmethod, binary}],
@@ -785,24 +786,23 @@ get_cookie() ->
 restart_module(Host, Module) when is_binary(Module) ->
     restart_module(Host, misc:binary_to_atom(Module));
 restart_module(Host, Module) when is_atom(Module) ->
-    List = gen_mod:loaded_modules_with_opts(Host),
-    case proplists:get_value(Module, List) of
-	undefined ->
+    case gen_mod:is_loaded(Host, Module) of
+	false ->
 	    % not a running module, force code reload anyway
 	    code:purge(Module),
 	    code:delete(Module),
 	    code:load_file(Module),
 	    1;
-	Opts ->
+	true ->
 	    gen_mod:stop_module(Host, Module),
 	    case code:soft_purge(Module) of
 		true ->
 		    code:delete(Module),
 		    code:load_file(Module),
-		    gen_mod:start_module(Host, Module, Opts),
+		    gen_mod:start_module(Host, Module),
 		    0;
 		false ->
-		    gen_mod:start_module(Host, Module, Opts),
+		    gen_mod:start_module(Host, Module),
 		    2
 	    end
     end.
@@ -821,13 +821,15 @@ check_password(User, Host, Password) ->
 %% Copied some code from ejabberd_commands.erl
 check_password_hash(User, Host, PasswordHash, HashMethod) ->
     AccountPass = ejabberd_auth:get_password_s(User, Host),
-    AccountPassHash = case {AccountPass, HashMethod} of
+    Methods = lists:map(fun(A) -> atom_to_binary(A, latin1) end,
+                   proplists:get_value(hashs, crypto:supports())),
+    MethodAllowed = lists:member(HashMethod, Methods),
+    AccountPassHash = case {AccountPass, MethodAllowed} of
 			  {A, _} when is_tuple(A) -> scrammed;
-			  {_, <<"md5">>} -> get_md5(AccountPass);
-			  {_, <<"sha">>} -> get_sha(AccountPass);
-			  {_, Method} ->
+			  {_, true} -> get_hash(AccountPass, HashMethod);
+			  {_, false} ->
 			      ?ERROR_MSG("check_password_hash called "
-					 "with hash method: ~p", [Method]),
+					 "with hash method: ~p", [HashMethod]),
 			      undefined
 		      end,
     case AccountPassHash of
@@ -838,15 +840,14 @@ check_password_hash(User, Host, PasswordHash, HashMethod) ->
 	PasswordHash -> ok;
 	_ -> false
     end.
-get_md5(AccountPass) ->
+
+get_hash(AccountPass, Method) ->
     iolist_to_binary([io_lib:format("~2.16.0B", [X])
-                      || X <- binary_to_list(erlang:md5(AccountPass))]).
-get_sha(AccountPass) ->
-    iolist_to_binary([io_lib:format("~2.16.0B", [X])
-		      || X <- binary_to_list(crypto:hash(sha, AccountPass))]).
+          || X <- binary_to_list(
+              crypto:hash(binary_to_atom(Method, latin1), AccountPass))]).
 
 num_active_users(Host, Days) ->
-    DB_Type = gen_mod:db_type(Host, mod_last),
+    DB_Type = gen_mod:get_module_opt(Host, mod_last, db_type),
     list_last_activity(Host, true, Days, DB_Type).
 
 %% Code based on ejabberd/src/web/ejabberd_web_admin.erl
@@ -1025,7 +1026,7 @@ get_status_list(Host, Status_required) ->
     Sessions2 = [ {Session#session.usr, Session#session.sid, Session#session.priority} || Session <- Sessions],
     Fhost = case Host of
 		<<"all">> ->
-		    %% All hosts are requested, so dont filter at all
+		    %% All hosts are requested, so don't filter at all
 		    fun(_, _) -> true end;
 		_ ->
 		    %% Filter the list, only Host is interesting
@@ -1461,7 +1462,7 @@ private_get(Username, Host, Element, Ns) ->
     ElementXml = #xmlel{name = Element, attrs = [{<<"xmlns">>, Ns}]},
     Els = mod_private:get_data(jid:nodeprep(Username), jid:nameprep(Host),
 			       [{Ns, ElementXml}]),
-    binary_to_list(fxml:element_to_binary(xmpp:encode(#private{xml_els = Els}))).
+    binary_to_list(fxml:element_to_binary(xmpp:encode(#private{sub_els = Els}))).
 
 private_set(Username, Host, ElementString) ->
     case fxml_stream:parse_element(ElementString) of
@@ -1506,11 +1507,12 @@ srg_get_info(Group, Host) ->
 	Os when is_list(Os) -> Os;
 	error -> []
     end,
-    [{misc:atom_to_binary(Title), btl(Value)} || {Title, Value} <- Opts].
+    [{misc:atom_to_binary(Title), to_list(Value)} || {Title, Value} <- Opts].
 
-btl([]) -> [];
-btl([B|L]) -> [btl(B)|btl(L)];
-btl(B) -> binary_to_list(B).
+to_list([]) -> [];
+to_list([H|T]) -> [to_list(H)|to_list(T)];
+to_list(E) when is_atom(E) -> atom_to_list(E);
+to_list(E) -> binary_to_list(E).
 
 srg_get_members(Group, Host) ->
     Members = mod_shared_roster:get_group_explicit_users(Host,Group),
@@ -1549,7 +1551,8 @@ send_stanza(FromString, ToString, Stanza) ->
 	#xmlel{} = El = fxml_stream:parse_element(Stanza),
 	From = jid:decode(FromString),
 	To = jid:decode(ToString),
-	Pkt = xmpp:decode(El, ?NS_CLIENT, [ignore_els]),
+	CodecOpts = ejabberd_config:codec_options(From#jid.lserver),
+	Pkt = xmpp:decode(El, ?NS_CLIENT, CodecOpts),
 	ejabberd_router:route(xmpp:set_from_to(Pkt, From, To))
     catch _:{xmpp_codec, Why} ->
 	    io:format("incorrect stanza: ~s~n", [xmpp:format_error(Why)]),
@@ -1761,4 +1764,4 @@ is_glob_match(String, <<"!", Glob/binary>>) ->
 is_glob_match(String, Glob) ->
     is_regexp_match(String, ejabberd_regexp:sh_to_awk(Glob)).
 
-mod_opt_type(_) -> [].
+mod_options(_) -> [].

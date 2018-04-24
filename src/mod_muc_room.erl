@@ -37,7 +37,9 @@
 	 get_role/2,
 	 get_affiliation/2,
 	 is_occupant_or_admin/2,
-	 route/2]).
+	 route/2,
+	 expand_opts/1,
+	 config_fields/0]).
 
 %% gen_fsm callbacks
 -export([init/1,
@@ -164,8 +166,8 @@ normal_state({route, <<"">>,
 	    Now = p1_time_compat:system_time(micro_seconds),
 	    MinMessageInterval = trunc(gen_mod:get_module_opt(
 					 StateData#state.server_host,
-					 mod_muc, min_message_interval,
-					 0) * 1000000),
+					 mod_muc, min_message_interval)
+				       * 1000000),
 	    Size = element_size(Packet),
 	    {MessageShaper, MessageShaperInterval} =
 		shaper:update(Activity#activity.message_shaper, Size),
@@ -346,8 +348,8 @@ normal_state({route, Nick, #presence{from = From} = Packet}, StateData) ->
     Now = p1_time_compat:system_time(micro_seconds),
     MinPresenceInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
-				     mod_muc, min_presence_interval,
-                                     0) * 1000000),
+				     mod_muc, min_presence_interval)
+	      * 1000000),
     if (Now >= Activity#activity.presence_time + MinPresenceInterval)
        and (Activity#activity.presence == undefined) ->
 	    NewActivity = Activity#activity{presence_time = Now},
@@ -506,7 +508,7 @@ handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
 
 handle_sync_event({get_disco_item, Filter, JID, Lang}, _From, StateName, StateData) ->
-    Len = ?DICT:size(StateData#state.users),
+    Len = ?DICT:size(StateData#state.nicks),
     Reply = case (Filter == all) or (Filter == Len) or ((Filter /= 0) and (Len /= 0)) of
 	true ->
 	    get_roomdesc_reply(JID, StateData,
@@ -1421,30 +1423,28 @@ get_max_users(StateData) ->
 -spec get_service_max_users(state()) -> pos_integer().
 get_service_max_users(StateData) ->
     gen_mod:get_module_opt(StateData#state.server_host,
-			   mod_muc, max_users,
-                           ?MAX_USERS_DEFAULT).
+			   mod_muc, max_users).
 
 -spec get_max_users_admin_threshold(state()) -> pos_integer().
 get_max_users_admin_threshold(StateData) ->
     gen_mod:get_module_opt(StateData#state.server_host,
-			   mod_muc, max_users_admin_threshold,
-                           5).
+			   mod_muc, max_users_admin_threshold).
 
 -spec room_queue_new(binary(), shaper:shaper(), _) -> p1_queue:queue().
 room_queue_new(ServerHost, Shaper, QueueType) ->
     HaveRoomShaper = Shaper /= none,
     HaveMessageShaper = gen_mod:get_module_opt(
-			  ServerHost, mod_muc, user_message_shaper,
-			  none) /= none,
+			  ServerHost, mod_muc,
+			  user_message_shaper) /= none,
     HavePresenceShaper = gen_mod:get_module_opt(
-			   ServerHost, mod_muc, user_presence_shaper,
-			   none) /= none,
+			   ServerHost, mod_muc,
+			   user_presence_shaper) /= none,
     HaveMinMessageInterval = gen_mod:get_module_opt(
-			       ServerHost, mod_muc, min_message_interval,
-			       0) /= 0,
+			       ServerHost, mod_muc,
+			       min_message_interval) /= 0,
     HaveMinPresenceInterval = gen_mod:get_module_opt(
-				ServerHost, mod_muc, min_presence_interval,
-				0) /= 0,
+				ServerHost, mod_muc,
+				min_presence_interval) /= 0,
     if HaveRoomShaper or HaveMessageShaper or HavePresenceShaper
        or HaveMinMessageInterval or HaveMinPresenceInterval ->
 	    p1_queue:new(QueueType);
@@ -1461,12 +1461,10 @@ get_user_activity(JID, StateData) ->
       error ->
 	  MessageShaper =
 	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
-						mod_muc, user_message_shaper,
-						none)),
+						mod_muc, user_message_shaper)),
 	  PresenceShaper =
 	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
-						mod_muc, user_presence_shaper,
-						none)),
+						mod_muc, user_presence_shaper)),
 	  #activity{message_shaper = MessageShaper,
 		    presence_shaper = PresenceShaper}
     end.
@@ -1475,12 +1473,12 @@ get_user_activity(JID, StateData) ->
 store_user_activity(JID, UserActivity, StateData) ->
     MinMessageInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
-				     mod_muc, min_message_interval,
-				     0) * 1000),
+				     mod_muc, min_message_interval)
+	      * 1000),
     MinPresenceInterval =
 	trunc(gen_mod:get_module_opt(StateData#state.server_host,
-				     mod_muc, min_presence_interval,
-				     0) * 1000),
+				     mod_muc, min_presence_interval)
+	      * 1000),
     Key = jid:tolower(JID),
     Now = p1_time_compat:system_time(micro_seconds),
     Activity1 = clean_treap(StateData#state.activity,
@@ -1788,8 +1786,7 @@ add_new_user(From, Nick, Packet, StateData) ->
     NConferences = tab_count_user(From, StateData),
     MaxConferences =
 	gen_mod:get_module_opt(StateData#state.server_host,
-			       mod_muc, max_user_conferences,
-                               10),
+			       mod_muc, max_user_conferences),
     Collision = nick_collision(From, Nick, StateData),
     IsSubscribeRequest = not is_record(Packet, presence),
     case {(ServiceAffiliation == owner orelse
@@ -2060,8 +2057,7 @@ filter_history(Queue, Now, Nick,
 is_room_overcrowded(StateData) ->
     MaxUsersPresence = gen_mod:get_module_opt(
 			 StateData#state.server_host,
-			 mod_muc, max_users_presence,
-			 ?DEFAULT_MAX_USERS_PRESENCE),
+			 mod_muc, max_users_presence),
     (?DICT):size(StateData#state.users) > MaxUsersPresence.
 
 -spec presence_broadcast_allowed(jid(), state()) -> boolean().
@@ -3126,12 +3122,10 @@ is_allowed_room_name_desc_limits(Options, StateData) ->
     RoomDesc = proplists:get_value(roomdesc, Options, <<"">>),
     MaxRoomName = gen_mod:get_module_opt(
 		    StateData#state.server_host,
-		    mod_muc, max_room_name,
-		    infinity),
+		    mod_muc, max_room_name),
     MaxRoomDesc = gen_mod:get_module_opt(
 		    StateData#state.server_host,
-		    mod_muc, max_room_desc,
-		    infinity),
+		    mod_muc, max_room_desc),
     (byte_size(RoomName) =< MaxRoomName)
 	andalso (byte_size(RoomDesc) =< MaxRoomDesc).
 
@@ -3156,8 +3150,7 @@ is_password_settings_correct(Options, StateData) ->
 get_default_room_maxusers(RoomState) ->
     DefRoomOpts =
 	gen_mod:get_module_opt(RoomState#state.server_host,
-			       mod_muc, default_room_options,
-                               []),
+			       mod_muc, default_room_options),
     RoomState2 = set_opts(DefRoomOpts, RoomState),
     (RoomState2#state.config)#config.max_users.
 
@@ -3577,6 +3570,35 @@ make_opts(StateData) ->
      {subject_author, StateData#state.subject_author},
      {subscribers, Subscribers}].
 
+expand_opts(CompactOpts) ->
+    DefConfig = #config{},
+    Fields = record_info(fields, config),
+    {_, Opts1} =
+        lists:foldl(
+          fun(Field, {Pos, Opts}) ->
+                  case lists:keyfind(Field, 1, CompactOpts) of
+                      false ->
+                          DefV = element(Pos, DefConfig),
+                          DefVal = case (?SETS):is_set(DefV) of
+                                       true -> (?SETS):to_list(DefV);
+                                       false -> DefV
+                                   end,
+                          {Pos+1, [{Field, DefVal}|Opts]};
+                      {_, Val} ->
+                          {Pos+1, [{Field, Val}|Opts]}
+                  end
+          end, {2, []}, Fields),
+    SubjectAuthor = proplists:get_value(subject_author, CompactOpts, <<"">>),
+    Subject = proplists:get_value(subject, CompactOpts, <<"">>),
+    Subscribers = proplists:get_value(subscribers, CompactOpts, []),
+    [{subject, Subject},
+     {subject_author, SubjectAuthor},
+     {subscribers, Subscribers}
+     | lists:reverse(Opts1)].
+
+config_fields() ->
+    [subject, subject_author, subscribers | record_info(fields, config)].
+
 -spec destroy_room(muc_destroy(), state()) -> {result, undefined, stop}.
 destroy_room(DEl, StateData) ->
     Destroy = DEl#muc_destroy{xmlns = ?NS_MUC_USER},
@@ -3651,7 +3673,7 @@ process_iq_disco_info(_From, #iq{type = get, lang = Lang}, StateData) ->
 -spec iq_disco_info_extras(binary(), state()) -> xdata().
 iq_disco_info_extras(Lang, StateData) ->
     Fs1 = [{description, (StateData#state.config)#config.description},
-	   {occupants, ?DICT:size(StateData#state.users)},
+	   {occupants, ?DICT:size(StateData#state.nicks)},
 	   {contactjid, get_owners(StateData)}],
     Fs2 = case (StateData#state.config)#config.pubsub of
 	      Node when is_binary(Node), Node /= <<"">> ->
@@ -3884,20 +3906,18 @@ get_roomdesc_tail(StateData, Lang) ->
 	     true -> <<"">>;
 	     _ -> translate:translate(Lang, <<"private, ">>)
 	   end,
-    Len = (?DICT):size(StateData#state.users),
+    Len = (?DICT):size(StateData#state.nicks),
     <<" (", Desc/binary, (integer_to_binary(Len))/binary, ")">>.
 
 -spec get_mucroom_disco_items(state()) -> disco_items().
 get_mucroom_disco_items(StateData) ->
-    Items = lists:map(
-	      fun({_LJID, Info}) ->
-		      Nick = Info#user.nick,
-		      #disco_item{jid = jid:make(StateData#state.room,
-						 StateData#state.host,
-						 Nick),
-				  name = Nick}
-	      end,
-	      (?DICT):to_list(StateData#state.users)),
+    Items = ?DICT:fold(
+	       fun(Nick, _, Acc) ->
+		       [#disco_item{jid = jid:make(StateData#state.room,
+						   StateData#state.host,
+						   Nick),
+				    name = Nick}|Acc]
+	       end, [], StateData#state.nicks),
     #disco_items{items = Items}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4111,7 +4131,7 @@ send_subscriptions_change_notifications(From, Nick, Type, State) ->
 					node = ?NS_MUCSUB_NODES_SUBSCRIBERS,
 					items = [#ps_item{
 					    id = randoms:get_string(),
-					    xml_els = [xmpp:encode(Payload)]}]}}]},
+					    sub_els = [Payload]}]}}]},
 			    ejabberd_router:route(xmpp:set_from_to(Packet, From, JID));
 			false ->
 			    ok
@@ -4147,14 +4167,14 @@ send_wrapped(From, To, Packet, Node, State) ->
 
 -spec wrap(jid(), jid(), stanza(), binary()) -> message().
 wrap(From, To, Packet, Node) ->
-    El = xmpp:encode(xmpp:set_from_to(Packet, From, To)),
+    El = xmpp:set_from_to(Packet, From, To),
     #message{
        sub_els = [#ps_event{
 		     items = #ps_items{
 				node = Node,
 				items = [#ps_item{
 					    id = randoms:get_string(),
-					    xml_els = [El]}]}}]}.
+					    sub_els = [El]}]}}]}.
 
 %% -spec send_multiple(jid(), binary(), [#user{}], stanza()) -> ok.
 %% send_multiple(From, Server, Users, Packet) ->
