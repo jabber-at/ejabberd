@@ -20,7 +20,14 @@ Table of contents
 1. Running
 ==========
 
-1.1. Using privileged TCP ports
+1.1. Getting started
+--------------------
+
+For a quick start, simply execute `dpkg-reconfigure ejabberd` and fill out the
+prompts according to your wishes.
+
+
+1.2. Using privileged TCP ports
 -------------------------------
 
 The ejabberd daemon which is run in init.d script is owned by user ejabberd,
@@ -45,17 +52,18 @@ port 5222 (the default XMPP port) by a firewall rule. For example:
 iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 5222
 
 
-1.2. Custom options for Erlang emulator
+1.3. Custom options for Erlang emulator
 ---------------------------------------
 
 You can add extra options to the erl command line like
 
   -pa /usr/local/lib/ejabberd/ebin
 
-by adding them to ERL_OPTIONS in /etc/default/ejabberd.
+by adding them to ERL_OPTIONS in /etc/default/ejabberd directly or through
+executing `dpkg-reconfigure ejabberd`.
 
 
-1.3. Backups
+1.4. Backups
 ------------
 
 The package always makes a backup of the ejabberd database if it's running
@@ -63,7 +71,7 @@ when it is upgraded or removed. The backup files are stored in the
 /var/backups/ejabberd-<timestamp>.* directory.
 
 
-1.4. Using IPv6
+1.5. Using IPv6
 ---------------
 
 Since ejabberd 14.07-2, IPv6 is enabled by default, as it is for the Debian kernel.
@@ -74,7 +82,7 @@ If you want to go back to IPv4 only, replace
 for all listeners in ejabberd.yml.
 
 
-1.5. Using captcha
+1.6. Using captcha
 ------------------
 
 The captcha generation script uses the "convert" program from the "imagemagick"
@@ -90,18 +98,20 @@ with that of imagemagick.
 2. Hostname issues
 ===================
 
-The Mnesia database used by ejabberd is tightly bound to the hostname it runs on.
-Special care is needed if for some reason the hostname changes.
+Since ejabberd 17.08-1, the default ERLANG_NODE name is ejabberd@localhost,
+which makes it easy to relocate ejabberd to a different host.
 
-In that case, please read the ejabberd Installation and Operation Guide,
-chapter 4.5 "Change Computer Hostname", which can be found as PDF and HTML in
-/usr/share/doc/ejabberd/.
+In earlier versions the Mnesia database used by ejabberd was tightly bound to
+the hostname because the ERLANG_NODE name was ejabberd@<hostname>.
+Here, special care is needed if for some reason the hostname changes.
+
+Further information can be found in /usr/share/doc/ejabberd/NEWS.Debian.gz.
 
 
 3. PAM authentication
 =======================
 
-Ejabberd uses the "epam" binary from the erlang-p1-pam package as a helper
+ejabberd uses the "epam" binary from the erlang-p1-pam package as a helper
 program to perform PAM authentication.
 Depending on the PAM plugins used, the process accessing these plugins
 might have to be run with elevated privileges. The official ejabberd
@@ -187,10 +197,11 @@ Server as a database backend is via ODBC (and the FreeTDS ODBC driver).
 5. External modules
 ===================
 
-Some 3rd-party modules from https://github.com/processone/ejabberd-contrib
-are available through the ejabberd-contrib package. It only includes
-selected modules from the github repository, if you need more, please
-contact the package maintainer.
+Several 3rd-party modules from https://github.com/processone/ejabberd-contrib
+are available through the ejabberd-contrib package or individually as
+ejabberd-mod-<module name>.
+Not all modules from the github repository are currently packaged,
+if you need more, please contact the package maintainer.
 
 If you want to develop your own module, the ejabberd-contrib repository is
 the best place to start. Please see the Readme.md or scroll downwards on
@@ -203,107 +214,15 @@ in which the Erlang emulator running ejabberd looks for compiled
 files.
 The best way to handle external modules is to maintain a special directory
 for them under "/usr/local", e.g. "/usr/local/lib/ejabberd/ebin".
-To make Erlang emulator know about this directory, add an appropriate
-option to the ERL_OPTIONS variable in the "/etc/default/ejabberd" file.
-For the location proposed, you will probably want to add
-
-  -pa /usr/local/lib/ejabberd/ebin
-
-to that variable. See the erl(1) manual page for more info on the "-pa"
-Erlang emnulator command line option.
+To make Erlang emulator know about this directory, see 1.3. 
+See the erl(1) manual page for more info on the "-pa" Erlang emnulator
+command line option.
 
 
-6. Upgrading from 2.0.x series
-==============================
+6. Upgrading from earlier versions
+==================================
 
-Certain changes were made in version 2.1.0 which are incompatible with
-2.0.x series packaged in Debian.
-
-While upgrading of the database should occur fully automatically,
-there are changes in the infrastructure, which you might need to
-take into account,
-
-6.1 Changes in ejabberdctl program
-----------------------------------
-
-1) The calling format of the ejabberdctl program was changed:
-   a special prefix "vhost HOSTNAME" which selected operation on the
-   specified virtual host was dropped; now previously vhost-specific
-   commands gained one extra argument specifying a virtual host
-   (such as "ban-users") or come in pairs, such as "delete-old-users"
-   with "delete-old-users-vhost".
-
-2) Some ejabberdctl commands were renamed (see below).
-
-3) ejabberd in Debian was shipped with the mod_ctlextra module which
-   provided several advanced commands for the ejabberdctl program.
-   mod_ctlextra is not supported since 2.1.0 anymore and so it was replaced
-   my its successor, mod_admin_extra. This resulted in renaming of several
-   commands previously provided by mod_ctlextra.
-
-   Note that for mod_admin_extra module to be loaded, it must be mentioned
-   in the appropriate section of the ejabberd configuration file.
-   As this file is not upgraded automatically, make sure you have replaced
-   the request to load mod_ctlextra with the request to load mod_admin_extra.
-   Refer to the ejabberdctl(8) manual page for more details.
-
-The summary of changes in ejabberdctl commands is given below.
-
-Renamed:
-  "set-password" to "change-password";
-  "delete-older-messages" to "delete-old-messages";
-  "delete-older-users" to "delete-old-users";
-  "rem-rosteritem" to "delete-rosteritem";
-  "killsession" to "kick-session";
-
-Renamed and calling convention changed:
-  "vcard-get" to "get-vcard" and "get-vcard2";
-  "vcard-set" to "set-vcard" and "set-vcard2";
-
-Deleted:
-  "rosteritem-purge"
-
-Virtual-host specific commands which now accept a virtual host
-to operate on as their extra argument:
-  "ban-account"
-  "num-active-users"
-  "registered-users"
-
-4) The ejabberdctl program was changed not to generate unique node names
-   by default for the Erlang process it starts; to enable generation
-   of unique node names you now has to pass the "--concurrent" command-line
-   option to the ejabberdctl program.
-
-   This was made to prevent overflows of atom table in the ejabberd process
-   which may occur if ejabberdctl is started many times during the ejabberd
-   process lifetime, which is not uncommon on some high-profile sites.
-   Now, ejabberdctl assumes you take care of ensuring all invocations of
-   ejabberdctl are done in a sequence and uses constant names for the nodes
-   of the Erlang processes it starts.
-
-   If you can not (or don't want to) guarantee sequential invocations,
-   pass the "--concurrent" command-line option to the ejabberdctl program.
-   In this case, it will append the PID of the shell process executing the
-   ejabberdctl code to the node name of the Erlang process ejabberdctl starts.
-   This will inevitably grow the ejabberd process's atom table but the maximum
-   theoretical number of the entries added will be no more than twice the
-   maximum number of unique PIDs configured for the system (kernel.pid_max
-   sysctl variable).
-
-   See http://lists.jabber.ru/pipermail/ejabberd/2009-September/005337.html
-   and http://lists.jabber.ru/pipermail/ejabberd/2009-November/005456.html
-   threads for more info on this issue.
-
-6.2 Changes in logging
-----------------------
-
-Erlang emulator log was renamed from "sasl.log" to "erlang.log"
-to remove confusion (some people interpreted "sasl" as standing for
-"Simple Authentication and Security Layer" instead of Erlang runtime's
-logging mechanism).
-
-The "--sasl-log" command-line option of the ejabberd program was renamed
-to "--erlang-log" to match the change above.
+See https://docs.ejabberd.im/admin/upgrade/.
 
 
 7. Using SCRAM-SHA-1 authentication mechanism
@@ -342,7 +261,7 @@ just use the domain name in the indicated case.
 It should be noted that while certain clients faithfully implement the
 SCRAM-SHA-1 specification, some other clients diverge and use the XMPP
 domain instead of the fully-qualified hostname of the server in the
-digest URI strings they send.  Ejabberd implements relaxed rules for
+digest URI strings they send.  ejabberd implements relaxed rules for
 interpreting digest URIs to be interoperable with broken client
 implementations.
 
@@ -355,4 +274,4 @@ Sergei Golovan <sgolovan@debian.org>
 Konstantin Khomoutov <flatworm@users.sourceforge.net>
 Philipp Huebner <debalance@debian.org>
 
-Thu, 18 Feb 2016 08:24:33 +0100
+Thu, 10 May 2018 17:28:33 +0200

@@ -3,7 +3,9 @@ ejabberd (1:18.04-1) unstable; urgency=low
   * New upstream release.
   * Merge changes from upstream package
 
-    * Merge AppArmor config
+    * Merge AppArmor config.
+    * Update French translation.
+    * Update README.Debian.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 26 May 2018 12:39:03 +0200
 

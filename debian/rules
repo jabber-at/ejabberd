@@ -8,14 +8,15 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 
 
 %:
-	dh $@ --with=systemd
+	dh $@
 
 
 .PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
+	sed -i 's/$(DEB_VERSION_UPSTREAM)/$(DEB_VERSION)/' configure
+	sed -i 's/VERSION/$(DEB_VERSION)/' debian/ejabberd.lintian-overrides
 	dh_auto_configure -- \
-		--enable-graphics \
 		--enable-iconv \
 		--enable-mysql \
 		--enable-odbc \
@@ -31,27 +32,31 @@ override_dh_auto_configure:
 override_dh_auto_install:
 	dh_auto_install
 	
+	# symlink version
+	ln -s ejabberd-$(DEB_VERSION) $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)
+	
 	# install init script and service file
 	install -m 755 $(CURDIR)/ejabberd.init $(CURDIR)/debian/
 	install -m 644 $(CURDIR)/ejabberd.service.template $(CURDIR)/debian/ejabberd.service
 	
-	# ejabberd.yml is generated from the template through debconf
+	# ejabberd.yml is generated from the template through debconf and installed as /etc/ejabberd/ejabberd.yml
 	rm $(DESTDIR)/etc/ejabberd/ejabberd.yml
 	install -m 644 ejabberd.yml.example $(DESTDIR)/usr/share/ejabberd/ejabberd.yml.example
 	
-	# install ejabberdctl.cfg in /usr/share/ejabberd
+	# ejabberdctl.cfg is generated from the template through debconf and installed as /etc/default/ejabberd
+	rm $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
 	install -m 644 ejabberdctl.cfg.example $(DESTDIR)/usr/share/ejabberd/ejabberdctl.cfg.example
 	
 	# set up /etc/ejabberd/modules.d
 	cp -v $(CURDIR)/debian/README.modules $(DESTDIR)/etc/ejabberd/modules.d/
 	
-	# ejabberdctl.cfg goes into /etc/default/
-	mv $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg $(DESTDIR)/etc/default/ejabberd
-	ln -s ../default/ejabberd $(DESTDIR)/etc/ejabberd/ejabberdctl.cfg
-	
 	# move captcha.sh to /usr/share/ejabberd
-	mv -v $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin/captcha.sh $(DESTDIR)/usr/share/ejabberd/
-	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)/priv/bin
+	rm $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION)/priv/bin/captcha.sh
+	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION)/priv/bin
+	install -m 755 tools/captcha.sh $(DESTDIR)/usr/share/ejabberd/
+	
+	# install sql code
+	cp -vr sql $(DESTDIR)/usr/share/ejabberd/
 	
 	# install ufw profile
 	install -m 644 debian/ejabberd.ufw.profile $(DESTDIR)/etc/ufw/applications.d/ejabberd
@@ -88,5 +93,7 @@ override_dh_auto_clean:
 	rm -f Makefile config.log config.status vars.config priv/sql
 	rm -rf .rebar deps ebin include/XmppAddr.hrl src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
 	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example ejabberd.service
+	sed -i 's/$(DEB_VERSION)/$(DEB_VERSION_UPSTREAM)/' configure
+	sed -i 's/$(DEB_VERSION)/VERSION/' debian/ejabberd.lintian-overrides
 	dh_auto_clean
 	debconf-updatepo

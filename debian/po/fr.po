@@ -2,16 +2,20 @@
 # Copyright (C) 2008 Florentin Duneau <fduneau@gmail.com>
 # This file is distributed under the same license as the ejabberd package.
 #
-#
 # Florentin Duneau <f.baced@wanadoo.fr>, 2006.
 # Florentin Duneau <fduneau@gmail.com>, 2008.
 # Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>, 2015, 2017.
+#
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 msgid ""
 msgstr ""
 "Project-Id-Version: ejabberd\n"
 "Report-Msgid-Bugs-To: ejabberd@packages.debian.org\n"
-"POT-Creation-Date: 2017-11-21 23:34-0500\n"
-"PO-Revision-Date: 2017-09-07 00:47+0100\n"
+"POT-Creation-Date: 2017-12-06 08:27+0100\n"
+"PO-Revision-Date: 2017-11-28 23:31+0100\n"
 "Last-Translator: Jean-Pierre Giraud <jean-pierregiraud@neuf.fr>\n"
 "Language-Team: French <debian-l10n-french@lists.debian.org>\n"
 "Language: fr\n"
@@ -21,10 +25,6 @@ msgstr ""
 "X-Generator: Lokalize 2.0\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-# Note to translators:
-# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
-# any other which may appear in the future. Changes to these variables will
-# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:2001
@@ -48,6 +48,10 @@ msgstr ""
 "devrez le faire manuellement dans /etc/ejabberd/ejabberd.yml après "
 "l'installation."
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -68,6 +72,10 @@ msgstr ""
 "client Jabber ou un navigateur web pointant sur l'interface d'administration "
 "https://${hostname}:5280/admin/."
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: string
 #. Description
 #: ../templates:3001
@@ -149,7 +157,7 @@ msgid ""
 "one previously specified."
 msgstr ""
 "L'identifiant que vous venez d'entrer contient des caractères interdits. "
-"Veuillez respecter la syntaxe de l'identité Jabber (JID)(http://tools.ietf."
+"Veuillez respecter la syntaxe de l'identité Jabber (JID) (http://tools.ietf."
 "org/html/rfc6122#appendix-A.5). Si vous utilisez une identité Jabber "
 "complète (par exemple, user@hostname), le nom d'hôte doit correspondre à "
 "celui que vous avez entré précédemment."
@@ -176,6 +184,10 @@ msgstr ""
 msgid "Invalid preseeded configuration"
 msgstr "Préconfiguration non valable"
 
+# Note to translators:
+# Please do not translate the variables ${hostname}, ${user}, ${preseed}, and
+# any other which may appear in the future. Changes to these variables will
+# break the scripts. Thank you!
 #. Type: error
 #. Description
 #: ../templates:9001
@@ -185,7 +197,7 @@ msgid ""
 msgstr ""
 "Une validation de ${preseed} plus récente est utilisée et a déterminé que le "
 "${preseed} actuellement configuré n'est pas valable ou pas correctement "
-"indiquée."
+"indiqué."
 
 #. Type: error
 #. Description
@@ -197,9 +209,9 @@ msgid ""
 "hostname is changed."
 msgstr ""
 "Si vous souhaitez le corriger, veuillez sauvegarder vos données et exécuter "
-"dpkg-reconfigure ejabberd après la fin de la mise à niveau et notez que tous "
-"les noms d'utilisateur et les bases de données seront perdus ou invalidés si "
-"le nom d'hôte est modifié."
+"dpkg-reconfigure ejabberd après la fin de la mise à niveau, et notez que "
+"tous les noms d'utilisateur et les bases de données seront perdus ou "
+"invalidés si le nom d'hôte est modifié."
 
 #. Type: note
 #. Description
@@ -230,7 +242,7 @@ msgid ""
 msgstr ""
 "Cela peut casser l'installation actuelle, mais peut être facilement corrigé "
 "en modifiant l'option ERLANG_NODE dans /etc/default/ejabberd soit en "
-"revenant à ejabberd soit pour le nom défini manuellement."
+"revenant à ejabberd soit au nom défini manuellement."
 
 #. Type: note
 #. Description
@@ -243,7 +255,7 @@ msgid ""
 "make appropriate backups of the database before attempting this method."
 msgstr ""
 "Un autre moyen de corriger une installation cassée est d'utiliser l'option "
-"« mnesia change nodename » d'ejabberdctl pour modifier le nom de nœud dans "
+"« mnesia_change_nodename » d'ejabberdctl pour modifier le nom de nœud dans "
 "la base de données mnesia. Plus d'informations sur cette méthode se trouvent "
 "dans le guide d'ejabberd (https://docs.ejabberd.im/admin/guide/managing/"
 "#change-computer-hostname). Veuillez faire les sauvegardes appropriées de la "
@@ -256,10 +268,8 @@ msgstr ""
 #. Type: string
 #. Description
 #: ../templates:11001
-#, fuzzy
-#| msgid "Hostname for this Jabber server:"
 msgid "ERL_OPTIONS for this ejabberd server:"
-msgstr "Nom d'hôte du serveur Jabber :"
+msgstr "ERL_OPTIONS pour ce serveur ejabberd :"
 
 #. Type: string
 #. Description
@@ -269,16 +279,7 @@ msgid ""
 "It is also possible to set them by editing /etc/ejabberd/ejabberdctl.cfg. "
 "See the erl(1) man page for more information."
 msgstr ""
-
-#, fuzzy
-#~| msgid ""
-#~| "If you would like to configure multiple hostnames for this server, you "
-#~| "will have to do so manually in /etc/ejabberd/ejabberd.yml after "
-#~| "installation."
-#~ msgid ""
-#~ "If you would like a customized set of options, you may enter it here. You "
-#~ "may also edit /etc/ejabberd/ejabberdctl.cfg later if you desire."
-#~ msgstr ""
-#~ "Si vous souhaitez configurer plusieurs noms d'hôtes pour ce serveur, vous "
-#~ "devrez le faire manuellement dans /etc/ejabberd/ejabberd.yml après "
-#~ "l'installation."
+"Pour exécuter le serveur ejabberd avec des options personnalisées d'Erlang, "
+"veuillez les saisir ici. Il est aussi possible de les définir en éditant le "
+"fichier /etc/ejabberd/ejabberdctl.cfg. Consultez la page de manuel erl(1) "
+"pour plus d'informations."

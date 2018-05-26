@@ -6,9 +6,8 @@ case "$1" in
 	install)
 		# Create /etc/ejabberd if it doesn't already exist
 		mkdir -p /etc/ejabberd
-		# Ejabberd config dir may contain sensitive data, so making it unreadable by
-		# the world.
-		if ! dpkg-statoverride --list /etc/ejabberd >/dev/null; then
+		# ejabberd config dir may contain sensitive data, so making it unreadable by the world.
+		if ! dpkg-statoverride --list /etc/ejabberd > /dev/null; then
 			chmod 750 /etc/ejabberd
 		fi
 
@@ -27,10 +26,8 @@ ejabberd
 root@$EHOSTNAME.$EDOMAINNAME
 +++
 
-		# Ejabberd cert should have appropriate permissions so as to not be readable
-		# by the world.
-		if [ -f /etc/ejabberd/ejabberd.pem ]
-		then
+		# ejabberd cert should have appropriate permissions so as to not be readable by the world.
+		if [ -f /etc/ejabberd/ejabberd.pem ]; then
 			if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem >/dev/null; then
 				chmod 640 /etc/ejabberd/ejabberd.pem
 			fi

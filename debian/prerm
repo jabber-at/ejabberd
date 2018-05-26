@@ -15,16 +15,16 @@ ctl() {
 
 case "$1" in
 	remove|upgrade)
-		if ctl status >/dev/null ; then
+		if ctl status > /dev/null ; then
 			# Use timestamp to make database restoring easier
 			TIME=$(date +%Y-%m-%dT%H:%M:%S)
 			BACKUPDIR=$(mktemp -d -p /var/backups/ "ejabberd-$TIME.XXXXXX")
 			chown ejabberd:ejabberd "$BACKUPDIR"
 			BACKUP=$BACKUPDIR/ejabberd-database
 			ctl backup "$BACKUP"
-			# Change ownership to root:root because ejabberd user might be
-			# removed on package removal.
-			chown -R root:root "$BACKUPDIR"
+			# Change ownership to root:root because ejabberd user might be removed on package removal
+			chown root:root "$BACKUPDIR"
+			chown root:root "$BACKUP"
 			chmod 700 "$BACKUPDIR"
 			echo
 			echo "The ejabberd database has been backed up to $BACKUP."
