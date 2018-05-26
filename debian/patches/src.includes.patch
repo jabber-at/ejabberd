@@ -760,19 +760,6 @@ Index: ejabberd/src/mod_muc_room.erl
  
  -include("mod_muc_room.hrl").
  
-Index: ejabberd/src/mod_multicast.erl
-===================================================================
---- ejabberd.orig/src/mod_multicast.erl
-+++ ejabberd/src/mod_multicast.erl
-@@ -45,7 +45,7 @@
- -include("ejabberd.hrl").
- -include("logger.hrl").
- -include("translate.hrl").
---include("xmpp.hrl").
-+-include_lib("p1_xmpp/include/xmpp.hrl").
- 
- -record(multicastc, {rserver :: binary(),
- 		     response,
 Index: ejabberd/src/mod_offline.erl
 ===================================================================
 --- ejabberd.orig/src/mod_offline.erl
@@ -942,19 +929,6 @@ Index: ejabberd/src/mod_privilege.erl
  
  -record(state, {server_host = <<"">> :: binary(),
  		permissions = dict:new() :: ?TDICT}).
-Index: ejabberd/src/mod_proxy65_service.erl
-===================================================================
---- ejabberd.orig/src/mod_proxy65_service.erl
-+++ ejabberd/src/mod_proxy65_service.erl
-@@ -39,7 +39,7 @@
- 
- -include("ejabberd.hrl").
- -include("logger.hrl").
---include("xmpp.hrl").
-+-include_lib("p1_xmpp/include/xmpp.hrl").
- -include("translate.hrl").
- 
- -define(PROCNAME, ejabberd_mod_proxy65_service).
 Index: ejabberd/src/mod_pubsub.erl
 ===================================================================
 --- ejabberd.orig/src/mod_pubsub.erl
@@ -1560,7 +1534,7 @@ Index: ejabberd/src/mod_sip.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sip.erl
 +++ ejabberd/src/mod_sip.erl
-@@ -52,7 +52,7 @@
+@@ -52,7 +52,7 @@ mod_options(_) ->
  	 locate/1, mod_opt_type/1, mod_options/1, depends/2]).
  
  -include("ejabberd.hrl").
@@ -1751,3 +1725,54 @@ Index: ejabberd/src/xmpp_socket.erl
  -include("logger.hrl").
  
  -type sockmod() :: ejabberd_bosh |
+Index: ejabberd/src/mod_multicast.erl
+===================================================================
+--- ejabberd.orig/src/mod_multicast.erl
++++ ejabberd/src/mod_multicast.erl
+@@ -45,7 +45,7 @@
+ -include("ejabberd.hrl").
+ -include("logger.hrl").
+ -include("translate.hrl").
+--include("xmpp.hrl").
++-include_lib("p1_xmpp/include/xmpp.hrl").
+ 
+ -record(multicastc, {rserver :: binary(),
+ 		     response,
+Index: ejabberd/src/mod_proxy65_service.erl
+===================================================================
+--- ejabberd.orig/src/mod_proxy65_service.erl
++++ ejabberd/src/mod_proxy65_service.erl
+@@ -39,7 +39,7 @@
+ 
+ -include("ejabberd.hrl").
+ -include("logger.hrl").
+--include("xmpp.hrl").
++-include_lib("p1_xmpp/include/xmpp.hrl").
+ -include("translate.hrl").
+ 
+ -define(PROCNAME, ejabberd_mod_proxy65_service).
+Index: ejabberd/test/muc_tests.erl
+===================================================================
+--- ejabberd.orig/test/muc_tests.erl
++++ ejabberd/test/muc_tests.erl
+@@ -31,7 +31,7 @@
+ 		disconnect/1, put_event/2, get_event/1, peer_muc_jid/1,
+ 		my_muc_jid/1, get_features/2, set_opt/3]).
+ -include("suite.hrl").
+--include("jid.hrl").
++-include_lib("p1_xmpp/include/jid.hrl").
+ 
+ %%%===================================================================
+ %%% API
+Index: ejabberd/test/suite.hrl
+===================================================================
+--- ejabberd.orig/test/suite.hrl
++++ ejabberd/test/suite.hrl
+@@ -1,6 +1,6 @@
+ -include_lib("common_test/include/ct.hrl").
+ -include_lib("fast_xml/include/fxml.hrl").
+--include("ns.hrl").
++-include_lib("p1_xmpp/include/ns.hrl").
+ -include("ejabberd.hrl").
+ -include("mod_proxy65.hrl").
+ -include("xmpp_codec.hrl").

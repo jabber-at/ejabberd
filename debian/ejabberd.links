@@ -1,0 +1,4 @@
+/usr/share/ejabberd/captcha.sh /usr/share/doc/ejabberd/examples/captcha.sh
+/usr/share/ejabberd/ejabberdctl.cfg.example /usr/share/doc/ejabberd/examples/ejabberdctl.cfg
+/usr/share/ejabberd/ejabberd.yml.example /usr/share/doc/ejabberd/examples/ejabberd.yml
+/etc/default/ejabberd /etc/ejabberd/ejabberdctl.cfg

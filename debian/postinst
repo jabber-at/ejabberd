@@ -5,55 +5,57 @@
 
 set -e
 
-CONFIG_SOURCE=/usr/share/ejabberd/ejabberd.yml.example
-EJABBERDCTL_CONFIG_SOURCE=/usr/share/ejabberd/ejabberdctl.cfg.example
-CONFIG_TARGET=/etc/ejabberd/ejabberd.yml
-EJABBERDCTL_CONFIG_TARGET=/etc/default/ejabberd
-TEMPFILE=$(mktemp)
-EJABBERDCTL_TEMPFILE=$(mktemp)
+EJABBERD_YML_SOURCE=/usr/share/ejabberd/ejabberd.yml.example
+EJABBERDCTL_CFG_SOURCE=/usr/share/ejabberd/ejabberdctl.cfg.example
+
+EJABBERD_YML_TEMP=$(mktemp)
+EJABBERDCTL_CFG_TEMP=$(mktemp)
+
+EJABBERD_YML_TARGET=/etc/ejabberd/ejabberd.yml
+EJABBERDCTL_CFG_TARGET=/etc/default/ejabberd
 
 . /usr/share/debconf/confmodule
 
 setup_ejabberd()
 {
-	# Ejabberd config dir may contain sensitive data, so making it unreadable by
-	# the world.
-	if ! dpkg-statoverride --list /etc/ejabberd >/dev/null; then
+	# ejabberd config dir may contain sensitive data, so making it unreadable by the world.
+	if ! dpkg-statoverride --list /etc/ejabberd > /dev/null; then
 		chown root:ejabberd /etc/ejabberd
 	fi
 
 	# The users database dir /var/lib/ejabberd must be writable by user ejabberd.
 	install -d /var/lib/ejabberd
-	if ! dpkg-statoverride --list /var/lib/ejabberd >/dev/null; then
-		chown -R ejabberd:ejabberd /var/lib/ejabberd
+	if ! dpkg-statoverride --list /var/lib/ejabberd > /dev/null; then
+		chown ejabberd:ejabberd /var/lib/ejabberd
 		chmod 700 /var/lib/ejabberd
 	fi
 
-	# Ejabberd logs should be readable by users in adm group (see also logrotate script).
+	# ejabberd logs should be readable by users in adm group (see also logrotate script).
 	install -d /var/log/ejabberd
-	if ! dpkg-statoverride --list /var/log/ejabberd >/dev/null; then
+	if ! dpkg-statoverride --list /var/log/ejabberd > /dev/null; then
 		chown ejabberd:adm /var/log/ejabberd
 		chmod 2750 /var/log/ejabberd
-		if dpkg --compare-versions "$2" lt '2.1.4'; then
-			find /var/log/ejabberd -type f -name '*.log*' -exec chown ejabberd:adm {} \+ -exec chmod 0640 {} \+
-		fi
 	fi
 
-	# Chown the cert so ejabberd user can use it but not be accessible by the
-	# world.
-	if [ -f /etc/ejabberd/ejabberd.pem ]
-	then
-		if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem >/dev/null; then
+	# Chown the cert so ejabberd user can use it but not be accessible by the world.
+	if [ -f /etc/ejabberd/ejabberd.pem ]; then
+		if ! dpkg-statoverride --list /etc/ejabberd/ejabberd.pem > /dev/null; then
 			chown root:ejabberd /etc/ejabberd/ejabberd.pem
 		fi
 	fi
 
 	db_get ejabberd/erlangopts
 	ERLOPTS="$RET"
-	if [ -n "$ERLOPTS" ]; then
-		sed -e "s/#\?ERL_OPTIONS=.*/ERL_OPTIONS=\"$ERLOPTS\"/" "$EJABBERDCTL_CONFIG_SOURCE" > "$EJABBERDCTL_TEMPFILE"
-		ucf -three-way --debconf-ok "$EJABBERDCTL_TEMPFILE" "$EJABBERDCTL_CONFIG_TARGET"
-		chmod 644 "$EJABBERDCTL_CONFIG_TARGET"
+
+
+	touch "$EJABBERDCTL_CFG_TEMP" && chmod 0600 "$EJABBERDCTL_CFG_TEMP"
+	sed -e "s/#\?ERL_OPTIONS=.*/ERL_OPTIONS=\"$ERLOPTS\"/" "$EJABBERDCTL_CFG_SOURCE" > "$EJABBERDCTL_CFG_TEMP"
+
+	ucf -three-way --debconf-ok "$EJABBERDCTL_CFG_TEMP" "$EJABBERDCTL_CFG_TARGET"
+	ucfr ejabberd "$EJABBERDCTL_CFG_TARGET"
+
+	if ! dpkg-statoverride --list "$EJABBERDCTL_CFG_TARGET" > /dev/null; then
+		chmod 644 "$EJABBERDCTL_CFG_TARGET"
 	fi
 
 	db_get ejabberd/hostname
@@ -61,26 +63,35 @@ setup_ejabberd()
 
 	db_get ejabberd/user
 	USER="$RET"
+
 	db_get ejabberd/password
 	PASSWD="$RET"
-	sed -e     "s/  - \"localhost\"/  - \"$HOST\"/ ;
-	s/  ## admin/  admin/ ;
-	0,/  ##   user/s/  ##   user/     user/ ;
-	s/.*ermine.*//" $CONFIG_SOURCE > "$TEMPFILE"
+
+	touch "$EJABBERD_YML_TEMP" && chmod 0600 "$EJABBERD_YML_TEMP"
+	sed -e "s/  - \"localhost\"/  - \"$HOST\"/ ;
+		s/  ## admin/  admin/ ;
+		0,/  ##   user/s/  ##   user/     user/ ;
+		s/.*ermine.*//" $EJABBERD_YML_SOURCE > "$EJABBERD_YML_TEMP"
+
 	# Since username is optional and we let the user set up the admin account
 	# if there is no input to debconf's query, we use the given username or
 	# leave it empty
 	if [ -n "$USER" ]; then
-		sed -i "s/  ##     - \"aleksey@localhost\"/       - \"$USER@$HOST\"/" "$TEMPFILE"
+		sed -i "s/  ##     - \"aleksey@localhost\"/       - \"$USER@$HOST\"/" "$EJABBERD_YML_TEMP"
 	else
-		sed -i "s/  ##     - \"aleksey@localhost\"/       - \"\"/" "$TEMPFILE"
+		sed -i "s/  ##     - \"aleksey@localhost\"/       - \"\"/" "$EJABBERD_YML_TEMP"
 	fi
-	ucf --three-way --debconf-ok "$TEMPFILE" "$CONFIG_TARGET"
+
+	ucf --three-way --debconf-ok "$EJABBERD_YML_TEMP" "$EJABBERD_YML_TARGET"
+	ucfr ejabberd "$EJABBERD_YML_TARGET"
+
 	db_stop
 
 	# Making ejabberd config readable only by ejabberd user.
-	chown ejabberd:ejabberd "$CONFIG_TARGET"
-	chmod 600 "$CONFIG_TARGET"
+	if ! dpkg-statoverride --list "$EJABBERD_YML_TARGET" > /dev/null; then
+		chown ejabberd:ejabberd "$EJABBERD_YML_TARGET"
+		chmod 600 "$EJABBERD_YML_TARGET"
+	fi
 }
 
 register_admin()
@@ -88,16 +99,16 @@ register_admin()
 	if [ -n "$USER" ] && [ -n "$PASSWD" ]; then
 		echo "Waiting for ejabberd to register admin user"
 
-		if ejabberdctl status >/dev/null || test $? = 1 ; then
-			# Ejabberd is starting ($? = 1) or running ($? = 0) already.
+		if ejabberdctl status > /dev/null || test $? = 1 ; then
+			# ejabberd is starting ($? = 1) or running ($? = 0) already.
 			cnt=0
 			flag=1
-			while ! ejabberdctl status >/dev/null ; do
+			while ! ejabberdctl status > /dev/null ; do
 				cnt=$((cnt + 1))
 				if [ $cnt -ge 60 ] ; then
 					echo
 					echo "Can't register admin user \"$USER@$HOST\"."
-					echo "Ejabberd is taking too long to start."
+					echo "ejabberd is taking too long to start."
 					flag=0
 					break
 				fi
@@ -120,7 +131,7 @@ register_admin()
 		else
 			echo
 			echo "Can't register admin user \"$USER@$HOST\"."
-			echo "Ejabberd server is not started."
+			echo "ejabberd server is not started."
 		fi
 	fi
 }
@@ -136,11 +147,10 @@ touch /var/lib/ejabberd/.postinst.flag && chmod 644 /var/lib/ejabberd/.postinst.
 case "$1" in
 	configure|reconfigure)
 		adduser --quiet --system --shell /bin/sh --group --home /var/lib/ejabberd ejabberd 2> /dev/null || true
-		setup_ejabberd "$@"
+		setup_ejabberd
 		;;
 
 	abort-upgrade|abort-remove|abort-deconfigure)
-
 		;;
 
 	*)
@@ -156,6 +166,9 @@ case "$1" in
 		register_admin
 		;;
 esac
+
+rm -f "$EJABBERD_YML_TEMP"
+rm -f "$EJABBERDCTL_CFG_TEMP"
 
 # Remove the flag if install is successful
 rm -f /var/lib/ejabberd/.postinst.flag

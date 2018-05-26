@@ -43,21 +43,21 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -110,9 +97,10 @@
+@@ -110,10 +97,9 @@ hosts:
  ## chains of certificates or certificate keys. Full chains will be built
  ## automatically by ejabberd.
  ##
 -## certfiles:
 -##   - "/etc/letsencrypt/live/example.org/*.pem"
 -##   - "/etc/letsencrypt/live/example.com/*.pem"
+-##
 +certfiles:
 +  - "/etc/ejabberd/ejabberd.pem"
-+  ## - "/etc/letsencrypt/live/example.org/*.pem"
-+  ## - "/etc/letsencrypt/live/example.com/*.pem"
- ##
++
  ## If your system provides only a single CA file (CentOS/FreeBSD):
  ## ca_file: "/etc/ssl/certs/ca-bundle.pem"
-@@ -124,20 +112,20 @@
+ 
+@@ -124,20 +110,21 @@ hosts:
  ## configuration of the TLS driver, so you don't need to
  ## uncomment it.
  ##
@@ -67,14 +67,17 @@ Index: ejabberd/ejabberd.yml.example
 -##     - "no_sslv3"
 -##     - "cipher_server_preference"
 -##     - "no_compression"
+-##   'DH_FILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
+-##
 +define_macro:
-+   'TLS_CIPHERS': "HIGH:!aNULL:!eNULL:!3DES:@STRENGTH"
-+   'TLS_OPTIONS':
-+     - "no_sslv3"
-+     - "cipher_server_preference"
-+     - "no_compression"
- ##   'DH_FILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
- ##
++  'TLS_CIPHERS': "HIGH:!aNULL:!eNULL:!3DES:@STRENGTH"
++  'TLS_OPTIONS':
++    - "no_sslv3"
++    - "no_tlsv1"
++    - "cipher_server_preference"
++    - "no_compression"
++  ## 'DH_FILE': "/path/to/dhparams.pem" # generated with: openssl dhparam -out dhparams.pem 2048
++
  ## c2s_dhfile: 'DH_FILE'
  ## s2s_dhfile: 'DH_FILE'
 -## c2s_ciphers: 'TLS_CIPHERS'
@@ -88,7 +91,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ===============
  ###'  LISTENING PORTS
-@@ -151,21 +139,7 @@
+@@ -151,21 +138,8 @@ listen:
      port: 5222
      ip: "::"
      module: ejabberd_c2s
@@ -108,10 +111,11 @@ Index: ejabberd/ejabberd.yml.example
 -    ## zlib: true
 -    ##
 +    starttls_required: true
++    protocol_options: 'TLS_OPTIONS'
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-@@ -198,7 +172,9 @@
+@@ -198,7 +172,9 @@ listen:
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -122,7 +126,7 @@ Index: ejabberd/ejabberd.yml.example
  
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
-@@ -263,7 +239,7 @@
+@@ -263,7 +239,7 @@ listen:
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -131,7 +135,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -273,7 +249,7 @@
+@@ -273,7 +249,7 @@ listen:
  ## Allowed values are: false, optional or required
  ## You must specify 'certfiles' option
  ##
@@ -140,7 +144,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## S2S whitelist or blacklist
-@@ -307,7 +283,7 @@
+@@ -307,7 +283,7 @@ auth_method: internal
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -149,7 +153,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -580,14 +556,14 @@
+@@ -580,14 +556,14 @@ access_rules:
    ## Only allow to register from localhost
    trusted_network:
      - allow: loopback
@@ -172,7 +176,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ## ===============
  ## API PERMISSIONS
-@@ -616,9 +592,9 @@
+@@ -616,9 +592,9 @@ api_permissions:
    "admin access":
      who:
        - access:
@@ -185,7 +189,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -639,7 +615,7 @@
+@@ -639,7 +615,7 @@ api_permissions:
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -194,7 +198,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -673,7 +649,7 @@
+@@ -673,7 +649,7 @@ language: "en"
  ##
  ## Full path to a script that generates the image.
  ##
@@ -203,7 +207,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -691,29 +667,29 @@
+@@ -691,29 +667,29 @@ language: "en"
  ## In order to use the acme certificate acquiring through "Let's Encrypt"
  ## an http listener has to be configured to listen to port 80 so that
  ## the authorization challenges posed by "Let's Encrypt" can be solved.
@@ -247,7 +251,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  =======
  ###'  MODULES
-@@ -724,14 +700,14 @@
+@@ -724,14 +700,14 @@ acme:
  modules:
    mod_adhoc: {}
    mod_admin_extra: {}
@@ -266,17 +270,95 @@ Index: ejabberd/ejabberd.yml.example
    mod_disco: {}
    mod_echo: {}
    mod_irc: {}
-@@ -824,7 +800,8 @@
-     ##
-     ##   access_from: deny
-     ##   access: register
+@@ -780,51 +756,50 @@ modules:
+     plugins:
+       - "flat"
+       - "hometree"
+-      - "pep" # pep requires mod_caps
++      - "pep"   # pep requires mod_caps
+     force_node_config:
+-      ## Avoid using OMEMO by default because it
+-      ## introduces a lot of hard-to-track problems
+       "eu.siacs.conversations.axolotl.*":
+-        access_model: whitelist
++        access_model: open
+       ## Avoid buggy clients to make their bookmarks public
+       "storage:bookmarks":
+         access_model: whitelist
+   mod_push: {}
+   mod_push_keepalive: {}
+   ## mod_register:
+-    ##
+-    ## Protect In-Band account registrations with CAPTCHA.
+-    ##
+-    ##   captcha_protected: true
+-    ##
+-    ## Set the minimum informational entropy for passwords.
+-    ##
+-    ##   password_strength: 32
+-    ##
+-    ## After successful registration, the user receives
+-    ## a message with this subject and body.
+-    ##
+-    ##   welcome_message:
+-    ##     subject: "Welcome!"
+-    ##     body: |-
+-    ##       Hi.
+-    ##       Welcome to this XMPP server.
+-    ##
+-    ## When a user registers, send a notification to
+-    ## these XMPP accounts.
+-    ##
+-    ##   registration_watchers:
+-    ##     - "admin1@example.org"
+-    ##
+-    ## Only clients in the server machine can register accounts
+-    ##
+-    ##   ip_access: trusted_network
+-    ##
+-    ## Local c2s or remote s2s users cannot register accounts
+-    ##
+-    ##   access_from: deny
+-    ##   access: register
 -  mod_roster: {}
++  ##
++  ## Protect In-Band account registrations with CAPTCHA.
++  ##
++  ##   captcha_protected: true
++  ##
++  ## Set the minimum informational entropy for passwords.
++  ##
++  ##   password_strength: 32
++  ##
++  ## After successful registration, the user receives
++  ## a message with this subject and body.
++  ##
++  ##   welcome_message:
++  ##     subject: "Welcome!"
++  ##     body: |-
++  ##       Hi.
++  ##       Welcome to this XMPP server.
++  ##
++  ## When a user registers, send a notification to
++  ## these XMPP accounts.
++  ##
++  ##   registration_watchers:
++  ##     - "admin1@example.org"
++  ##
++  ## Only clients in the server machine can register accounts
++  ##
++  ##   ip_access: trusted_network
++  ##
++  ## Local c2s or remote s2s users cannot register accounts
++  ##
++  ##   access_from: deny
++  ##   access: register
 +  mod_roster:
-+        versioning: true
++    versioning: true
    mod_shared_roster: {}
    mod_stats: {}
    mod_time: {}
-@@ -833,7 +810,8 @@
+@@ -833,7 +808,8 @@ modules:
    mod_vcard_xupdate: {}
    mod_avatar: {}
    mod_version: {}

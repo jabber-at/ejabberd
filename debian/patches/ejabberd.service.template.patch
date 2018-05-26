@@ -17,7 +17,7 @@ Index: ejabberd/ejabberd.service.template
  
  [Service]
  Type=forking
-@@ -9,10 +11,11 @@ Group=ejabberd
+@@ -9,10 +11,12 @@ Group=ejabberd
  LimitNOFILE=65536
  Restart=on-failure
  RestartSec=5
@@ -27,6 +27,7 @@ Index: ejabberd/ejabberd.service.template
 -PrivateDevices=true
 +ExecStart=/bin/sh -c '/usr/sbin/ejabberdctl start && /usr/sbin/ejabberdctl started'
 +ExecStop=/bin/sh -c '/usr/sbin/ejabberdctl stop && /usr/sbin/ejabberdctl stopped'
++ExecReload=/bin/sh -c '/usr/sbin/ejabberdctl reload_config'
 +PrivateTmp=true
 +ProtectHome=true
 +ProtectSystem=full

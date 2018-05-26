@@ -6,6 +6,8 @@ ejabberd (1:18.04-1) unstable; urgency=low
     * Merge AppArmor config.
     * Update French and German translation.
     * Update README.Debian.
+    * Update ufw profile.
+    * Refresh copyright.
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 26 May 2018 12:39:03 +0200
 

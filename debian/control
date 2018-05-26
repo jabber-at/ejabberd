@@ -1,80 +1,106 @@
 Source: ejabberd
-Section: net
-Priority: optional
 Maintainer: Mathias Ertl <mati@jabber.at>
 XSBC-Orig-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
-Build-Depends: debhelper (>= 9.20160709), dh-apparmor, libsqlite3-dev, po-debconf, rebar (>= 2.6.0),
- 		erlang-asn1,
- 		erlang-base,
- 		erlang-crypto,
- 		erlang-dev (>= 1:17.5),
- 		erlang-eunit,
- 		erlang-inets,
- 		erlang-jose,
- 		erlang-lager         (>= 3.4.2),
- 		erlang-mnesia,
- 		erlang-p1-cache-tab  (>= 1.0.13),
- 		erlang-p1-eimp       (>= 1.0.5),
- 		erlang-p1-iconv      (>= 1:1.0.7),
- 		erlang-p1-mysql      (>= 1.0.5),
- 		erlang-p1-oauth2     (>= 0.6.3),
- 		erlang-p1-pam        (>= 1.0.4),
- 		erlang-p1-pgsql      (>= 1.1.5),
- 		erlang-p1-sip        (>= 1.0.23),
- 		erlang-p1-sqlite3    (>= 1.1.6),
- 		erlang-p1-stringprep (>= 1.0.11),
- 		erlang-p1-stun       (>= 1:1.0.22),
- 		erlang-p1-tls        (>= 1.0.22),
- 		erlang-p1-utils      (>= 1.0.11),
- 		erlang-p1-xml        (>= 1.1.30),
- 		erlang-p1-xmpp       (>= 1:1.1.20),
- 		erlang-p1-yaml       (>= 1.0.14),
- 		erlang-p1-zlib       (>= 1.0.4),
- 		erlang-parsetools,
- 		erlang-redis-client  (>= 1.0.8),
- 		erlang-ssl,
- 		erlang-xmerl
-Standards-Version: 4.1.3
-Homepage: https://www.ejabberd.im
+Section: net
+Priority: optional
+Build-Depends: debhelper (>= 9.20160709),
+               dh-apparmor,
+               libsqlite3-dev,
+               po-debconf,
+               rebar (>= 2.6.0),
+               erlang-asn1,
+               erlang-base,
+               erlang-crypto,
+               erlang-dev (>= 1:17.5),
+               erlang-eunit,
+               erlang-inets,
+               erlang-jiffy (>= 0.14.8),
+               erlang-jose (>= 1.8.4),
+               erlang-lager (>= 3.4.2),
+               erlang-luerl (>= 1:0.3),
+               erlang-mnesia,
+               erlang-p1-cache-tab (>= 1.0.13),
+               erlang-p1-eimp (>= 1.0.5),
+               erlang-p1-iconv (>= 1:1.0.7),
+               erlang-p1-mysql (>= 1.0.5),
+               erlang-p1-oauth2 (>= 0.6.3),
+               erlang-p1-pam (>= 1.0.4),
+               erlang-p1-pgsql (>= 1.1.5),
+               erlang-p1-sip (>= 1.0.23),
+               erlang-p1-sqlite3 (>= 1.1.6),
+               erlang-p1-stringprep (>= 1.0.11),
+               erlang-p1-stun (>= 1:1.0.22),
+               erlang-p1-tls (>= 1.0.22),
+               erlang-p1-utils (>= 1.0.11),
+               erlang-p1-xml (>= 1.1.30),
+               erlang-p1-xmpp (>= 1:1.1.20),
+               erlang-p1-yaml (>= 1.0.14),
+               erlang-p1-zlib (>= 1.0.4),
+               erlang-parsetools,
+               erlang-redis-client (>= 1.1.0),
+               erlang-ssl,
+               erlang-xmerl
+Standards-Version: 4.1.4
 Vcs-Git: https://github.com/jabber-at/ejabberd.git
 Vcs-Browser: https://github.com/jabber-at/ejabberd/
+Homepage: https://www.ejabberd.im
 
 Package: ejabberd
 Architecture: any
+Depends: adduser,
+         ucf,
+         ${misc:Depends},
+         ${shlibs:Depends},
+         lsb-base,
+         erlang-base (>= 1:17.5) | ${erlang-abi:Depends},
+         ${erlang:Depends},
+         erlang-jiffy (>= 0.14.8),
+         erlang-jose (>= 1.8.4),
+         erlang-lager (>= 3.4.2),
+         erlang-os-mon (>= 1:17.5),
+         erlang-p1-cache-tab (>= 1.0.13),
+         erlang-p1-eimp (>= 1.0.5),
+         erlang-p1-iconv (>= 1:1.0.7),
+         erlang-p1-stringprep (>= 1.0.11),
+         erlang-p1-tls (>= 1.0.22),
+         erlang-p1-utils (>= 1.0.11),
+         erlang-p1-xml (>= 1.1.30),
+         erlang-p1-xmpp (>= 1:1.1.21),
+         erlang-p1-yaml (>= 1.0.14),
+         erlang-p1-zlib (>= 1.0.4),
+         erlang-xmerl (>= 1:17.5)
+Suggests: apparmor,
+          apparmor-utils,
+          libunix-syslog-perl,
+          imagemagick | graphicsmagick-imagemagick-compat,
+          yamllint,
+          ejabberd-contrib (>> 0.2017.07),
+          erlang-luerl (>= 1:0.3),
+          erlang-p1-oauth2 (>= 0.6.3),
+          erlang-p1-mysql (>= 1.0.5),
+          erlang-p1-pam (>= 1.0.4),
+          erlang-p1-pgsql (>= 1.1.5),
+          erlang-p1-sip (>= 1.0.23),
+          erlang-p1-stun (>= 1:1.0.22),
+          erlang-p1-sqlite3 (>= 1.1.6),
+          erlang-redis-client (>= 1.1.0)
 Pre-Depends: openssl
-Depends: adduser, ucf, ${misc:Depends}, ${shlibs:Depends},  lsb-base (>= 3.0-6),
- 		erlang-base (>= 1:17.5) | ${erlang-abi:Depends}, ${erlang:Depends},
- 		erlang-os-mon,
- 		erlang-jiffy         (>= 0.14.8),
- 		erlang-jose,
- 		erlang-lager         (>= 3.4.2),
- 		erlang-p1-cache-tab  (>= 1.0.13),
- 		erlang-p1-eimp       (>= 1.0.5),
- 		erlang-p1-iconv      (>= 1:1.0.7),
- 		erlang-p1-stringprep (>= 1.0.11),
- 		erlang-p1-tls        (>= 1.0.22),
- 		erlang-p1-utils      (>= 1.0.11),
- 		erlang-p1-xml        (>= 1.1.30),
- 		erlang-p1-xmpp       (>= 1:1.1.20),
- 		erlang-p1-yaml       (>= 1.0.14),
- 		erlang-p1-zlib       (>= 1.0.4),
- 		erlang-xmerl
-Suggests: apparmor, apparmor-utils, libunix-syslog-perl, imagemagick | graphicsmagick-imagemagick-compat, yamllint,
- 		erlang-luerl,
- 		erlang-p1-mysql      (>= 1.0.5),
- 		erlang-p1-oauth2,
- 		erlang-p1-pam        (>= 1.0.4),
- 		erlang-p1-pgsql      (>= 1.1.5),
- 		erlang-p1-sip        (>= 1.0.23),
- 		erlang-p1-sqlite3    (>= 1.1.6),
- 		erlang-p1-stun       (>= 1:1.0.22),
- 		erlang-redis-client  (>= 1.0.8)
-Breaks: ejabberd-contrib (<= 0.2017.07), ejabberd-mod-http-upload
-Replaces: ejabberd-contrib (<= 0.2015.08), ejabberd-mod-http-upload
-Provides: xmpp-server, stun-server, turn-server
-Conflicts: ejabberd-mod-shared-roster-ldap, ejabberd-mod-xmlrpc,
- ejabberd-mod-admin-extra, ejabberd-mod-muc-admin, ejabberd-mod-multicast, ejabberd-mod-mam (<< 1:20150702),
- ejabberd-mod-http-upload, ejabberd-mod-mam-mnesia, ejabberd-mod-logsession
+Breaks: ejabberd-contrib (<= 0.2017.07),
+        ejabberd-mod-http-upload
+Provides: xmpp-server,
+          stun-server,
+          turn-server
+Replaces: ejabberd-contrib (<= 0.2015.08),
+          ejabberd-mod-http-upload
+Conflicts: ejabberd-mod-shared-roster-ldap,
+           ejabberd-mod-xmlrpc,
+           ejabberd-mod-admin-extra,
+           ejabberd-mod-muc-admin,
+           ejabberd-mod-multicast,
+           ejabberd-mod-mam (<< 1:20150702),
+           ejabberd-mod-http-upload,
+           ejabberd-mod-mam-mnesia,
+           ejabberd-mod-logsession
 Description: distributed, fault-tolerant Jabber/XMPP server
  ejabberd is a Jabber/XMPP server written in Erlang, featuring:
   * distributed operation with load-balancing across a cluster;
