@@ -1,6 +1,7 @@
 ejabberd (1:18.04-1) unstable; urgency=low
 
   * New upstream release.
+  * Remove ejabberd.service.template-local.patch (applied in upstream patch).
   * Merge changes from upstream package
 
     * Merge AppArmor config.
