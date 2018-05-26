@@ -465,7 +465,7 @@ Index: ejabberd/src/mod_caps.erl
 ===================================================================
 --- ejabberd.orig/src/mod_caps.erl
 +++ ejabberd/src/mod_caps.erl
-@@ -53,7 +53,7 @@
+@@ -54,7 +54,7 @@
  -include("ejabberd.hrl").
  -include("logger.hrl").
  
@@ -569,7 +569,7 @@ Index: ejabberd/src/mod_http_upload.erl
 ===================================================================
 --- ejabberd.orig/src/mod_http_upload.erl
 +++ ejabberd/src/mod_http_upload.erl
-@@ -90,7 +90,7 @@
+@@ -91,7 +91,7 @@
  
  -include("ejabberd.hrl").
  -include("ejabberd_http.hrl").
@@ -636,7 +636,7 @@ Index: ejabberd/src/mod_mam.erl
 +++ ejabberd/src/mod_mam.erl
 @@ -42,7 +42,7 @@
  	 get_room_config/4, set_room_option/3, offline_message/1, export/1,
- 	 mod_options/1]).
+ 	 mod_options/1, remove_mam_for_user_with_peer/3, remove_mam_for_user/2]).
  
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -648,7 +648,7 @@ Index: ejabberd/src/mod_mam_mnesia.erl
 --- ejabberd.orig/src/mod_mam_mnesia.erl
 +++ ejabberd/src/mod_mam_mnesia.erl
 @@ -31,7 +31,7 @@
- 	 extended_fields/0, store/8, write_prefs/4, get_prefs/2, select/6]).
+ 	 extended_fields/0, store/8, write_prefs/4, get_prefs/2, select/6, remove_from_archive/3]).
  
  -include_lib("stdlib/include/ms_transform.hrl").
 --include("xmpp.hrl").
@@ -661,7 +661,7 @@ Index: ejabberd/src/mod_mam_sql.erl
 --- ejabberd.orig/src/mod_mam_sql.erl
 +++ ejabberd/src/mod_mam_sql.erl
 @@ -33,7 +33,7 @@
- 	 extended_fields/0, store/8, write_prefs/4, get_prefs/2, select/6, export/1]).
+ 	 extended_fields/0, store/8, write_prefs/4, get_prefs/2, select/6, export/1, remove_from_archive/3]).
  
  -include_lib("stdlib/include/ms_transform.hrl").
 --include("xmpp.hrl").
@@ -771,8 +771,8 @@ Index: ejabberd/src/mod_multicast.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  
- -record(state,
- 	{lserver, lservice, access, service_limits}).
+ -record(multicastc, {rserver :: binary(),
+ 		     response,
 Index: ejabberd/src/mod_offline.erl
 ===================================================================
 --- ejabberd.orig/src/mod_offline.erl
@@ -1116,7 +1116,7 @@ Index: ejabberd/src/mod_stream_mgmt.erl
 --- ejabberd.orig/src/mod_stream_mgmt.erl
 +++ ejabberd/src/mod_stream_mgmt.erl
 @@ -37,9 +37,9 @@
- -export([get_resume_timeout/1, set_resume_timeout/2]).
+ -export([get_resume_timeout/1, set_resume_timeout/2, queue_find/2]).
  
  -include("ejabberd.hrl").
 --include("xmpp.hrl").
@@ -1209,7 +1209,7 @@ Index: ejabberd/src/mod_vcard_xupdate.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_xupdate.erl
 +++ ejabberd/src/mod_vcard_xupdate.erl
-@@ -36,7 +36,7 @@
+@@ -38,7 +38,7 @@
  
  -include("ejabberd.hrl").
  -include("logger.hrl").

@@ -2,7 +2,7 @@ Index: ejabberd/ejabberd.yml.example
 ===================================================================
 --- ejabberd.orig/ejabberd.yml.example
 +++ ejabberd/ejabberd.yml.example
-@@ -703,6 +703,7 @@
+@@ -702,6 +702,7 @@
    mod_admin_extra: {}
    mod_announce:   # recommends mod_adhoc
      access: announce
@@ -10,7 +10,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_blocking: {}   # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
-@@ -711,7 +712,10 @@
+@@ -710,7 +711,10 @@
    ## mod_delegation: {}   # for xep0356
    mod_disco: {}
    mod_echo: {}
@@ -22,7 +22,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_bosh: {}
    ## mod_http_fileserver:
    ##   docroot: "/var/www"
-@@ -741,9 +745,9 @@
+@@ -740,9 +744,9 @@
    mod_offline:
      access_max_user_messages: max_user_offline_messages
    mod_ping: {}
@@ -35,7 +35,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -804,6 +808,7 @@
+@@ -803,6 +807,7 @@
    mod_roster:
          versioning: true
    mod_shared_roster: {}

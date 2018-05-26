@@ -111,7 +111,7 @@ Index: ejabberd/ejabberd.yml.example
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-@@ -184,7 +158,10 @@
+@@ -198,7 +172,9 @@
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -119,11 +119,10 @@ Index: ejabberd/ejabberd.yml.example
 +    ## captcha: true
 +    tls: true
 +    protocol_options: 'TLS_OPTIONS'
-+
+ 
    ##
-   ## Direct-TLS for C2S (XEP-0368). A good practice is to forward
-   ## traffic from port 443 to this port, possibly multiplexing it
-@@ -263,7 +240,7 @@
+   ## ejabberd_service: Interact with external components (transports, ...)
+@@ -263,7 +239,7 @@
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -132,7 +131,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -273,7 +250,7 @@
+@@ -273,7 +249,7 @@
  ## Allowed values are: false, optional or required
  ## You must specify 'certfiles' option
  ##
@@ -141,7 +140,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## S2S whitelist or blacklist
-@@ -307,7 +284,7 @@
+@@ -307,7 +283,7 @@
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -150,7 +149,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define the FQDN if ejabberd doesn't detect it:
  ## fqdn: "server3.example.com"
-@@ -580,14 +557,14 @@
+@@ -580,14 +556,14 @@
    ## Only allow to register from localhost
    trusted_network:
      - allow: loopback
@@ -173,7 +172,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ## ===============
  ## API PERMISSIONS
-@@ -616,9 +593,9 @@
+@@ -616,9 +592,9 @@
    "admin access":
      who:
        - access:
@@ -186,7 +185,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -639,7 +616,7 @@
+@@ -639,7 +615,7 @@
  ## By default the frequency of account registrations from the same IP
  ## is limited to 1 account every 10 minutes. To disable, specify: infinity
  ## registration_timeout: 600
@@ -195,7 +194,7 @@ Index: ejabberd/ejabberd.yml.example
  ##
  ## Define specific Access Rules in a virtual host.
  ##
-@@ -673,7 +650,7 @@
+@@ -673,7 +649,7 @@
  ##
  ## Full path to a script that generates the image.
  ##
@@ -204,7 +203,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## Host for the URL and port where ejabberd listens for CAPTCHA requests.
-@@ -691,29 +668,29 @@
+@@ -691,29 +667,29 @@
  ## In order to use the acme certificate acquiring through "Let's Encrypt"
  ## an http listener has to be configured to listen to port 80 so that
  ## the authorization challenges posed by "Let's Encrypt" can be solved.
@@ -248,7 +247,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  =======
  ###'  MODULES
-@@ -724,14 +701,14 @@
+@@ -724,14 +700,14 @@
  modules:
    mod_adhoc: {}
    mod_admin_extra: {}
@@ -267,7 +266,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_disco: {}
    mod_echo: {}
    mod_irc: {}
-@@ -824,7 +801,8 @@
+@@ -824,7 +800,8 @@
      ##
      ##   access_from: deny
      ##   access: register
@@ -277,7 +276,7 @@ Index: ejabberd/ejabberd.yml.example
    mod_shared_roster: {}
    mod_stats: {}
    mod_time: {}
-@@ -833,7 +811,8 @@
+@@ -833,7 +810,8 @@
    mod_vcard_xupdate: {}
    mod_avatar: {}
    mod_version: {}
