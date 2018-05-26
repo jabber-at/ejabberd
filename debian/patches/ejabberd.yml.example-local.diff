@@ -35,9 +35,9 @@ Index: ejabberd/ejabberd.yml.example
    mod_privacy: {}
    mod_private: {}
    ## mod_proxy65: {}
-@@ -803,6 +807,7 @@
+@@ -801,6 +805,7 @@
    mod_roster:
-         versioning: true
+     versioning: true
    mod_shared_roster: {}
 +  mod_sic: {}
    mod_stats: {}
