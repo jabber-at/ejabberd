@@ -30,6 +30,8 @@ override_dh_auto_configure:
 
 .PHONY: override_dh_auto_install
 override_dh_auto_install:
+	cat -n Makefile | grep -A 3 -B 3 171
+	cat -n Makefile | grep -A 3 -B 3 191
 	dh_auto_install
 	
 	# symlink version
