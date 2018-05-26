@@ -290,7 +290,7 @@ normal_state({route, <<"">>,
 			       process_iq_admin(From, IQ, StateData);
 			   ?NS_MUC_OWNER ->
 			       process_iq_owner(From, IQ, StateData);
-			   ?NS_DISCO_INFO when SubEl#disco_info.node == <<>> ->
+			   ?NS_DISCO_INFO ->
 			       process_iq_disco_info(From, IQ, StateData);
 			   ?NS_DISCO_ITEMS ->
 			       process_iq_disco_items(From, IQ, StateData);
@@ -502,8 +502,8 @@ handle_event(destroy, StateName, StateData) ->
     handle_event({destroy, <<"">>}, StateName, StateData);
 handle_event({set_affiliations, Affiliations},
 	     StateName, StateData) ->
-    {next_state, StateName,
-     StateData#state{affiliations = Affiliations}};
+    NewStateData = set_affiliations(Affiliations, StateData),
+    {next_state, StateName, NewStateData};
 handle_event(_Event, StateName, StateData) ->
     {next_state, StateName, StateData}.
 
@@ -1264,57 +1264,131 @@ set_affiliation(JID, Affiliation, StateData) ->
     set_affiliation(JID, Affiliation, StateData, <<"">>).
 
 -spec set_affiliation(jid(), affiliation(), state(), binary()) -> state().
+set_affiliation(JID, Affiliation,
+		#state{config = #config{persistent = false}} = StateData,
+		Reason) ->
+    set_affiliation_fallback(JID, Affiliation, StateData, Reason);
 set_affiliation(JID, Affiliation, StateData, Reason) ->
+    ServerHost = StateData#state.server_host,
+    Room = StateData#state.room,
+    Host = StateData#state.host,
+    Mod = gen_mod:db_mod(ServerHost, mod_muc),
+    case Mod:set_affiliation(ServerHost, Room, Host, JID, Affiliation, Reason) of
+	ok ->
+	    StateData;
+	{error, _} ->
+	    set_affiliation_fallback(JID, Affiliation, StateData, Reason)
+    end.
+
+-spec set_affiliation_fallback(jid(), affiliation(), state(), binary()) -> state().
+set_affiliation_fallback(JID, Affiliation, StateData, Reason) ->
     LJID = jid:remove_resource(jid:tolower(JID)),
     Affiliations = case Affiliation of
-		     none ->
-			 (?DICT):erase(LJID, StateData#state.affiliations);
-		     _ ->
-			 (?DICT):store(LJID, {Affiliation, Reason},
-				       StateData#state.affiliations)
+		       none ->
+			   (?DICT):erase(LJID, StateData#state.affiliations);
+		       _ ->
+			   (?DICT):store(LJID, {Affiliation, Reason},
+					 StateData#state.affiliations)
 		   end,
     StateData#state{affiliations = Affiliations}.
 
--spec get_affiliation(jid(), state()) -> affiliation().
-get_affiliation(JID, StateData) ->
-    {_AccessRoute, _AccessCreate, AccessAdmin,
-     _AccessPersistent} =
-	StateData#state.access,
-    Res = case acl:match_rule(StateData#state.server_host,
-			      AccessAdmin, JID)
-	      of
-	    allow -> owner;
-	    _ ->
-		LJID = jid:tolower(JID),
-		case (?DICT):find(LJID, StateData#state.affiliations) of
-		  {ok, Affiliation} -> Affiliation;
-		  _ ->
-		      LJID1 = jid:remove_resource(LJID),
-		      case (?DICT):find(LJID1, StateData#state.affiliations)
-			  of
-			{ok, Affiliation} -> Affiliation;
-			_ ->
-			    LJID2 = setelement(1, LJID, <<"">>),
-			    case (?DICT):find(LJID2,
-					      StateData#state.affiliations)
-				of
-			      {ok, Affiliation} -> Affiliation;
-			      _ ->
-				  LJID3 = jid:remove_resource(LJID2),
-				  case (?DICT):find(LJID3,
-						    StateData#state.affiliations)
-				      of
-				    {ok, Affiliation} -> Affiliation;
-				    _ -> none
-				  end
-			    end
-		      end
-		end
-	  end,
-    case Res of
-      {A, _Reason} -> A;
-      _ -> Res
+-spec set_affiliations(?TDICT, state()) -> state().
+set_affiliations(Affiliations,
+                 #state{config = #config{persistent = false}} = StateData) ->
+    set_affiliations_fallback(Affiliations, StateData);
+set_affiliations(Affiliations, StateData) ->
+    Room = StateData#state.room,
+    Host = StateData#state.host,
+    ServerHost = StateData#state.server_host,
+    Mod = gen_mod:db_mod(ServerHost, mod_muc),
+    case Mod:set_affiliations(ServerHost, Room, Host, Affiliations) of
+	ok ->
+	    StateData;
+	{error, _} ->
+	    set_affiliations_fallback(Affiliations, StateData)
     end.
+
+-spec set_affiliations_fallback(?TDICT, state()) -> state().
+set_affiliations_fallback(Affiliations, StateData) ->
+    StateData#state{affiliations = Affiliations}.
+
+-spec get_affiliation(ljid() | jid(), state()) -> affiliation().
+get_affiliation(#jid{} = JID, StateData) ->
+    case get_service_affiliation(JID, StateData) of
+        owner ->
+            owner;
+        none ->
+            case do_get_affiliation(JID, StateData) of
+                {Affiliation, _Reason} -> Affiliation;
+                Affiliation -> Affiliation
+            end
+    end;
+get_affiliation(LJID, StateData) ->
+    get_affiliation(jid:make(LJID), StateData).
+
+-spec do_get_affiliation(jid(), state()) -> affiliation().
+do_get_affiliation(JID, #state{config = #config{persistent = false}} = StateData) ->
+    do_get_affiliation_fallback(JID, StateData);
+do_get_affiliation(JID, StateData) ->
+    Room = StateData#state.room,
+    Host = StateData#state.host,
+    LServer = JID#jid.lserver,
+    LUser = JID#jid.luser,
+    ServerHost = StateData#state.server_host,
+    Mod = gen_mod:db_mod(ServerHost, mod_muc),
+    case Mod:get_affiliation(ServerHost, Room, Host, LUser, LServer) of
+	{error, _} ->
+	    do_get_affiliation_fallback(JID, StateData);
+	{ok, Affiliation} ->
+	    Affiliation
+    end.
+
+-spec do_get_affiliation_fallback(jid(), state()) -> affiliation().
+do_get_affiliation_fallback(JID, StateData) ->
+    LJID = jid:tolower(JID),
+    case (?DICT):find(LJID, StateData#state.affiliations) of
+        {ok, Affiliation} -> Affiliation;
+        _ ->
+            LJID1 = jid:remove_resource(LJID),
+            case (?DICT):find(LJID1, StateData#state.affiliations)
+            of
+                {ok, Affiliation} -> Affiliation;
+                _ ->
+                    LJID2 = setelement(1, LJID, <<"">>),
+                    case (?DICT):find(LJID2,
+                                      StateData#state.affiliations)
+                    of
+                        {ok, Affiliation} -> Affiliation;
+                        _ ->
+                            LJID3 = jid:remove_resource(LJID2),
+                            case (?DICT):find(LJID3,
+                                              StateData#state.affiliations)
+                            of
+                                {ok, Affiliation} -> Affiliation;
+                                _ -> none
+                            end
+                    end
+            end
+    end.
+
+-spec get_affiliations(state()) -> ?TDICT.
+get_affiliations(#state{config = #config{persistent = false}} = StateData) ->
+    get_affiliations_callback(StateData);
+get_affiliations(StateData) ->
+    Room = StateData#state.room,
+    Host = StateData#state.host,
+    ServerHost = StateData#state.server_host,
+    Mod = gen_mod:db_mod(ServerHost, mod_muc),
+    case Mod:get_affiliations(ServerHost, Room, Host) of
+	{error, _} ->
+	    get_affiliations_callback(StateData);
+	{ok, Affiliations} ->
+	    Affiliations
+    end.
+
+-spec get_affiliations_callback(state()) -> ?TDICT.
+get_affiliations_callback(StateData) ->
+    StateData#state.affiliations.
 
 -spec get_service_affiliation(jid(), state()) -> owner | none.
 get_service_affiliation(JID, StateData) ->
@@ -2068,11 +2142,29 @@ presence_broadcast_allowed(JID, StateData) ->
 -spec send_initial_presences_and_messages(
 	jid(), binary(), presence(), state(), state()) -> ok.
 send_initial_presences_and_messages(From, Nick, Presence, NewState, OldState) ->
+    send_self_presence(From, NewState),
     send_existing_presences(From, NewState),
     send_initial_presence(From, NewState, OldState),
     History = get_history(Nick, Presence, NewState),
     send_history(From, History, NewState),
     send_subject(From, OldState).
+
+-spec send_self_presence(jid(), state()) -> ok.
+send_self_presence(JID, State) ->
+    AvatarHash = (State#state.config)#config.vcard_xupdate,
+    DiscoInfo = make_disco_info(JID, State),
+    DiscoHash = mod_caps:compute_disco_hash(DiscoInfo, sha),
+    Els1 = [#caps{hash = <<"sha-1">>,
+		  node = ?EJABBERD_URI,
+		  version = DiscoHash}],
+    Els2 = if is_binary(AvatarHash) ->
+		   [#vcard_xupdate{hash = AvatarHash}|Els1];
+	      true ->
+		   Els1
+	   end,
+    ejabberd_router:route(#presence{from = State#state.jid, to = JID,
+				    id = randoms:get_string(),
+				    sub_els = Els2}).
 
 -spec send_initial_presence(jid(), state(), state()) -> ok.
 send_initial_presence(NJID, StateData, OldStateData) ->
@@ -2580,16 +2672,35 @@ search_role(Role, StateData) ->
 		 (?DICT):to_list(StateData#state.users)).
 
 -spec search_affiliation(affiliation(), state()) ->
-				[{ljid(),
-				  affiliation() | {affiliation(), binary()}}].
+			 [{ljid(),
+			   affiliation() | {affiliation(), binary()}}].
+search_affiliation(Affiliation,
+                   #state{config = #config{persistent = false}} = StateData) ->
+    search_affiliation_fallback(Affiliation, StateData);
 search_affiliation(Affiliation, StateData) ->
-    lists:filter(fun ({_, A}) ->
-			 case A of
-			   {A1, _Reason} -> Affiliation == A1;
-			   _ -> Affiliation == A
-			 end
-		 end,
-		 (?DICT):to_list(StateData#state.affiliations)).
+    Room = StateData#state.room,
+    Host = StateData#state.host,
+    ServerHost = StateData#state.server_host,
+    Mod = gen_mod:db_mod(ServerHost, mod_muc),
+    case Mod:search_affiliation(ServerHost, Room, Host, Affiliation) of
+	{ok, AffiliationList} ->
+	    AffiliationList;
+	{error, _} ->
+	    search_affiliation_fallback(Affiliation, StateData)
+    end.
+
+-spec search_affiliation_fallback(affiliation(), state()) ->
+				  [{ljid(),
+				    affiliation() | {affiliation(), binary()}}].
+search_affiliation_fallback(Affiliation, StateData) ->
+    lists:filter(
+      fun({_, A}) ->
+	      case A of
+		  {A1, _Reason} -> Affiliation == A1;
+		  _ -> Affiliation == A
+	      end
+      end,
+      (?DICT):to_list(StateData#state.affiliations)).
 
 -spec process_admin_items_set(jid(), [muc_item()], binary(),
 			      #state{}) -> {result, undefined, #state{}} |
@@ -3309,23 +3420,36 @@ set_config(Opts, Config, ServerHost, Lang) ->
 -spec change_config(#config{}, state()) -> {result, undefined, state()}.
 change_config(Config, StateData) ->
     send_config_change_info(Config, StateData),
-    NSD = remove_subscriptions(StateData#state{config = Config}),
-    case {(StateData#state.config)#config.persistent,
-	  Config#config.persistent}
-	of
-      {_, true} ->
-            store_room(NSD);
-      {true, false} ->
-	  mod_muc:forget_room(NSD#state.server_host,
-			      NSD#state.host, NSD#state.room);
-      {false, false} -> ok
-    end,
+    StateData0 = StateData#state{config = Config},
+    StateData1 = remove_subscriptions(StateData0),
+    StateData2 =
+        case {(StateData#state.config)#config.persistent,
+              Config#config.persistent} of
+            {WasPersistent, true} ->
+                if not WasPersistent ->
+                        set_affiliations(StateData1#state.affiliations,
+                                         StateData1);
+                   true ->
+                        ok
+                end,
+                store_room(StateData1),
+                StateData1;
+            {true, false} ->
+                Affiliations = get_affiliations(StateData),
+                mod_muc:forget_room(StateData1#state.server_host,
+                                    StateData1#state.host,
+                                    StateData1#state.room),
+                StateData1#state{affiliations = Affiliations};
+            {false, false} ->
+                StateData1
+        end,
     case {(StateData#state.config)#config.members_only,
-	  Config#config.members_only}
-	of
-      {false, true} ->
-	  NSD1 = remove_nonmembers(NSD), {result, undefined, NSD1};
-      _ -> {result, undefined, NSD}
+	  Config#config.members_only} of
+        {false, true} ->
+            StateData3 = remove_nonmembers(StateData2),
+            {result, undefined, StateData3};
+        _ ->
+            {result, undefined, StateData2}
     end.
 
 -spec send_config_change_info(#config{}, state()) -> ok.
@@ -3344,12 +3468,15 @@ send_config_change_info(New, #state{config = Old} = StateData) ->
 	      end
 		++
 		case Old#config{anonymous = New#config.anonymous,
-				vcard = New#config.vcard,
 				logging = New#config.logging} of
 		  New -> [];
 		  _ -> [104]
 		end,
     if Codes /= [] ->
+	    lists:foreach(
+	      fun({_LJID, #user{jid = JID}}) ->
+		      send_self_presence(JID, StateData#state{config = New})
+	      end, ?DICT:to_list(StateData#state.users)),
 	    Message = #message{type = groupchat,
 			       id = randoms:get_string(),
 			       sub_els = [#muc_user{status_codes = Codes}]},
@@ -3377,7 +3504,8 @@ remove_nonmembers(StateData) ->
 		StateData, (?DICT):to_list(get_users_and_subscribers(StateData))).
 
 -spec set_opts([{atom(), any()}], state()) -> state().
-set_opts([], StateData) -> StateData;
+set_opts([], StateData) ->
+    set_vcard_xupdate(StateData);
 set_opts([{Opt, Val} | Opts], StateData) ->
     NSD = case Opt of
 	    title ->
@@ -3492,6 +3620,10 @@ set_opts([{Opt, Val} | Opts], StateData) ->
 		StateData#state{config =
 				    (StateData#state.config)#config{vcard =
 									Val}};
+	    vcard_xupdate ->
+		StateData#state{config =
+				    (StateData#state.config)#config{vcard_xupdate =
+									Val}};
 	    pubsub ->
 		StateData#state{config =
 				    (StateData#state.config)#config{pubsub = Val}};
@@ -3525,6 +3657,20 @@ set_opts([{Opt, Val} | Opts], StateData) ->
 	    _ -> StateData
 	  end,
     set_opts(Opts, NSD).
+
+set_vcard_xupdate(#state{config =
+			     #config{vcard = VCardRaw,
+				     vcard_xupdate = undefined} = Config} = State)
+  when VCardRaw /= <<"">> ->
+    case fxml_stream:parse_element(VCardRaw) of
+	{error, _} ->
+	    State;
+	El ->
+	    Hash = mod_vcard_xupdate:compute_hash(El),
+	    State#state{config = Config#config{vcard_xupdate = Hash}}
+    end;
+set_vcard_xupdate(State) ->
+    State.
 
 -define(MAKE_CONFIG_OPT(Opt),
 	{get_config_opt_name(Opt), element(Opt, Config)}).
@@ -3561,6 +3707,7 @@ make_opts(StateData) ->
      ?MAKE_CONFIG_OPT(#config.presence_broadcast),
      ?MAKE_CONFIG_OPT(#config.voice_request_min_interval),
      ?MAKE_CONFIG_OPT(#config.vcard),
+     ?MAKE_CONFIG_OPT(#config.vcard_xupdate),
      ?MAKE_CONFIG_OPT(#config.pubsub),
      {captcha_whitelist,
       (?SETS):to_list((StateData#state.config)#config.captcha_whitelist)},
@@ -3633,12 +3780,8 @@ destroy_room(DEl, StateData) ->
 	  false -> Fiffalse
 	end).
 
--spec process_iq_disco_info(jid(), iq(), state()) ->
-				   {result, disco_info()} | {error, stanza_error()}.
-process_iq_disco_info(_From, #iq{type = set, lang = Lang}, _StateData) ->
-    Txt = <<"Value 'set' of 'type' attribute is not allowed">>,
-    {error, xmpp:err_not_allowed(Txt, Lang)};
-process_iq_disco_info(_From, #iq{type = get, lang = Lang}, StateData) ->
+-spec make_disco_info(jid(), state()) -> disco_info().
+make_disco_info(_From, StateData) ->
     Config = StateData#state.config,
     Feats = [?NS_VCARD, ?NS_MUC,
 	     ?CONFIG_OPT_TO_FEATURE((Config#config.public),
@@ -3664,11 +3807,35 @@ process_iq_disco_info(_From, #iq{type = get, lang = Lang}, StateData) ->
 	       _ ->
 		   []
 	   end,
-    {result, #disco_info{xdata = [iq_disco_info_extras(Lang, StateData)],
-			 identities = [#identity{category = <<"conference">>,
-						 type = <<"text">>,
-						 name = get_title(StateData)}],
-			 features = Feats}}.
+    #disco_info{identities = [#identity{category = <<"conference">>,
+					type = <<"text">>,
+					name = get_title(StateData)}],
+		features = Feats}.
+
+-spec process_iq_disco_info(jid(), iq(), state()) ->
+				   {result, disco_info()} | {error, stanza_error()}.
+process_iq_disco_info(_From, #iq{type = set, lang = Lang}, _StateData) ->
+    Txt = <<"Value 'set' of 'type' attribute is not allowed">>,
+    {error, xmpp:err_not_allowed(Txt, Lang)};
+process_iq_disco_info(From, #iq{type = get, lang = Lang,
+				sub_els = [#disco_info{node = <<>>}]},
+		      StateData) ->
+    DiscoInfo = make_disco_info(From, StateData),
+    Extras = iq_disco_info_extras(Lang, StateData),
+    {result, DiscoInfo#disco_info{xdata = [Extras]}};
+process_iq_disco_info(From, #iq{type = get, lang = Lang,
+				sub_els = [#disco_info{node = Node}]},
+		      StateData) ->
+    try
+	true = mod_caps:is_valid_node(Node),
+	DiscoInfo = make_disco_info(From, StateData),
+	Hash = mod_caps:compute_disco_hash(DiscoInfo, sha),
+	Node = <<(?EJABBERD_URI)/binary, $#, Hash/binary>>,
+	{result, DiscoInfo#disco_info{node = Node}}
+    catch _:{badmatch, _} ->
+	    Txt = <<"Invalid node name">>,
+	    {error, xmpp:err_item_not_found(Txt, Lang)}
+    end.
 
 -spec iq_disco_info_extras(binary(), state()) -> xdata().
 iq_disco_info_extras(Lang, StateData) ->
@@ -3734,13 +3901,15 @@ process_iq_vcard(_From, #iq{type = get}, StateData) ->
 	{error, _} ->
 	    {error, xmpp:err_item_not_found()}
     end;
-process_iq_vcard(From, #iq{type = set, lang = Lang, sub_els = [SubEl]},
+process_iq_vcard(From, #iq{type = set, lang = Lang, sub_els = [Pkt]},
 		 StateData) ->
     case get_affiliation(From, StateData) of
 	owner ->
-	    VCardRaw = fxml:element_to_binary(xmpp:encode(SubEl)),
+	    SubEl = xmpp:encode(Pkt),
+	    VCardRaw = fxml:element_to_binary(SubEl),
+	    Hash = mod_vcard_xupdate:compute_hash(SubEl),
 	    Config = StateData#state.config,
-	    NewConfig = Config#config{vcard = VCardRaw},
+	    NewConfig = Config#config{vcard = VCardRaw, vcard_xupdate = Hash},
 	    change_config(NewConfig, StateData);
 	_ ->
 	    ErrText = <<"Owner privileges required">>,
@@ -4162,6 +4331,28 @@ send_wrapped(From, To, Packet, Node, State) ->
 		    ok
 	    end;
        true ->
+	    case Packet of
+		#presence{type = unavailable} ->
+		    case xmpp:get_subtag(Packet, #muc_user{}) of
+			#muc_user{destroy = Destroy,
+				  status_codes = Codes} ->
+			    case Destroy /= undefined orelse
+				 (lists:member(110,Codes) andalso
+				  not lists:member(303, Codes)) of
+				true ->
+				    ejabberd_router:route(
+				      #presence{from = State#state.jid, to = To,
+						id = randoms:get_string(),
+						type = unavailable});
+				false ->
+				    ok
+			    end;
+			_ ->
+			    false
+		    end;
+		_ ->
+		    ok
+	    end,
 	    ejabberd_router:route(xmpp:set_from_to(Packet, From, To))
     end.
 

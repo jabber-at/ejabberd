@@ -152,7 +152,7 @@ sort_modules(Host, ModOpts) ->
 					   [Mod, DepMod]),
 				?ERROR_MSG(ErrTxt, []),
 				digraph:del_vertex(G, Mod),
-				maybe_halt_ejabberd(ErrTxt);
+				maybe_halt_ejabberd();
 			    false when Type == soft ->
 				?WARNING_MSG("Module '~s' is recommended for "
 					     "module '~s' but is not found in "
@@ -240,11 +240,11 @@ start_module(Host, Module, Opts0, Order, NeedValidation) ->
 					       erlang:get_stacktrace()])
 			end,
 		    ?CRITICAL_MSG(ErrorText, []),
-		    maybe_halt_ejabberd(ErrorText),
+		    maybe_halt_ejabberd(),
 		    erlang:raise(Class, Reason, erlang:get_stacktrace())
 	    end;
-	{error, ErrorText} ->
-	    maybe_halt_ejabberd(ErrorText)
+	{error, _ErrorText} ->
+	    maybe_halt_ejabberd()
     end.
 
 -spec reload_modules(binary()) -> ok.
@@ -318,14 +318,13 @@ store_options(Host, Module, Opts, Order) ->
 	       #ejabberd_module{module_host = {Module, Host},
 				opts = Opts, order = Order}).
 
-maybe_halt_ejabberd(ErrorText) ->
+maybe_halt_ejabberd() ->
     case is_app_running(ejabberd) of
 	false ->
 	    ?CRITICAL_MSG("ejabberd initialization was aborted "
 			  "because a module start failed.",
 			  []),
-	    timer:sleep(3000),
-	    erlang:halt(string:substr(lists:flatten(ErrorText), 1, 199));
+	    ejabberd:halt();
 	true ->
 	    ok
     end.
@@ -549,7 +548,7 @@ validate_opts(Host, Module, Opts0) ->
 		    end, [Module|SubMods]),
     Required = lists:filter(fun is_atom/1, DefaultOpts),
     try
-	Opts = merge_opts(Opts0, DefaultOpts),
+	Opts = merge_opts(Opts0, DefaultOpts, Module),
 	{ok, case get_validators(Host, {Module, SubMods}) of
 		 undef ->
 		     Opts;
@@ -646,8 +645,8 @@ list_known_opts(Host, Module) ->
 	    Module:mod_opt_type('')
     end.
 
--spec merge_opts(opts(), opts()) -> opts().
-merge_opts(Opts, DefaultOpts) ->
+-spec merge_opts(opts(), opts(), module()) -> opts().
+merge_opts(Opts, DefaultOpts, Module) ->
     Result =
 	lists:foldr(
 	  fun({Opt, Default}, Acc) ->
@@ -655,7 +654,16 @@ merge_opts(Opts, DefaultOpts) ->
 		      {_, Val} ->
 			  case Default of
 			      [{A, _}|_] when is_atom(A) andalso is_list(Val) ->
-				  [{Opt, merge_opts(Val, Default)}|Acc];
+				  case is_opt_list(Val) of
+				      true ->
+					  [{Opt, merge_opts(Val, Default, Module)}|Acc];
+				      false ->
+					  ?ERROR_MSG(
+					     "Ignoring invalid value '~p' for "
+					     "option '~s' of module '~s'",
+					     [Val, Opt, Module]),
+					  [{Opt, Default}|Acc]
+				  end;
 			      Val ->
 				  [{Opt, Default}|Acc];
 			      _ ->
@@ -834,9 +842,9 @@ get_hosts(Opts, Prefix) ->
             Hosts
     end.
 
--spec get_module_proc(binary(), {frontend, atom()} | atom()) -> atom().
-get_module_proc(Host, {frontend, Base}) ->
-    get_module_proc(<<"frontend_", Host/binary>>, Base);
+-spec get_module_proc(binary() | global, atom()) -> atom().
+get_module_proc(global, Base) ->
+    get_module_proc(<<"global">>, Base);
 get_module_proc(Host, Base) ->
     binary_to_atom(
       <<(erlang:atom_to_binary(Base, latin1))/binary, "_", Host/binary>>,
@@ -874,12 +882,24 @@ is_equal_opt(Opt, NewOpts, OldOpts) ->
 	    true
     end.
 
+-spec is_opt_list(term()) -> boolean().
+is_opt_list([]) ->
+    true;
+is_opt_list(L) when is_list(L) ->
+    lists:all(
+      fun({Opt, _Val}) -> is_atom(Opt);
+	 (_) -> false
+      end, L);
+is_opt_list(_) ->
+    false.
+
 -spec opt_type(modules) -> fun(([{atom(), list()}]) -> [{atom(), list()}]);
 	      (atom()) -> [atom()].
 opt_type(modules) ->
     fun(Mods) ->
 	    lists:map(
-	      fun({M, A}) when is_atom(M), is_list(A) ->
+	      fun({M, A}) when is_atom(M) ->
+		      true = is_opt_list(A),
 		      {M, A}
 	      end, Mods)
     end;
