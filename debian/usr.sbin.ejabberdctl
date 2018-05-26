@@ -7,23 +7,27 @@
 
 	capability net_bind_service,
 	capability dac_override,
+	capability dac_read_search, # for sed
 
-	/bin/bash					rmix,
-	/bin/dash					rmix,
-	/bin/cat					ix,
-	/bin/date					ix,
-	/bin/grep					ix,
-	/bin/ps						ix,
-	/bin/sed					ix,
-	/bin/sleep					ix,
+	/{,usr/}bin/bash				rmix,
+	/{,usr/}bin/cat					ix,
+	/{,usr/}bin/dash				rmix,
+	/{,usr/}bin/date				ix,
+	/{,usr/}bin/df					ix,
+	/{,usr/}bin/{,p}grep			ix,
+	/{,usr/}bin/ps					ix,
+	/{,usr/}bin/sed					ix,
+	/{,usr/}bin/sleep				ix,
 
 
-	/bin/su						px -> /usr/sbin/ejabberdctl//su,
+	/{,usr/}bin/su					px -> /usr/sbin/ejabberdctl//su,
 	profile su {
 		#include <abstractions/authentication>
 		#include <abstractions/base>
 		#include <abstractions/nameservice>
 		#include <abstractions/wutmp>
+
+		deny capability net_admin, # setsockopt() with SO_RCVBUFFORCE
 
 		capability audit_write,
 		capability setgid,
@@ -33,15 +37,16 @@
 		@{PROC}/@{pid}/loginuid			r,
 		@{PROC}/1/limits			r,
 
-		/bin/bash				px -> /usr/sbin/ejabberdctl,
-		/bin/dash				px -> /usr/sbin/ejabberdctl,
-		/bin/su					rm,
+		/{,usr/}bin/bash			px -> /usr/sbin/ejabberdctl,
+		/{,usr/}bin/dash			px -> /usr/sbin/ejabberdctl,
+		/{,usr/}bin/su				rm,
 
 		/etc/environment			r,
 		/etc/default/locale			r,
 		/etc/security/limits.d**		r,
 
 		/lib/@{multiarch}/libpam.so*		rm,
+		/usr/lib/erlang/p1_pam/bin/epam		rm,
 	}
 
 
@@ -53,7 +58,11 @@
 
 	/sys/devices/system/cpu**			r,
 	/sys/devices/system/node**			r,
-	/proc/sys/kernel/random/uuid			r,
+	/proc/sys/kernel/osrelease			r, # for pgrep
+	/proc/sys/kernel/random/uuid		r,
+	@{PROC}/							r, # for pgrep
+	owner @{PROC}/@{pid}/mountinfo		r, # for df
+	owner @{PROC}/@{pid}/mounts			r, # for df
 
 	/usr/bin/cut					ix,
 	/usr/bin/erl					ix,
@@ -61,10 +70,10 @@
 	/usr/bin/flock					ix,
 	/usr/bin/getent					ix,
 	/usr/bin/id					ix,
+	/usr/bin/inotifywait			ix,
 	/usr/bin/seq					ix,
 	/usr/bin/uuidgen				ix,
 
-	/usr/lib/					r,
 	/usr/lib/erlang/bin/erl				ix,
 	/usr/lib/erlang/erts-*/bin/beam*		ix,
 	/usr/lib/erlang/erts-*/bin/child_setup		ix,
@@ -73,6 +82,8 @@
 	/usr/lib/erlang/erts-*/bin/erlexec		ix,
 	/usr/lib/erlang/erts-*/bin/inet_gethost		ix,
 	/usr/lib/erlang/lib/**.so			rm,
+	/usr/lib/erlang/lib/os_mon*/priv/bin/memsup ix,
+	/usr/lib/erlang/lib/p1_eimp*/priv/bin/eimp  ix,
 	/usr/lib/erlang/p1_pam/bin/epam			px -> /usr/sbin/ejabberdctl//su,
 
 	/usr/lib/x86_64-linux-gnu/ImageMagick-*/**	ix,
