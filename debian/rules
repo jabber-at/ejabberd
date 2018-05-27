@@ -51,8 +51,8 @@ override_dh_auto_install:
 	cp -v $(CURDIR)/debian/README.modules $(DESTDIR)/etc/ejabberd/modules.d/
 	
 	# move captcha.sh to /usr/share/ejabberd
-	rm $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION)/priv/bin/captcha.sh
-	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION)/priv/bin
+	rm $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM_REVISION)/priv/bin/captcha.sh
+	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM_REVISION)/priv/bin
 	install -m 755 tools/captcha.sh $(DESTDIR)/usr/share/ejabberd/
 	
 	# install sql code
@@ -93,7 +93,7 @@ override_dh_auto_clean:
 	rm -f Makefile config.log config.status vars.config priv/sql
 	rm -rf .rebar deps ebin include/XmppAddr.hrl src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
 	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example ejabberd.service
-	sed -i 's/$(DEB_VERSION)/$(DEB_VERSION_UPSTREAM)/' configure
-	sed -i 's/$(DEB_VERSION)/VERSION/' debian/ejabberd.lintian-overrides
+	sed -i 's/$(DEB_VERSION_UPSTREAM_REVISION)/$(DEB_VERSION_UPSTREAM)/' configure
+	sed -i 's/$(DEB_VERSION_UPSTREAM_REVISION)/VERSION/' debian/ejabberd.lintian-overrides
 	dh_auto_clean
 	debconf-updatepo
