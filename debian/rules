@@ -15,6 +15,9 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 override_dh_auto_configure:
 	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
 	#sed -i 's/$(DEB_VERSION_UPSTREAM)/$(DEB_VERSION)/' configure
+	sed -i 's/PACKAGE_VERSION=\'$(DEB_VERSION_UPSTREAM)\'/PACKAGE_VERSION=\'$(DEB_VERSION)\'/' configure
+	sed -i 's/PACKAGE_STRING=\'ejabberd $(DEB_VERSION_UPSTREAM)\'/PACKAGE_STRING=\'ejabberd $(DEB_VERSION)\'/' configure
+	grep ^PACKAGE_ configure
 	#sed -i 's/VERSION/$(DEB_VERSION)/' debian/ejabberd.lintian-overrides
 	dh_auto_configure -- \
 		--enable-iconv \
