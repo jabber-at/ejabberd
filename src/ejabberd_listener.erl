@@ -34,7 +34,6 @@
 	 add_listener/3, delete_listener/2, transform_options/1,
 	 validate_cfg/1, opt_type/1, config_reloaded/0]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 
 %% We do not block on send anymore.
@@ -256,36 +255,7 @@ get_ip_tuple(IPOpt, _IPVOpt) ->
     IPOpt.
 
 accept(ListenSocket, Module, Opts) ->
-    IntervalOpt =
-        case proplists:get_value(accept_interval, Opts) of
-            [{linear, [I1_, T1_, T2_, I2_]}] ->
-                {linear, I1_, T1_, T2_, I2_};
-            I_ -> I_
-        end,
-    Interval =
-        case IntervalOpt of
-            undefined ->
-                0;
-            I when is_integer(I), I >= 0 ->
-                I;
-            {linear, I1, T1, T2, I2}
-            when is_integer(I1),
-                 is_integer(T1),
-                 is_integer(T2),
-                 is_integer(I2),
-                 I1 >= 0,
-                 I2 >= 0,
-                 T2 > 0 ->
-                {MSec, Sec, _USec} = os:timestamp(),
-                TS = MSec * 1000000 + Sec,
-                {linear, I1, TS + T1, T2, I2};
-            I ->
-                ?WARNING_MSG("There is a problem in the configuration: "
-                             "~p is a wrong accept_interval value.  "
-                             "Using 0 as fallback",
-                             [I]),
-                0
-        end,
+    Interval = proplists:get_value(accept_interval, Opts, 0),
     accept(ListenSocket, Module, Opts, Interval).
 
 accept(ListenSocket, Module, Opts, Interval) ->

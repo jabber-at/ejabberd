@@ -56,7 +56,6 @@
 	     {ram_db_type, 2},
 	     {ram_db_type, 3}]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -127,10 +126,9 @@ stop_child(Proc) ->
 
 %% Start all the modules in all the hosts
 start_modules() ->
-    lists:foreach(
-	fun(Host) ->
-	    start_modules(Host)
-	end, ?MYHOSTS).
+    Hosts = ejabberd_config:get_myhosts(),
+    ?INFO_MSG("Loading modules for ~s", [format_hosts_list(Hosts)]),
+    lists:foreach(fun start_modules/1, Hosts).
 
 get_modules_options(Host) ->
     sort_modules(Host, ejabberd_config:get_option({modules, Host}, [])).
@@ -217,31 +215,18 @@ start_module(Host, Module, Opts0, Order, NeedValidation) ->
 	    try case Module:start(Host, Opts) of
 		    ok -> ok;
 		    {ok, Pid} when is_pid(Pid) -> {ok, Pid};
-		    Err -> erlang:error(Err)
+		    Err -> erlang:error({bad_return, Module, Err})
 		end
 	    catch Class:Reason ->
+		    StackTrace = erlang:get_stacktrace(),
 		    ets:delete(ejabberd_modules, {Module, Host}),
-		    ErrorText =
-			case Reason == undef andalso
-			     code:ensure_loaded(Module) /= {module, Module} of
-			    true ->
-				io_lib:format("Failed to load unknown module "
-					      "~s for host ~s: make sure "
-					      "there is no typo and ~s.beam "
-					      "exists inside either ~s or ~s "
-					      "directory",
-					      [Module, Host, Module,
-					       filename:dirname(code:which(?MODULE)),
-					       ext_mod:modules_dir()]);
-			    false ->
-				io_lib:format("Problem starting the module ~s for host "
-					      "~s ~n options: ~p~n ~p: ~p~n~p",
-					      [Module, Host, Opts, Class, Reason,
-					       erlang:get_stacktrace()])
-			end,
+		    ErrorText = format_module_error(
+				  Module, start, 2,
+				  Opts, Class, Reason,
+				  StackTrace),
 		    ?CRITICAL_MSG(ErrorText, []),
 		    maybe_halt_ejabberd(),
-		    erlang:raise(Class, Reason, erlang:get_stacktrace())
+		    erlang:raise(Class, Reason, StackTrace)
 	    end;
 	{error, _ErrorText} ->
 	    maybe_halt_ejabberd()
@@ -295,14 +280,15 @@ reload_module(Host, Module, NewOpts, OldOpts, Order) ->
 	    try case Module:reload(Host, NewOpts, OldOpts) of
 		    ok -> ok;
 		    {ok, Pid} when is_pid(Pid) -> {ok, Pid};
-		    Err -> erlang:error(Err)
+		    Err -> erlang:error({bad_return, Module, Err})
 		end
 	    catch Class:Reason ->
 		    StackTrace = erlang:get_stacktrace(),
-		    ?CRITICAL_MSG("Failed to reload module ~s at ~s:~n"
-				  "** Reason = ~p",
-				  [Module, Host,
-				   {Class, {Reason, StackTrace}}]),
+		    ErrorText = format_module_error(
+                                  Module, reload, 3,
+                                  NewOpts, Class, Reason,
+				  StackTrace),
+                    ?CRITICAL_MSG(ErrorText, []),
 		    erlang:raise(Class, Reason, StackTrace)
 	    end;
 	false ->
@@ -340,7 +326,7 @@ stop_modules() ->
     lists:foreach(
 	fun(Host) ->
 	    stop_modules(Host)
-	end, ?MYHOSTS).
+	end, ejabberd_config:get_myhosts()).
 
 -spec stop_modules(binary()) -> ok.
 
@@ -431,7 +417,7 @@ get_module_opt(Host, Module, Opt) ->
 get_module_opt(Host, Module, Opt, F) when is_function(F) ->
     get_module_opt(Host, Module, Opt, undefined);
 get_module_opt(global, Module, Opt, Default) ->
-    Hosts = (?MYHOSTS),
+    Hosts = ejabberd_config:get_myhosts(),
     [Value | Values] = lists:map(fun (Host) ->
 					 get_module_opt(Host, Module, Opt,
 							Default)
@@ -546,89 +532,94 @@ validate_opts(Host, Module, Opts0) ->
 			    catch _:undef -> []
 			    end
 		    end, [Module|SubMods]),
-    Required = lists:filter(fun is_atom/1, DefaultOpts),
     try
 	Opts = merge_opts(Opts0, DefaultOpts, Module),
 	{ok, case get_validators(Host, {Module, SubMods}) of
 		 undef ->
 		     Opts;
 		 Validators ->
-		     Opts1 = validate_opts(Host, Module, Opts, Required, Validators),
+		     Opts1 = validate_opts(Host, Module, Opts, Validators),
 		     remove_duplicated_opts(Opts1)
 	     end}
     catch _:{missing_required_option, Opt} ->
 	    ErrTxt = io_lib:format("Module '~s' is missing required option '~s'",
 				   [Module, Opt]),
-	    ?ERROR_MSG(ErrTxt, []),
-	    {error, ErrTxt}
+	    module_error(ErrTxt);
+	  _:{invalid_option, Opt, Val} ->
+	    ErrTxt = io_lib:format("Invalid value '~p' for option '~s' of "
+				   "module '~s'", [Val, Opt, Module]),
+	    module_error(ErrTxt);
+	  _:{invalid_option, Opt, Val, Reason} ->
+	    ErrTxt = io_lib:format("Invalid value '~p' for option '~s' of "
+				   "module '~s': ~s", [Val, Opt, Module, Reason]),
+	    module_error(ErrTxt);
+	  _:{unknown_option, Opt, []} ->
+	    ErrTxt = io_lib:format("Unknown option '~s' of module '~s': "
+				   "the module doesn't have any options",
+				   [Opt, Module]),
+	    module_error(ErrTxt);
+	  _:{unknown_option, Opt, KnownOpts} ->
+	    ErrTxt = io_lib:format("Unknown option '~s' of module '~s',"
+				   " available options are: ~s",
+				   [Opt, Module,
+				    misc:join_atoms(KnownOpts, <<", ">>)]),
+	    module_error(ErrTxt)
     end.
 
-validate_opts(Host, Module, Opts, Required, Validators) when is_list(Opts) ->
+-spec module_error(iolist()) -> {error, iolist()}.
+module_error(ErrTxt) ->
+    ?ERROR_MSG(ErrTxt, []),
+    {error, ErrTxt}.
+
+-spec err_invalid_option(atom(), any()) -> no_return().
+err_invalid_option(Opt, Val) ->
+    erlang:error({invalid_option, Opt, Val}).
+
+-spec err_invalid_option(atom(), any(), iolist()) -> no_return().
+err_invalid_option(Opt, Val, Reason) ->
+    erlang:error({invalid_option, Opt, Val, Reason}).
+
+-spec err_unknown_option(atom(), [atom()]) -> no_return().
+err_unknown_option(Opt, KnownOpts) ->
+    erlang:error({unknown_option, Opt, KnownOpts}).
+
+-spec err_missing_required_option(atom()) -> no_return().
+err_missing_required_option(Opt) ->
+    erlang:error({missing_required_option, Opt}).
+
+validate_opts(Host, Module, Opts, Validators) when is_list(Opts) ->
     lists:flatmap(
       fun({Opt, Val}) when is_atom(Opt) ->
 	      case lists:keyfind(Opt, 1, Validators) of
 		  {_, L} ->
 		      case lists:partition(fun is_function/1, L) of
 			  {[VFun|_], []} ->
-			      validate_opt(Module, Opt, Val, Required, VFun);
+			      validate_opt(Opt, Val, VFun);
 			  {[VFun|_], SubValidators} ->
-			      try validate_opts(Host, Module, Val, Required, SubValidators) of
+			      try validate_opts(Host, Module, Val, SubValidators) of
 				  SubOpts ->
-				      validate_opt(Module, Opt, SubOpts, Required, VFun)
+				      validate_opt(Opt, SubOpts, VFun)
 			      catch _:bad_option ->
-				      ?ERROR_MSG("Ignoring invalid value '~p' for "
-						 "option '~s' of module '~s'",
-						 [Val, Opt, Module]),
-				      fail_if_option_is_required(Opt, Required),
-				      []
+				      err_invalid_option(Opt, Val)
 			      end
 		      end;
 		  false ->
-		      case Validators of
-			  [] ->
-			      ?ERROR_MSG("Ignoring unknown option '~s' of '~s':"
-					 " the module doesn't have any options",
-					 [Opt, Module]);
-			  _ ->
-			      ?ERROR_MSG("Ignoring unknown option '~s' of '~s',"
-					 " available options are: ~s",
-					 [Opt, Module,
-					  misc:join_atoms(
-					    [K || {K, _} <- Validators],
-					    <<", ">>)])
-		      end,
-		      []
+		      err_unknown_option(Opt, [K || {K, _} <- Validators])
 	      end;
 	 (_) ->
 	      erlang:error(bad_option)
       end, Opts);
-validate_opts(_, _, _, _, _) ->
+validate_opts(_, _, _, _) ->
     erlang:error(bad_option).
 
--spec validate_opt(module(), atom(), any(), [atom()],
-		   [{atom(), check_fun(), any()}]) -> [{atom(), any()}].
-validate_opt(Module, Opt, Val, Required, VFun) ->
+-spec validate_opt(atom(), any(), check_fun()) -> [{atom(), any()}].
+validate_opt(Opt, Val, VFun) ->
     try VFun(Val) of
 	NewVal -> [{Opt, NewVal}]
     catch {invalid_syntax, Error} ->
-	    ?ERROR_MSG("Ignoring invalid value '~p' for "
-		       "option '~s' of module '~s': ~s",
-		       [Val, Opt, Module, Error]),
-	    fail_if_option_is_required(Opt, Required),
-	    [];
+	    err_invalid_option(Opt, Val, Error);
 	  _:_ ->
-	    ?ERROR_MSG("Ignoring invalid value '~p' for "
-		       "option '~s' of module '~s'",
-		       [Val, Opt, Module]),
-	    fail_if_option_is_required(Opt, Required),
-	    []
-    end.
-
--spec fail_if_option_is_required(atom(), [atom()]) -> ok | no_return().
-fail_if_option_is_required(Opt, Required) ->
-    case lists:member(Opt, Required) of
-	true -> erlang:error({missing_required_option, Opt});
-	false -> ok
+	    err_invalid_option(Opt, Val)
     end.
 
 -spec list_known_opts(binary(), module()) -> [atom() | {atom(), atom()}].
@@ -658,11 +649,7 @@ merge_opts(Opts, DefaultOpts, Module) ->
 				      true ->
 					  [{Opt, merge_opts(Val, Default, Module)}|Acc];
 				      false ->
-					  ?ERROR_MSG(
-					     "Ignoring invalid value '~p' for "
-					     "option '~s' of module '~s'",
-					     [Val, Opt, Module]),
-					  [{Opt, Default}|Acc]
+					  err_invalid_option(Opt, Val)
 				  end;
 			      Val ->
 				  [{Opt, Default}|Acc];
@@ -677,7 +664,7 @@ merge_opts(Opts, DefaultOpts, Module) ->
 		      {_, Val} ->
 			  [{Opt, Val}|Acc];
 		      false ->
-			  erlang:error({missing_required_option, Opt})
+			  err_missing_required_option(Opt)
 		  end
 	  end, [], DefaultOpts),
     lists:foldl(
@@ -720,6 +707,51 @@ get_submodules(Host, Module, Opts) ->
     catch _:undef ->
 	    []
     end.
+
+-spec format_module_error(atom(), start | reload, non_neg_integer(), opts(),
+			  error | exit | throw, any(),
+			  [erlang:stack_item()]) -> iolist().
+format_module_error(Module, Fun, Arity, Opts, Class, Reason, St) ->
+    IsLoaded = code:ensure_loaded(Module) == {module, Module},
+    IsCallbackExported = erlang:function_exported(Module, Fun, Arity),
+    case {Class, Reason} of
+	{error, undef} when not IsLoaded ->
+	    io_lib:format("Failed to ~s unknown module ~s: "
+			  "make sure there is no typo and ~s.beam "
+			  "exists inside either ~s or ~s "
+			  "directory",
+			  [Fun, Module, Module,
+			   filename:dirname(code:which(?MODULE)),
+			   ext_mod:modules_dir()]);
+	{error, undef} when not IsCallbackExported ->
+	    io_lib:format("Failed to ~s module ~s because "
+			  "it doesn't export ~s/~B callback: "
+			  "is it really an ejabberd module?",
+			  [Fun, Module, Fun, Arity]);
+	{error, {bad_return, Module, Ret}} ->
+	    io_lib:format("Module ~s returned unexpected value from "
+			  "~s/~B: ~p; this is either not an ejabberd "
+			  "module or it implements ejabbed API incorrectly",
+			  [Module, Fun, Arity, Ret]);
+	_ ->
+	    io_lib:format("Internal error of module ~s has "
+			  "occured during ~s:~n"
+			  "** Options: ~p~n"
+			  "** Class: ~p~n"
+			  "** Reason: ~p~n"
+			  "** Stacktrace: ~p",
+			  [Module, Fun, Opts, Class, Reason, St])
+    end.
+
+format_hosts_list([Host]) ->
+    Host;
+format_hosts_list([H1, H2]) ->
+    [H1, " and ", H2];
+format_hosts_list([H1, H2, H3]) ->
+    [H1, ", ", H2, " and ", H3];
+format_hosts_list([H1, H2|Hs]) ->
+    io_lib:format("~s, ~s and ~B more hosts",
+		  [H1, H2, length(Hs)]).
 
 -spec db_type(binary() | global, module()) -> db_type();
 	     (opts(), module()) -> db_type().
@@ -834,7 +866,7 @@ get_hosts(Opts, Prefix) ->
         undefined ->
             case get_opt(host, Opts) of
                 undefined ->
-                    [<<Prefix/binary, Host/binary>> || Host <- ?MYHOSTS];
+                    [<<Prefix/binary, Host/binary>> || Host <- ejabberd_config:get_myhosts()];
                 Host ->
                     [Host]
             end;
@@ -869,7 +901,7 @@ config_reloaded() ->
     lists:foreach(
       fun(Host) ->
 	      reload_modules(Host)
-      end, ?MYHOSTS).
+      end, ejabberd_config:get_myhosts()).
 
 -spec is_equal_opt(atom(), opts(), opts()) ->
 			  true | {false, any(), any()}.

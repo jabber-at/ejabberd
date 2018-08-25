@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.53)
-AC_INIT(ejabberd, 18.04, ejabberd@process-one.net, ejabberd)
+AC_INIT(ejabberd, 18.06, ejabberd@process-one.net, ejabberd)
 REQUIRE_ERLANG_MIN="6.4 (Erlang/OTP 17.5)"
 REQUIRE_ERLANG_MAX="100.0.0 (No Max)"
 
@@ -197,12 +197,12 @@ AC_ARG_ENABLE(elixir,
 esac],[if test "x$elixir" = "x"; then elixir=false; fi])
 
 AC_ARG_ENABLE(iconv,
-[AC_HELP_STRING([--enable-iconv], [enable iconv support (default: yes)])],
+[AC_HELP_STRING([--enable-iconv], [enable iconv support (default: no)])],
 [case "${enableval}" in
   yes) iconv=true ;;
   no)  iconv=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-iconv) ;;
-esac],[if test "x$iconv" = "x"; then iconv=true; fi])
+esac],[if test "x$iconv" = "x"; then iconv=false; fi])
 
 AC_ARG_ENABLE(debug,
 [AC_HELP_STRING([--enable-debug], [enable debug information (default: yes)])],
@@ -274,8 +274,6 @@ if test "$ENABLEGROUP" != ""; then
   echo "allow this system group to start ejabberd: $ENABLEGROUP"
   AC_SUBST([INSTALLGROUP], [$ENABLEGROUP])
 fi
-
-ERLANG_DEPRECATED_TYPES_CHECK
 
 if test "$sqlite" = "true"; then
    AX_LIB_SQLITE3([3.6.19])

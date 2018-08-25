@@ -40,7 +40,6 @@
 	 c2s_authenticated_packet/2, csi_activity/2,
 	 c2s_copy_session/2, c2s_session_resumed/1]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 
@@ -293,7 +292,7 @@ filter_other(Acc) ->
 add_stream_feature(Features, Host) ->
     case gen_mod:is_loaded(Host, ?MODULE) of
 	true ->
-	    [#feature_csi{xmlns = <<"urn:xmpp:csi:0">>} | Features];
+	    [#feature_csi{} | Features];
 	false ->
 	    Features
     end.

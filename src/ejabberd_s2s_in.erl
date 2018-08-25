@@ -44,7 +44,6 @@
 -export([stop/1, close/1, close/2, send/2, update_state/2, establish/1,
 	 host_up/1, host_down/1]).
 
--include("ejabberd.hrl").
 -include("xmpp.hrl").
 -include("logger.hrl").
 
@@ -263,10 +262,10 @@ init([State, Opts]) ->
     State1 = State#{tls_options => TLSOpts2,
 		    auth_domains => sets:new(),
 		    xmlns => ?NS_SERVER,
-		    lang => ?MYLANG,
-		    server => ?MYNAME,
-		    lserver => ?MYNAME,
-		    server_host => ?MYNAME,
+		    lang => ejabberd_config:get_mylang(),
+		    server => ejabberd_config:get_myname(),
+		    lserver => ejabberd_config:get_myname(),
+		    server_host => ejabberd_config:get_myname(),
 		    established => false,
 		    shaper => Shaper},
     State2 = xmpp_stream_in:set_timeout(State1, Timeout),
@@ -388,6 +387,9 @@ listen_opt_type(inet) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(inet6) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(backlog) ->
     fun(I) when is_integer(I), I>0 -> I end;
+listen_opt_type(accept_interval) ->
+    fun(I) when is_integer(I), I>=0 -> I end;
 listen_opt_type(_) ->
     [shaper, certfile, ciphers, dhfile, cafile, protocol_options,
-     tls_compression, tls, max_fsm_queue, backlog, inet, inet6].
+     tls_compression, tls, max_fsm_queue, backlog, inet, inet6,
+     accept_interval].

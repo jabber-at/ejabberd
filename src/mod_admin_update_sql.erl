@@ -36,7 +36,6 @@
 
 
 -include("logger.hrl").
--include("ejabberd.hrl").
 -include("ejabberd_commands.hrl").
 -include("xmpp.hrl").
 -include("ejabberd_sql_pt.hrl").
@@ -82,7 +81,7 @@ update_sql() ->
                   _ ->
                       update_sql(Host)
               end
-      end, ?MYHOSTS),
+      end, ejabberd_config:get_myhosts()),
     ok.
 
 -record(state, {host :: binary(),
@@ -241,9 +240,6 @@ update_tables(State) ->
 
     add_sh_column(State, "muc_online_users"),
     drop_sh_default(State, "muc_online_users"),
-
-    add_sh_column(State, "irc_custom"),
-    drop_sh_default(State, "irc_custom"),
 
     add_sh_column(State, "motd"),
     drop_pkey(State, "motd"),

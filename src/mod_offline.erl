@@ -67,7 +67,6 @@
 
 -deprecated({get_queue_length,2}).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 
 -include("xmpp.hrl").
@@ -483,8 +482,8 @@ c2s_self_presence({_Pres, #{resend_offline := false}} = Acc) ->
     Acc;
 c2s_self_presence({#presence{type = available} = NewPres, State} = Acc) ->
     NewPrio = get_priority_from_presence(NewPres),
-    LastPrio = case maps:get(pres_last, State, error) of
-		   error -> -1;
+    LastPrio = case maps:get(pres_last, State, undefined) of
+		   undefined -> -1;
 		   LastPres -> get_priority_from_presence(LastPres)
 	       end,
     if LastPrio < 0 andalso NewPrio >= 0 ->

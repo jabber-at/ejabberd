@@ -31,7 +31,6 @@
 
 -export([start/2, prep_stop/1, stop/1]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 
 %%%
@@ -46,22 +45,28 @@ start(normal, _Args) ->
     start_elixir_application(),
     ejabberd:check_app(ejabberd),
     setup_if_elixir_conf_used(),
-    ejabberd_config:start(),
-    ejabberd_mnesia:start(),
-    file_queue_init(),
-    maybe_add_nameservers(),
-    ejabberd_system_monitor:start(),
-    case ejabberd_sup:start_link() of
-	{ok, SupPid} ->
-	    register_elixir_config_hooks(),
-	    ejabberd_cluster:wait_for_sync(infinity),
-	    {T2, _} = statistics(wall_clock),
-	    ?INFO_MSG("ejabberd ~s is started in the node ~p in ~.2fs",
-		      [?VERSION, node(), (T2-T1)/1000]),
-	    lists:foreach(fun erlang:garbage_collect/1, processes()),
-	    {ok, SupPid};
-	Err ->
-	    ?CRITICAL_MSG("Failed to start ejabberd application: ~p", [Err]),
+    case ejabberd_config:start() of
+	ok ->
+	    ejabberd_mnesia:start(),
+	    file_queue_init(),
+	    maybe_add_nameservers(),
+	    case ejabberd_sup:start_link() of
+		{ok, SupPid} ->
+		    ejabberd_system_monitor:start(),
+		    register_elixir_config_hooks(),
+		    ejabberd_cluster:wait_for_sync(infinity),
+		    {T2, _} = statistics(wall_clock),
+		    ?INFO_MSG("ejabberd ~s is started in the node ~p in ~.2fs",
+			      [ejabberd_config:get_version(),
+			       node(), (T2-T1)/1000]),
+		    lists:foreach(fun erlang:garbage_collect/1, processes()),
+		    {ok, SupPid};
+		Err ->
+		    ?CRITICAL_MSG("Failed to start ejabberd application: ~p", [Err]),
+		    ejabberd:halt()
+	    end;
+	{error, Reason} ->
+	    ?CRITICAL_MSG("Failed to start ejabberd application: ~p", [Reason]),
 	    ejabberd:halt()
     end;
 start(_, _) ->
@@ -78,7 +83,8 @@ prep_stop(State) ->
 
 %% All the processes were killed when this function is called
 stop(_State) ->
-    ?INFO_MSG("ejabberd ~s is stopped in the node ~p", [?VERSION, node()]),
+    ?INFO_MSG("ejabberd ~s is stopped in the node ~p",
+	      [ejabberd_config:get_version(), node()]),
     delete_pid_file(),
     %%ejabberd_debug:stop(),
     ok.

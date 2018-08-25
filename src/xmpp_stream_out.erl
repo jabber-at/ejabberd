@@ -29,7 +29,7 @@
 
 %% API
 -export([start/3, start_link/3, call/3, cast/2, reply/2, connect/1,
-	 stop/1, send/2, close/1, close/2, establish/1, format_error/1,
+	 stop/1, send/2, close/1, close/2, bind/2, establish/1, format_error/1,
 	 set_timeout/2, get_transport/1, change_shaper/2]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -61,6 +61,7 @@
 		       {tls, tls_error_reason()} |
 		       {pkix, binary()} |
 		       {auth, atom() | binary() | string()} |
+		       {bind, stanza_error()} |
 		       {socket, socket_error_reason()} |
 		       internal_failure.
 -export_type([state/0, stop_reason/0]).
@@ -82,14 +83,19 @@
 -callback handle_unauthenticated_features(stream_features(), state()) -> state().
 -callback handle_auth_success(cyrsasl:mechanism(), state()) -> state().
 -callback handle_auth_failure(cyrsasl:mechanism(), binary(), state()) -> state().
+-callback handle_bind_success(state()) -> state().
+-callback handle_bind_failure(stanza_error(), state()) -> state().
 -callback handle_packet(xmpp_element(), state()) -> state().
 -callback tls_options(state()) -> [proplists:property()].
 -callback tls_required(state()) -> boolean().
 -callback tls_verify(state()) -> boolean().
 -callback tls_enabled(state()) -> boolean().
+-callback resolve(string(), state()) -> [host_port()].
+-callback sasl_mechanisms(state()) -> [binary()].
 -callback dns_timeout(state()) -> timeout().
 -callback dns_retries(state()) -> non_neg_integer().
 -callback default_port(state()) -> inet:port_number().
+-callback connect_options(inet:ip_address(), list(), state()) -> list().
 -callback address_families(state()) -> [inet:address_family()].
 -callback connect_timeout(state()) -> timeout().
 
@@ -111,23 +117,32 @@
 		     handle_unauthenticated_features/2,
 		     handle_auth_success/2,
 		     handle_auth_failure/3,
+		     handle_bind_success/1,
+		     handle_bind_failure/2,
 		     handle_packet/2,
 		     tls_options/1,
 		     tls_required/1,
 		     tls_verify/1,
 		     tls_enabled/1,
+		     resolve/2,
+		     sasl_mechanisms/1,
 		     dns_timeout/1,
 		     dns_retries/1,
 		     default_port/1,
+		     connect_options/3,
 		     address_families/1,
 		     connect_timeout/1]).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
+start({local, Mod}, Args, Opts) ->
+    ?GEN_SERVER:start({local, Mod}, ?MODULE, [Mod|Args], Opts ++ ?FSMOPTS);
 start(Mod, Args, Opts) ->
     ?GEN_SERVER:start(?MODULE, [Mod|Args], Opts ++ ?FSMOPTS).
 
+start_link({local, Mod}, Args, Opts) ->
+    ?GEN_SERVER:start_link({local, Mod}, ?MODULE, [Mod|Args], Opts ++ ?FSMOPTS);
 start_link(Mod, Args, Opts) ->
     ?GEN_SERVER:start_link(?MODULE, [Mod|Args], Opts ++ ?FSMOPTS).
 
@@ -176,6 +191,10 @@ close(_) ->
 close(Pid, Reason) ->
     cast(Pid, {close, Reason}).
 
+-spec bind(state(), stream_features()) -> state().
+bind(#{stream_authenticated := true} = State, StreamFeatures) ->
+    process_bind(StreamFeatures, State).
+
 -spec establish(state()) -> state().
 establish(State) ->
     process_stream_established(State).
@@ -217,10 +236,12 @@ format_error({pkix, Reason}) ->
     format("Peer certificate rejected: ~s", [ErrTxt]);
 format_error({stream, reset}) ->
     <<"Stream reset by peer">>;
-format_error({stream, {in, #stream_error{reason = Reason, text = Txt}}}) ->
-    format("Stream closed by peer: ~s", [format_stream_error(Reason, Txt)]);
-format_error({stream, {out, #stream_error{reason = Reason, text = Txt}}}) ->
-    format("Stream closed by us: ~s", [format_stream_error(Reason, Txt)]);
+format_error({stream, {in, #stream_error{} = Err}}) ->
+    format("Stream closed by peer: ~s", [xmpp:format_stream_error(Err)]);
+format_error({stream, {out, #stream_error{} = Err}}) ->
+    format("Stream closed by us: ~s", [xmpp:format_stream_error(Err)]);
+format_error({bind, #stanza_error{} = Err}) ->
+    format("Resource binding failure: ~s", [xmpp:format_stanza_error(Err)]);
 format_error({tls, Reason}) ->
     format("TLS failed: ~s", [format_tls_error(Reason)]);
 format_error({auth, Reason}) ->
@@ -234,13 +255,14 @@ format_error(Err) ->
 %%% gen_server callbacks
 %%%===================================================================
 -spec init(list()) -> {ok, state(), timeout()} | {stop, term()} | ignore.
-init([Mod, _SockMod, From, To, Opts]) ->
+init([Mod, From, To, Opts]) ->
     Time = p1_time_compat:monotonic_time(milli_seconds),
     State = #{owner => self(),
 	      mod => Mod,
 	      server => From,
 	      user => <<"">>,
 	      resource => <<"">>,
+	      password => <<"">>,
 	      lang => <<"">>,
 	      remote_server => To,
 	      xmlns => ?NS_SERVER,
@@ -266,9 +288,9 @@ init([Mod, _SockMod, From, To, Opts]) ->
     end.
 
 -spec handle_call(term(), term(), state()) -> noreply().
-handle_call(Call, From, #{mod := Mod} = State) ->
-    noreply(try Mod:handle_call(Call, From, State)
-	    catch _:undef -> State
+handle_call(Call, From, State) ->
+    noreply(try callback(handle_call, Call, From, State)
+	    catch _:{?MODULE, undef} -> State
 	    end).
 
 -spec handle_cast(term(), state()) -> noreply().
@@ -297,6 +319,9 @@ handle_cast(connect, #{remote_server := RemoteServer,
 		      process_stream_end({dns, Why}, State)
 	      end
       end);
+handle_cast(connect, #{stream_state := disconnected} = State) ->
+    State1 = reset_state(State),
+    handle_cast(connect, State1);
 handle_cast(connect, State) ->
     %% Ignoring connection attempts in other states
     noreply(State);
@@ -311,9 +336,9 @@ handle_cast({close, Reason}, State) ->
 	  true -> State1;
 	  false -> process_stream_end({socket, Reason}, State)
       end);
-handle_cast(Cast, #{mod := Mod} = State) ->
-    noreply(try Mod:handle_cast(Cast, State)
-	    catch _:undef -> State
+handle_cast(Cast, State) ->
+    noreply(try callback(handle_cast, Cast, State)
+	    catch _:{?MODULE, undef} -> State
 	    end).
 
 -spec handle_info(term(), state()) -> noreply().
@@ -348,42 +373,41 @@ handle_info({'$gen_event', {xmlstreamerror, Reason}}, #{lang := Lang}= State) ->
 	      send_pkt(State1, Err)
       end);
 handle_info({'$gen_event', {xmlstreamelement, El}},
-	    #{xmlns := NS, mod := Mod, codec_options := Opts} = State) ->
+	    #{xmlns := NS, codec_options := Opts} = State) ->
     noreply(
       try xmpp:decode(El, NS, Opts) of
 	  Pkt ->
-	      State1 = try Mod:handle_recv(El, Pkt, State)
-		       catch _:undef -> State
+	      State1 = try callback(handle_recv, El, Pkt, State)
+		       catch _:{?MODULE, undef} -> State
 		       end,
 	      case is_disconnected(State1) of
 		  true -> State1;
 		  false -> process_element(Pkt, State1)
 	      end
       catch _:{xmpp_codec, Why} ->
-	      State1 = try Mod:handle_recv(El, {error, Why}, State)
-		       catch _:undef -> State
+	      State1 = try callback(handle_recv, El, {error, Why}, State)
+		       catch _:{?MODULE, undef} -> State
 		       end,
 	      case is_disconnected(State1) of
 		  true -> State1;
 		  false -> process_invalid_xml(State1, El, Why)
 	      end
       end);
-handle_info({'$gen_all_state_event', {xmlstreamcdata, Data}},
-	    #{mod := Mod} = State) ->
-    noreply(try Mod:handle_cdata(Data, State)
-	    catch _:undef -> State
+handle_info({'$gen_all_state_event', {xmlstreamcdata, Data}}, State) ->
+    noreply(try callback(handle_cdata, Data, State)
+	    catch _:{?MODULE, undef} -> State
 	    end);
 handle_info({'$gen_event', {xmlstreamend, _}}, State) ->
     noreply(process_stream_end({stream, reset}, State));
 handle_info({'$gen_event', closed}, State) ->
     noreply(process_stream_end({socket, closed}, State));
-handle_info(timeout, #{mod := Mod, lang := Lang} = State) ->
+handle_info(timeout, #{lang := Lang} = State) ->
     Disconnected = is_disconnected(State),
-    noreply(try Mod:handle_timeout(State)
-	    catch _:undef when not Disconnected ->
+    noreply(try callback(handle_timeout, State)
+	    catch _:{?MODULE, undef} when not Disconnected ->
 		    Txt = <<"Idle connection">>,
 		    send_pkt(State, xmpp:serr_connection_timeout(Txt, Lang));
-		  _:undef ->
+		  _:{?MODULE, undef} ->
 		    stop(State)
 	    end);
 handle_info({'DOWN', MRef, _Type, _Object, _Info},
@@ -404,26 +428,28 @@ handle_info({tcp_closed, _}, State) ->
     handle_info({'$gen_event', closed}, State);
 handle_info({tcp_error, _, Reason}, State) ->
     noreply(process_stream_end({socket, Reason}, State));
-handle_info(Info, #{mod := Mod} = State) ->
-    noreply(try Mod:handle_info(Info, State)
-	    catch _:undef -> State
+handle_info({'EXIT', _, Reason}, State) ->
+    {stop, Reason, State};
+handle_info(Info, State) ->
+    noreply(try callback(handle_info, Info, State)
+	    catch _:{?MODULE, undef} -> State
 	    end).
 
 -spec terminate(term(), state()) -> any().
-terminate(Reason, #{mod := Mod} = State) ->
+terminate(Reason, State) ->
     case get(already_terminated) of
 	true ->
 	    State;
 	_ ->
 	    put(already_terminated, true),
-	    try Mod:terminate(Reason, State)
-	    catch _:undef -> ok
+	    try callback(terminate, Reason, State)
+	    catch _:{?MODULE, undef} -> ok
 	    end,
 	    send_trailer(State)
     end.
 
-code_change(OldVsn, #{mod := Mod} = State, Extra) ->
-    Mod:code_change(OldVsn, State, Extra).
+code_change(OldVsn, State, Extra) ->
+    callback(code_change, OldVsn, State, Extra).
 
 %%%===================================================================
 %%% Internal functions
@@ -458,11 +484,10 @@ process_invalid_xml(#{lang := MyLang} = State, El, Reason) ->
 -spec process_stream_end(stop_reason(), state()) -> state().
 process_stream_end(_, #{stream_state := disconnected} = State) ->
     State;
-process_stream_end(Reason, #{mod := Mod} = State) ->
-    State1 = State#{stream_timeout => infinity,
-		    stream_state => disconnected},
-    try Mod:handle_stream_end(Reason, State1)
-    catch _:undef -> stop(State1)
+process_stream_end(Reason, State) ->
+    State1 = send_trailer(State),
+    try callback(handle_stream_end, Reason, State1)
+    catch _:{?MODULE, undef} -> stop(State1)
     end.
 
 -spec process_stream(stream_start(), state()) -> state().
@@ -475,10 +500,10 @@ process_stream(#stream_start{version = {N, _}}, State) when N > 1 ->
     send_pkt(State, xmpp:serr_unsupported_version());
 process_stream(#stream_start{lang = Lang, id = ID,
 			     version = Version} = StreamStart,
-	       #{mod := Mod} = State) ->
+	       State) ->
     State1 = State#{stream_remote_id => ID, lang => Lang},
-    State2 = try Mod:handle_stream_start(StreamStart, State1)
-	     catch _:undef -> State1
+    State2 = try callback(handle_stream_start, StreamStart, State1)
+	     catch _:{?MODULE, undef} -> State1
 	     end,
     case is_disconnected(State2) of
 	true -> State2;
@@ -516,22 +541,22 @@ process_element(Pkt, #{stream_state := StateName} = State) ->
 	       is_record(Pkt, handshake) ->
 	    %% Do not pass this crap upstream
 	    State;
+	_ when StateName == wait_for_bind_response ->
+	    process_bind_response(Pkt, State);
 	_ ->
 	    process_packet(Pkt, State)
     end.
 
 -spec process_features(stream_features(), state()) -> state().
 process_features(StreamFeatures,
-		 #{stream_authenticated := true, mod := Mod} = State) ->
-    State1 = try Mod:handle_authenticated_features(StreamFeatures, State)
-	     catch _:undef -> State
-	     end,
-    process_stream_established(State1);
+		 #{stream_authenticated := true} = State) ->
+    try callback(handle_authenticated_features, StreamFeatures, State)
+    catch _:{?MODULE, undef} -> process_bind(StreamFeatures, State)
+    end;
 process_features(StreamFeatures,
-		 #{stream_encrypted := Encrypted,
-		   mod := Mod, lang := Lang} = State) ->
-    State1 = try Mod:handle_unauthenticated_features(StreamFeatures, State)
-	     catch _:undef -> State
+		 #{stream_encrypted := Encrypted, lang := Lang} = State) ->
+    State1 = try callback(handle_unauthenticated_features, StreamFeatures, State)
+	     catch _:{?MODULE, undef} -> State
 	     end,
     case is_disconnected(State1) of
 	true -> State1;
@@ -542,39 +567,21 @@ process_features(StreamFeatures,
 		false when TLSRequired and not Encrypted ->
 		    Txt = <<"Use of STARTTLS required">>,
 		    send_pkt(State1, xmpp:serr_policy_violation(Txt, Lang));
-		false when not Encrypted ->
-		    process_sasl_failure(
-		      <<"Peer doesn't support STARTTLS">>, State1);
 		#starttls{required = true} when not TLSAvailable and not Encrypted ->
 		    Txt = <<"Use of STARTTLS forbidden">>,
 		    send_pkt(State1, xmpp:serr_unsupported_feature(Txt, Lang));
 		#starttls{} when TLSAvailable and not Encrypted ->
 		    State2 = State1#{stream_state => wait_for_starttls_response},
 		    send_pkt(State2, #starttls{});
-		#starttls{} when not Encrypted ->
-		    process_sasl_failure(
-		      <<"STARTTLS is disabled in local configuration">>, State1);
 		_ ->
 		    State2 = process_cert_verification(State1),
 		    case is_disconnected(State2) of
 			true -> State2;
-			false ->
-			    try xmpp:try_subtag(StreamFeatures, #sasl_mechanisms{}) of
-				#sasl_mechanisms{list = Mechs} ->
-				    process_sasl_mechanisms(Mechs, State2);
-				false ->
-				    Txt = <<"Peer provided no SASL mechanisms; "
-					    "most likely it doesn't accept "
-					    "our certificate">>,
-				    process_sasl_failure(Txt, State2)
-			    catch _:{xmpp_codec, Why} ->
-				    Txt = xmpp:io_format_error(Why),
-				    process_sasl_failure(Txt, State1)
-			    end
+			false -> process_sasl_mechanisms(StreamFeatures, State2)
 		    end
 	    catch _:{xmpp_codec, Why} ->
 		    Txt = xmpp:io_format_error(Why),
-		    process_sasl_failure(Txt, State1)
+		    send_pkt(State1, xmpp:serr_invalid_xml(Txt, Lang))
 	    end
     end.
 
@@ -582,26 +589,64 @@ process_features(StreamFeatures,
 process_stream_established(#{stream_state := StateName} = State)
   when StateName == disconnected; StateName == established ->
     State;
-process_stream_established(#{mod := Mod} = State) ->
+process_stream_established(State) ->
     State1 = State#{stream_authenticated := true,
 		    stream_state => established,
 		    stream_timeout => infinity},
-    try Mod:handle_stream_established(State1)
-    catch _:undef -> State1
+    try callback(handle_stream_established, State1)
+    catch _:{?MODULE, undef} -> State1
     end.
 
--spec process_sasl_mechanisms([binary()], state()) -> state().
-process_sasl_mechanisms(Mechs, #{user := User, server := Server} = State) ->
-    %% TODO: support other mechanisms
-    Mech = <<"EXTERNAL">>,
-    case lists:member(<<"EXTERNAL">>, Mechs) of
-	true ->
-	    State1 = State#{stream_state => wait_for_sasl_response},
-	    Authzid = jid:encode(jid:make(User, Server)),
-	    send_pkt(State1, #sasl_auth{mechanism = Mech, text = Authzid});
+-spec process_sasl_mechanisms(stream_features(), state()) -> state().
+process_sasl_mechanisms(StreamFeatures, State) ->
+    AvailMechs = sasl_mechanisms(State),
+    State1 = State#{sasl_mechs_available => AvailMechs},
+    try xmpp:try_subtag(StreamFeatures, #sasl_mechanisms{}) of
+	#sasl_mechanisms{list = ProvidedMechs} ->
+	    process_sasl_auth(State1#{sasl_mechs_provided => ProvidedMechs});
 	false ->
-	    process_sasl_failure(
-	      <<"Peer doesn't support EXTERNAL authentication">>, State)
+	    process_sasl_auth(State1#{sasl_mechs_provided => []})
+    catch _:{xmpp_codec, Why} ->
+	    Txt = xmpp:io_format_error(Why),
+	    Lang = maps:get(lang, State),
+	    send_pkt(State, xmpp:serr_invalid_xml(Txt, Lang))
+    end.
+
+process_sasl_auth(#{stream_encrypted := false, xmlns := ?NS_SERVER} = State) ->
+    State1 = State#{sasl_mechs_available => []},
+    Txt = case is_starttls_available(State) of
+	      true -> <<"Peer doesn't support STARTTLS">>;
+	      false -> <<"STARTTLS is disabled in local configuration">>
+	  end,
+    process_sasl_failure(Txt, State1);
+process_sasl_auth(#{sasl_mechs_provided := [],
+		    stream_encrypted := Encrypted} = State) ->
+    State1 = State#{sasl_mechs_available => []},
+    Hint = case Encrypted of
+	       true -> <<"; most likely it doesn't accept our certificate">>;
+	       false -> <<"">>
+	   end,
+    Txt = <<"Peer provided no SASL mechanisms", Hint/binary>>,
+    process_sasl_failure(Txt, State1);
+process_sasl_auth(#{sasl_mechs_available := []} = State) ->
+    Err = maps:get(sasl_error, State,
+		   <<"No mutually supported SASL mechanisms found">>),
+    process_sasl_failure(Err, State);
+process_sasl_auth(#{sasl_mechs_available := [Mech|AvailMechs],
+		    sasl_mechs_provided := ProvidedMechs} = State) ->
+    State1 = State#{sasl_mechs_available => AvailMechs},
+    if Mech == <<"EXTERNAL">> orelse Mech == <<"PLAIN">> ->
+	    case lists:member(Mech, ProvidedMechs) of
+		true ->
+		    Text = make_sasl_authzid(Mech, State1),
+		    State2 = State1#{sasl_mech => Mech,
+				     stream_state => wait_for_sasl_response},
+		    send(State2, #sasl_auth{mechanism = Mech, text = Text});
+		false ->
+		    process_sasl_auth(State1)
+	    end;
+       true ->
+	    process_sasl_auth(State1)
     end.
 
 -spec process_starttls(state()) -> state().
@@ -620,7 +665,7 @@ process_starttls(#{socket := Socket} = State) ->
 
 -spec process_stream_downgrade(stream_start(), state()) -> state().
 process_stream_downgrade(StreamStart,
-			 #{mod := Mod, lang := Lang,
+			 #{lang := Lang,
 			   stream_encrypted := Encrypted} = State) ->
     TLSRequired = is_starttls_required(State),
     if not Encrypted and TLSRequired ->
@@ -628,18 +673,17 @@ process_stream_downgrade(StreamStart,
 	    send_pkt(State, xmpp:serr_policy_violation(Txt, Lang));
        true ->
 	    State1 = State#{stream_state => downgraded},
-	    try Mod:handle_stream_downgraded(StreamStart, State1)
-	    catch _:undef ->
+	    try callback(handle_stream_downgraded, StreamStart, State1)
+	    catch _:{?MODULE, undef} ->
 		    send_pkt(State1, xmpp:serr_unsupported_version())
 	    end
     end.
 
 -spec process_cert_verification(state()) -> state().
 process_cert_verification(#{stream_encrypted := true,
-			    stream_verified := false,
-			    mod := Mod} = State) ->
-    case try Mod:tls_verify(State)
-	 catch _:undef -> true
+			    stream_verified := false} = State) ->
+    case try callback(tls_verify, State)
+	 catch _:{?MODULE, undef} -> true
 	 end of
 	true ->
 	    case xmpp_stream_pkix:authenticate(State) of
@@ -655,49 +699,124 @@ process_cert_verification(State) ->
     State.
 
 -spec process_sasl_success(state()) -> state().
-process_sasl_success(#{mod := Mod,
-		       socket := Socket} = State) ->
+process_sasl_success(#{socket := Socket, sasl_mech := Mech} = State) ->
     Socket1 = xmpp_socket:reset_stream(Socket),
-    State0 = State#{socket => Socket1},
-    State1 = State0#{stream_id => new_id(),
+    State1 = State#{socket => Socket1},
+    State2 = State1#{stream_id => new_id(),
 		     stream_restarted => true,
 		     stream_state => wait_for_stream,
 		     stream_authenticated => true},
-    State2 = send_header(State1),
-    case is_disconnected(State2) of
-	true -> State2;
+    State3 = reset_sasl_state(State2),
+    State4 = send_header(State3),
+    case is_disconnected(State4) of
+	true -> State4;
 	false ->
-	    try Mod:handle_auth_success(<<"EXTERNAL">>, State2)
-	    catch _:undef -> State2
+	    try callback(handle_auth_success, Mech, State4)
+	    catch _:{?MODULE, undef} -> State4
 	    end
     end.
 
 -spec process_sasl_failure(sasl_failure() | binary(), state()) -> state().
+process_sasl_failure(Failure, #{sasl_mechs_available := [_|_]} = State) ->
+    process_sasl_auth(State#{sasl_failure => Failure});
 process_sasl_failure(#sasl_failure{} = Failure, State) ->
     Reason = format("Peer responded with error: ~s",
-		    [format_sasl_failure(Failure)]),
+		    [xmpp:format_sasl_error(Failure)]),
     process_sasl_failure(Reason, State);
-process_sasl_failure(Reason, #{mod := Mod} = State) ->
-    try Mod:handle_auth_failure(<<"EXTERNAL">>, {auth, Reason}, State)
-    catch _:undef -> process_stream_end({auth, Reason}, State)
+process_sasl_failure(Reason, State) ->
+    Mech = case maps:get(sasl_mech, State, undefined) of
+	       undefined ->
+		   case sasl_mechanisms(State) of
+		       [] -> <<"EXTERNAL">>;
+		       [M|_] -> M
+		   end;
+	       M -> M
+	   end,
+    State1 = reset_sasl_state(State),
+    try callback(handle_auth_failure, Mech, {auth, Reason}, State1)
+    catch _:{?MODULE, undef} -> process_stream_end({auth, Reason}, State1)
     end.
 
+-spec process_bind(stream_features(), state()) -> state().
+process_bind(StreamFeatures, #{lang := Lang, xmlns := ?NS_CLIENT,
+			       user := U, server := S, resource := R,
+			       stream_state := StateName} = State)
+  when StateName /= established, StateName /= disconnected ->
+    case xmpp:has_subtag(StreamFeatures, #bind{}) of
+	true ->
+	    JID = jid:make(U, S, R),
+	    ID = new_id(),
+	    Pkt = #iq{from = JID, to = jid:remove_resource(JID),
+		      id = ID, type = set,
+		      sub_els = [#bind{resource = R}]},
+	    State1 = State#{stream_state => wait_for_bind_response,
+			    bind_id => ID},
+	    send_pkt(State1, Pkt);
+	false ->
+	    Txt = <<"Missing resource binding feature">>,
+	    send_pkt(State, xmpp:serr_invalid_xml(Txt, Lang))
+    end;
+process_bind(_, State) ->
+    process_stream_established(State).
+
+-spec process_bind_response(xmpp_element(), state()) -> state().
+process_bind_response(#iq{type = result, id = ID} = IQ,
+		      #{lang := Lang, bind_id := ID} = State) ->
+    State1 = reset_bind_state(State),
+    try xmpp:try_subtag(IQ, #bind{}) of
+	#bind{jid = #jid{user = U, server = S, resource = R}} ->
+	    State2 = State1#{user => U, server => S, resource => R},
+	    State3 = try callback(handle_bind_success, State2)
+		     catch _:{?MODULE, undef} -> State2
+		     end,
+	    process_stream_established(State3);
+	#bind{} ->
+	    Txt = <<"Missing <jid/> element in resource binding response">>,
+	    send_pkt(State1, xmpp:serr_invalid_xml(Txt, Lang));
+	false ->
+	    Txt = <<"Missing <bind/> element in resource binding response">>,
+	    send_pkt(State1, xmpp:serr_invalid_xml(Txt, Lang))
+    catch _:{xmpp_codec, Why} ->
+	    Txt = xmpp:io_format_error(Why),
+	    send_pkt(State1, xmpp:serr_invalid_xml(Txt, Lang))
+    end;
+process_bind_response(#iq{type = error, id = ID} = IQ,
+		      #{bind_id := ID} = State) ->
+    Err = xmpp:get_error(IQ),
+    State1 = reset_bind_state(State),
+    try callback(handle_bind_failure, Err, State1)
+    catch _:{?MODULE, undef} -> process_stream_end({bind, Err}, State1)
+    end;
+process_bind_response(Pkt, State) ->
+    process_packet(Pkt, State).
+
 -spec process_packet(xmpp_element(), state()) -> state().
-process_packet(Pkt, #{mod := Mod} = State) ->
-    try Mod:handle_packet(Pkt, State)
-    catch _:undef -> State
+process_packet(Pkt, State) ->
+    try callback(handle_packet, Pkt, State)
+    catch _:{?MODULE, undef} -> State
     end.
 
 -spec is_starttls_required(state()) -> boolean().
-is_starttls_required(#{mod := Mod} = State) ->
-    try Mod:tls_required(State)
-    catch _:undef -> false
+is_starttls_required(State) ->
+    try callback(tls_required, State)
+    catch _:{?MODULE, undef} -> false
     end.
 
 -spec is_starttls_available(state()) -> boolean().
-is_starttls_available(#{mod := Mod} = State) ->
-    try Mod:tls_enabled(State)
-    catch _:undef -> true
+is_starttls_available(State) ->
+    try callback(tls_enabled, State)
+    catch _:{?MODULE, undef} -> true
+    end.
+
+-spec sasl_mechanisms(state()) -> [binary()].
+sasl_mechanisms(#{stream_encrypted := Encrypted} = State) ->
+    try callback(sasl_mechanisms, State) of
+	Ms when Encrypted -> Ms;
+	Ms -> lists:delete(<<"EXTERNAL">>, Ms)
+    catch _:{?MODULE, undef} ->
+	    if Encrypted -> [<<"EXTERNAL">>];
+	       true -> []
+	    end
     end.
 
 -spec send_header(state()) -> state().
@@ -731,10 +850,10 @@ send_header(#{remote_server := RemoteServer,
     end.
 
 -spec send_pkt(state(), xmpp_element() | xmlel()) -> state().
-send_pkt(#{mod := Mod} = State, Pkt) ->
+send_pkt(State, Pkt) ->
     Result = socket_send(State, Pkt),
-    State1 = try Mod:handle_send(Pkt, Result, State)
-	     catch _:undef -> State
+    State1 = try callback(handle_send, Pkt, Result, State)
+	     catch _:{?MODULE, undef} -> State
 	     end,
     case Result of
 	_ when is_record(Pkt, stream_error) ->
@@ -795,10 +914,10 @@ close_socket(State) ->
 	   stream_state => disconnected}.
 
 -spec starttls(term(), state()) -> {ok, term()} | {error, tls_error_reason()}.
-starttls(Socket, #{mod := Mod, xmlns := NS,
+starttls(Socket, #{xmlns := NS,
 		   remote_server := RemoteServer} = State) ->
-    TLSOpts = try Mod:tls_options(State)
-	      catch _:undef -> []
+    TLSOpts = try callback(tls_options, State)
+	      catch _:{?MODULE, undef} -> []
 	      end,
     SNI = idna_to_ascii(RemoteServer),
     ALPN = case NS of
@@ -820,40 +939,63 @@ format_inet_error(Reason) ->
 	Txt -> Txt
     end.
 
--spec format_stream_error(atom() | 'see-other-host'(), [text()]) -> string().
-format_stream_error(Reason, Txt) ->
-    Slogan = case Reason of
-		 undefined -> "no reason";
-		 #'see-other-host'{} -> "see-other-host";
-		 _ -> atom_to_list(Reason)
-	     end,
-    case xmpp:get_text(Txt) of
-	<<"">> ->
-	    Slogan;
-	Data ->
-	    binary_to_list(Data) ++ " (" ++ Slogan ++ ")"
-    end.
-
 -spec format_tls_error(atom() | binary()) -> list().
 format_tls_error(Reason) when is_atom(Reason) ->
     format_inet_error(Reason);
 format_tls_error(Reason) ->
     binary_to_list(Reason).
 
-format_sasl_failure(#sasl_failure{reason = Reason, text = Txt}) ->
-    Slogan = case Reason of
-		 undefined -> "no reason";
-		 _ -> atom_to_list(Reason)
-	     end,
-    case xmpp:get_text(Txt) of
-	<<"">> -> Slogan;
-	Data ->
-	    binary_to_list(Data) ++ " (" ++ Slogan ++ ")"
-    end.
-		      
 -spec format(io:format(), list()) -> binary().
 format(Fmt, Args) ->
     iolist_to_binary(io_lib:format(Fmt, Args)).
+
+-spec make_sasl_authzid(binary(), state()) -> binary().
+make_sasl_authzid(Mech, #{user := User, server := Server,
+			  password := Password}) ->
+    case Mech of
+	<<"EXTERNAL">> ->
+	    jid:encode(jid:make(User, Server));
+	<<"PLAIN">> ->
+	    JID = jid:encode(jid:make(User, Server)),
+	    <<JID/binary, 0, User/binary, 0, Password/binary>>
+    end.
+
+%%%===================================================================
+%%% State resets
+%%%===================================================================
+-spec reset_sasl_state(state()) -> state().
+reset_sasl_state(State) ->
+    State1 = maps:remove(sasl_mech, State),
+    State2 = maps:remove(sasl_failure, State1),
+    State3 = maps:remove(sasl_mechs_provided, State2),
+    maps:remove(sasl_mechs_available, State3).
+
+-spec reset_connection_state(state()) -> state().
+reset_connection_state(State) ->
+    State1 = maps:remove(ip, State),
+    State2 = maps:remove(socket, State1),
+    maps:remove(socket_monitor, State2).
+
+-spec reset_stream_state(state()) -> state().
+reset_stream_state(State) ->
+    State1 = State#{stream_id => new_id(),
+		    stream_encrypted => false,
+		    stream_verified => false,
+		    stream_authenticated => false,
+		    stream_restarted => false,
+		    stream_state => connecting},
+    maps:remove(stream_remote_id, State1).
+
+-spec reset_bind_state(state()) -> state().
+reset_bind_state(State) ->
+    maps:remove(bind_id, State).
+
+-spec reset_state(state()) -> state().
+reset_state(State) ->
+    State1 = reset_bind_state(State),
+    State2 = reset_sasl_state(State1),
+    State3 = reset_connection_state(State2),
+    reset_stream_state(State3).
 
 %%%===================================================================
 %%% Connection stuff
@@ -880,6 +1022,17 @@ idna_to_ascii(Host) ->
 
 -spec resolve(string(), state()) -> {ok, [ip_port()]} | network_error().
 resolve(Host, State) ->
+    try callback(resolve, Host, State) of
+	[] ->
+	    do_resolve(Host, State);
+	HostPorts ->
+	    a_lookup(HostPorts, State)
+    catch _:{?MODULE, undef} ->
+	    do_resolve(Host, State)
+    end.
+
+-spec do_resolve(string(), state()) -> {ok, [ip_port()]} | network_error().
+do_resolve(Host, State) ->
     case srv_lookup(Host, State) of
 	{error, _Reason} ->
 	    DefaultPort = get_default_port(State),
@@ -913,10 +1066,14 @@ srv_lookup(Host, State) ->
 	    end
     end.
 
-srv_lookup(Host, State, Timeout, Retries) ->
+srv_lookup(Host, #{xmlns := NS} = State, Timeout, Retries) ->
+    SRVType = case NS of
+		  ?NS_SERVER -> "-server._tcp.";
+		  ?NS_CLIENT -> "-client._tcp."
+	      end,
     TLSAddrs = case is_starttls_available(State) of
 		   true ->
-		       case srv_lookup("_xmpps-server._tcp." ++ Host,
+		       case srv_lookup("_xmpps" ++ SRVType ++ Host,
 				       Timeout, Retries) of
 			   {ok, HostEnt} ->
 			       [{A, true} || A <- HostEnt#hostent.h_addr_list];
@@ -926,7 +1083,7 @@ srv_lookup(Host, State, Timeout, Retries) ->
 		   false ->
 		       []
 	       end,
-    case srv_lookup("_xmpp-server._tcp." ++ Host, Timeout, Retries) of
+    case srv_lookup("_xmpp" ++ SRVType ++ Host, Timeout, Retries) of
 	{ok, HostEntry} ->
 	    Addrs = [{A, false} || A <- HostEntry#hostent.h_addr_list],
 	    {ok, TLSAddrs ++ Addrs};
@@ -979,24 +1136,35 @@ a_lookup([], _State, Acc, _) ->
 a_lookup(_Host, _Port, _TLS, _Family, _Timeout, Retries) when Retries < 1 ->
     {error, timeout};
 a_lookup(Host, Port, TLS, Family, Timeout, Retries) ->
-    Start = p1_time_compat:monotonic_time(milli_seconds),
-    case inet:gethostbyname(Host, Family, Timeout) of
-	{error, nxdomain} = Err ->
-	    %% inet:gethostbyname/3 doesn't return {error, timeout},
-	    %% so we should check if 'nxdomain' is in fact a result
-	    %% of a timeout.
-	    %% We also cannot use inet_res:gethostbyname/3 because
-	    %% it ignores DNS configuration settings (/etc/hosts, etc)
-	    End = p1_time_compat:monotonic_time(milli_seconds),
-	    if (End - Start) >= Timeout ->
-		    a_lookup(Host, Port, TLS, Family, Timeout, Retries - 1);
+    case inet:parse_address(Host) of
+	{ok, Addr} ->
+	    if tuple_size(Addr) == 4 andalso Family == inet ->
+		    {ok, [{Addr, Port, TLS}]};
+	       tuple_size(Addr) == 8 andalso Family == inet6 ->
+		    {ok, [{Addr, Port, TLS}]};
 	       true ->
-		    Err
+		    {error, nxdomain}
 	    end;
-	{error, _} = Err ->
-	    Err;
-	{ok, HostEntry} ->
-	    host_entry_to_addr_ports(HostEntry, Port, TLS)
+	{error, _} ->
+	    Start = p1_time_compat:monotonic_time(milli_seconds),
+	    case inet:gethostbyname(Host, Family, Timeout) of
+		{error, nxdomain} = Err ->
+		    %% inet:gethostbyname/3 doesn't return {error, timeout},
+		    %% so we should check if 'nxdomain' is in fact a result
+		    %% of a timeout.
+		    %% We also cannot use inet_res:gethostbyname/3 because
+		    %% it ignores DNS configuration settings (/etc/hosts, etc)
+		    End = p1_time_compat:monotonic_time(milli_seconds),
+		    if (End - Start) >= Timeout ->
+			    a_lookup(Host, Port, TLS, Family, Timeout, Retries - 1);
+		       true ->
+			    Err
+		    end;
+		{error, _} = Err ->
+		    Err;
+		{ok, HostEntry} ->
+		    host_entry_to_addr_ports(HostEntry, Port, TLS)
+	    end
     end.
 
 -spec h_addr_list_to_host_ports(h_addr_list()) -> {ok, [host_port()]} |
@@ -1040,7 +1208,7 @@ host_entry_to_addr_ports(#hostent{h_addr_list = AddrList}, Port, TLS) ->
 				       {error, {tls, tls_error_reason()}}.
 connect(AddrPorts, State) ->
     Timeout = get_connect_timeout(State),
-    case connect(AddrPorts, Timeout, {error, nxdomain}) of
+    case connect(AddrPorts, Timeout, State, {error, nxdomain}) of
 	{ok, Socket, {Addr, Port, TLS = true}} ->
 	    case starttls(Socket, State) of
 		{ok, TLSSocket} -> {ok, TLSSocket, {Addr, Port, TLS}};
@@ -1052,24 +1220,26 @@ connect(AddrPorts, State) ->
 	    {error, {socket, Why}}
     end.
 
--spec connect([ip_port()], timeout(), network_error()) ->
+-spec connect([ip_port()], timeout(), state(), network_error()) ->
 		     {ok, term(), ip_port()} | network_error().
-connect([{Addr, Port, TLS}|AddrPorts], Timeout, _) ->
+connect([{Addr, Port, TLS}|AddrPorts], Timeout, State, _) ->
     Type = get_addr_type(Addr),
-    try xmpp_socket:connect(Addr, Port,
-			    [binary, {packet, 0},
-			     {send_timeout, ?TCP_SEND_TIMEOUT},
-			     {send_timeout_close, true},
-			     {active, false}, Type],
-			    Timeout) of
+    Opts = [binary, {packet, 0},
+	    {send_timeout, ?TCP_SEND_TIMEOUT},
+	    {send_timeout_close, true},
+	    {active, false}, Type],
+    Opts1 = try callback(connect_options, Addr, Opts, State)
+	    catch _:{?MODULE, undef} -> Opts
+	    end,
+    try xmpp_socket:connect(Addr, Port, Opts1, Timeout) of
 	{ok, Socket} ->
 	    {ok, Socket, {Addr, Port, TLS}};
 	Err ->
-	    connect(AddrPorts, Timeout, Err)
+	    connect(AddrPorts, Timeout, State, Err)
     catch _:badarg ->
-	    connect(AddrPorts, Timeout, {error, einval})
+	    connect(AddrPorts, Timeout, State, {error, einval})
     end;
-connect([], _Timeout, Err) ->
+connect([], _Timeout, _State, Err) ->
     Err.
 
 -spec get_addr_type(inet:ip_address()) -> inet:address_family().
@@ -1077,32 +1247,59 @@ get_addr_type({_, _, _, _}) -> inet;
 get_addr_type({_, _, _, _, _, _, _, _}) -> inet6.
 
 -spec get_dns_timeout(state()) -> timeout().
-get_dns_timeout(#{mod := Mod} = State) ->
-    try Mod:dns_timeout(State)
-    catch _:undef -> timer:seconds(10)
+get_dns_timeout(State) ->
+    try callback(dns_timeout, State)
+    catch _:{?MODULE, undef} -> timer:seconds(10)
     end.
 
 -spec get_dns_retries(state()) -> non_neg_integer().
-get_dns_retries(#{mod := Mod} = State) ->
-    try Mod:dns_retries(State)
-    catch _:undef -> 2
+get_dns_retries(State) ->
+    try callback(dns_retries, State)
+    catch _:{?MODULE, undef} -> 2
     end.
 
 -spec get_default_port(state()) -> inet:port_number().
-get_default_port(#{mod := Mod, xmlns := NS} = State) ->
-    try Mod:default_port(State)
-    catch _:undef when NS == ?NS_SERVER -> 5269;
-	  _:undef when NS == ?NS_CLIENT -> 5222
+get_default_port(#{xmlns := NS} = State) ->
+    try callback(default_port, State)
+    catch _:{?MODULE, undef} when NS == ?NS_SERVER -> 5269;
+	  _:{?MODULE, undef} when NS == ?NS_CLIENT -> 5222
     end.
 
 -spec get_address_families(state()) -> [inet:address_family()].
-get_address_families(#{mod := Mod} = State) ->
-    try Mod:address_families(State)
-    catch _:undef -> [inet, inet6]
+get_address_families(State) ->
+    try callback(address_families, State)
+    catch _:{?MODULE, undef} -> [inet, inet6]
     end.
 
 -spec get_connect_timeout(state()) -> timeout().
-get_connect_timeout(#{mod := Mod} = State) ->
-    try Mod:connect_timeout(State)
-    catch _:undef -> timer:seconds(10)
+get_connect_timeout(State) ->
+    try callback(connect_timeout, State)
+    catch _:{?MODULE, undef} -> timer:seconds(10)
+    end.
+
+%%%===================================================================
+%%% Callbacks
+%%%===================================================================
+callback(F, #{mod := Mod} = State) ->
+    case erlang:function_exported(Mod, F, 1) of
+	true -> Mod:F(State);
+	false -> erlang:error({?MODULE, undef})
+    end.
+
+callback(F, Arg1, #{mod := Mod} = State) ->
+    case erlang:function_exported(Mod, F, 2) of
+	true -> Mod:F(Arg1, State);
+	false -> erlang:error({?MODULE, undef})
+    end.
+
+callback(code_change, OldVsn, #{mod := Mod} = State, Extra) ->
+    %% code_change/3 callback is a special snowflake
+    case erlang:function_exported(Mod, code_change, 3) of
+	true -> Mod:code_change(OldVsn, State, Extra);
+	false -> {ok, State}
+    end;
+callback(F, Arg1, Arg2, #{mod := Mod} = State) ->
+    case erlang:function_exported(Mod, F, 3) of
+	true -> Mod:F(Arg1, Arg2, State);
+	false -> erlang:error({?MODULE, undef})
     end.

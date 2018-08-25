@@ -50,7 +50,6 @@
 	 terminate/3,
 	 code_change/4]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 
 -include("xmpp.hrl").
@@ -84,10 +83,10 @@
 -callback set_affiliation(binary(), binary(), binary(), jid(), affiliation(),
 			  binary()) -> ok | {error, any()}.
 -callback set_affiliations(binary(), binary(), binary(),
-			   ?TDICT) -> ok | {error, any()}.
+			   dict:dict()) -> ok | {error, any()}.
 -callback get_affiliation(binary(), binary(), binary(),
 			  binary(), binary()) -> {ok, affiliation()} | {error, any()}.
--callback get_affiliations(binary(), binary(), binary()) -> {ok, ?TDICT} | {error, any()}.
+-callback get_affiliations(binary(), binary(), binary()) -> {ok, dict:dict()} | {error, any()}.
 -callback search_affiliation(binary(), binary(), binary(), affiliation()) ->
     {ok, [{ljid(), {affiliation(), binary()}}]} | {error, any()}.
 
@@ -1107,7 +1106,7 @@ close_room_if_temporary_and_empty(StateData1) ->
       _ -> {next_state, normal_state, StateData1}
     end.
 
--spec get_users_and_subscribers(state()) -> ?TDICT.
+-spec get_users_and_subscribers(state()) -> dict:dict().
 get_users_and_subscribers(StateData) ->
     OnlineSubscribers = ?DICT:fold(
 			   fun(LJID, _, Acc) ->
@@ -1292,7 +1291,7 @@ set_affiliation_fallback(JID, Affiliation, StateData, Reason) ->
 		   end,
     StateData#state{affiliations = Affiliations}.
 
--spec set_affiliations(?TDICT, state()) -> state().
+-spec set_affiliations(dict:dict(), state()) -> state().
 set_affiliations(Affiliations,
                  #state{config = #config{persistent = false}} = StateData) ->
     set_affiliations_fallback(Affiliations, StateData);
@@ -1308,7 +1307,7 @@ set_affiliations(Affiliations, StateData) ->
 	    set_affiliations_fallback(Affiliations, StateData)
     end.
 
--spec set_affiliations_fallback(?TDICT, state()) -> state().
+-spec set_affiliations_fallback(dict:dict(), state()) -> state().
 set_affiliations_fallback(Affiliations, StateData) ->
     StateData#state{affiliations = Affiliations}.
 
@@ -1371,7 +1370,7 @@ do_get_affiliation_fallback(JID, StateData) ->
             end
     end.
 
--spec get_affiliations(state()) -> ?TDICT.
+-spec get_affiliations(state()) -> dict:dict().
 get_affiliations(#state{config = #config{persistent = false}} = StateData) ->
     get_affiliations_callback(StateData);
 get_affiliations(StateData) ->
@@ -1386,7 +1385,7 @@ get_affiliations(StateData) ->
 	    Affiliations
     end.
 
--spec get_affiliations_callback(state()) -> ?TDICT.
+-spec get_affiliations_callback(state()) -> dict:dict().
 get_affiliations_callback(StateData) ->
     StateData#state.affiliations.
 
@@ -2155,7 +2154,7 @@ send_self_presence(JID, State) ->
     DiscoInfo = make_disco_info(JID, State),
     DiscoHash = mod_caps:compute_disco_hash(DiscoInfo, sha),
     Els1 = [#caps{hash = <<"sha-1">>,
-		  node = ?EJABBERD_URI,
+		  node = ejabberd_config:get_uri(),
 		  version = DiscoHash}],
     Els2 = if is_binary(AvatarHash) ->
 		   [#vcard_xupdate{hash = AvatarHash}|Els1];
@@ -3277,7 +3276,8 @@ get_config(Lang, StateData, From) ->
 	      translate:translate(Lang, <<"Configuration of room ~s">>),
 	      [jid:encode(StateData#state.jid)]),
     Fs = [{roomname, Config#config.title},
-	  {roomdesc, Config#config.description}] ++
+	  {roomdesc, Config#config.description},
+	  {lang, Config#config.lang}] ++
 	case acl:match_rule(StateData#state.server_host, AccessPersistent, From) of
 	    allow -> [{persistentroom, Config#config.persistent}];
 	    deny -> []
@@ -3399,6 +3399,7 @@ set_config(Opts, Config, ServerHost, Lang) ->
 	 ({maxusers, V}, C) -> C#config{max_users = V};
 	 ({enablelogging, V}, C) -> C#config{logging = V};
 	 ({pubsub, V}, C) -> C#config{pubsub = V};
+	 ({lang, L}, C) -> C#config{lang = L};
 	 ({captcha_whitelist, Js}, C) ->
 	      LJIDs = [jid:tolower(J) || J <- Js],
 	      C#config{captcha_whitelist = ?SETS:from_list(LJIDs)};
@@ -3630,6 +3631,9 @@ set_opts([{Opt, Val} | Opts], StateData) ->
 	    allow_subscription ->
 		StateData#state{config =
 				    (StateData#state.config)#config{allow_subscription = Val}};
+	    lang ->
+		StateData#state{config =
+				    (StateData#state.config)#config{lang = Val}};
 	    subscribers ->
 		  {Subscribers, Nicks} =
 		      lists:foldl(
@@ -3709,6 +3713,7 @@ make_opts(StateData) ->
      ?MAKE_CONFIG_OPT(#config.vcard),
      ?MAKE_CONFIG_OPT(#config.vcard_xupdate),
      ?MAKE_CONFIG_OPT(#config.pubsub),
+     ?MAKE_CONFIG_OPT(#config.lang),
      {captcha_whitelist,
       (?SETS):to_list((StateData#state.config)#config.captcha_whitelist)},
      {affiliations,
@@ -3821,7 +3826,7 @@ process_iq_disco_info(From, #iq{type = get, lang = Lang,
 				sub_els = [#disco_info{node = <<>>}]},
 		      StateData) ->
     DiscoInfo = make_disco_info(From, StateData),
-    Extras = iq_disco_info_extras(Lang, StateData),
+    Extras = iq_disco_info_extras(Lang, StateData, false),
     {result, DiscoInfo#disco_info{xdata = [Extras]}};
 process_iq_disco_info(From, #iq{type = get, lang = Lang,
 				sub_els = [#disco_info{node = Node}]},
@@ -3830,26 +3835,46 @@ process_iq_disco_info(From, #iq{type = get, lang = Lang,
 	true = mod_caps:is_valid_node(Node),
 	DiscoInfo = make_disco_info(From, StateData),
 	Hash = mod_caps:compute_disco_hash(DiscoInfo, sha),
-	Node = <<(?EJABBERD_URI)/binary, $#, Hash/binary>>,
-	{result, DiscoInfo#disco_info{node = Node}}
+	Node = <<(ejabberd_config:get_uri())/binary, $#, Hash/binary>>,
+	Extras = iq_disco_info_extras(Lang, StateData, true),
+	{result, DiscoInfo#disco_info{node = Node, xdata = [Extras]}}
     catch _:{badmatch, _} ->
 	    Txt = <<"Invalid node name">>,
 	    {error, xmpp:err_item_not_found(Txt, Lang)}
     end.
 
--spec iq_disco_info_extras(binary(), state()) -> xdata().
-iq_disco_info_extras(Lang, StateData) ->
-    Fs1 = [{description, (StateData#state.config)#config.description},
-	   {occupants, ?DICT:size(StateData#state.nicks)},
-	   {contactjid, get_owners(StateData)}],
-    Fs2 = case (StateData#state.config)#config.pubsub of
+-spec iq_disco_info_extras(binary(), state(), boolean()) -> xdata().
+iq_disco_info_extras(Lang, StateData, Static) ->
+    Config = StateData#state.config,
+    AllowPM = case Config#config.allow_private_messages of
+		  false -> none;
+		  true ->
+		      case Config#config.allow_private_messages_from_visitors of
+			  nobody -> participants;
+			  _ -> anyone
+		      end
+	      end,
+    Fs1 = [{roomname, Config#config.title},
+	   {description, Config#config.description},
+	   {contactjid, get_owners(StateData)},
+	   {changesubject, Config#config.allow_change_subj},
+	   {allowinvites, Config#config.allow_user_invites},
+	   {allowpm, AllowPM},
+	   {lang, Config#config.lang}],
+    Fs2 = case Config#config.pubsub of
 	      Node when is_binary(Node), Node /= <<"">> ->
 		  [{pubsub, Node}|Fs1];
 	      _ ->
 		  Fs1
 	  end,
+    Fs3 = case Static of
+	      false ->
+		  [{occupants, ?DICT:size(StateData#state.nicks)}|Fs2];
+	      true ->
+		  Fs2
+	  end,
     #xdata{type = result,
-	   fields = muc_roominfo:encode(Fs2, Lang)}.
+	   fields = muc_roominfo:encode(Fs3, Lang)}.
 
 -spec process_iq_disco_items(jid(), iq(), state()) ->
 				    {error, stanza_error()} | {result, disco_items()}.
@@ -4372,7 +4397,7 @@ wrap(From, To, Packet, Node) ->
 %%     JIDs = [ User#user.jid || {_, User} <- ?DICT:to_list(Users)],
 %%     ejabberd_router_multicast:route_multicast(From, Server, JIDs, Packet).
 
--spec send_wrapped_multiple(jid(), ?TDICT, stanza(), binary(), state()) -> ok.
+-spec send_wrapped_multiple(jid(), dict:dict(), stanza(), binary(), state()) -> ok.
 send_wrapped_multiple(From, Users, Packet, Node, State) ->
     lists:foreach(
       fun({_, #user{jid = To}}) ->

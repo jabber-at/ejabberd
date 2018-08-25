@@ -49,9 +49,10 @@
 -type bad_cert_reason() :: cert_expired | invalid_issuer | invalid_signature |
 			   name_not_permitted | missing_basic_constraint |
 			   invalid_key_usage | selfsigned_peer | unknown_sig_algo |
-			   unknown_ca | missing_priv_key.
--type bad_cert() :: {bad_cert, bad_cert_reason()}.
--type cert_error() :: not_cert | not_der | not_pem | encrypted.
+			   unknown_ca | missing_priv_key | unknown_key_algo |
+			   unknown_key_type | encrypted | not_der | not_cert |
+			   not_pem.
+-type cert_error() :: {bad_cert, bad_cert_reason()}.
 -export_type([cert_error/0]).
 
 -define(CA_CACHE, ca_cache).
@@ -76,13 +77,13 @@ route_registered(Route) ->
     gen_server:call(?MODULE, {route_registered, Route}).
 
 -spec format_error(cert_error() | file:posix()) -> string().
-format_error(not_cert) ->
+format_error({bad_cert, not_cert}) ->
     "no PEM encoded certificates found";
-format_error(not_pem) ->
+format_error({bad_cert, not_pem}) ->
     "failed to decode from PEM format";
-format_error(not_der) ->
+format_error({bad_cert, not_der}) ->
     "failed to decode from DER format";
-format_error(encrypted) ->
+format_error({bad_cert, encrypted}) ->
     "encrypted certificate";
 format_error({bad_cert, cert_expired}) ->
     "certificate is no longer valid as its expiration date has passed";
@@ -103,6 +104,10 @@ format_error({bad_cert, selfsigned_peer}) ->
     "self-signed certificate";
 format_error({bad_cert, unknown_sig_algo}) ->
     "certificate is signed using unknown algorithm";
+format_error({bad_cert, unknown_key_algo}) ->
+    "unknown private key algorithm";
+format_error({bad_cert, unknown_key_type}) ->
+    "private key is of unknown type";
 format_error({bad_cert, unknown_ca}) ->
     "certificate is signed by unknown CA";
 format_error({bad_cert, missing_priv_key}) ->
@@ -329,7 +334,8 @@ get_certfiles_from_config_options(_State) ->
 		       Host <- ejabberd_config:get_myhosts()]),
     [iolist_to_binary(P) || P <- lists:usort(Local ++ Global)].
 
--spec add_certfiles(state()) -> {ok, state()} | {error, bad_cert()}.
+-spec add_certfiles(state()) -> {ok, state()} |
+				{error, cert_error() | file:posix()}.
 add_certfiles(State) ->
     ?DEBUG("Reading certificates", []),
     Paths = get_certfiles_from_config_options(State),
@@ -343,7 +349,8 @@ add_certfiles(State) ->
 	{error, _} = Err -> Err
     end.
 
--spec add_certfiles(binary(), state()) -> {ok, state()} | {error, bad_cert()}.
+-spec add_certfiles(binary(), state()) -> {ok, state()} |
+					  {error, cert_error() | file:posix()}.
 add_certfiles(Host, State) ->
     State1 = lists:foldl(
 	       fun(Opt, AccState) ->
@@ -363,8 +370,8 @@ add_certfiles(Host, State) ->
 	    {ok, State}
     end.
 
--spec add_certfile(file:filename_all(), state()) -> {ok, state()} |
-						    {{error, cert_error()}, state()}.
+-spec add_certfile(file:filename_all(), state()) ->
+              {ok, state()} | {{error, cert_error() | file:posix()}, state()}.
 add_certfile(Path, State) ->
     case lists:member(Path, State#state.paths) of
 	true ->
@@ -386,30 +393,14 @@ add_certfile(Path, State) ->
 	    end
     end.
 
--spec build_chain_and_check(state()) -> ok | {error, bad_cert()}.
+-spec build_chain_and_check(state()) -> ok | {error, cert_error() | file:posix()}.
 build_chain_and_check(State) ->
-    ?DEBUG("Building certificates graph", []),
     CertPaths = get_cert_paths(maps:keys(State#state.certs), State#state.graph),
-    ?DEBUG("Finding matched certificate keys", []),
     case match_cert_keys(CertPaths, State#state.keys) of
 	{ok, Chains} ->
-	    ?DEBUG("Storing certificate chains", []),
-	    CertFilesWithDomains = store_certs(Chains, []),
-	    ets:delete_all_objects(?MODULE),
-	    lists:foreach(
-	      fun({Path, Domain}) ->
-		      fast_tls:add_certfile(Domain, Path),
-		      ets:insert(?MODULE, {Domain, Path})
-	      end, CertFilesWithDomains),
-	    ?DEBUG("Validating certificates", []),
-	    Errors = validate(CertPaths, State#state.validate),
-	    ?DEBUG("Subscribing to file events", []),
-	    lists:foreach(
-	      fun({Cert, Why}) ->
-		      Path = maps:get(Cert, State#state.certs),
-		      ?WARNING_MSG("Failed to validate certificate from ~s: ~s",
-				   [Path, format_error(Why)])
-	      end, Errors);
+	    InvalidCerts = validate(CertPaths, State),
+	    SortedChains = sort_chains(Chains, InvalidCerts),
+	    store_certs(SortedChains, State);
 	{error, Cert, Why} ->
 	    Path = maps:get(Cert, State#state.certs),
 	    ?ERROR_MSG("Failed to build certificate chain for ~s: ~s",
@@ -417,9 +408,35 @@ build_chain_and_check(State) ->
 	    {error, Why}
     end.
 
--spec store_certs([{[cert()], priv_key()}],
-		  [{binary(), binary()}]) -> [{binary(), binary()}].
-store_certs([{Certs, Key}|Chains], Acc) ->
+-spec store_certs([{[cert()], priv_key()}], state()) -> ok | {error, file:posix()}.
+store_certs(Chains, State) ->
+    ?DEBUG("Storing certificate chains", []),
+    Res = lists:foldl(
+	    fun(_, {error, _} = Err) ->
+		    Err;
+	       ({Certs, Key}, Acc) ->
+		    case store_cert(Certs, Key, State) of
+			{ok, FileDoms} ->
+			    Acc ++ FileDoms;
+			{error, _} = Err ->
+			    Err
+		    end
+	    end, [], Chains),
+    case Res of
+	{error, Why} ->
+	    {error, Why};
+	FileDomains ->
+	    ets:delete_all_objects(?MODULE),
+	    lists:foreach(
+	      fun({Path, Domain}) ->
+		      fast_tls:add_certfile(Domain, Path),
+		      ets:insert(?MODULE, {Domain, Path})
+	      end, FileDomains)
+    end.
+
+-spec store_cert([cert()], priv_key(), state()) -> {ok, [{binary(), binary()}]} |
+						   {error, file:posix()}.
+store_cert(Certs, Key, State) ->
     CertPEMs = public_key:pem_encode(
 		 lists:map(
 		   fun(Cert) ->
@@ -433,20 +450,51 @@ store_certs([{Certs, Key}|Chains], Acc) ->
 		 not_encrypted}]),
     PEMs = <<CertPEMs/binary, KeyPEM/binary>>,
     Cert = hd(Certs),
-    Domains = xmpp_stream_pkix:get_cert_domains(Cert),
     FileName = filename:join(certs_dir(), str:sha(PEMs)),
     case file:write_file(FileName, PEMs) of
 	ok ->
 	    file:change_mode(FileName, 8#600),
-	    NewAcc = [{FileName, Domain} || Domain <- Domains] ++ Acc,
-	    store_certs(Chains, NewAcc);
-	{error, Why} ->
+	    case xmpp_stream_pkix:get_cert_domains(Cert) of
+		[] ->
+		    Path = maps:get(Cert, State#state.certs),
+		    ?WARNING_MSG("Certificate from ~s doesn't define "
+				 "any domain names", [Path]),
+		    {ok, [{FileName, <<"">>}]};
+		Domains ->
+		    {ok, [{FileName, Domain} || Domain <- Domains]}
+	    end;
+	{error, Why} = Err ->
 	    ?ERROR_MSG("Failed to write to ~s: ~s",
 		       [FileName, file:format_error(Why)]),
-	    store_certs(Chains, [])
-    end;
-store_certs([], Acc) ->
-    Acc.
+	    Err
+    end.
+
+-spec sort_chains([{[cert()], priv_key()}], [cert()]) -> [{[cert()], priv_key()}].
+sort_chains(Chains, InvalidCerts) ->
+    lists:sort(
+      fun({[Cert1|_], _}, {[Cert2|_], _}) ->
+	      IsValid1 = not lists:member(Cert1, InvalidCerts),
+	      IsValid2 = not lists:member(Cert2, InvalidCerts),
+	      if IsValid1 and not IsValid2 ->
+		      false;
+		 IsValid2 and not IsValid1 ->
+		      true;
+		 true ->
+		      compare_expiration_date(Cert1, Cert2)
+	      end
+      end, Chains).
+
+%% Returns true if the first certificate has sooner expiration date
+-spec compare_expiration_date(cert(), cert()) -> boolean().
+compare_expiration_date(#'OTPCertificate'{
+			   tbsCertificate =
+			       #'OTPTBSCertificate'{
+				  validity = #'Validity'{notAfter = After1}}},
+			#'OTPCertificate'{
+			   tbsCertificate =
+			       #'OTPTBSCertificate'{
+				  validity = #'Validity'{notAfter = After2}}}) ->
+    get_timestamp(After1) =< get_timestamp(After2).
 
 -spec load_certfile(file:filename_all()) -> {ok, [cert()], [priv_key()]} |
 					    {error, cert_error() | file:posix()}.
@@ -472,57 +520,69 @@ pem_decode(Data) ->
 			      (_) -> false
 			   end, Objects) of
 			{[], []} ->
-			    {error, not_cert};
+			    {error, {bad_cert, not_cert}};
 			{Certs, PrivKeys} ->
 			    {ok, Certs, PrivKeys}
 		    end
 	    end
-    catch _:_ ->
-	    {error, not_pem}
+    catch E:R ->
+	    St = erlang:get_stacktrace(),
+	    ?DEBUG("PEM decoding stacktrace: ~p", [{E, {R, St}}]),
+	    {error, {bad_cert, not_pem}}
     end.
 
--spec decode_certs([public_key:pem_entry()]) -> {[cert()], [priv_key()]} |
-						{error, not_der | encrypted}.
+-spec decode_certs([public_key:pem_entry()]) -> [cert() | priv_key()] |
+						{error, cert_error()}.
 decode_certs(PemEntries) ->
-    try lists:foldr(
-	  fun(_, {error, _} = Err) ->
-		  Err;
-	     ({_, _, Flag}, _) when Flag /= not_encrypted ->
-		  {error, encrypted};
-	     ({'Certificate', Der, _}, Acc) ->
-		  [public_key:pkix_decode_cert(Der, otp)|Acc];
-	     ({'PrivateKeyInfo', Der, not_encrypted}, Acc) ->
-		  #'PrivateKeyInfo'{privateKeyAlgorithm =
-					#'PrivateKeyInfo_privateKeyAlgorithm'{
-					   algorithm = Algo},
-				    privateKey = Key} =
-		      public_key:der_decode('PrivateKeyInfo', Der),
-		  case Algo of
-		      ?'rsaEncryption' ->
-			  [public_key:der_decode(
-			     'RSAPrivateKey', iolist_to_binary(Key))|Acc];
-		      ?'id-dsa' ->
-			  [public_key:der_decode(
-			     'DSAPrivateKey', iolist_to_binary(Key))|Acc];
-		      ?'id-ecPublicKey' ->
-			  [public_key:der_decode(
-			     'ECPrivateKey', iolist_to_binary(Key))|Acc];
-		      _ ->
-			  Acc
-		  end;
-	     ({Tag, Der, _}, Acc) when Tag == 'RSAPrivateKey';
-				       Tag == 'DSAPrivateKey';
-				       Tag == 'ECPrivateKey' ->
-		  [public_key:der_decode(Tag, Der)|Acc];
-	     (_, Acc) ->
-		  Acc
-	  end, [], PemEntries)
-    catch _:_ ->
-	    {error, not_der}
+    try lists:flatmap(
+	  fun({Tag, Der, Flag}) ->
+		  decode_cert(Tag, Der, Flag)
+	  end, PemEntries)
+    catch _:{bad_cert, _} = Err ->
+	    {error, Err};
+	  E:R ->
+	    St = erlang:get_stacktrace(),
+	    ?DEBUG("DER decoding stacktrace: ~p", [{E, {R, St}}]),
+	    {error, {bad_cert, not_der}}
     end.
 
--spec validate([{path, [cert()]}], boolean()) -> [{cert(), bad_cert()}].
-validate(Paths, true) ->
+-spec decode_cert(atom(), binary(), atom()) -> [cert() | priv_key()].
+decode_cert(_, _, Flag) when Flag /= not_encrypted ->
+    erlang:error({bad_cert, encrypted});
+decode_cert('Certificate', Der, _) ->
+    [public_key:pkix_decode_cert(Der, otp)];
+decode_cert('PrivateKeyInfo', Der, not_encrypted) ->
+    case public_key:der_decode('PrivateKeyInfo', Der) of
+	#'PrivateKeyInfo'{privateKeyAlgorithm =
+			      #'PrivateKeyInfo_privateKeyAlgorithm'{
+				 algorithm = Algo},
+			  privateKey = Key} ->
+	    KeyBin = iolist_to_binary(Key),
+	    case Algo of
+		?'rsaEncryption' ->
+		    [public_key:der_decode('RSAPrivateKey', KeyBin)];
+		?'id-dsa' ->
+		    [public_key:der_decode('DSAPrivateKey', KeyBin)];
+		?'id-ecPublicKey' ->
+		    [public_key:der_decode('ECPrivateKey', KeyBin)];
+		_ ->
+		    erlang:error({bad_cert, unknown_key_algo})
+	    end;
+	#'RSAPrivateKey'{} = Key -> [Key];
+	#'DSAPrivateKey'{} = Key -> [Key];
+	#'ECPrivateKey'{} = Key -> [Key];
+	_ -> erlang:error({bad_cert, unknown_key_type})
+    end;
+decode_cert(Tag, Der, _) when Tag == 'RSAPrivateKey';
+			      Tag == 'DSAPrivateKey';
+			      Tag == 'ECPrivateKey' ->
+    [public_key:der_decode(Tag, Der)];
+decode_cert(_, _, _) ->
+    [].
+
+-spec validate([{path, [cert()]}], state()) -> [cert()].
+validate(Paths, #state{validate = true} = State) ->
+    ?DEBUG("Validating certificates", []),
     {ok, Re} = re:compile("^[a-f0-9]+\\.[0-9]+$", [unicode]),
     Hashes = case file:list_dir(ca_dir()) of
 		 {ok, Files} ->
@@ -551,13 +611,16 @@ validate(Paths, true) ->
 		  ok ->
 		      false;
 		  {error, Cert, Reason} ->
-		      {true, {Cert, Reason}}
+		      File = maps:get(Cert, State#state.certs),
+		      ?WARNING_MSG("Failed to validate certificate from ~s: ~s",
+				   [File, format_error(Reason)]),
+		      {true, Cert}
 	      end
       end, Paths);
 validate(_, _) ->
     [].
 
--spec validate_path([cert()], dict:dict()) -> ok | {error, cert(), bad_cert()}.
+-spec validate_path([cert()], dict:dict()) -> ok | {error, cert(), cert_error()}.
 validate_path([Cert|_] = Certs, Cache) ->
     case find_local_issuer(Cert, Cache) of
 	{ok, IssuerCert} ->
@@ -715,6 +778,7 @@ do_read_ca_file(Path) ->
 -spec match_cert_keys([{path, [cert()]}], [priv_key()])
       -> {ok, [{cert(), priv_key()}]} | {error, {bad_cert, missing_priv_key}}.
 match_cert_keys(CertPaths, PrivKeys) ->
+    ?DEBUG("Finding matched certificate keys", []),
     KeyPairs = [{pubkey_from_privkey(PrivKey), PrivKey} || PrivKey <- PrivKeys],
     match_cert_keys(CertPaths, KeyPairs, []).
 
@@ -763,6 +827,7 @@ pubkey_from_privkey(#'ECPrivateKey'{publicKey = Key}) ->
 
 -spec get_cert_paths([cert()], digraph:graph()) -> [{path, [cert()]}].
 get_cert_paths(Certs, G) ->
+    ?DEBUG("Building certificates graph", []),
     {NewCerts, OldCerts} =
 	lists:partition(
 	  fun(Cert) ->
@@ -837,6 +902,15 @@ short_name_hash(IssuerID) ->
 short_name_hash(_) ->
     "".
 -endif.
+
+-spec get_timestamp({utcTime | generalTime, string()}) -> string().
+get_timestamp({utcTime, [Y1,Y2|T]}) ->
+    case list_to_integer([Y1,Y2]) of
+        N when N >= 50 -> [$1,$9,Y1,Y2|T];
+	_ -> [$2,$0,Y1,Y2|T]
+    end;
+get_timestamp({generalTime, TS}) ->
+    TS.
 
 wildcard(Path) when is_binary(Path) ->
     wildcard(binary_to_list(Path));
