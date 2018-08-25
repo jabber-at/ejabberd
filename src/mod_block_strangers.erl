@@ -35,7 +35,6 @@
 -export([filter_packet/1, filter_offline_msg/1, filter_subscription/2]).
 
 -include("xmpp.hrl").
--include("ejabberd.hrl").
 -include("logger.hrl").
 
 -define(SETS, gb_sets).
@@ -191,6 +190,8 @@ maybe_adjust_from(#message{} = Msg) ->
 need_check(Pkt) ->
     To = xmpp:get_to(Pkt),
     From = xmpp:get_from(Pkt),
+    IsSelf = To#jid.luser == From#jid.luser andalso
+	     To#jid.lserver == From#jid.lserver,
     LServer = To#jid.lserver,
     IsEmpty = case Pkt of
 		  #message{body = [], subject = []} ->
@@ -200,34 +201,25 @@ need_check(Pkt) ->
 	      end,
     AllowLocalUsers = gen_mod:get_module_opt(LServer, ?MODULE, allow_local_users),
     Access = gen_mod:get_module_opt(LServer, ?MODULE, access),
-    not (IsEmpty orelse acl:match_rule(LServer, Access, From) == allow
+    not (IsSelf orelse IsEmpty
+	 orelse acl:match_rule(LServer, Access, From) == allow
 	 orelse ((AllowLocalUsers orelse From#jid.luser == <<"">>)
 		 andalso ejabberd_router:is_my_host(From#jid.lserver))).
 
 -spec check_subscription(jid(), jid()) -> boolean().
 check_subscription(From, To) ->
-    {LocalUser, LocalServer, _} = jid:tolower(To),
+    LocalServer = To#jid.lserver,
     {RemoteUser, RemoteServer, _} = jid:tolower(From),
-    case has_subscription(LocalUser, LocalServer, From) of
+    case mod_roster:is_subscribed(From, To) of
 	false when RemoteUser == <<"">> ->
 	    false;
 	false ->
 	    %% Check if the contact's server is in the roster
 	    gen_mod:get_module_opt(LocalServer, ?MODULE, allow_transports)
-		andalso has_subscription(LocalUser, LocalServer,
-					 jid:make(RemoteServer));
+		andalso mod_roster:is_subscribed(jid:make(RemoteServer), To);
 	true ->
 	    true
     end.
-
--spec has_subscription(binary(), binary(), jid()) -> boolean().
-has_subscription(User, Server, JID) ->
-    {Sub, Ask, _} = ejabberd_hooks:run_fold(
-		      roster_get_jid_info, Server,
-		      {none, none, []},
-		      [User, Server, JID]),
-    (Sub /= none) orelse (Ask == subscribe)
-	orelse (Ask == out) orelse (Ask == both).
 
 sets_bare_member({U, S, <<"">>} = LBJID, Set) ->
     case ?SETS:next(sets_iterator_from(LBJID, Set)) of

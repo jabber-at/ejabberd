@@ -64,14 +64,6 @@ log_rotate_count: 1
 ## 100 is ejabberd's default.
 log_rate_limit: 100
 
-##
-## watchdog_admins: Only useful for developers: if an ejabberd process
-## consumes a lot of memory, send live notifications to these XMPP
-## accounts.
-##
-## watchdog_admins:
-##   - "bob@example.com"
-
 ###.  ===============
 ###'  NODE PARAMETERS
 
@@ -450,6 +442,14 @@ auth_method: internal
 ##
 ## new_sql_schema: true
 
+##
+## A database can also can be used to store information from several
+## modules. To enable storage to the database, just make sure it is 
+## setup above and set default_db: sql if you want to use SQL for
+## all modules.
+##
+## default_db: sql
+
 ###.  ===============
 ###'  TRAFFIC SHAPERS
 
@@ -734,7 +734,6 @@ modules:
   ## mod_delegation: {} # for xep0356
   mod_disco: {}
   mod_echo: {}
-  mod_irc: {}
   mod_bosh: {}
   ## mod_http_fileserver:
   ##   docroot: "/var/www"
@@ -783,7 +782,8 @@ modules:
       - "pep" # pep requires mod_caps
     force_node_config:
       ## Avoid using OMEMO by default because it
-      ## introduces a lot of hard-to-track problems
+      ## introduces a lot of hard-to-track problems.
+      ## Comment out the following lines to enable OMEMO support
       "eu.siacs.conversations.axolotl.*":
         access_model: whitelist
       ## Avoid buggy clients to make their bookmarks public

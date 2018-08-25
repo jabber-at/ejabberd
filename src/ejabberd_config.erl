@@ -28,7 +28,8 @@
 
 -export([start/0, load_file/1, reload_file/0, read_file/1,
 	 get_option/1, get_option/2, add_option/2, has_option/1,
-	 get_version/0, get_myhosts/0, get_mylang/0, get_lang/1,
+	 get_version/0, get_myhosts/0, get_myname/0,
+	 get_mylang/0, get_lang/1, get_uri/0, get_copyright/0,
 	 get_ejabberd_config_path/0, is_using_elixir_config/0,
 	 prepare_opt_val/4, transform_options/1, collect_options/1,
 	 convert_to_yaml/1, convert_to_yaml/2, v_db/2,
@@ -53,21 +54,15 @@
 	     {get_global_option, 3}, {get_local_option, 3},
 	     {get_option, 3}, {is_file_readable, 1}]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 -include("ejabberd_config.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
 -callback opt_type(atom()) -> function() | [atom()].
+-type bad_option() :: invalid_option | unknown_option.
 
-%% @type macro() = {macro_key(), macro_value()}
-
-%% @type macro_key() = atom().
-%% The atom must have all characters in uppercase.
-
-%% @type macro_value() = term().
-
+-spec start() -> ok | {error, bad_option()}.
 start() ->
     ConfigFile = get_ejabberd_config_path(),
     ?INFO_MSG("Loading configuration from ~s", [ConfigFile]),
@@ -75,17 +70,23 @@ start() ->
 		  [named_table, public, {read_concurrency, true}]),
     catch ets:new(ejabberd_db_modules,
 		  [named_table, public, {read_concurrency, true}]),
-    State1 = load_file(ConfigFile),
-    UnixTime = p1_time_compat:system_time(seconds),
-    SharedKey = case erlang:get_cookie() of
-                    nocookie ->
-                        str:sha(randoms:get_string());
-                    Cookie ->
-                        str:sha(misc:atom_to_binary(Cookie))
-                end,
-    State2 = set_option({node_start, global}, UnixTime, State1),
-    State3 = set_option({shared_key, global}, SharedKey, State2),
-    set_opts(State3).
+    case load_file(ConfigFile) of
+	{ok, State1} ->
+	    UnixTime = p1_time_compat:system_time(seconds),
+	    SharedKey = case erlang:get_cookie() of
+			    nocookie ->
+				str:sha(randoms:get_string());
+			    Cookie ->
+				str:sha(misc:atom_to_binary(Cookie))
+			end,
+	    State2 = set_option({node_start, global}, UnixTime, State1),
+	    State3 = set_option({shared_key, global}, SharedKey, State2),
+	    set_opts(State3),
+	    ok;
+	{error, _} = Err ->
+	    ?ERROR_MSG("Failed to load configuration file ~s", [ConfigFile]),
+	    Err
+    end.
 
 %% When starting ejabberd for testing, we sometimes want to start a
 %% subset of hosts from the one define in the config file.
@@ -135,7 +136,7 @@ get_ejabberd_config_path() ->
 	undefined ->
 	    case os:getenv("EJABBERD_CONFIG_PATH") of
 		false ->
-		    ?CONFIG_PATH;
+		    "ejabberd.yml";
 		Path ->
 		    Path
 	    end
@@ -189,7 +190,7 @@ read_file(File, Opts) ->
     State1 = lists:foldl(fun process_term/2, State, Head ++ Tail),
     State1#state{opts = compact(State1#state.opts)}.
 
--spec load_file(string()) -> #state{}.
+-spec load_file(string()) -> {ok, #state{}} | {error, bad_option()}.
 
 load_file(File) ->
     State0 = read_file(File),
@@ -199,23 +200,27 @@ load_file(File) ->
     ModOpts = get_modules_with_options(AllMods),
     validate_opts(State1, ModOpts).
 
--spec reload_file() -> ok.
+-spec reload_file() -> ok | {error, bad_option()}.
 
 reload_file() ->
     Config = get_ejabberd_config_path(),
     OldHosts = get_myhosts(),
-    State = load_file(Config),
-    set_opts(State),
-    NewHosts = get_myhosts(),
-    lists:foreach(
-      fun(Host) ->
-	      ejabberd_hooks:run(host_up, [Host])
-      end, NewHosts -- OldHosts),
-    lists:foreach(
-      fun(Host) ->
-	      ejabberd_hooks:run(host_down, [Host])
-      end, OldHosts -- NewHosts),
-    ejabberd_hooks:run(config_reloaded, []).
+    case load_file(Config) of
+	{error, _} = Err ->
+	    Err;
+	{ok, State} ->
+	    set_opts(State),
+	    NewHosts = get_myhosts(),
+	    lists:foreach(
+	      fun(Host) ->
+		      ejabberd_hooks:run(host_up, [Host])
+	      end, NewHosts -- OldHosts),
+	    lists:foreach(
+	      fun(Host) ->
+		      ejabberd_hooks:run(host_down, [Host])
+	      end, OldHosts -- NewHosts),
+	    ejabberd_hooks:run(config_reloaded, [])
+    end.
 
 -spec convert_to_yaml(file:filename()) -> ok | {error, any()}.
 
@@ -1017,33 +1022,39 @@ get_modules_with_options(Modules) ->
 	      end
       end, dict:new(), Modules).
 
+-spec validate_opts(#state{}, dict:dict()) -> {ok, #state{}} | {error, bad_option()}.
 validate_opts(#state{opts = Opts} = State, ModOpts) ->
-    NewOpts = lists:filtermap(
-		fun(#local_config{key = {Opt, _Host}, value = Val} = In) ->
-			case dict:find(Opt, ModOpts) of
-			    {ok, [Mod|_]} ->
-				VFun = Mod:opt_type(Opt),
-				try VFun(Val) of
-				    NewVal ->
-					{true, In#local_config{value = NewVal}}
-				catch {invalid_syntax, Error} ->
-					?ERROR_MSG("ignoring option '~s' with "
-						   "invalid value: ~p: ~s",
-						   [Opt, Val, Error]),
-					false;
-				      _:_ ->
-					?ERROR_MSG("ignoring option '~s' with "
-						   "invalid value: ~p",
-						   [Opt, Val]),
-					false
-				end;
-			    _ ->
-				?ERROR_MSG("unknown option '~s' will be likely"
-					   " ignored", [Opt]),
-				true
-			end
-		end, Opts),
-    State#state{opts = NewOpts}.
+    try
+	NewOpts = lists:map(
+		    fun(#local_config{key = {Opt, _Host}, value = Val} = In) ->
+			    case dict:find(Opt, ModOpts) of
+				{ok, [Mod|_]} ->
+				    VFun = Mod:opt_type(Opt),
+				    try VFun(Val) of
+					NewVal ->
+					    In#local_config{value = NewVal}
+				    catch {invalid_syntax, Error} ->
+					    ?ERROR_MSG("Invalid value '~p' for "
+						       "option '~s': ~s",
+						       [Val, Opt, Error]),
+					    erlang:error(invalid_option);
+					  _:_ ->
+					    ?ERROR_MSG("Invalid value '~p' for "
+						       "option '~s'",
+						       [Val, Opt]),
+					    erlang:error(invalid_option)
+				    end;
+				_ ->
+				    ?ERROR_MSG("Unknown option '~s'", [Opt]),
+				    erlang:error(unknown_option)
+			    end
+		    end, Opts),
+	{ok, State#state{opts = NewOpts}}
+    catch _:invalid_option ->
+	    {error, invalid_option};
+	  _:unknown_option ->
+	    {error, unknown_option}
+    end.
 
 %% @spec (Path::string()) -> true | false
 is_file_readable(Path) ->
@@ -1059,15 +1070,27 @@ is_file_readable(Path) ->
     end.
 
 get_version() ->
-    case application:get_key(ejabberd, vsn) of
-        undefined -> "";
-        {ok, Vsn} -> list_to_binary(Vsn)
+    case application:get_env(ejabberd, custom_vsn) of
+	{ok, Vsn0} when is_list(Vsn0) ->
+	    list_to_binary(Vsn0);
+	{ok, Vsn1} when is_binary(Vsn1) ->
+	    Vsn1;
+	_ ->
+	    case application:get_key(ejabberd, vsn) of
+		undefined -> "";
+		{ok, Vsn} -> list_to_binary(Vsn)
+	    end
     end.
 
 -spec get_myhosts() -> [binary()].
 
 get_myhosts() ->
     get_option(hosts).
+
+-spec get_myname() -> binary().
+
+get_myname() ->
+    hd(get_myhosts()).
 
 -spec get_mylang() -> binary().
 
@@ -1078,10 +1101,17 @@ get_mylang() ->
 get_lang(Host) ->
     get_option({language, Host}, <<"en">>).
 
+-spec get_uri() -> binary().
+get_uri() ->
+    <<"http://www.process-one.net/en/ejabberd/">>.
+
+-spec get_copyright() -> binary().
+get_copyright() ->
+    <<"Copyright (c) ProcessOne">>.
+
 replace_module(mod_announce_odbc) -> {mod_announce, sql};
 replace_module(mod_blocking_odbc) -> {mod_blocking, sql};
 replace_module(mod_caps_odbc) -> {mod_caps, sql};
-replace_module(mod_irc_odbc) -> {mod_irc, sql};
 replace_module(mod_last_odbc) -> {mod_last, sql};
 replace_module(mod_muc_odbc) -> {mod_muc, sql};
 replace_module(mod_offline_odbc) -> {mod_offline, sql};

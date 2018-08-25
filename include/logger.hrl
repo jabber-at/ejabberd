@@ -42,3 +42,6 @@
             false -> ok;
             _ -> 'Elixir.Logger':bare_log(error, io_lib:format(Format, Args), [?MODULE])
         end).
+
+%% Uncomment if you want to debug p1_fsm/gen_fsm
+%%-define(DBGFSM, true).

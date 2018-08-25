@@ -48,7 +48,7 @@
 
 -export([auth_modules/1, opt_type/1]).
 
--include("ejabberd.hrl").
+-include("scram.hrl").
 -include("logger.hrl").
 
 -define(AUTH_CACHE, auth_cache).
@@ -69,6 +69,7 @@
 
 -callback start(binary()) -> any().
 -callback stop(binary()) -> any().
+-callback reload(binary()) -> any().
 -callback plain_password_required(binary()) -> boolean().
 -callback store_type(binary()) -> plain | external | scram.
 -callback set_password(binary(), binary(), binary()) -> ok | {error, atom()}.
@@ -82,7 +83,8 @@
 -callback use_cache(binary()) -> boolean().
 -callback cache_nodes(binary()) -> boolean().
 
--optional_callbacks([set_password/3,
+-optional_callbacks([reload/1,
+		     set_password/3,
 		     remove_user/2,
 		     user_exists/2,
 		     check_password/4,
@@ -105,7 +107,7 @@ init([]) ->
 		    fun(Host, Acc) ->
 			    Modules = auth_modules(Host),
 			    maps:put(Host, Modules, Acc)
-		    end, #{}, ?MYHOSTS),
+		    end, #{}, ejabberd_config:get_myhosts()),
     lists:foreach(
       fun({Host, Modules}) ->
 	      start(Host, Modules)
@@ -130,14 +132,16 @@ handle_cast({host_down, Host}, #state{host_modules = HostModules} = State) ->
     init_cache(NewHostModules),
     {noreply, State#state{host_modules = NewHostModules}};
 handle_cast(config_reloaded, #state{host_modules = HostModules} = State) ->
-    NewHostModules = lists:foldl(
-		       fun(Host, Acc) ->
-			       OldModules = maps:get(Host, HostModules, []),
-			       NewModules = auth_modules(Host),
-			       start(Host, NewModules -- OldModules),
-			       stop(Host, OldModules -- NewModules),
-			       maps:put(Host, NewModules, Acc)
-		       end, HostModules, ?MYHOSTS),
+    NewHostModules =
+	lists:foldl(
+	  fun(Host, Acc) ->
+		  OldModules = maps:get(Host, HostModules, []),
+		  NewModules = auth_modules(Host),
+		  start(Host, NewModules -- OldModules),
+		  stop(Host, OldModules -- NewModules),
+		  reload(Host, lists_intersection(OldModules, NewModules)),
+		  maps:put(Host, NewModules, Acc)
+	  end, HostModules, ejabberd_config:get_myhosts()),
     init_cache(NewHostModules),
     {noreply, State#state{host_modules = NewHostModules}};
 handle_cast(Msg, State) ->
@@ -164,6 +168,15 @@ start(Host, Modules) ->
 
 stop(Host, Modules) ->
     lists:foreach(fun(M) -> M:stop(Host) end, Modules).
+
+reload(Host, Modules) ->
+    lists:foreach(
+      fun(M) ->
+	      case erlang:function_exported(M, reload, 1) of
+		  true -> M:reload(Host);
+		  false -> ok
+	      end
+      end, Modules).
 
 host_up(Host) ->
     gen_server:cast(?MODULE, {host_up, Host}).
@@ -217,19 +230,22 @@ check_password_with_authmodule(User, AuthzId, Server, Password) ->
 check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGen) ->
     case validate_credentials(User, Server) of
 	{ok, LUser, LServer} ->
-	    lists:foldl(
-	      fun(Mod, false) ->
-		      case db_check_password(
-			     LUser, AuthzId, LServer, Password,
-			     Digest, DigestGen, Mod) of
-			  true -> {true, Mod};
-			  false -> false
-		      end;
-		 (_, Acc) ->
-		      Acc
-	      end, false, auth_modules(LServer));
-	_ ->
-	    false
+	    case jid:nodeprep(AuthzId) of
+		error ->
+		    false;
+		LAuthzId ->
+		    lists:foldl(
+		      fun(Mod, false) ->
+			      case db_check_password(
+				     LUser, LAuthzId, LServer, Password,
+				     Digest, DigestGen, Mod) of
+				  true -> {true, Mod};
+				  false -> false
+			      end;
+			 (_, Acc) ->
+			      Acc
+		      end, false, auth_modules(LServer))
+	    end
     end.
 
 -spec set_password(binary(), binary(), password()) -> ok | {error, atom()}.
@@ -545,8 +561,8 @@ db_user_exists(User, Server, Mod) ->
 	{ok, _} ->
 	    true;
 	error ->
-	    case Mod:store_type(Server) of
-		external ->
+	    case {Mod:store_type(Server), use_cache(Mod, Server)} of
+		{external, true} ->
 		    case ets_cache:lookup(
 			   ?AUTH_CACHE, {User, Server},
 			   fun() ->
@@ -559,8 +575,12 @@ db_user_exists(User, Server, Mod) ->
 			{ok, _} ->
 			    true;
 			error ->
-			    false
+			    false;
+			{error, _} = Err ->
+			    Err
 		    end;
+		{external, false} ->
+		    Mod:user_exists(User, Server);
 		_ ->
 		    false
 	    end
@@ -744,7 +764,7 @@ auth_modules() ->
     lists:flatmap(
       fun(Host) ->
 	      [{Host, Mod} || Mod <- auth_modules(Host)]
-      end, ?MYHOSTS).
+      end, ejabberd_config:get_myhosts()).
 
 -spec auth_modules(binary()) -> [module()].
 auth_modules(Server) ->
@@ -813,6 +833,12 @@ validate_credentials(User, Server, Password) ->
 		    end
 	    end
     end.
+
+lists_intersection(L1, L2) ->
+    lists:filter(
+      fun(E) ->
+              lists:member(E, L2)
+      end, L1).
 
 import_info() ->
     [{<<"users">>, 3}].

@@ -44,12 +44,11 @@
 -export([get_commands_spec/0, delete_old_sessions/1]).
 
 %% API (used by mod_push_keepalive).
--export([notify/2, notify/4, notify/6, is_message_with_body/1]).
+-export([notify/3, notify/5, notify/7, is_incoming_chat_msg/1]).
 
 %% For IQ callbacks
 -export([delete_session/3]).
 
--include("ejabberd.hrl").
 -include("ejabberd_commands.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
@@ -60,6 +59,7 @@
 -type timestamp() :: erlang:timestamp().
 -type push_session() :: {timestamp(), ljid(), binary(), xdata()}.
 -type err_reason() :: notfound | db_failure.
+-type direction() :: send | recv | undefined.
 
 -callback init(binary(), gen_mod:opts())
 	  -> any().
@@ -143,7 +143,7 @@ mod_opt_type(O) when O == use_cache; O == cache_missed ->
 -spec mod_options(binary()) -> [{atom(), any()}].
 mod_options(Host) ->
     [{include_sender, false},
-     {include_body, false},
+     {include_body, <<"New message">>},
      {db_type, ejabberd_config:default_db(Host, ?MODULE)},
      {use_cache, ejabberd_config:use_cache(Host)},
      {cache_size, ejabberd_config:cache_size(Host)},
@@ -173,7 +173,7 @@ delete_old_sessions(Days) ->
 			      sql -> {sql, Host};
 			      Other -> {Other, global}
 			  end
-		  end, ?MYHOSTS)),
+		  end, ejabberd_config:get_myhosts())),
     Results = lists:map(
 		fun({DBType, Host}) ->
 			Mod = gen_mod:db_mod(DBType, ?MODULE),
@@ -346,20 +346,20 @@ c2s_stanza(State, #stream_error{}, _SendResult) ->
 c2s_stanza(#{push_enabled := true, mgmt_state := pending} = State,
 	   Pkt, _SendResult) ->
     ?DEBUG("Notifying client of stanza", []),
-    notify(State, Pkt),
+    notify(State, unwrap_carbon(Pkt), get_direction(Pkt)),
     State;
 c2s_stanza(State, _Pkt, _SendResult) ->
     State.
 
 -spec mam_message(message() | drop, binary(), binary(), jid(),
 		  chat | groupchat, recv | send) -> message().
-mam_message(#message{} = Pkt, LUser, LServer, _Peer, chat, _Dir) ->
+mam_message(#message{} = Pkt, LUser, LServer, _Peer, chat, Dir) ->
     case lookup_sessions(LUser, LServer) of
 	{ok, [_|_] = Clients} ->
 	    case drop_online_sessions(LUser, LServer, Clients) of
 		[_|_] = Clients1 ->
 		    ?DEBUG("Notifying ~s@~s of MAM message", [LUser, LServer]),
-		    notify(LUser, LServer, Clients1, Pkt);
+		    notify(LUser, LServer, Clients1, Pkt, Dir);
 		[] ->
 		    ok
 	    end;
@@ -377,7 +377,7 @@ offline_message(#message{to = #jid{luser = LUser, lserver = LServer}} = Pkt) ->
     case lookup_sessions(LUser, LServer) of
 	{ok, [_|_] = Clients} ->
 	    ?DEBUG("Notifying ~s@~s of offline message", [LUser, LServer]),
-	    notify(LUser, LServer, Clients, Pkt);
+	    notify(LUser, LServer, Clients, Pkt, recv);
 	_ ->
 	    ok
     end,
@@ -388,8 +388,12 @@ c2s_session_pending(#{push_enabled := true, mgmt_queue := Queue} = State) ->
     case p1_queue:len(Queue) of
 	Len when Len > 0 ->
 	    ?DEBUG("Notifying client of unacknowledged stanza(s)", []),
-	    Pkt = mod_stream_mgmt:queue_find(fun is_message_with_body/1, Queue),
-	    notify(State, Pkt),
+	    {Pkt, Dir} = case mod_stream_mgmt:queue_find(
+				fun is_incoming_chat_msg/1, Queue) of
+			     none -> {none, undefined};
+			     Pkt0 -> {unwrap_carbon(Pkt0), get_direction(Pkt0)}
+			 end,
+	    notify(State, Pkt, Dir),
 	    State;
 	0 ->
 	    State
@@ -421,18 +425,20 @@ remove_user(LUser, LServer) ->
 %%--------------------------------------------------------------------
 %% Generate push notifications.
 %%--------------------------------------------------------------------
--spec notify(c2s_state(), xmpp_element() | xmlel() | none) -> ok.
-notify(#{jid := #jid{luser = LUser, lserver = LServer}, sid := {TS, _}}, Pkt) ->
+-spec notify(c2s_state(), xmpp_element() | xmlel() | none, direction()) -> ok.
+notify(#{jid := #jid{luser = LUser, lserver = LServer},
+	 sid := {TS, _}},
+       Pkt, Dir) ->
     case lookup_session(LUser, LServer, TS) of
 	{ok, Client} ->
-	    notify(LUser, LServer, [Client], Pkt);
+	    notify(LUser, LServer, [Client], Pkt, Dir);
 	_Err ->
 	    ok
     end.
 
 -spec notify(binary(), binary(), [push_session()],
-	     xmpp_element() | xmlel() | none) -> ok.
-notify(LUser, LServer, Clients, Pkt) ->
+	     xmpp_element() | xmlel() | none, direction()) -> ok.
+notify(LUser, LServer, Clients, Pkt, Dir) ->
     lists:foreach(
       fun({TS, PushLJID, Node, XData}) ->
 	      HandleResponse = fun(#iq{type = result}) ->
@@ -443,15 +449,15 @@ notify(LUser, LServer, Clients, Pkt) ->
 				  (timeout) ->
 				       ok % Hmm.
 			       end,
-	      notify(LServer, PushLJID, Node, XData, Pkt, HandleResponse)
+	      notify(LServer, PushLJID, Node, XData, Pkt, Dir, HandleResponse)
       end, Clients).
 
 -spec notify(binary(), ljid(), binary(), xdata(),
-	     xmpp_element() | xmlel() | none,
+	     xmpp_element() | xmlel() | none, direction(),
 	     fun((iq() | timeout) -> any())) -> ok.
-notify(LServer, PushLJID, Node, XData, Pkt, HandleResponse) ->
+notify(LServer, PushLJID, Node, XData, Pkt, Dir, HandleResponse) ->
     From = jid:make(LServer),
-    Summary = make_summary(LServer, Pkt),
+    Summary = make_summary(LServer, Pkt, Dir),
     Item = #ps_item{sub_els = [#push_notification{xdata = Summary}]},
     PubSub = #pubsub{publish = #ps_publish{node = Node, items = [Item]},
 		     publish_options = XData},
@@ -465,10 +471,13 @@ notify(LServer, PushLJID, Node, XData, Pkt, HandleResponse) ->
 %%--------------------------------------------------------------------
 %% Miscellaneous.
 %%--------------------------------------------------------------------
--spec is_message_with_body(stanza()) -> boolean().
-is_message_with_body(#message{} = Msg) ->
-    get_body_text(Msg) /= none;
-is_message_with_body(_Stanza) ->
+-spec is_incoming_chat_msg(stanza()) -> boolean().
+is_incoming_chat_msg(#message{} = Msg) ->
+    case get_direction(Msg) of
+	recv -> get_body_text(unwrap_carbon(Msg)) /= none;
+	send -> false
+    end;
+is_incoming_chat_msg(_Stanza) ->
     false.
 
 %%--------------------------------------------------------------------
@@ -592,9 +601,9 @@ drop_online_sessions(LUser, LServer, Clients) ->
     [Client || {TS, _, _, _} = Client <- Clients,
 	       lists:keyfind(TS, 1, SessIDs) == false].
 
--spec make_summary(binary(), xmpp_element() | xmlel() | none)
+-spec make_summary(binary(), xmpp_element() | xmlel() | none, direction())
       -> xdata() | undefined.
-make_summary(Host, #message{from = From} = Pkt) ->
+make_summary(Host, #message{from = From} = Pkt, recv) ->
     case {gen_mod:get_module_opt(Host, ?MODULE, include_sender),
 	  gen_mod:get_module_opt(Host, ?MODULE, include_body)} of
 	{false, false} ->
@@ -621,7 +630,23 @@ make_summary(Host, #message{from = From} = Pkt) ->
 		    #xdata{type = submit, fields = push_summary:encode(Fields2)}
 	    end
     end;
-make_summary(_Host, _Pkt) ->
+make_summary(_Host, _Pkt, _Dir) ->
+    undefined.
+
+-spec unwrap_carbon(stanza()) -> stanza().
+unwrap_carbon(#message{meta = #{carbon_copy := true}} = Msg) ->
+    xmpp_util:unwrap_carbon(Msg);
+unwrap_carbon(Stanza) ->
+    Stanza.
+
+-spec get_direction(stanza()) -> direction().
+get_direction(#message{meta = #{carbon_copy := true},
+		       from = #jid{luser = U, lserver = S},
+		       to = #jid{luser = U, lserver = S}}) ->
+    send;
+get_direction(#message{}) ->
+    recv;
+get_direction(_Stanza) ->
     undefined.
 
 -spec get_body_text(message()) -> binary() | none.

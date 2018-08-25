@@ -404,6 +404,8 @@ get_stanza_id(#message{meta = #{stanza_id := ID}}) ->
     ID.
 
 -spec init_stanza_id(stanza(), binary()) -> stanza().
+init_stanza_id(#message{meta = #{stanza_id := _ID}} = Pkt, _LServer) ->
+    Pkt;
 init_stanza_id(Pkt, LServer) ->
     ID = p1_time_compat:system_time(micro_seconds),
     Pkt1 = strip_my_stanza_id(Pkt, LServer),
@@ -520,7 +522,7 @@ delete_old_messages(TypeBin, Days) when TypeBin == <<"chat">>;
 			      sql -> {sql, Host};
 			      Other -> {Other, global}
 			  end
-		  end, ?MYHOSTS)),
+		  end, ejabberd_config:get_myhosts())),
     Results = lists:map(
 		fun({DBType, ServerHost}) ->
 			Mod = gen_mod:db_mod(DBType, ?MODULE),

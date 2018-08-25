@@ -40,7 +40,7 @@
 
 -define(CHUNK_SIZE, 1024*20). %20k
 
--include("ejabberd.hrl").
+-include("scram.hrl").
 -include("logger.hrl").
 -include("xmpp.hrl").
 -include("mod_privacy.hrl").
@@ -92,7 +92,7 @@ import_file(FileName, State) ->
 
 -spec export_server(binary()) -> any().
 export_server(Dir) ->
-    export_hosts(?MYHOSTS, Dir).
+    export_hosts(ejabberd_config:get_myhosts(), Dir).
 
 -spec export_host(binary(), binary()) -> any().
 export_host(Dir, Host) ->
@@ -403,6 +403,8 @@ process_user(#xmlel{name = <<"user">>, attrs = Attrs, children = Els},
         LUser ->
             case ejabberd_auth:try_register(LUser, LServer, Pass) of
                 ok ->
+                    process_user_els(Els, State#state{user = LUser});
+                {error, invalid_password} when (Password == <<>>) ->
                     process_user_els(Els, State#state{user = LUser});
                 {error, Err} ->
                     stop("Failed to create user '~s': ~p", [Name, Err])

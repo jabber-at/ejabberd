@@ -55,7 +55,8 @@ init_per_suite(Config) ->
     {ok, _} = file:copy(ExtAuthScript, filename:join([CWD, "extauth.py"])),
     {ok, _} = ldap_srv:start(LDIFFile),
     inet_db:add_host({127,0,0,1}, [binary_to_list(?S2S_VHOST),
-				   binary_to_list(?MNESIA_VHOST)]),
+				   binary_to_list(?MNESIA_VHOST),
+				   binary_to_list(?UPLOAD_VHOST)]),
     inet_db:set_domain(binary_to_list(randoms:get_string())),
     inet_db:set_lookup([file, native]),
     start_ejabberd(NewConfig),
@@ -362,7 +363,6 @@ no_db_tests() ->
        unsupported_query,
        bad_nonza,
        invalid_from,
-       legacy_iq,
        ping,
        version,
        time,
@@ -388,7 +388,8 @@ no_db_tests() ->
      muc_tests:master_slave_cases(),
      proxy65_tests:single_cases(),
      proxy65_tests:master_slave_cases(),
-     replaced_tests:master_slave_cases()].
+     replaced_tests:master_slave_cases(),
+     upload_tests:single_cases()].
 
 db_tests(riak) ->
     %% No support for mod_pubsub
@@ -937,14 +938,6 @@ presence_broadcast(Config) ->
 	     (_, Acc) ->
 		  Acc
 	  end, [], [0, 100, 200, 2000, 5000, 10000]),
-    disconnect(Config).
-
-legacy_iq(Config) ->
-    true = is_feature_advertised(Config, ?NS_EVENT),
-    ServerJID = server_jid(Config),
-    #iq{type = result, sub_els = []} =
-	send_recv(Config, #iq{to = ServerJID, type = get,
-			      sub_els = [#xevent{}]}),
     disconnect(Config).
 
 ping(Config) ->

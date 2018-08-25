@@ -30,7 +30,6 @@
 
 -define(SERVICE_REQUEST_TIMEOUT, 5000). % 5 seconds.
 -define(SLOT_TIMEOUT, 18000000). % 5 hours.
--define(FORMAT(Error), file:format_error(Error)).
 -define(URL_ENC(URL), binary_to_list(misc:url_encode(URL))).
 -define(ADDR_TO_STR(IP), ejabberd_config:may_hide_data(misc:ip_to_list(IP))).
 -define(STR_TO_INT(Str, B), binary_to_integer(iolist_to_binary(Str), B)).
@@ -89,7 +88,6 @@
 	 expand_home/1,
 	 expand_host/2]).
 
--include("ejabberd.hrl").
 -include("ejabberd_http.hrl").
 -include("xmpp.hrl").
 -include("logger.hrl").
@@ -232,7 +230,7 @@ mod_options(_Host) ->
      {service_url, undefined},
      {custom_headers, []},
      {rm_on_unregister, true},
-     {thumbnail, true}].
+     {thumbnail, false}].
 
 -spec depends(binary(), gen_mod:opts()) -> [{module(), hard | soft}].
 depends(_Host, _Opts) ->
@@ -377,26 +375,26 @@ process(LocalPath, #request{method = Method, host = Host, ip = IP})
 	   [Method, ?ADDR_TO_STR(IP), Host]),
     http_response(404);
 process(_LocalPath, #request{method = 'PUT', host = Host, ip = IP,
-			     data = Data} = Request) ->
+			     length = Length} = Request) ->
     {Proc, Slot} = parse_http_request(Request),
-    case catch gen_server:call(Proc, {use_slot, Slot, byte_size(Data)}) of
+    case catch gen_server:call(Proc, {use_slot, Slot, Length}) of
 	{ok, Path, FileMode, DirMode, GetPrefix, Thumbnail, CustomHeaders} ->
 	    ?DEBUG("Storing file from ~s for ~s: ~s",
 		   [?ADDR_TO_STR(IP), Host, Path]),
-	    case store_file(Path, Data, FileMode, DirMode,
+	    case store_file(Path, Request, FileMode, DirMode,
 			    GetPrefix, Slot, Thumbnail) of
 		ok ->
 		    http_response(201, CustomHeaders);
 		{ok, Headers, OutData} ->
 		    http_response(201, Headers ++ CustomHeaders, OutData);
 		{error, Error} ->
-		    ?ERROR_MSG("Cannot store file ~s from ~s for ~s: ~p",
-			       [Path, ?ADDR_TO_STR(IP), Host, ?FORMAT(Error)]),
+		    ?INFO_MSG("Cannot store file ~s from ~s for ~s: ~s",
+			      [Path, ?ADDR_TO_STR(IP), Host, format_error(Error)]),
 		    http_response(500)
 	    end;
 	{error, size_mismatch} ->
 	    ?INFO_MSG("Rejecting file from ~s for ~s: Unexpected size (~B)",
-		      [?ADDR_TO_STR(IP), Host, byte_size(Data)]),
+		      [?ADDR_TO_STR(IP), Host, Length]),
 	    http_response(413);
 	{error, invalid_slot} ->
 	    ?INFO_MSG("Rejecting file from ~s for ~s: Invalid slot",
@@ -414,8 +412,9 @@ process(_LocalPath, #request{method = Method, host = Host, ip = IP} = Request)
     case catch gen_server:call(Proc, get_conf) of
 	{ok, DocRoot, CustomHeaders} ->
 	    Path = str:join([DocRoot | Slot], <<$/>>),
-	    case file:read_file(Path) of
-		{ok, Data} ->
+	    case file:open(Path, [read]) of
+		{ok, Fd} ->
+		    file:close(Fd),
 		    ?INFO_MSG("Serving ~s to ~s", [Path, ?ADDR_TO_STR(IP)]),
 		    ContentType = guess_content_type(FileName),
 		    Headers1 = case ContentType of
@@ -428,7 +427,7 @@ process(_LocalPath, #request{method = Method, host = Host, ip = IP} = Request)
 			       end,
 		    Headers2 = [{<<"Content-Type">>, ContentType} | Headers1],
 		    Headers3 = Headers2 ++ CustomHeaders,
-		    http_response(200, Headers3, Data);
+		    http_response(200, Headers3, {file, Path});
 		{error, eacces} ->
 		    ?INFO_MSG("Cannot serve ~s to ~s: Permission denied",
 			      [Path, ?ADDR_TO_STR(IP)]),
@@ -443,7 +442,7 @@ process(_LocalPath, #request{method = Method, host = Host, ip = IP} = Request)
 		    http_response(404);
 		{error, Error} ->
 		    ?INFO_MSG("Cannot serve ~s to ~s: ~s",
-			      [Path, ?ADDR_TO_STR(IP), ?FORMAT(Error)]),
+			      [Path, ?ADDR_TO_STR(IP), format_error(Error)]),
 		    http_response(500)
 	    end;
 	Error ->
@@ -530,7 +529,8 @@ process_slot_request(#iq{lang = Lang, from = From} = IQ,
     case acl:match_rule(ServerHost, Access, From) of
 	allow ->
 	    ContentType = yield_content_type(CType),
-	    case create_slot(State, From, File, Size, ContentType, Lang) of
+	    case create_slot(State, From, File, Size, ContentType, XMLNS,
+			     Lang) of
 		{ok, Slot} ->
 		    {ok, Timer} = timer:send_after(?SLOT_TIMEOUT,
 						   {slot_timed_out,
@@ -551,21 +551,28 @@ process_slot_request(#iq{lang = Lang, from = From} = IQ,
 	    xmpp:make_error(IQ, xmpp:err_forbidden(Txt, Lang))
     end.
 
--spec create_slot(state(), jid(), binary(), pos_integer(), binary(), binary())
+-spec create_slot(state(), jid(), binary(), pos_integer(), binary(), binary(),
+		  binary())
       -> {ok, slot()} | {ok, binary(), binary()} | {error, xmlel()}.
 create_slot(#state{service_url = undefined, max_size = MaxSize},
-	    JID, File, Size, _ContentType, Lang) when MaxSize /= infinity,
-						      Size > MaxSize ->
+	    JID, File, Size, _ContentType, XMLNS, Lang)
+  when MaxSize /= infinity,
+       Size > MaxSize ->
     Text = {<<"File larger than ~w bytes">>, [MaxSize]},
     ?INFO_MSG("Rejecting file ~s from ~s (too large: ~B bytes)",
 	      [File, jid:encode(JID), Size]),
-    {error, xmpp:err_not_acceptable(Text, Lang)};
+    Error = xmpp:err_not_acceptable(Text, Lang),
+    Els = xmpp:get_els(Error),
+    Els1 = [#upload_file_too_large{'max-file-size' = MaxSize,
+				   xmlns = XMLNS} | Els],
+    Error1 = xmpp:set_els(Error, Els1),
+    {error, Error1};
 create_slot(#state{service_url = undefined,
 		   jid_in_url = JIDinURL,
 		   secret_length = SecretLength,
 		   server_host = ServerHost,
 		   docroot = DocRoot},
-	    JID, File, Size, _ContentType, Lang) ->
+	    JID, File, Size, _ContentType, _XMLNS, Lang) ->
     UserStr = make_user_string(JID, JIDinURL),
     UserDir = <<DocRoot/binary, $/, UserStr/binary>>,
     case ejabberd_hooks:run_fold(http_upload_slot_request, ServerHost, allow,
@@ -582,8 +589,8 @@ create_slot(#state{service_url = undefined,
 	    {error, Error}
     end;
 create_slot(#state{service_url = ServiceURL},
-	    #jid{luser = U, lserver = S} = JID, File, Size, ContentType,
-	    Lang) ->
+	    #jid{luser = U, lserver = S} = JID,
+	    File, Size, ContentType, _XMLNS, Lang) ->
     Options = [{body_format, binary}, {full_result, false}],
     HttpOptions = [{timeout, ?SERVICE_REQUEST_TIMEOUT}],
     SizeStr = integer_to_binary(Size),
@@ -682,19 +689,12 @@ iq_disco_info(Host, Lang, Name, AddInfo) ->
 	       infinity ->
 		   AddInfo;
 	       MaxSize ->
-		   MaxSizeStr = integer_to_binary(MaxSize),
-		   XData = lists:map(
-			     fun(NS) ->
-				     Fields = [#xdata_field{
-						  type = hidden,
-						  var = <<"FORM_TYPE">>,
-						  values = [NS]},
-					       #xdata_field{
-						  var = <<"max-file-size">>,
-						  values = [MaxSizeStr]}],
-				     #xdata{type = result, fields = Fields}
-			     end, [?NS_HTTP_UPLOAD, ?NS_HTTP_UPLOAD_0]),
-		   XData ++ AddInfo
+		   lists:foldl(
+		     fun(NS, Acc) ->
+			     Fs = http_upload:encode(
+				    [{'max-file-size', MaxSize}], NS, Lang),
+			     [#xdata{type = result, fields = Fs}|Acc]
+		     end, AddInfo, [?NS_HTTP_UPLOAD_0, ?NS_HTTP_UPLOAD])
 	   end,
     #disco_info{identities = [#identity{category = <<"store">>,
 					type = <<"file">>,
@@ -720,17 +720,17 @@ parse_http_request(#request{host = Host, path = Path}) ->
 		      end,
     {gen_mod:get_module_proc(ProcURL, ?MODULE), Slot}.
 
--spec store_file(binary(), binary(),
+-spec store_file(binary(), http_request(),
 		 integer() | undefined,
 		 integer() | undefined,
 		 binary(), slot(), boolean())
       -> ok | {ok, [{binary(), binary()}], binary()} | {error, term()}.
-store_file(Path, Data, FileMode, DirMode, GetPrefix, Slot, Thumbnail) ->
-    case do_store_file(Path, Data, FileMode, DirMode) of
+store_file(Path, Request, FileMode, DirMode, GetPrefix, Slot, Thumbnail) ->
+    case do_store_file(Path, Request, FileMode, DirMode) of
 	ok when Thumbnail ->
-	    case identify(Path, Data) of
+	    case identify(Path) of
 		{ok, MediaInfo} ->
-		    case convert(Path, Data, MediaInfo) of
+		    case convert(Path, MediaInfo) of
 			{ok, OutPath, OutMediaInfo} ->
 			    [UserDir, RandDir | _] = Slot,
 			    FileName = filename:basename(OutPath),
@@ -753,16 +753,14 @@ store_file(Path, Data, FileMode, DirMode, GetPrefix, Slot, Thumbnail) ->
 	    Err
     end.
 
--spec do_store_file(file:filename_all(), binary(),
+-spec do_store_file(file:filename_all(), http_request(),
 		    integer() | undefined,
 		    integer() | undefined)
       -> ok | {error, term()}.
-do_store_file(Path, Data, FileMode, DirMode) ->
+do_store_file(Path, Request, FileMode, DirMode) ->
     try
 	ok = filelib:ensure_dir(Path),
-	{ok, Io} = file:open(Path, [write, exclusive, raw]),
-	Ok = file:write(Io, Data),
-	ok = file:close(Io),
+	ok = ejabberd_http:recv_file(Request, Path),
 	if is_integer(FileMode) ->
 		ok = file:change_mode(Path, FileMode);
 	   FileMode == undefined ->
@@ -775,8 +773,7 @@ do_store_file(Path, Data, FileMode, DirMode) ->
 		ok = file:change_mode(UserDir, DirMode);
 	   DirMode == undefined ->
 		ok
-	end,
-	ok = Ok % Raise an exception if file:write/2 failed.
+	end
     catch
 	_:{badmatch, {error, Error}} ->
 	    {error, Error};
@@ -801,7 +798,8 @@ http_response(Code, ExtraHeaders) ->
     Message = <<(code_to_message(Code))/binary, $\n>>,
     http_response(Code, ExtraHeaders, Message).
 
--spec http_response(100..599, [{binary(), binary()}], binary())
+-type http_body() :: binary() | {file, file:filename()}.
+-spec http_response(100..599, [{binary(), binary()}], http_body())
       -> {pos_integer(), [{binary(), binary()}], binary()}.
 http_response(Code, ExtraHeaders, Body) ->
     Headers = case proplists:is_defined(<<"Content-Type">>, ExtraHeaders) of
@@ -821,25 +819,47 @@ code_to_message(413) -> <<"File size doesn't match requested size.">>;
 code_to_message(500) -> <<"Internal server error.">>;
 code_to_message(_Code) -> <<"">>.
 
+-spec format_error(atom()) -> string().
+format_error(Reason) ->
+    case file:format_error(Reason) of
+	"unknown POSIX error" ->
+	    case inet:format_error(Reason) of
+		"unknown POSIX error" ->
+		    atom_to_list(Reason);
+		Txt ->
+		    Txt
+	    end;
+	Txt ->
+	    Txt
+    end.
+
 %%--------------------------------------------------------------------
 %% Image manipulation stuff.
 %%--------------------------------------------------------------------
--spec identify(binary(), binary()) -> {ok, media_info()} | pass.
-identify(Path, Data) ->
-    case eimp:identify(Data) of
-	{ok, Info} ->
-	    {ok, #media_info{
-		    type = proplists:get_value(type, Info),
-		    width = proplists:get_value(width, Info),
-		    height = proplists:get_value(height, Info)}};
-	{error, Why} ->
-	    ?DEBUG("Cannot identify type of ~s: ~s",
-		   [Path, eimp:format_error(Why)]),
+-spec identify(binary()) -> {ok, media_info()} | pass.
+identify(Path) ->
+    try
+	{ok, Fd} = file:open(Path, [read, raw]),
+	{ok, Data} = file:read(Fd, 1024),
+	case eimp:identify(Data) of
+	    {ok, Info} ->
+		{ok, #media_info{
+			type = proplists:get_value(type, Info),
+			width = proplists:get_value(width, Info),
+			height = proplists:get_value(height, Info)}};
+	    {error, Why} ->
+		?DEBUG("Cannot identify type of ~s: ~s",
+		       [Path, eimp:format_error(Why)]),
+		pass
+	end
+    catch _:{badmatch, {error, Reason}} ->
+	    ?DEBUG("Failed to read file ~s: ~s",
+		   [Path, format_error(Reason)]),
 	    pass
     end.
 
--spec convert(binary(), binary(), media_info()) -> {ok, binary(), media_info()} | pass.
-convert(Path, Data, #media_info{type = T, width = W, height = H} = Info) ->
+-spec convert(binary(), media_info()) -> {ok, binary(), media_info()} | pass.
+convert(Path, #media_info{type = T, width = W, height = H} = Info) ->
     if W * H >= 25000000 ->
 	    ?DEBUG("The image ~s is more than 25 Mpix", [Path]),
 	    pass;
@@ -855,19 +875,26 @@ convert(Path, Data, #media_info{type = T, width = W, height = H} = Info) ->
 			  true -> {300, 300}
 		       end,
 	    OutInfo = #media_info{type = T, width = W1, height = H1},
-	    case eimp:convert(Data, T, [{scale, {W1, H1}}]) of
-		{ok, OutData} ->
-		    case file:write_file(OutPath, OutData) of
-			ok ->
-			    {ok, OutPath, OutInfo};
+	    case file:read_file(Path) of
+		{ok, Data} ->
+		    case eimp:convert(Data, T, [{scale, {W1, H1}}]) of
+			{ok, OutData} ->
+			    case file:write_file(OutPath, OutData) of
+				ok ->
+				    {ok, OutPath, OutInfo};
+				{error, Why} ->
+				    ?ERROR_MSG("Failed to write to ~s: ~s",
+					       [OutPath, format_error(Why)]),
+				    pass
+			    end;
 			{error, Why} ->
-			    ?ERROR_MSG("Failed to write to ~s: ~s",
-				       [OutPath, file:format_error(Why)]),
+			    ?ERROR_MSG("Failed to convert ~s to ~s: ~s",
+				       [Path, OutPath, eimp:format_error(Why)]),
 			    pass
 		    end;
 		{error, Why} ->
-		    ?ERROR_MSG("Failed to convert ~s to ~s: ~s",
-			       [Path, OutPath, eimp:format_error(Why)]),
+		    ?ERROR_MSG("Failed to read file ~s: ~s",
+			       [Path, format_error(Why)]),
 		    pass
 	    end
     end.
@@ -896,8 +923,8 @@ remove_user(User, Server) ->
 	{error, enoent} ->
 	    ?DEBUG("Found no HTTP upload directory of ~s@~s", [User, Server]);
 	{error, Error} ->
-	    ?ERROR_MSG("Cannot remove HTTP upload directory of ~s@~s: ~p",
-		       [User, Server, ?FORMAT(Error)])
+	    ?ERROR_MSG("Cannot remove HTTP upload directory of ~s@~s: ~s",
+		       [User, Server, format_error(Error)])
     end,
     ok.
 

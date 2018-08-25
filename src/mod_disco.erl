@@ -40,7 +40,6 @@
 	 get_info/5, transform_module_options/1, mod_opt_type/1,
 	 mod_options/1, depends/2]).
 
--include("ejabberd.hrl").
 -include("logger.hrl").
 -include("translate.hrl").
 -include("xmpp.hrl").
@@ -239,7 +238,7 @@ get_vh_services(Host) ->
     Hosts = lists:sort(fun (H1, H2) ->
 			       byte_size(H1) >= byte_size(H2)
 		       end,
-		       ?MYHOSTS),
+		       ejabberd_config:get_myhosts()),
     lists:filter(fun (H) ->
 			 case lists:dropwhile(fun (VH) ->
 						      not
@@ -264,7 +263,7 @@ process_sm_iq_items(#iq{type = set, lang = Lang} = IQ) ->
 process_sm_iq_items(#iq{type = get, lang = Lang,
 			from = From, to = To,
 			sub_els = [#disco_items{node = Node}]} = IQ) ->
-    case is_presence_subscribed(From, To) of
+    case mod_roster:is_subscribed(From, To) of
 	true ->
 	    Host = To#jid.lserver,
 	    case ejabberd_hooks:run_fold(disco_sm_items, Host,
@@ -291,7 +290,7 @@ get_sm_items(Acc, From,
 	      {result, Its} -> Its;
 	      empty -> []
 	    end,
-    Items1 = case is_presence_subscribed(From, To) of
+    Items1 = case mod_roster:is_subscribed(From, To) of
 	       true -> get_user_resources(User, Server);
 	       _ -> []
 	     end,
@@ -309,21 +308,6 @@ get_sm_items(empty, From, To, _Node, Lang) ->
 	    {error, xmpp:err_not_allowed(Txt, Lang)}
     end.
 
--spec is_presence_subscribed(jid(), jid()) -> boolean().
-is_presence_subscribed(#jid{luser = User, lserver = Server},
-		       #jid{luser = User, lserver = Server}) -> true;
-is_presence_subscribed(#jid{luser = FromUser, lserver = FromServer},
-		       #jid{luser = ToUser, lserver = ToServer}) ->
-    lists:any(fun (#roster{jid = {SubUser, SubServer, _}, subscription = Sub})
-		      when FromUser == SubUser, FromServer == SubServer,
-			   Sub /= none ->
-		      true;
-		  (_RosterEntry) ->
-		      false
-	      end,
-	      ejabberd_hooks:run_fold(roster_get, ToServer, [],
-				      [{ToUser, ToServer}])).
-
 -spec process_sm_iq_info(iq()) -> iq().
 process_sm_iq_info(#iq{type = set, lang = Lang} = IQ) ->
     Txt = <<"Value 'set' of 'type' attribute is not allowed">>,
@@ -331,7 +315,7 @@ process_sm_iq_info(#iq{type = set, lang = Lang} = IQ) ->
 process_sm_iq_info(#iq{type = get, lang = Lang,
 		       from = From, to = To,
 		       sub_els = [#disco_info{node = Node}]} = IQ) ->
-    case is_presence_subscribed(From, To) of
+    case mod_roster:is_subscribed(From, To) of
 	true ->
 	    Host = To#jid.lserver,
 	    Identity = ejabberd_hooks:run_fold(disco_sm_identity,
@@ -367,15 +351,21 @@ get_sm_identity(Acc, _From,
 
 -spec get_sm_features(features_acc(), jid(), jid(), binary(), binary()) ->
 			     {error, stanza_error()} | {result, [binary()]}.
-get_sm_features(empty, From, To, _Node, Lang) ->
+get_sm_features(empty, From, To, Node, Lang) ->
     #jid{luser = LFrom, lserver = LSFrom} = From,
     #jid{luser = LTo, lserver = LSTo} = To,
     case {LFrom, LSFrom} of
-      {LTo, LSTo} -> {error, xmpp:err_item_not_found()};
-      _ ->
+	{LTo, LSTo} ->
+	    case Node of
+		<<"">> -> {result, [?NS_DISCO_INFO, ?NS_DISCO_ITEMS]};
+		_ -> {error, xmpp:err_item_not_found()}
+	    end;
+	_ ->
 	    Txt = <<"Query to another users is forbidden">>,
 	    {error, xmpp:err_not_allowed(Txt, Lang)}
     end;
+get_sm_features({result, Features}, _From, _To, <<"">>, _Lang) ->
+    {result, [?NS_DISCO_INFO, ?NS_DISCO_ITEMS|Features]};
 get_sm_features(Acc, _From, _To, _Node, _Lang) -> Acc.
 
 -spec get_user_resources(binary(), binary()) -> [disco_item()].
@@ -430,7 +420,9 @@ get_fields(Host, Module) ->
 				   end
 			   end,
 			   Fields),
-    [#xdata_field{var = Var, values = Values} || {_, Var, Values} <- Fields1].
+    [#xdata_field{var = Var,
+		  type = 'list-multi',
+		  values = Values} || {_, Var, Values} <- Fields1].
 
 -spec depends(binary(), gen_mod:opts()) -> [].
 depends(_Host, _Opts) ->
