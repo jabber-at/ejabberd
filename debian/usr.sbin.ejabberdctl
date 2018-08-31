@@ -86,10 +86,11 @@
 	/usr/lib/erlang/lib/p1_eimp*/priv/bin/eimp  ix,
 	/usr/lib/erlang/p1_pam/bin/epam			px -> /usr/sbin/ejabberdctl//su,
 
-	/usr/lib/x86_64-linux-gnu/ImageMagick-*/**	ix,
+	/usr/lib/@{multiarch}/ImageMagick-*/**		ix,
 
 	/usr/sbin/ejabberdctl				r,
 
+	/usr/share/ejabberd**				r,
 	/usr/share/ImageMagick-*/**			rix,
 
 	/var/backups/					rw,
