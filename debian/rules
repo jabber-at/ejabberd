@@ -15,7 +15,6 @@ DESTDIR=$(CURDIR)/debian/ejabberd
 override_dh_auto_configure:
 	mkdir $(CURDIR)/deps && touch $(CURDIR)/deps/.got $(CURDIR)/deps/.built
 	sed -i 's/$(DEB_VERSION_UPSTREAM)/$(DEB_VERSION_UPSTREAM_REVISION)/' configure
-	sed -i 's/VERSION/$(DEB_VERSION_UPSTREAM_REVISION)/' debian/ejabberd.lintian-overrides
 	dh_auto_configure -- \
 		--enable-iconv \
 		--enable-mysql \
@@ -33,7 +32,7 @@ override_dh_auto_install:
 	dh_auto_install
 	
 	# symlink version
-	ln -s ejabberd-$(DEB_VERSION) $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)
+	ln -s ejabberd-$(DEB_VERSION_UPSTREAM_REVISION) $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM)
 	
 	# install init script and service file
 	install -m 755 $(CURDIR)/ejabberd.init $(CURDIR)/debian/
@@ -55,6 +54,10 @@ override_dh_auto_install:
 	rmdir $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM_REVISION)/priv/bin
 	install -m 755 tools/captcha.sh $(DESTDIR)/usr/share/ejabberd/
 	
+	# move image files to /usr/share/ejabberd/img
+	mv -v $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM_REVISION)/priv/img $(DESTDIR)/usr/share/ejabberd/img
+	ln -s ../../../../share/ejabberd/img $(DESTDIR)/usr/lib/$(DEB_TARGET_MULTIARCH)/ejabberd-$(DEB_VERSION_UPSTREAM_REVISION)/priv/img
+	
 	# install sql code
 	cp -vr sql $(DESTDIR)/usr/share/ejabberd/
 	
@@ -64,7 +67,7 @@ override_dh_auto_install:
 	# install AppArmor profile
 	install -m 644 debian/usr.sbin.ejabberdctl $(DESTDIR)/etc/apparmor.d/usr.sbin.ejabberdctl
 	dh_apparmor --profile-name=usr.sbin.ejabberdctl
-	
+
 .PHONY: override_dh_installinit
 override_dh_installinit:
 	dh_installinit -vR
