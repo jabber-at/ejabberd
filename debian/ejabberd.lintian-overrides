@@ -1,12 +1,3 @@
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/admin-logo-fill.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/admin-logo.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/bosh-logo.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/favicon.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/oauth-logo.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/powered-by-ejabberd.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/powered-by-erlang.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/valid-xhtml10.png
-ejabberd: image-file-in-usr-lib usr/lib/x86_64-linux-gnu/ejabberd-VERSION/priv/img/vcss.png
 ejabberd: no-upstream-changelog
 ejabberd: debian-news-entry-has-unknown-version 16.01-2
 ejabberd: debian-news-entry-has-unknown-version 16.06-1
