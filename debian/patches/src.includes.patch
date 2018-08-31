@@ -8,9 +8,9 @@ Index: ejabberd/src/mod_sip_proxy.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sip_proxy.erl
 +++ ejabberd/src/mod_sip_proxy.erl
-@@ -40,7 +40,7 @@
+@@ -39,7 +39,7 @@
+ 	 code_change/4]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include_lib("esip/include/esip.hrl").
 +-include_lib("p1_sip/include/esip.hrl").
@@ -21,51 +21,36 @@ Index: ejabberd/src/mod_sip_registrar.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sip_registrar.erl
 +++ ejabberd/src/mod_sip_registrar.erl
-@@ -42,7 +42,7 @@
+@@ -41,7 +41,7 @@
+ 	 terminate/2, code_change/3]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include_lib("esip/include/esip.hrl").
 +-include_lib("p1_sip/include/esip.hrl").
  
  -define(CALL_TIMEOUT, timer:seconds(30)).
  -define(DEFAULT_EXPIRES, 3600).
-Index: ejabberd/include/jlib.hrl
-===================================================================
---- ejabberd.orig/include/jlib.hrl
-+++ ejabberd/include/jlib.hrl
-@@ -18,8 +18,8 @@
- %%%
- %%%----------------------------------------------------------------------
- 
---include("ns.hrl").
---include("fxml.hrl").
-+-include_lib("p1_xmpp/include/ns.hrl").
-+-include_lib("p1_xml/include/fxml.hrl").
- 
- -define(STANZA_ERROR(Code, Type, Condition),
- 	#xmlel{name = <<"error">>,
 Index: ejabberd/src/ejabberd_bosh.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_bosh.erl
 +++ ejabberd/src/ejabberd_bosh.erl
-@@ -47,7 +47,7 @@
- -include("ejabberd.hrl").
- -include("logger.hrl").
+@@ -45,7 +45,7 @@
+ 	 code_change/4]).
  
+ -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
- 
  -include("ejabberd_http.hrl").
+ -include("bosh.hrl").
  
 Index: ejabberd/src/ejabberd_c2s.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_c2s.erl
 +++ ejabberd/src/ejabberd_c2s.erl
-@@ -52,7 +52,7 @@
+@@ -51,7 +51,7 @@
+ 	 reply/2, copy_state/2, set_timeout/2, route/2,
  	 host_up/1, host_down/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -81,28 +66,28 @@ Index: ejabberd/src/ejabberd_captcha.erl
  
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
- -include("ejabberd.hrl").
  -include("logger.hrl").
  -include("ejabberd_http.hrl").
+ 
 Index: ejabberd/src/ejabberd_http.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_http.erl
 +++ ejabberd/src/ejabberd_http.erl
-@@ -39,7 +39,7 @@
- -include("ejabberd.hrl").
- -include("logger.hrl").
+@@ -37,7 +37,7 @@
+ -export([init/2, opt_type/1]).
  
+ -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
- 
  -include("ejabberd_http.hrl").
+ -include_lib("kernel/include/file.hrl").
  
 Index: ejabberd/src/ejabberd_http_ws.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_http_ws.erl
 +++ ejabberd/src/ejabberd_http_ws.erl
-@@ -40,7 +40,7 @@
- -include("ejabberd.hrl").
+@@ -39,7 +39,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -114,8 +99,8 @@ Index: ejabberd/src/ejabberd_local.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_local.erl
 +++ ejabberd/src/ejabberd_local.erl
-@@ -50,7 +50,7 @@
- -include("ejabberd.hrl").
+@@ -47,7 +47,7 @@
+ 
  -include("logger.hrl").
  -include_lib("stdlib/include/ms_transform.hrl").
 --include("xmpp.hrl").
@@ -134,15 +119,15 @@ Index: ejabberd/src/ejabberd_oauth.erl
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
+ 
 Index: ejabberd/src/ejabberd_piefxis.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_piefxis.erl
 +++ ejabberd/src/ejabberd_piefxis.erl
 @@ -42,7 +42,7 @@
  
- -include("ejabberd.hrl").
+ -include("scram.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -153,8 +138,8 @@ Index: ejabberd/src/ejabberd_router.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_router.erl
 +++ ejabberd/src/ejabberd_router.erl
-@@ -71,7 +71,7 @@
- -include("ejabberd.hrl").
+@@ -70,7 +70,7 @@
+ 
  -include("logger.hrl").
  -include("ejabberd_router.hrl").
 --include("xmpp.hrl").
@@ -166,9 +151,9 @@ Index: ejabberd/src/ejabberd_router_multicast.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_router_multicast.erl
 +++ ejabberd/src/ejabberd_router_multicast.erl
-@@ -43,7 +43,7 @@
+@@ -42,7 +42,7 @@
+ 	 terminate/2, code_change/3]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -179,8 +164,8 @@ Index: ejabberd/src/ejabberd_s2s.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_s2s.erl
 +++ ejabberd/src/ejabberd_s2s.erl
-@@ -57,7 +57,7 @@
- -include("ejabberd.hrl").
+@@ -56,7 +56,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -192,10 +177,10 @@ Index: ejabberd/src/ejabberd_s2s_in.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_s2s_in.erl
 +++ ejabberd/src/ejabberd_s2s_in.erl
-@@ -45,7 +45,7 @@
+@@ -44,7 +44,7 @@
+ -export([stop/1, close/1, close/2, send/2, update_state/2, establish/1,
  	 host_up/1, host_down/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -205,10 +190,10 @@ Index: ejabberd/src/ejabberd_s2s_out.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_s2s_out.erl
 +++ ejabberd/src/ejabberd_s2s_out.erl
-@@ -43,7 +43,7 @@
+@@ -42,7 +42,7 @@
+ -export([start/3, start_link/3, connect/1, close/1, close/2, stop/1, send/2,
  	 route/2, establish/1, update_state/2, host_up/1, host_down/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -218,10 +203,10 @@ Index: ejabberd/src/ejabberd_service.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_service.erl
 +++ ejabberd/src/ejabberd_service.erl
-@@ -37,7 +37,7 @@
+@@ -36,7 +36,7 @@
+ %% API
  -export([send/2]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -231,8 +216,8 @@ Index: ejabberd/src/ejabberd_sm.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_sm.erl
 +++ ejabberd/src/ejabberd_sm.erl
-@@ -90,7 +90,7 @@
- -include("ejabberd.hrl").
+@@ -87,7 +87,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -244,8 +229,8 @@ Index: ejabberd/src/ejabberd_web.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_web.erl
 +++ ejabberd/src/ejabberd_web.erl
-@@ -34,7 +34,7 @@
- -include("ejabberd.hrl").
+@@ -33,7 +33,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -257,8 +242,8 @@ Index: ejabberd/src/ejabberd_web_admin.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_web_admin.erl
 +++ ejabberd/src/ejabberd_web_admin.erl
-@@ -38,7 +38,7 @@
- -include("ejabberd.hrl").
+@@ -37,7 +37,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -270,8 +255,8 @@ Index: ejabberd/src/ejabberd_websocket.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_websocket.erl
 +++ ejabberd/src/ejabberd_websocket.erl
-@@ -47,7 +47,7 @@
- -include("ejabberd.hrl").
+@@ -46,7 +46,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -283,7 +268,7 @@ Index: ejabberd/src/ejabberd_xmlrpc.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_xmlrpc.erl
 +++ ejabberd/src/ejabberd_xmlrpc.erl
-@@ -42,7 +42,7 @@
+@@ -41,7 +41,7 @@
  -include("ejabberd_http.hrl").
  -include("mod_roster.hrl").
  
@@ -296,15 +281,15 @@ Index: ejabberd/src/gen_iq_handler.erl
 ===================================================================
 --- ejabberd.orig/src/gen_iq_handler.erl
 +++ ejabberd/src/gen_iq_handler.erl
-@@ -39,7 +39,7 @@
+@@ -38,7 +38,7 @@
+ -deprecated([{add_iq_handler, 6}, {handle, 5}, {iqdisc, 1}]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
+ -include("translate.hrl").
  
  -type component() :: ejabberd_sm | ejabberd_local.
- 
 Index: ejabberd/src/gen_pubsub_node.erl
 ===================================================================
 --- ejabberd.orig/src/gen_pubsub_node.erl
@@ -335,9 +320,9 @@ Index: ejabberd/src/jd2ejd.erl
 ===================================================================
 --- ejabberd.orig/src/jd2ejd.erl
 +++ ejabberd/src/jd2ejd.erl
-@@ -32,7 +32,7 @@
+@@ -31,7 +31,7 @@
+ -export([import_file/1, import_dir/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -348,9 +333,9 @@ Index: ejabberd/src/mod_adhoc.erl
 ===================================================================
 --- ejabberd.orig/src/mod_adhoc.erl
 +++ ejabberd/src/mod_adhoc.erl
-@@ -40,7 +40,7 @@
+@@ -39,7 +39,7 @@
+ 	 mod_options/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -361,7 +346,7 @@ Index: ejabberd/src/mod_admin_extra.erl
 ===================================================================
 --- ejabberd.orig/src/mod_admin_extra.erl
 +++ ejabberd/src/mod_admin_extra.erl
-@@ -85,7 +85,7 @@
+@@ -84,7 +84,7 @@
  -include("mod_roster.hrl").
  -include("mod_privacy.hrl").
  -include("ejabberd_sm.hrl").
@@ -374,9 +359,9 @@ Index: ejabberd/src/mod_announce.erl
 ===================================================================
 --- ejabberd.orig/src/mod_announce.erl
 +++ ejabberd/src/mod_announce.erl
-@@ -52,7 +52,7 @@
+@@ -51,7 +51,7 @@
+ 	 announce_all_hosts_motd_delete/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -432,15 +417,15 @@ Index: ejabberd/src/mod_block_strangers.erl
  
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
- -include("ejabberd.hrl").
  -include("logger.hrl").
  
+ -define(SETS, gb_sets).
 Index: ejabberd/src/mod_blocking.erl
 ===================================================================
 --- ejabberd.orig/src/mod_blocking.erl
 +++ ejabberd/src/mod_blocking.erl
-@@ -35,7 +35,7 @@
- -include("ejabberd.hrl").
+@@ -34,7 +34,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -452,8 +437,8 @@ Index: ejabberd/src/mod_bosh.erl
 ===================================================================
 --- ejabberd.orig/src/mod_bosh.erl
 +++ ejabberd/src/mod_bosh.erl
-@@ -41,7 +41,7 @@
- -include("ejabberd.hrl").
+@@ -40,7 +40,7 @@
+ 
  -include("logger.hrl").
  -include_lib("stdlib/include/ms_transform.hrl").
 --include("xmpp.hrl").
@@ -465,8 +450,8 @@ Index: ejabberd/src/mod_caps.erl
 ===================================================================
 --- ejabberd.orig/src/mod_caps.erl
 +++ ejabberd/src/mod_caps.erl
-@@ -54,7 +54,7 @@
- -include("ejabberd.hrl").
+@@ -53,7 +53,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -478,9 +463,9 @@ Index: ejabberd/src/mod_client_state.erl
 ===================================================================
 --- ejabberd.orig/src/mod_client_state.erl
 +++ ejabberd/src/mod_client_state.erl
-@@ -42,7 +42,7 @@
+@@ -41,7 +41,7 @@
+ 	 c2s_copy_session/2, c2s_session_resumed/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -491,9 +476,9 @@ Index: ejabberd/src/mod_configure.erl
 ===================================================================
 --- ejabberd.orig/src/mod_configure.erl
 +++ ejabberd/src/mod_configure.erl
-@@ -40,7 +40,7 @@
+@@ -39,7 +39,7 @@
+ 	 depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -504,9 +489,9 @@ Index: ejabberd/src/mod_delegation.erl
 ===================================================================
 --- ejabberd.orig/src/mod_delegation.erl
 +++ ejabberd/src/mod_delegation.erl
-@@ -42,7 +42,7 @@
+@@ -41,7 +41,7 @@
+ 	 disco_local_identity/5, disco_sm_identity/5]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -517,8 +502,8 @@ Index: ejabberd/src/mod_disco.erl
 ===================================================================
 --- ejabberd.orig/src/mod_disco.erl
 +++ ejabberd/src/mod_disco.erl
-@@ -43,7 +43,7 @@
- -include("ejabberd.hrl").
+@@ -42,7 +42,7 @@
+ 
  -include("logger.hrl").
  -include("translate.hrl").
 --include("xmpp.hrl").
@@ -530,8 +515,8 @@ Index: ejabberd/src/mod_echo.erl
 ===================================================================
 --- ejabberd.orig/src/mod_echo.erl
 +++ ejabberd/src/mod_echo.erl
-@@ -41,7 +41,7 @@
- -include("ejabberd.hrl").
+@@ -40,7 +40,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -543,9 +528,9 @@ Index: ejabberd/src/mod_fail2ban.erl
 ===================================================================
 --- ejabberd.orig/src/mod_fail2ban.erl
 +++ ejabberd/src/mod_fail2ban.erl
-@@ -39,7 +39,7 @@
+@@ -38,7 +38,7 @@
+ 
  -include_lib("stdlib/include/ms_transform.hrl").
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -556,10 +541,10 @@ Index: ejabberd/src/mod_http_api.erl
 ===================================================================
 --- ejabberd.orig/src/mod_http_api.erl
 +++ ejabberd/src/mod_http_api.erl
-@@ -78,7 +78,7 @@
+@@ -77,7 +77,7 @@
+ -export([start/2, stop/1, reload/3, process/2, mod_opt_type/1, depends/2,
  	 mod_options/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -569,47 +554,21 @@ Index: ejabberd/src/mod_http_upload.erl
 ===================================================================
 --- ejabberd.orig/src/mod_http_upload.erl
 +++ ejabberd/src/mod_http_upload.erl
-@@ -91,7 +91,7 @@
+@@ -89,7 +89,7 @@
+ 	 expand_host/2]).
  
- -include("ejabberd.hrl").
  -include("ejabberd_http.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
  -include("translate.hrl").
  
-Index: ejabberd/src/mod_irc.erl
-===================================================================
---- ejabberd.orig/src/mod_irc.erl
-+++ ejabberd/src/mod_irc.erl
-@@ -43,7 +43,7 @@
- 
- -include("ejabberd.hrl").
- -include("logger.hrl").
---include("xmpp.hrl").
-+-include_lib("p1_xmpp/include/xmpp.hrl").
- -include("mod_irc.hrl").
- -include("translate.hrl").
- 
-Index: ejabberd/src/mod_irc_connection.erl
-===================================================================
---- ejabberd.orig/src/mod_irc_connection.erl
-+++ ejabberd/src/mod_irc_connection.erl
-@@ -41,7 +41,7 @@
- 
- -include("ejabberd.hrl").
- -include("logger.hrl").
---include("xmpp.hrl").
-+-include_lib("p1_xmpp/include/xmpp.hrl").
- 
- -define(SETS, gb_sets).
- 
 Index: ejabberd/src/mod_last.erl
 ===================================================================
 --- ejabberd.orig/src/mod_last.erl
 +++ ejabberd/src/mod_last.erl
-@@ -40,7 +40,7 @@
- -include("ejabberd.hrl").
+@@ -39,7 +39,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -673,9 +632,9 @@ Index: ejabberd/src/mod_metrics.erl
 ===================================================================
 --- ejabberd.orig/src/mod_metrics.erl
 +++ ejabberd/src/mod_metrics.erl
-@@ -30,7 +30,7 @@
+@@ -29,7 +29,7 @@
+ -behaviour(gen_mod).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -699,9 +658,9 @@ Index: ejabberd/src/mod_muc.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc.erl
 +++ ejabberd/src/mod_muc.erl
-@@ -73,7 +73,7 @@
+@@ -72,7 +72,7 @@
+ 	 mod_opt_type/1, mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -712,9 +671,9 @@ Index: ejabberd/src/mod_muc_admin.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc_admin.erl
 +++ ejabberd/src/mod_muc_admin.erl
-@@ -44,7 +44,7 @@
+@@ -43,7 +43,7 @@
+ 	 web_page_host/3, mod_options/1, get_commands_spec/0]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -725,8 +684,8 @@ Index: ejabberd/src/mod_muc_log.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc_log.erl
 +++ ejabberd/src/mod_muc_log.erl
-@@ -44,7 +44,7 @@
- -include("ejabberd.hrl").
+@@ -43,7 +43,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -751,8 +710,8 @@ Index: ejabberd/src/mod_muc_room.erl
 ===================================================================
 --- ejabberd.orig/src/mod_muc_room.erl
 +++ ejabberd/src/mod_muc_room.erl
-@@ -53,7 +53,7 @@
- -include("ejabberd.hrl").
+@@ -52,7 +52,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -764,8 +723,8 @@ Index: ejabberd/src/mod_offline.erl
 ===================================================================
 --- ejabberd.orig/src/mod_offline.erl
 +++ ejabberd/src/mod_offline.erl
-@@ -70,7 +70,7 @@
- -include("ejabberd.hrl").
+@@ -69,7 +69,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -816,8 +775,8 @@ Index: ejabberd/src/mod_ping.erl
 ===================================================================
 --- ejabberd.orig/src/mod_ping.erl
 +++ ejabberd/src/mod_ping.erl
-@@ -36,7 +36,7 @@
- -include("ejabberd.hrl").
+@@ -35,7 +35,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -829,8 +788,8 @@ Index: ejabberd/src/mod_pres_counter.erl
 ===================================================================
 --- ejabberd.orig/src/mod_pres_counter.erl
 +++ ejabberd/src/mod_pres_counter.erl
-@@ -33,7 +33,7 @@
- -include("ejabberd.hrl").
+@@ -32,7 +32,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -920,22 +879,22 @@ Index: ejabberd/src/mod_privilege.erl
 ===================================================================
 --- ejabberd.orig/src/mod_privilege.erl
 +++ ejabberd/src/mod_privilege.erl
-@@ -41,7 +41,7 @@
+@@ -40,7 +40,7 @@
+ 	 process_presence_out/1, process_presence_in/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  
  -record(state, {server_host = <<"">> :: binary(),
- 		permissions = dict:new() :: ?TDICT}).
+ 		permissions = dict:new() :: dict:dict()}).
 Index: ejabberd/src/mod_pubsub.erl
 ===================================================================
 --- ejabberd.orig/src/mod_pubsub.erl
 +++ ejabberd/src/mod_pubsub.erl
-@@ -41,7 +41,7 @@
+@@ -40,7 +40,7 @@
+ -protocol({xep, 248, '0.2'}).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -946,9 +905,9 @@ Index: ejabberd/src/mod_register.erl
 ===================================================================
 --- ejabberd.orig/src/mod_register.erl
 +++ ejabberd/src/mod_register.erl
-@@ -41,7 +41,7 @@
+@@ -40,7 +40,7 @@
+ 	 mod_opt_type/1, mod_options/1, opt_type/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -959,8 +918,8 @@ Index: ejabberd/src/mod_register_web.erl
 ===================================================================
 --- ejabberd.orig/src/mod_register_web.erl
 +++ ejabberd/src/mod_register_web.erl
-@@ -60,7 +60,7 @@
- -include("ejabberd.hrl").
+@@ -59,7 +59,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -972,8 +931,8 @@ Index: ejabberd/src/mod_roster.erl
 ===================================================================
 --- ejabberd.orig/src/mod_roster.erl
 +++ ejabberd/src/mod_roster.erl
-@@ -55,7 +55,7 @@
- -include("ejabberd.hrl").
+@@ -54,7 +54,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -985,10 +944,10 @@ Index: ejabberd/src/mod_s2s_dialback.erl
 ===================================================================
 --- ejabberd.orig/src/mod_s2s_dialback.erl
 +++ ejabberd/src/mod_s2s_dialback.erl
-@@ -33,7 +33,7 @@
+@@ -32,7 +32,7 @@
+ 	 s2s_in_packet/2, s2s_out_packet/2, s2s_in_recv/3,
  	 s2s_in_features/2, s2s_out_init/2, s2s_out_closed/2]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -998,8 +957,8 @@ Index: ejabberd/src/mod_service_log.erl
 ===================================================================
 --- ejabberd.orig/src/mod_service_log.erl
 +++ ejabberd/src/mod_service_log.erl
-@@ -35,7 +35,7 @@
- -include("ejabberd.hrl").
+@@ -34,7 +34,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -1011,8 +970,8 @@ Index: ejabberd/src/mod_shared_roster.erl
 ===================================================================
 --- ejabberd.orig/src/mod_shared_roster.erl
 +++ ejabberd/src/mod_shared_roster.erl
-@@ -44,7 +44,7 @@
- -include("ejabberd.hrl").
+@@ -43,7 +43,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -1024,9 +983,9 @@ Index: ejabberd/src/mod_shared_roster_ldap.erl
 ===================================================================
 --- ejabberd.orig/src/mod_shared_roster_ldap.erl
 +++ ejabberd/src/mod_shared_roster_ldap.erl
-@@ -46,7 +46,7 @@
+@@ -45,7 +45,7 @@
+ 	 opt_type/1, depends/2, transform_module_options/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1063,9 +1022,9 @@ Index: ejabberd/src/mod_sic.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sic.erl
 +++ ejabberd/src/mod_sic.erl
-@@ -36,7 +36,7 @@
+@@ -35,7 +35,7 @@
+ 	 process_sm_iq/1, mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1076,9 +1035,9 @@ Index: ejabberd/src/mod_stats.erl
 ===================================================================
 --- ejabberd.orig/src/mod_stats.erl
 +++ ejabberd/src/mod_stats.erl
-@@ -36,7 +36,7 @@
+@@ -35,7 +35,7 @@
+ 	 mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1089,10 +1048,10 @@ Index: ejabberd/src/mod_stream_mgmt.erl
 ===================================================================
 --- ejabberd.orig/src/mod_stream_mgmt.erl
 +++ ejabberd/src/mod_stream_mgmt.erl
-@@ -37,9 +37,9 @@
+@@ -36,9 +36,9 @@
+ %% adjust pending session timeout / access queue
  -export([get_resume_timeout/1, set_resume_timeout/2, queue_find/2]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -1105,8 +1064,8 @@ Index: ejabberd/src/mod_time.erl
 ===================================================================
 --- ejabberd.orig/src/mod_time.erl
 +++ ejabberd/src/mod_time.erl
-@@ -38,7 +38,7 @@
- -include("ejabberd.hrl").
+@@ -37,7 +37,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -1118,9 +1077,9 @@ Index: ejabberd/src/mod_vcard.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard.erl
 +++ ejabberd/src/mod_vcard.erl
-@@ -44,7 +44,7 @@
+@@ -43,7 +43,7 @@
+ 	 handle_info/2, terminate/2, code_change/3]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1131,8 +1090,8 @@ Index: ejabberd/src/mod_vcard_ldap.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_ldap.erl
 +++ ejabberd/src/mod_vcard_ldap.erl
-@@ -41,7 +41,7 @@
- -include("ejabberd.hrl").
+@@ -40,7 +40,7 @@
+ 
  -include("logger.hrl").
  -include("eldap.hrl").
 --include("xmpp.hrl").
@@ -1144,10 +1103,10 @@ Index: ejabberd/src/mod_vcard_mnesia.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_mnesia.erl
 +++ ejabberd/src/mod_vcard_mnesia.erl
-@@ -34,7 +34,7 @@
+@@ -33,7 +33,7 @@
+ -export([need_transform/1, transform/1]).
  -export([mod_opt_type/1, mod_options/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("mod_vcard.hrl").
@@ -1183,9 +1142,9 @@ Index: ejabberd/src/mod_vcard_xupdate.erl
 ===================================================================
 --- ejabberd.orig/src/mod_vcard_xupdate.erl
 +++ ejabberd/src/mod_vcard_xupdate.erl
-@@ -38,7 +38,7 @@
+@@ -37,7 +37,7 @@
+ -export([compute_hash/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1196,8 +1155,8 @@ Index: ejabberd/src/mod_version.erl
 ===================================================================
 --- ejabberd.orig/src/mod_version.erl
 +++ ejabberd/src/mod_version.erl
-@@ -37,7 +37,7 @@
- -include("ejabberd.hrl").
+@@ -36,7 +36,7 @@
+ 
  -include("logger.hrl").
  
 --include("xmpp.hrl").
@@ -1303,7 +1262,7 @@ Index: ejabberd/src/prosody2ejabberd.erl
 @@ -28,7 +28,7 @@
  -export([from_dir/1]).
  
- -include("ejabberd.hrl").
+ -include("scram.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -1378,9 +1337,9 @@ Index: ejabberd/src/acl.erl
 ===================================================================
 --- ejabberd.orig/src/acl.erl
 +++ ejabberd/src/acl.erl
-@@ -45,7 +45,7 @@
+@@ -44,7 +44,7 @@
+ 	 terminate/2, code_change/3]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("jid.hrl").
 +-include_lib("p1_xmpp/include/jid.hrl").
@@ -1391,9 +1350,9 @@ Index: ejabberd/src/ejabberd_auth_anonymous.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_auth_anonymous.erl
 +++ ejabberd/src/ejabberd_auth_anonymous.erl
-@@ -46,7 +46,7 @@
+@@ -45,7 +45,7 @@
+ 	 plain_password_required/1, opt_type/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("jid.hrl").
 +-include_lib("p1_xmpp/include/jid.hrl").
@@ -1404,22 +1363,22 @@ Index: ejabberd/src/ejabberd_oauth_rest.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_oauth_rest.erl
 +++ ejabberd/src/ejabberd_oauth_rest.erl
-@@ -37,7 +37,7 @@
- -include("ejabberd.hrl").
+@@ -36,7 +36,7 @@
+ 
  -include("ejabberd_oauth.hrl").
  -include("logger.hrl").
 --include("jid.hrl").
 +-include_lib("p1_xmpp/include/jid.hrl").
  
  init() ->
-     rest:start(?MYNAME),
+     rest:start(ejabberd_config:get_myname()),
 Index: ejabberd/src/ejabberd_oauth_sql.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_oauth_sql.erl
 +++ ejabberd/src/ejabberd_oauth_sql.erl
-@@ -36,7 +36,7 @@
+@@ -35,7 +35,7 @@
+ 
  -include("ejabberd_oauth.hrl").
- -include("ejabberd.hrl").
  -include("ejabberd_sql_pt.hrl").
 --include("jid.hrl").
 +-include_lib("p1_xmpp/include/jid.hrl").
@@ -1438,45 +1397,6 @@ Index: ejabberd/src/mod_http_upload_quota.erl
 +-include_lib("p1_xmpp/include/jid.hrl").
  -include("logger.hrl").
  -include_lib("kernel/include/file.hrl").
- 
-Index: ejabberd/src/mod_irc_mnesia.erl
-===================================================================
---- ejabberd.orig/src/mod_irc_mnesia.erl
-+++ ejabberd/src/mod_irc_mnesia.erl
-@@ -30,7 +30,7 @@
- -export([init/2, get_data/3, set_data/4, import/2]).
- -export([need_transform/1, transform/1]).
- 
---include("jid.hrl").
-+-include_lib("p1_xmpp/include/jid.hrl").
- -include("mod_irc.hrl").
- -include("logger.hrl").
- 
-Index: ejabberd/src/mod_irc_riak.erl
-===================================================================
---- ejabberd.orig/src/mod_irc_riak.erl
-+++ ejabberd/src/mod_irc_riak.erl
-@@ -29,7 +29,7 @@
- %% API
- -export([init/2, get_data/3, set_data/4, import/2]).
- 
---include("jid.hrl").
-+-include_lib("p1_xmpp/include/jid.hrl").
- -include("mod_irc.hrl").
- 
- %%%===================================================================
-Index: ejabberd/src/mod_irc_sql.erl
-===================================================================
---- ejabberd.orig/src/mod_irc_sql.erl
-+++ ejabberd/src/mod_irc_sql.erl
-@@ -31,7 +31,7 @@
- %% API
- -export([init/2, get_data/3, set_data/4, import/1, import/2, export/1]).
- 
---include("jid.hrl").
-+-include_lib("p1_xmpp/include/jid.hrl").
- -include("mod_irc.hrl").
- -include("ejabberd_sql_pt.hrl").
  
 Index: ejabberd/src/mod_muc_riak.erl
 ===================================================================
@@ -1534,10 +1454,10 @@ Index: ejabberd/src/mod_sip.erl
 ===================================================================
 --- ejabberd.orig/src/mod_sip.erl
 +++ ejabberd/src/mod_sip.erl
-@@ -52,7 +52,7 @@ mod_options(_) ->
+@@ -51,7 +51,7 @@ mod_options(_) ->
+ 	 message_out/2, request/2, request/3, response/2,
  	 locate/1, mod_opt_type/1, mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
 --include_lib("esip/include/esip.hrl").
 +-include_lib("p1_sip/include/esip.hrl").
  
@@ -1547,9 +1467,9 @@ Index: ejabberd/src/mod_private.erl
 ===================================================================
 --- ejabberd.orig/src/mod_private.erl
 +++ ejabberd/src/mod_private.erl
-@@ -38,7 +38,7 @@
+@@ -37,7 +37,7 @@
+ 	 mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1560,9 +1480,9 @@ Index: ejabberd/src/mod_privacy.erl
 ===================================================================
 --- ejabberd.orig/src/mod_privacy.erl
 +++ ejabberd/src/mod_privacy.erl
-@@ -42,7 +42,7 @@
+@@ -41,7 +41,7 @@
+ 	 mod_opt_type/1, mod_options/1, depends/2]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1573,9 +1493,9 @@ Index: ejabberd/src/mod_carboncopy.erl
 ===================================================================
 --- ejabberd.orig/src/mod_carboncopy.erl
 +++ ejabberd/src/mod_carboncopy.erl
-@@ -41,7 +41,7 @@
+@@ -40,7 +40,7 @@
+ 	 mod_options/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1586,8 +1506,8 @@ Index: ejabberd/src/mod_push.erl
 ===================================================================
 --- ejabberd.orig/src/mod_push.erl
 +++ ejabberd/src/mod_push.erl
-@@ -52,7 +52,7 @@
- -include("ejabberd.hrl").
+@@ -51,7 +51,7 @@
+ 
  -include("ejabberd_commands.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
@@ -1625,9 +1545,9 @@ Index: ejabberd/src/acme_challenge.erl
 ===================================================================
 --- ejabberd.orig/src/acme_challenge.erl
 +++ ejabberd/src/acme_challenge.erl
-@@ -16,7 +16,7 @@
+@@ -15,7 +15,7 @@
+ %% 4. (?) oob-01:  https://tools.ietf.org/html/draft-ietf-acme-acme-05#section-7.5
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1638,9 +1558,9 @@ Index: ejabberd/src/ejabberd_acme.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_acme.erl
 +++ ejabberd/src/ejabberd_acme.erl
-@@ -21,7 +21,7 @@
+@@ -20,7 +20,7 @@
+ -export([start_link/0, opt_type/1, register_certfiles/0]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1651,9 +1571,9 @@ Index: ejabberd/src/ejabberd_acme_comm.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_acme_comm.erl
 +++ ejabberd/src/ejabberd_acme_comm.erl
-@@ -24,7 +24,7 @@
+@@ -23,7 +23,7 @@
+ 	]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1677,9 +1597,9 @@ Index: ejabberd/src/mod_admin_update_sql.erl
 ===================================================================
 --- ejabberd.orig/src/mod_admin_update_sql.erl
 +++ ejabberd/src/mod_admin_update_sql.erl
-@@ -38,7 +38,7 @@
+@@ -37,7 +37,7 @@
+ 
  -include("logger.hrl").
- -include("ejabberd.hrl").
  -include("ejabberd_commands.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1716,10 +1636,10 @@ Index: ejabberd/src/xmpp_socket.erl
 ===================================================================
 --- ejabberd.orig/src/xmpp_socket.erl
 +++ ejabberd/src/xmpp_socket.erl
-@@ -54,7 +54,7 @@
+@@ -53,7 +53,7 @@
+ 	 pp/1,
  	 sockname/1, peername/1]).
  
- -include("ejabberd.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
  -include("logger.hrl").
@@ -1729,8 +1649,8 @@ Index: ejabberd/src/mod_multicast.erl
 ===================================================================
 --- ejabberd.orig/src/mod_multicast.erl
 +++ ejabberd/src/mod_multicast.erl
-@@ -45,7 +45,7 @@
- -include("ejabberd.hrl").
+@@ -44,7 +44,7 @@
+ 
  -include("logger.hrl").
  -include("translate.hrl").
 --include("xmpp.hrl").
@@ -1742,9 +1662,9 @@ Index: ejabberd/src/mod_proxy65_service.erl
 ===================================================================
 --- ejabberd.orig/src/mod_proxy65_service.erl
 +++ ejabberd/src/mod_proxy65_service.erl
-@@ -39,7 +39,7 @@
+@@ -38,7 +38,7 @@
+ 	 transform_module_options/1, delete_listener/1]).
  
- -include("ejabberd.hrl").
  -include("logger.hrl").
 --include("xmpp.hrl").
 +-include_lib("p1_xmpp/include/xmpp.hrl").
@@ -1764,15 +1684,3 @@ Index: ejabberd/test/muc_tests.erl
  
  %%%===================================================================
  %%% API
-Index: ejabberd/test/suite.hrl
-===================================================================
---- ejabberd.orig/test/suite.hrl
-+++ ejabberd/test/suite.hrl
-@@ -1,6 +1,6 @@
- -include_lib("common_test/include/ct.hrl").
- -include_lib("fast_xml/include/fxml.hrl").
---include("ns.hrl").
-+-include_lib("p1_xmpp/include/ns.hrl").
- -include("ejabberd.hrl").
- -include("mod_proxy65.hrl").
- -include("xmpp_codec.hrl").
