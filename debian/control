@@ -3,7 +3,7 @@ Maintainer: Mathias Ertl <mati@jabber.at>
 XSBC-Orig-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
 Section: net
 Priority: optional
-Build-Depends: debhelper (>= 9.20160709),
+Build-Depends: debhelper (>= 11~),
                dh-apparmor,
                libsqlite3-dev,
                po-debconf,
