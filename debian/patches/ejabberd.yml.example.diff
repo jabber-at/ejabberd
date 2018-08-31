@@ -43,7 +43,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## overload protection: If you want to limit the number of messages per second
-@@ -110,10 +97,9 @@ hosts:
+@@ -102,10 +89,9 @@ hosts:
  ## chains of certificates or certificate keys. Full chains will be built
  ## automatically by ejabberd.
  ##
@@ -57,7 +57,7 @@ Index: ejabberd/ejabberd.yml.example
  ## If your system provides only a single CA file (CentOS/FreeBSD):
  ## ca_file: "/etc/ssl/certs/ca-bundle.pem"
  
-@@ -124,20 +110,21 @@ hosts:
+@@ -116,20 +102,21 @@ hosts:
  ## configuration of the TLS driver, so you don't need to
  ## uncomment it.
  ##
@@ -91,7 +91,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ===============
  ###'  LISTENING PORTS
-@@ -151,21 +138,8 @@ listen:
+@@ -143,21 +130,8 @@ listen:
      port: 5222
      ip: "::"
      module: ejabberd_c2s
@@ -115,7 +115,7 @@ Index: ejabberd/ejabberd.yml.example
      max_stanza_size: 65536
      shaper: c2s_shaper
      access: c2s
-@@ -198,7 +172,9 @@ listen:
+@@ -190,7 +164,9 @@ listen:
      ##  "/pub/archive": mod_http_fileserver
      web_admin: true
      ## register: true
@@ -126,7 +126,7 @@ Index: ejabberd/ejabberd.yml.example
  
    ##
    ## ejabberd_service: Interact with external components (transports, ...)
-@@ -263,7 +239,7 @@ listen:
+@@ -255,7 +231,7 @@ listen:
  
  ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
  ## password storage (see auth_password_format option).
@@ -135,7 +135,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  ==================
  ###'  S2S GLOBAL OPTIONS
-@@ -273,7 +249,7 @@ listen:
+@@ -265,7 +241,7 @@ listen:
  ## Allowed values are: false, optional or required
  ## You must specify 'certfiles' option
  ##
@@ -144,7 +144,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ##
  ## S2S whitelist or blacklist
-@@ -307,7 +283,7 @@ auth_method: internal
+@@ -299,7 +275,7 @@ auth_method: internal
  ##
  ## Store the plain passwords or hashed for SCRAM:
  ## auth_password_format: plain
@@ -251,7 +251,7 @@ Index: ejabberd/ejabberd.yml.example
  
  ###.  =======
  ###'  MODULES
-@@ -724,14 +700,14 @@ acme:
+@@ -724,14 +700,15 @@ acme:
  modules:
    mod_adhoc: {}
    mod_admin_extra: {}
@@ -259,6 +259,7 @@ Index: ejabberd/ejabberd.yml.example
 +  mod_announce:   # recommends mod_adhoc
      access: announce
 -  mod_blocking: {} # requires mod_privacy
++  mod_block_strangers: {}
 +  mod_blocking: {}   # requires mod_privacy
    mod_caps: {}
    mod_carboncopy: {}
@@ -269,8 +270,21 @@ Index: ejabberd/ejabberd.yml.example
 +  ## mod_delegation: {}   # for xep0356
    mod_disco: {}
    mod_echo: {}
-   mod_irc: {}
-@@ -780,51 +756,50 @@ modules:
+   mod_bosh: {}
+@@ -763,9 +740,9 @@ modules:
+   mod_offline:
+     access_max_user_messages: max_user_offline_messages
+   mod_ping: {}
+-  ## mod_pres_counter:
+-  ##   count: 5
+-  ##   interval: 60
++  mod_pres_counter:
++    count: 5
++    interval: 60
+   mod_privacy: {}
+   mod_private: {}
+   ## mod_proxy65: {}
+@@ -779,53 +756,51 @@ modules:
      plugins:
        - "flat"
        - "hometree"
@@ -278,7 +292,8 @@ Index: ejabberd/ejabberd.yml.example
 +      - "pep"   # pep requires mod_caps
      force_node_config:
 -      ## Avoid using OMEMO by default because it
--      ## introduces a lot of hard-to-track problems
+-      ## introduces a lot of hard-to-track problems.
+-      ## Comment out the following lines to enable OMEMO support
        "eu.siacs.conversations.axolotl.*":
 -        access_model: whitelist
 +        access_model: open
@@ -320,7 +335,6 @@ Index: ejabberd/ejabberd.yml.example
 -    ##
 -    ##   access_from: deny
 -    ##   access: register
--  mod_roster: {}
 +  ##
 +  ## Protect In-Band account registrations with CAPTCHA.
 +  ##
@@ -353,11 +367,12 @@ Index: ejabberd/ejabberd.yml.example
 +  ##
 +  ##   access_from: deny
 +  ##   access: register
-+  mod_roster:
-+    versioning: true
+   mod_roster: {}
    mod_shared_roster: {}
++  mod_sic: {}
    mod_stats: {}
    mod_time: {}
+   mod_vcard:
 @@ -833,7 +808,8 @@ modules:
    mod_vcard_xupdate: {}
    mod_avatar: {}

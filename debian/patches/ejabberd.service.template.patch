@@ -31,6 +31,6 @@ Index: ejabberd/ejabberd.service.template
 +PrivateTmp=true
 +ProtectHome=true
 +ProtectSystem=full
+ TimeoutSec=300
  
  [Install]
- WantedBy=multi-user.target
