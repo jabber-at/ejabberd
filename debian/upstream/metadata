@@ -1,0 +1,10 @@
+Name: ejabberd
+Bug-Database: https://github.com/processone/ejabberd/issues
+Bug-Submit: https://github.com/processone/ejabberd/issues/new
+Changelog: https://github.com/processone/ejabberd/commits/master
+Repository: https://github.com/processone/ejabberd.git
+Repository-Browse: https://github.com/processone/ejabberd
+Registration: https://github.com/join
+Contact: XMPP-MUC:ejabberd@conference.process-one.net
+Documentation: https://docs.ejabberd.im/
+FAQ: https://docs.ejabberd.im/ejabberd-faq/
