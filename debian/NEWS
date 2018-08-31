@@ -1,3 +1,18 @@
+ejabberd (18.06-1) unstable; urgency=medium
+
+  Starting with ejabberd 18.06, ejabberd will not ignore unknown options
+  anymore and does not allow having options with malformed values in
+  ejabberd.yml. The rationale for this is to avoid unexpected behaviour during
+  runtime, i.e. to conform to a “fail early” approach.
+  This is meant to ensure that people format their config files properly so as
+  to get the expected behaviour from ejabberd.
+  
+  Note that it is safe to reload a configuration with potentially invalid
+  and/or unknown options: this will not halt ejabberd, but will prevent the
+  configuration from being loaded. 
+
+ -- Philipp Huebner <debalance@debian.org>  Wed, 04 Jul 2018 22:10:25 +0200
+
 ejabberd (17.08-1) unstable; urgency=medium
 
   The ERLANG_NODE default option has been changed to reflect ejabberd's
