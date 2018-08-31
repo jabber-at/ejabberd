@@ -7,6 +7,7 @@ ejabberd (18.06-1) unstable; urgency=medium
   * debian/rules: use $DEB_VERSION_UPSTREAM_REVISION instead of $DEB_VERSION,
     the colon in the epoch would break things if an epoch is introduced
   * Switched to debhelper 11
+  * Remove conflicts to old packages
   * Merge minor changes in debian/rules
   * Merge minor changes in debian/usr.sbin.ejabberdctl
 
