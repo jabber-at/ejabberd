@@ -10,6 +10,7 @@ ejabberd (18.06-1) unstable; urgency=medium
   * Remove conflicts to old packages
   * Merge minor changes in debian/rules
   * Merge minor changes in debian/usr.sbin.ejabberdctl
+  * Remove ejabberd.yml.example-local.diff, all changes are applied upstream
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 31 Aug 2018 15:03:12 +0200
 

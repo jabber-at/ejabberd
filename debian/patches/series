@@ -6,5 +6,4 @@ examples.mtr.patch
 ejabberdctl.cfg.example.diff
 ejabberd.service.template.patch
 ejabberd.yml.example.diff
-ejabberd.yml.example-local.diff
 src.includes.patch
