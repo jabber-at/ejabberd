@@ -1,4 +1,4 @@
-ejabberd (18.06-1) unstable; urgency=medium
+ejabberd (1:18.06-1) unstable; urgency=medium
 
   Starting with ejabberd 18.06, ejabberd will not ignore unknown options
   anymore and does not allow having options with malformed values in
