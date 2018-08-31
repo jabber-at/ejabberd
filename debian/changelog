@@ -1,4 +1,4 @@
-ejabberd (18.06-1) unstable; urgency=medium
+ejabberd (1:18.06-1) unstable; urgency=medium
 
   * New upstream version 18.06
   * Moved image files to /usr/share/ejabberd/img
