@@ -29,7 +29,9 @@ case "$1" in
 		rm -f "$EJABBERDCTL_CFG_TARGET"
 		rm -f /etc/ejabberd/ejabberd.pem
 		rm -f /etc/ejabberd/ejabberd.yml.ucf-old
+		rm -f /etc/ejabberd/ejabberd.yml.ucf-dist
 		rm -f /etc/default/ejabberd.ucf-old
+		rm -f /etc/default/ejabberd.ucf-dist
 		rm -rf /var/log/ejabberd /var/lib/ejabberd
 		rm -rf /var/run/ejabberd || true
 		rm -f /root/.rnd || true
