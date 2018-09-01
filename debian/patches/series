@@ -7,3 +7,5 @@ ejabberdctl.cfg.example.diff
 ejabberd.service.template.patch
 ejabberd.yml.example.diff
 src.includes.patch
+83e24628.patch
+cdfd0cce7bf.patch

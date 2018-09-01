@@ -11,6 +11,7 @@ ejabberd (1:18.06-1) unstable; urgency=medium
   * Merge minor changes in debian/rules
   * Merge minor changes in debian/usr.sbin.ejabberdctl
   * Remove ejabberd.yml.example-local.diff, all changes are applied upstream
+  * Add 83e24628.patch and cdfd0cce7bf.patch, as recommended by Holger Weiss
 
  -- Mathias Ertl <mati@jabber.at>  Fri, 31 Aug 2018 15:03:12 +0200
 
