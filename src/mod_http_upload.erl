@@ -29,10 +29,8 @@
 -protocol({xep, 363, '0.1'}).
 
 -define(SERVICE_REQUEST_TIMEOUT, 5000). % 5 seconds.
--define(SLOT_TIMEOUT, 18000000). % 5 hours.
--define(URL_ENC(URL), binary_to_list(misc:url_encode(URL))).
--define(ADDR_TO_STR(IP), ejabberd_config:may_hide_data(misc:ip_to_list(IP))).
--define(STR_TO_INT(Str, B), binary_to_integer(iolist_to_binary(Str), B)).
+-define(CALL_TIMEOUT, 60000). % 1 minute.
+-define(SLOT_TIMEOUT, timer:hours(5)).
 -define(DEFAULT_CONTENT_TYPE, <<"application/octet-stream">>).
 -define(CONTENT_TYPES,
 	[{<<".avi">>, <<"video/avi">>},
@@ -109,7 +107,8 @@
 	 service_url            :: binary() | undefined,
 	 thumbnail              :: boolean(),
 	 custom_headers         :: [{binary(), binary()}],
-	 slots = #{}            :: map()}).
+	 slots = #{}            :: map(),
+	 external_secret        :: binary()}).
 
 -record(media_info,
 	{type   :: atom(),
@@ -123,7 +122,7 @@
 %%--------------------------------------------------------------------
 %% gen_mod/supervisor callbacks.
 %%--------------------------------------------------------------------
--spec start(binary(), gen_mod:opts()) -> {ok, pid()}.
+-spec start(binary(), gen_mod:opts()) -> {ok, pid()} | {error, already_started}.
 start(ServerHost, Opts) ->
     case gen_mod:get_opt(rm_on_unregister, Opts) of
 	true ->
@@ -133,7 +132,14 @@ start(ServerHost, Opts) ->
 	    ok
     end,
     Proc = get_proc_name(ServerHost, ?MODULE),
-    gen_mod:start_child(?MODULE, ServerHost, Opts, Proc).
+    case whereis(Proc) of
+	undefined ->
+	    gen_mod:start_child(?MODULE, ServerHost, Opts, Proc);
+	_Pid ->
+	    ?ERROR_MSG("Multiple virtual hosts can't use a single 'put_url' "
+		       "without the @HOST@ keyword", []),
+	    {error, already_started}
+    end.
 
 -spec stop(binary()) -> ok | {error, any()}.
 stop(ServerHost) ->
@@ -149,9 +155,9 @@ stop(ServerHost) ->
 
 -spec mod_opt_type(atom()) -> fun((term()) -> term()) | [atom()].
 mod_opt_type(host) ->
-    fun iolist_to_binary/1;
+    fun ejabberd_config:v_host/1;
 mod_opt_type(hosts) ->
-    fun (L) -> lists:map(fun iolist_to_binary/1, L) end;
+    fun ejabberd_config:v_hosts/1;
 mod_opt_type(name) ->
     fun iolist_to_binary/1;
 mod_opt_type(access) ->
@@ -168,27 +174,26 @@ mod_opt_type(jid_in_url) ->
     end;
 mod_opt_type(file_mode) ->
     fun(undefined) -> undefined;
-       (Mode) -> ?STR_TO_INT(Mode, 8)
+       (Mode) -> binary_to_integer(iolist_to_binary(Mode), 8)
     end;
 mod_opt_type(dir_mode) ->
     fun(undefined) -> undefined;
-       (Mode) -> ?STR_TO_INT(Mode, 8)
+       (Mode) -> binary_to_integer(iolist_to_binary(Mode), 8)
     end;
 mod_opt_type(docroot) ->
     fun iolist_to_binary/1;
 mod_opt_type(put_url) ->
-    fun(<<"http://", _/binary>> = URL) -> URL;
-       (<<"https://", _/binary>> = URL) -> URL
-    end;
+    fun misc:try_url/1;
 mod_opt_type(get_url) ->
-    fun(<<"http://", _/binary>> = URL) -> URL;
-       (<<"https://", _/binary>> = URL) -> URL;
-       (undefined) -> undefined
+    fun(undefined) -> undefined;
+       (URL) -> misc:try_url(URL)
     end;
 mod_opt_type(service_url) ->
-    fun(<<"http://", _/binary>> = URL) -> URL;
-       (<<"https://", _/binary>> = URL) -> URL;
-       (undefined) -> undefined
+    fun(undefined) -> undefined;
+       (URL) ->
+	   ?WARNING_MSG("option 'service_url' is deprecated, consider unsing "
+	                "the 'external_secret' interface instead", []),
+	   misc:try_url(URL)
     end;
 mod_opt_type(custom_headers) ->
     fun(Headers) ->
@@ -211,7 +216,9 @@ mod_opt_type(thumbnail) ->
 	    end;
        (false) ->
 	    false
-    end.
+    end;
+mod_opt_type(external_secret) ->
+    fun iolist_to_binary/1.
 
 -spec mod_options(binary()) -> [{atom(), any()}].
 mod_options(_Host) ->
@@ -225,9 +232,10 @@ mod_options(_Host) ->
      {file_mode, undefined},
      {dir_mode, undefined},
      {docroot, <<"@HOME@/upload">>},
-     {put_url, <<"http://@HOST@:5444">>},
+     {put_url, <<"https://@HOST@:5443/upload">>},
      {get_url, undefined},
      {service_url, undefined},
+     {external_secret, <<"">>},
      {custom_headers, []},
      {rm_on_unregister, true},
      {thumbnail, false}].
@@ -258,6 +266,7 @@ init([ServerHost, Opts]) ->
 	     end,
     ServiceURL = gen_mod:get_opt(service_url, Opts),
     Thumbnail = gen_mod:get_opt(thumbnail, Opts),
+    ExternalSecret = gen_mod:get_opt(external_secret, Opts),
     CustomHeaders = gen_mod:get_opt(custom_headers, Opts),
     DocRoot1 = expand_home(str:strip(DocRoot, right, $/)),
     DocRoot2 = expand_host(DocRoot1, ServerHost),
@@ -280,6 +289,7 @@ init([ServerHost, Opts]) ->
 		put_url = expand_host(str:strip(PutURL, right, $/), ServerHost),
 		get_url = expand_host(str:strip(GetURL, right, $/), ServerHost),
 		service_url = ServiceURL,
+		external_secret = ExternalSecret,
 		custom_headers = CustomHeaders}}.
 
 -spec handle_call(_, {pid(), _}, state())
@@ -295,14 +305,14 @@ handle_call({use_slot, Slot, Size}, _From,
 		   custom_headers = CustomHeaders,
 		   docroot = DocRoot} = State) ->
     case get_slot(Slot, State) of
-	{ok, {Size, Timer}} ->
-	    timer:cancel(Timer),
+	{ok, {Size, TRef}} ->
+	    misc:cancel_timer(TRef),
 	    NewState = del_slot(Slot, State),
 	    Path = str:join([DocRoot | Slot], <<$/>>),
 	    {reply,
 	     {ok, Path, FileMode, DirMode, GetPrefix, Thumbnail, CustomHeaders},
 	     NewState};
-	{ok, {_WrongSize, _Timer}} ->
+	{ok, {_WrongSize, _TRef}} ->
 	    {reply, {error, size_mismatch}, State};
 	error ->
 	    {reply, {error, invalid_slot}, State}
@@ -344,7 +354,7 @@ handle_info({route, #iq{lang = Lang} = Packet}, State) ->
 	    ejabberd_router:route_error(Packet, Err),
 	    {noreply, State}
     end;
-handle_info({slot_timed_out, Slot}, State) ->
+handle_info({timeout, _TRef, Slot}, State) ->
     NewState = del_slot(Slot, State),
     {noreply, NewState};
 handle_info(Info, State) ->
@@ -372,50 +382,54 @@ process(LocalPath, #request{method = Method, host = Host, ip = IP})
 	 Method == 'GET' orelse
 	 Method == 'HEAD' ->
     ?DEBUG("Rejecting ~s request from ~s for ~s: Too few path components",
-	   [Method, ?ADDR_TO_STR(IP), Host]),
+	   [Method, encode_addr(IP), Host]),
     http_response(404);
 process(_LocalPath, #request{method = 'PUT', host = Host, ip = IP,
 			     length = Length} = Request) ->
     {Proc, Slot} = parse_http_request(Request),
-    case catch gen_server:call(Proc, {use_slot, Slot, Length}) of
+    case catch gen_server:call(Proc, {use_slot, Slot, Length}, ?CALL_TIMEOUT) of
 	{ok, Path, FileMode, DirMode, GetPrefix, Thumbnail, CustomHeaders} ->
 	    ?DEBUG("Storing file from ~s for ~s: ~s",
-		   [?ADDR_TO_STR(IP), Host, Path]),
+		   [encode_addr(IP), Host, Path]),
 	    case store_file(Path, Request, FileMode, DirMode,
 			    GetPrefix, Slot, Thumbnail) of
 		ok ->
 		    http_response(201, CustomHeaders);
 		{ok, Headers, OutData} ->
 		    http_response(201, Headers ++ CustomHeaders, OutData);
+		{error, closed} ->
+		    ?DEBUG("Cannot store file ~s from ~s for ~s: connection closed",
+			   [Path, encode_addr(IP), Host]),
+		    http_response(404);
 		{error, Error} ->
-		    ?INFO_MSG("Cannot store file ~s from ~s for ~s: ~s",
-			      [Path, ?ADDR_TO_STR(IP), Host, format_error(Error)]),
+		    ?ERROR_MSG("Cannot store file ~s from ~s for ~s: ~s",
+			       [Path, encode_addr(IP), Host, format_error(Error)]),
 		    http_response(500)
 	    end;
 	{error, size_mismatch} ->
-	    ?INFO_MSG("Rejecting file from ~s for ~s: Unexpected size (~B)",
-		      [?ADDR_TO_STR(IP), Host, Length]),
+	    ?WARNING_MSG("Rejecting file ~s from ~s for ~s: Unexpected size (~B)",
+		      [lists:last(Slot), encode_addr(IP), Host, Length]),
 	    http_response(413);
 	{error, invalid_slot} ->
-	    ?INFO_MSG("Rejecting file from ~s for ~s: Invalid slot",
-		      [?ADDR_TO_STR(IP), Host]),
+	    ?WARNING_MSG("Rejecting file ~s from ~s for ~s: Invalid slot",
+		      [lists:last(Slot), encode_addr(IP), Host]),
 	    http_response(403);
 	Error ->
 	    ?ERROR_MSG("Cannot handle PUT request from ~s for ~s: ~p",
-		       [?ADDR_TO_STR(IP), Host, Error]),
+		       [encode_addr(IP), Host, Error]),
 	    http_response(500)
     end;
 process(_LocalPath, #request{method = Method, host = Host, ip = IP} = Request)
     when Method == 'GET';
 	 Method == 'HEAD' ->
     {Proc, [_UserDir, _RandDir, FileName] = Slot} = parse_http_request(Request),
-    case catch gen_server:call(Proc, get_conf) of
+    case catch gen_server:call(Proc, get_conf, ?CALL_TIMEOUT) of
 	{ok, DocRoot, CustomHeaders} ->
 	    Path = str:join([DocRoot | Slot], <<$/>>),
 	    case file:open(Path, [read]) of
 		{ok, Fd} ->
 		    file:close(Fd),
-		    ?INFO_MSG("Serving ~s to ~s", [Path, ?ADDR_TO_STR(IP)]),
+		    ?INFO_MSG("Serving ~s to ~s", [Path, encode_addr(IP)]),
 		    ContentType = guess_content_type(FileName),
 		    Headers1 = case ContentType of
 				 <<"image/", _SubType/binary>> -> [];
@@ -429,43 +443,44 @@ process(_LocalPath, #request{method = Method, host = Host, ip = IP} = Request)
 		    Headers3 = Headers2 ++ CustomHeaders,
 		    http_response(200, Headers3, {file, Path});
 		{error, eacces} ->
-		    ?INFO_MSG("Cannot serve ~s to ~s: Permission denied",
-			      [Path, ?ADDR_TO_STR(IP)]),
+		    ?WARNING_MSG("Cannot serve ~s to ~s: Permission denied",
+			      [Path, encode_addr(IP)]),
 		    http_response(403);
 		{error, enoent} ->
-		    ?INFO_MSG("Cannot serve ~s to ~s: No such file",
-			      [Path, ?ADDR_TO_STR(IP)]),
+		    ?WARNING_MSG("Cannot serve ~s to ~s: No such file",
+			      [Path, encode_addr(IP)]),
 		    http_response(404);
 		{error, eisdir} ->
-		    ?INFO_MSG("Cannot serve ~s to ~s: Is a directory",
-			      [Path, ?ADDR_TO_STR(IP)]),
+		    ?WARNING_MSG("Cannot serve ~s to ~s: Is a directory",
+			      [Path, encode_addr(IP)]),
 		    http_response(404);
 		{error, Error} ->
-		    ?INFO_MSG("Cannot serve ~s to ~s: ~s",
-			      [Path, ?ADDR_TO_STR(IP), format_error(Error)]),
+		    ?WARNING_MSG("Cannot serve ~s to ~s: ~s",
+			      [Path, encode_addr(IP), format_error(Error)]),
 		    http_response(500)
 	    end;
 	Error ->
 	    ?ERROR_MSG("Cannot handle ~s request from ~s for ~s: ~p",
-		       [Method, ?ADDR_TO_STR(IP), Host, Error]),
+		       [Method, encode_addr(IP), Host, Error]),
 	    http_response(500)
     end;
 process(_LocalPath, #request{method = 'OPTIONS', host = Host,
 			     ip = IP} = Request) ->
     ?DEBUG("Responding to OPTIONS request from ~s for ~s",
-	   [?ADDR_TO_STR(IP), Host]),
+	   [encode_addr(IP), Host]),
     {Proc, _Slot} = parse_http_request(Request),
-    case catch gen_server:call(Proc, get_conf) of
+    case catch gen_server:call(Proc, get_conf, ?CALL_TIMEOUT) of
 	{ok, _DocRoot, CustomHeaders} ->
-	    http_response(200, CustomHeaders);
+	    AllowHeader = {<<"Allow">>, <<"OPTIONS, HEAD, GET, PUT">>},
+	    http_response(200, [AllowHeader | CustomHeaders]);
 	Error ->
 	    ?ERROR_MSG("Cannot handle OPTIONS request from ~s for ~s: ~p",
-		       [?ADDR_TO_STR(IP), Host, Error]),
+		       [encode_addr(IP), Host, Error]),
 	    http_response(500)
     end;
 process(_LocalPath, #request{method = Method, host = Host, ip = IP}) ->
     ?DEBUG("Rejecting ~s request from ~s for ~s",
-	   [Method, ?ADDR_TO_STR(IP), Host]),
+	   [Method, encode_addr(IP), Host]),
     http_response(405, [{<<"Allow">>, <<"OPTIONS, HEAD, GET, PUT">>}]).
 
 %%--------------------------------------------------------------------
@@ -532,14 +547,12 @@ process_slot_request(#iq{lang = Lang, from = From} = IQ,
 	    case create_slot(State, From, File, Size, ContentType, XMLNS,
 			     Lang) of
 		{ok, Slot} ->
-		    {ok, Timer} = timer:send_after(?SLOT_TIMEOUT,
-						   {slot_timed_out,
-						    Slot}),
-		    NewState = add_slot(Slot, Size, Timer, State),
-		    NewSlot = mk_slot(Slot, State, XMLNS),
+		    Query = make_query_string(Slot, Size, State),
+		    NewState = add_slot(Slot, Size, State),
+		    NewSlot = mk_slot(Slot, State, XMLNS, Query),
 		    {xmpp:make_iq_result(IQ, NewSlot), NewState};
 		{ok, PutURL, GetURL} ->
-		    Slot = mk_slot(PutURL, GetURL, XMLNS),
+		    Slot = mk_slot(PutURL, GetURL, XMLNS, <<"">>),
 		    xmpp:make_iq_result(IQ, Slot);
 		{error, Error} ->
 		    xmpp:make_error(IQ, Error)
@@ -559,7 +572,7 @@ create_slot(#state{service_url = undefined, max_size = MaxSize},
   when MaxSize /= infinity,
        Size > MaxSize ->
     Text = {<<"File larger than ~w bytes">>, [MaxSize]},
-    ?INFO_MSG("Rejecting file ~s from ~s (too large: ~B bytes)",
+    ?WARNING_MSG("Rejecting file ~s from ~s (too large: ~B bytes)",
 	      [File, jid:encode(JID), Size]),
     Error = xmpp:err_not_acceptable(Text, Lang),
     Els = xmpp:get_els(Error),
@@ -576,12 +589,12 @@ create_slot(#state{service_url = undefined,
     UserStr = make_user_string(JID, JIDinURL),
     UserDir = <<DocRoot/binary, $/, UserStr/binary>>,
     case ejabberd_hooks:run_fold(http_upload_slot_request, ServerHost, allow,
-				 [JID, UserDir, Size, Lang]) of
+				 [ServerHost, JID, UserDir, Size, Lang]) of
 	allow ->
-	    RandStr = randoms:get_alphanum_string(SecretLength),
+	    RandStr = p1_rand:get_alphanum_string(SecretLength),
 	    FileStr = make_file_string(File),
-	    ?INFO_MSG("Got HTTP upload slot for ~s (file: ~s)",
-		      [jid:encode(JID), File]),
+	    ?INFO_MSG("Got HTTP upload slot for ~s (file: ~s, size: ~B)",
+		      [jid:encode(JID), File, Size]),
 	    {ok, [UserStr, RandStr, FileStr]};
 	deny ->
 	    {error, xmpp:err_service_unavailable()};
@@ -594,18 +607,20 @@ create_slot(#state{service_url = ServiceURL},
     Options = [{body_format, binary}, {full_result, false}],
     HttpOptions = [{timeout, ?SERVICE_REQUEST_TIMEOUT}],
     SizeStr = integer_to_binary(Size),
-    GetRequest = binary_to_list(ServiceURL) ++
-		     "?jid=" ++ ?URL_ENC(jid:encode({U, S, <<"">>})) ++
-		     "&name=" ++ ?URL_ENC(File) ++
-		     "&size=" ++ ?URL_ENC(SizeStr) ++
-		     "&content_type=" ++ ?URL_ENC(ContentType),
-    case httpc:request(get, {GetRequest, []}, HttpOptions, Options) of
+    JidStr = jid:encode({U, S, <<"">>}),
+    GetRequest = <<ServiceURL/binary,
+		   "?jid=", (misc:url_encode(JidStr))/binary,
+		   "&name=", (misc:url_encode(File))/binary,
+		   "&size=", (misc:url_encode(SizeStr))/binary,
+		   "&content_type=", (misc:url_encode(ContentType))/binary>>,
+    case httpc:request(get, {binary_to_list(GetRequest), []},
+		       HttpOptions, Options) of
 	{ok, {Code, Body}} when Code >= 200, Code =< 299 ->
 	    case binary:split(Body, <<$\n>>, [global, trim]) of
 		[<<"http", _/binary>> = PutURL,
 		 <<"http", _/binary>> = GetURL] ->
-		    ?INFO_MSG("Got HTTP upload slot for ~s (file: ~s)",
-			      [jid:encode(JID), File]),
+		    ?INFO_MSG("Got HTTP upload slot for ~s (file: ~s, size: ~B)",
+			      [jid:encode(JID), File, Size]),
 		    {ok, PutURL, GetURL};
 		Lines ->
 		    ?ERROR_MSG("Can't parse data received for ~s from <~s>: ~p",
@@ -614,15 +629,15 @@ create_slot(#state{service_url = ServiceURL},
 		    {error, xmpp:err_service_unavailable(Txt, Lang)}
 	    end;
 	{ok, {402, _Body}} ->
-	    ?INFO_MSG("Got status code 402 for ~s from <~s>",
+	    ?WARNING_MSG("Got status code 402 for ~s from <~s>",
 		      [jid:encode(JID), ServiceURL]),
 	    {error, xmpp:err_resource_constraint()};
 	{ok, {403, _Body}} ->
-	    ?INFO_MSG("Got status code 403 for ~s from <~s>",
+	    ?WARNING_MSG("Got status code 403 for ~s from <~s>",
 		      [jid:encode(JID), ServiceURL]),
 	    {error, xmpp:err_not_allowed()};
 	{ok, {413, _Body}} ->
-	    ?INFO_MSG("Got status code 413 for ~s from <~s>",
+	    ?WARNING_MSG("Got status code 413 for ~s from <~s>",
 		      [jid:encode(JID), ServiceURL]),
 	    {error, xmpp:err_not_acceptable()};
 	{ok, {Code, _Body}} ->
@@ -635,12 +650,15 @@ create_slot(#state{service_url = ServiceURL},
 	    {error, xmpp:err_service_unavailable()}
     end.
 
--spec add_slot(slot(), pos_integer(), timer:tref(), state()) -> state().
-add_slot(Slot, Size, Timer, #state{slots = Slots} = State) ->
-    NewSlots = maps:put(Slot, {Size, Timer}, Slots),
-    State#state{slots = NewSlots}.
+-spec add_slot(slot(), pos_integer(), state()) -> state().
+add_slot(Slot, Size, #state{external_secret = <<>>, slots = Slots} = State) ->
+    TRef = erlang:start_timer(?SLOT_TIMEOUT, self(), Slot),
+    NewSlots = maps:put(Slot, {Size, TRef}, Slots),
+    State#state{slots = NewSlots};
+add_slot(_Slot, _Size, State) ->
+    State.
 
--spec get_slot(slot(), state()) -> {ok, {pos_integer(), timer:tref()}} | error.
+-spec get_slot(slot(), state()) -> {ok, {pos_integer(), reference()}} | error.
 get_slot(Slot, #state{slots = Slots}) ->
     maps:find(Slot, Slots).
 
@@ -649,20 +667,21 @@ del_slot(Slot, #state{slots = Slots} = State) ->
     NewSlots = maps:remove(Slot, Slots),
     State#state{slots = NewSlots}.
 
--spec mk_slot(slot(), state(), binary()) -> upload_slot();
-	     (binary(), binary(), binary()) -> upload_slot().
-mk_slot(Slot, #state{put_url = PutPrefix, get_url = GetPrefix}, XMLNS) ->
+-spec mk_slot(slot(), state(), binary(), binary()) -> upload_slot();
+	     (binary(), binary(), binary(), binary()) -> upload_slot().
+mk_slot(Slot, #state{put_url = PutPrefix, get_url = GetPrefix}, XMLNS, Query) ->
     PutURL = str:join([PutPrefix | Slot], <<$/>>),
     GetURL = str:join([GetPrefix | Slot], <<$/>>),
-    mk_slot(PutURL, GetURL, XMLNS);
-mk_slot(PutURL, GetURL, ?NS_HTTP_UPLOAD_0) ->
-    #upload_slot_0{get = misc:url_encode(GetURL),
-		   put = misc:url_encode(PutURL),
-		   xmlns = ?NS_HTTP_UPLOAD_0};
-mk_slot(PutURL, GetURL, XMLNS) ->
-    #upload_slot{get = misc:url_encode(GetURL),
-		 put = misc:url_encode(PutURL),
-		 xmlns = XMLNS}.
+    mk_slot(PutURL, GetURL, XMLNS, Query);
+mk_slot(PutURL, GetURL, XMLNS, Query) ->
+    PutURL1 = <<(misc:url_encode(PutURL))/binary, Query/binary>>,
+    GetURL1 = misc:url_encode(GetURL),
+    case XMLNS of
+	?NS_HTTP_UPLOAD_0 ->
+	    #upload_slot_0{get = GetURL1, put = PutURL1, xmlns = XMLNS};
+	_ ->
+	    #upload_slot{get = GetURL1, put = PutURL1, xmlns = XMLNS}
+    end.
 
 -spec make_user_string(jid(), sha1 | node) -> binary().
 make_user_string(#jid{luser = U, lserver = S}, sha1) ->
@@ -674,6 +693,16 @@ make_user_string(#jid{luser = U}, node) ->
 make_file_string(File) ->
     replace_special_chars(File).
 
+-spec make_query_string(slot(), non_neg_integer(), state()) -> binary().
+make_query_string(Slot, Size, #state{external_secret = Key}) when Key /= <<>> ->
+    UrlPath = str:join(Slot, <<$/>>),
+    SizeStr = integer_to_binary(Size),
+    Data = <<UrlPath/binary, " ", SizeStr/binary>>,
+    HMAC = str:to_hexlist(crypto:hmac(sha256, Key, Data)),
+    <<"?v=", HMAC/binary>>;
+make_query_string(_Slot, _Size, _State) ->
+    <<>>.
+
 -spec replace_special_chars(binary()) -> binary().
 replace_special_chars(S) ->
     re:replace(S, <<"[^\\p{Xan}_.-]">>, <<$_>>,
@@ -682,6 +711,11 @@ replace_special_chars(S) ->
 -spec yield_content_type(binary()) -> binary().
 yield_content_type(<<"">>) -> ?DEFAULT_CONTENT_TYPE;
 yield_content_type(Type) -> Type.
+
+-spec encode_addr(inet:ip_address() | {inet:ip_address(), inet:port_number()} |
+		  undefined) -> binary().
+encode_addr(IP) ->
+    ejabberd_config:may_hide_data(misc:ip_to_list(IP)).
 
 -spec iq_disco_info(binary(), binary(), binary(), [xdata()]) -> disco_info().
 iq_disco_info(Host, Lang, Name, AddInfo) ->
@@ -868,7 +902,7 @@ convert(Path, #media_info{type = T, width = W, height = H} = Info) ->
        true ->
 	    Dir = filename:dirname(Path),
 	    Ext = atom_to_binary(T, latin1),
-	    FileName = <<(randoms:get_string())/binary, $., Ext/binary>>,
+	    FileName = <<(p1_rand:get_string())/binary, $., Ext/binary>>,
 	    OutPath = filename:join(Dir, FileName),
 	    {W1, H1} = if W > H -> {300, round(H*300/W)};
 			  H > W -> {round(W*300/H), 300};

@@ -24,15 +24,16 @@
 %%%----------------------------------------------------------------------
 
 -module(ejabberd_http).
-
+-behaviour(ejabberd_listener).
 -behaviour(ejabberd_config).
 
 -author('alexey@process-one.net').
 
 %% External exports
--export([start/2, start_link/2, become_controller/1,
-	 socket_type/0, receive_headers/1, recv_file/2,
-         transform_listen_option/2, listen_opt_type/1]).
+-export([start/2, start_link/2,
+	 accept/1, receive_headers/1, recv_file/2,
+         transform_listen_option/2, listen_opt_type/1,
+	 listen_options/0]).
 
 -export([init/2, opt_type/1]).
 
@@ -101,6 +102,7 @@ init({SockMod, Socket}, Opts) ->
     TLSEnabled = proplists:get_bool(tls, Opts),
     TLSOpts1 = lists:filter(fun ({ciphers, _}) -> true;
 				({dhfile, _}) -> true;
+				({cafile, _}) -> true;
 				({protocol_options, _}) -> true;
 				(_) -> false
 			    end,
@@ -164,11 +166,8 @@ init({SockMod, Socket}, Opts) ->
         {error, _} -> State
     end.
 
-become_controller(_Pid) ->
+accept(_Pid) ->
     ok.
-
-socket_type() ->
-    raw.
 
 send_text(_State, none) ->
     ok;
@@ -202,8 +201,8 @@ send_file(State, Fd, Size, FileName) ->
 	end
     catch _:{case_clause, {error, Why}} ->
 	    if Why /= closed ->
-		    ?INFO_MSG("Failed to read ~s: ~s",
-			      [FileName, file_format_error(Why)]),
+		    ?WARNING_MSG("Failed to read ~s: ~s",
+				 [FileName, file_format_error(Why)]),
 		    exit(normal);
 	       true ->
 		    ok
@@ -598,35 +597,37 @@ recv_file(#request{length = Len, data = Trail,
 		   sockmod = SockMod, socket = Socket}, Path) ->
     case file:open(Path, [write, exclusive, raw]) of
 	{ok, Fd} ->
-	    case file:write(Fd, Trail) of
-		ok ->
-		    NewLen = max(0, Len - byte_size(Trail)),
-		    case do_recv_file(NewLen, SockMod, Socket, Fd) of
-			ok ->
-			    ok;
-			{error, _} = Err ->
-			    file:delete(Path),
-			    Err
-		    end;
-		{error, _} = Err ->
-		    file:delete(Path),
-		    Err
-	    end;
+	    Res = case file:write(Fd, Trail) of
+		      ok ->
+			  NewLen = max(0, Len - byte_size(Trail)),
+			  do_recv_file(NewLen, SockMod, Socket, Fd);
+		      {error, _} = Err ->
+			  Err
+		  end,
+	    file:close(Fd),
+	    case Res of
+		ok -> ok;
+		{error, _} -> file:delete(Path)
+	    end,
+	    Res;
 	{error, _} = Err ->
 	    Err
     end.
 
-do_recv_file(0, _SockMod, _Socket, Fd) ->
-    file:close(Fd);
+do_recv_file(0, _SockMod, _Socket, _Fd) ->
+    ok;
 do_recv_file(Len, SockMod, Socket, Fd) ->
     ChunkLen = min(Len, ?RECV_BUF),
-    try
-	{ok, Data} = SockMod:recv(Socket, ChunkLen, timer:seconds(30)),
-	ok = file:write(Fd, Data),
-	do_recv_file(Len-size(Data), SockMod, Socket, Fd)
-    catch _:{badmatch, {error, _} = Err} ->
-	    file:close(Fd),
-	    Err
+    case SockMod:recv(Socket, ChunkLen, timer:seconds(30)) of
+	{ok, Data} ->
+	    case file:write(Fd, Data) of
+		ok ->
+		    do_recv_file(Len-size(Data), SockMod, Socket, Fd);
+		{error, _} = Err ->
+		    Err
+	    end;
+	{error, _} ->
+	    {error, closed}
     end.
 
 make_headers(State, Status, Reason, Headers, Data) ->
@@ -947,8 +948,7 @@ transform_listen_option({request_handlers, Hs}, Opts) ->
 transform_listen_option(Opt, Opts) ->
     [Opt|Opts].
 
--spec opt_type(trusted_proxies) -> fun((all | [binary()]) -> all | [binary()]);
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(trusted_proxies) ->
     fun (all) -> all;
         (TPs) -> lists:filtermap(
@@ -961,40 +961,13 @@ opt_type(trusted_proxies) ->
     end;
 opt_type(_) -> [trusted_proxies].
 
--spec listen_opt_type(tls) -> fun((boolean()) -> boolean());
-		     (certfile) -> fun((binary()) -> binary());
-		     (ciphers) -> fun((binary()) -> binary());
-		     (dhfile) -> fun((binary()) -> binary());
-		     (protocol_options) -> fun(([binary()]) -> binary());
-		     (tls_compression) -> fun((boolean()) -> boolean());
-		     (captcha) -> fun((boolean()) -> boolean());
-		     (register) -> fun((boolean()) -> boolean());
-		     (web_admin) -> fun((boolean()) -> boolean());
-		     (http_bind) -> fun((boolean()) -> boolean());
-		     (xmlrpc) -> fun((boolean()) -> boolean());
-		     (request_handlers) -> fun(([{binary(), atom()}]) ->
-						[{binary(), atom()}]);
-		     (default_host) -> fun((binary()) -> binary());
-		     (custom_headers) -> fun(([{binary(), binary()}]) ->
-					      [{binary(), binary()}]);
-		     (atom()) -> [atom()].
-listen_opt_type(tls) ->
-    fun(B) when is_boolean(B) -> B end;
 listen_opt_type(certfile = Opt) ->
     fun(S) ->
 	    ?WARNING_MSG("Listening option '~s' for ~s is deprecated, use "
 			 "'certfiles' global option instead", [Opt, ?MODULE]),
-	    ejabberd_pkix:add_certfile(S),
+	    ok = ejabberd_pkix:add_certfile(S),
 	    iolist_to_binary(S)
     end;
-listen_opt_type(ciphers) ->
-    fun iolist_to_binary/1;
-listen_opt_type(dhfile) ->
-    fun misc:try_read_file/1;
-listen_opt_type(protocol_options) ->
-    fun(Options) -> str:join(Options, <<"|">>) end;
-listen_opt_type(tls_compression) ->
-    fun(B) when is_boolean(B) -> B end;
 listen_opt_type(captcha) ->
     fun(B) when is_boolean(B) -> B end;
 listen_opt_type(register) ->
@@ -1021,15 +994,23 @@ listen_opt_type(request_handlers) ->
 	      end} || {Path, Mod} <- Hs2]
     end;
 listen_opt_type(default_host) ->
-    fun(A) -> A end;
+    fun iolist_to_binary/1;
 listen_opt_type(custom_headers) ->
-    fun expand_custom_headers/1;
-listen_opt_type(inet) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(inet6) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(backlog) ->
-    fun(I) when is_integer(I), I>0 -> I end;
-listen_opt_type(accept_interval) ->
-    fun(I) when is_integer(I), I>=0 -> I end;
-listen_opt_type(_) ->
-    %% TODO
-    fun(A) -> A end.
+    fun expand_custom_headers/1.
+
+listen_options() ->
+    [{certfile, undefined},
+     {ciphers, undefined},
+     {dhfile, undefined},
+     {cafile, undefined},
+     {protocol_options, undefined},
+     {tls, false},
+     {tls_compression, false},
+     {captcha, false},
+     {register, false},
+     {web_admin, false},
+     {http_bind, false},
+     {xmlrpc, false},
+     {request_handlers, []},
+     {default_host, undefined},
+     {custom_headers, []}].

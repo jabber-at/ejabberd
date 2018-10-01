@@ -89,7 +89,7 @@ mk_field(Type, Var, Value) ->
 create_captcha(SID, From, To, Lang, Limiter, Args) ->
     case create_image(Limiter) of
       {ok, Type, Key, Image} ->
-	  Id = <<(randoms:get_string())/binary>>,
+	  Id = <<(p1_rand:get_string())/binary>>,
 	  JID = jid:encode(From),
 	  CID = <<"sha1+", (str:sha(Image))/binary, "@bob.xmpp.org">>,
 	  Data = #bob_data{cid = CID, 'max-age' = 0, type = Type,
@@ -120,7 +120,7 @@ create_captcha(SID, From, To, Lang, Limiter, Args) ->
 create_captcha_x(SID, To, Lang, Limiter, #xdata{fields = Fs} = X) ->
     case create_image(Limiter) of
       {ok, Type, Key, Image} ->
-	  Id = <<(randoms:get_string())/binary>>,
+	  Id = <<(p1_rand:get_string())/binary>>,
 	  CID = <<"sha1+", (str:sha(Image))/binary, "@bob.xmpp.org">>,
 	  Data = #bob_data{cid = CID, 'max-age' = 0, type = Type, data = Image},
 	  HelpTxt = translate:translate(Lang,
@@ -230,7 +230,6 @@ process_iq(#iq{type = get, lang = Lang} = IQ) ->
     Txt = <<"Value 'get' of 'type' attribute is not allowed">>,
     xmpp:make_error(IQ, xmpp:err_not_allowed(Txt, Lang));
 process_iq(#iq{lang = Lang} = IQ) ->
-    ?INFO_MSG("IQ = ~p", [IQ]),
     Txt = <<"No module is handling this query">>,
     xmpp:make_error(IQ, xmpp:err_service_unavailable(Txt, Lang)).
 
@@ -376,7 +375,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 create_image() -> create_image(undefined).
 
 create_image(Limiter) ->
-    Key = str:substr(randoms:get_string(), 1, 6),
+    Key = str:substr(p1_rand:get_string(), 1, 6),
     create_image(Limiter, Key).
 
 create_image(Limiter, Key) ->
@@ -517,11 +516,7 @@ recv_data(Port, TRef, Buf) ->
     end.
 
 return(Port, TRef, Result) ->
-    case erlang:cancel_timer(TRef) of
-      false ->
-	  receive {timeout, TRef, _} -> ok after 0 -> ok end;
-      _ -> ok
-    end,
+    misc:cancel_timer(TRef),
     catch port_close(Port),
     Result.
 
@@ -561,7 +556,7 @@ check_captcha(Id, ProvidedKey) ->
     case ets:lookup(captcha, Id) of
 	[#captcha{pid = Pid, args = Args, key = ValidKey, tref = Tref}] ->
 	    ets:delete(captcha, Id),
-	    erlang:cancel_timer(Tref),
+	    misc:cancel_timer(Tref),
 	    if ValidKey == ProvidedKey ->
 		    callback(captcha_succeed, Pid, Args),
 		    captcha_valid;
@@ -595,10 +590,7 @@ callback(_, _, _) ->
 now_priority() ->
     -p1_time_compat:system_time(micro_seconds).
 
--spec opt_type(captcha_cmd) -> fun((binary()) -> binary());
-	      (captcha_host) -> fun((binary()) -> binary());
-	      (captcha_limit) -> fun((pos_integer()) -> pos_integer());
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(captcha_cmd) ->
     fun (FileName) ->
 	    F = iolist_to_binary(FileName), if F /= <<"">> -> F end

@@ -22,20 +22,20 @@
 -module(ejabberd_c2s).
 -behaviour(xmpp_stream_in).
 -behaviour(ejabberd_config).
--behaviour(xmpp_socket).
+-behaviour(ejabberd_listener).
 
 -protocol({rfc, 6121}).
 
-%% xmpp_socket callbacks
--export([start/2, start_link/2, socket_type/0]).
+%% ejabberd_listener callbacks
+-export([start/2, start_link/2, accept/1, listen_opt_type/1, listen_options/0]).
 %% ejabberd_config callbacks
--export([opt_type/1, listen_opt_type/1, transform_listen_option/2]).
+-export([opt_type/1, transform_listen_option/2]).
 %% xmpp_stream_in callbacks
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, code_change/3]).
--export([tls_options/1, tls_required/1, tls_verify/1, tls_enabled/1,
+-export([tls_options/1, tls_required/1, tls_enabled/1,
 	 compress_methods/1, bind/2, sasl_mechanisms/2,
-	 get_password_fun/1, check_password_fun/1, check_password_digest_fun/1,
+	 get_password_fun/2, check_password_fun/2, check_password_digest_fun/2,
 	 unauthenticated_stream_features/1, authenticated_stream_features/1,
 	 handle_stream_start/2, handle_stream_end/2,
 	 handle_unauthenticated_packet/2, handle_authenticated_packet/2,
@@ -61,26 +61,18 @@
 -export_type([state/0]).
 
 %%%===================================================================
-%%% xmpp_socket API
+%%% ejabberd_listener API
 %%%===================================================================
 start(SockData, Opts) ->
-    case proplists:get_value(supervisor, Opts, true) of
-	true ->
-	    case supervisor:start_child(ejabberd_c2s_sup, [SockData, Opts]) of
-		{ok, undefined} -> ignore;
-		Res -> Res
-	    end;
-	_ ->
-	    xmpp_stream_in:start(?MODULE, [SockData, Opts],
-				 ejabberd_config:fsm_limit_opts(Opts))
-    end.
+    xmpp_stream_in:start(?MODULE, [SockData, Opts],
+			 ejabberd_config:fsm_limit_opts(Opts)).
 
 start_link(SockData, Opts) ->
     xmpp_stream_in:start_link(?MODULE, [SockData, Opts],
 			      ejabberd_config:fsm_limit_opts(Opts)).
 
-socket_type() ->
-    xml_stream.
+accept(Ref) ->
+    xmpp_stream_in:accept(Ref).
 
 %%%===================================================================
 %%% Common API
@@ -104,7 +96,7 @@ get_presence(Ref) ->
 set_presence(Ref, Pres) ->
     call(Ref, {set_presence, Pres}, 1000).
 
--spec resend_presence(pid()) -> ok.
+-spec resend_presence(pid()) -> boolean().
 resend_presence(Pid) ->
     resend_presence(Pid, undefined).
 
@@ -272,7 +264,6 @@ process_terminated(#{sid := SID, socket := Socket,
     State1 = case maps:is_key(pres_last, State) of
 		 true ->
 		     Pres = #presence{type = unavailable,
-				      status = xmpp:mk_text(Status),
 				      from = JID,
 				      to = jid:remove_resource(JID)},
 		     ejabberd_sm:close_session_unset_presence(SID, U, S, R,
@@ -339,9 +330,6 @@ tls_options(#{lserver := LServer, tls_options := DefaultOpts,
 tls_required(#{tls_required := TLSRequired}) ->
     TLSRequired.
 
-tls_verify(#{tls_verify := TLSVerify}) ->
-    TLSVerify.
-
 tls_enabled(#{tls_enabled := TLSEnabled,
 	      tls_required := TLSRequired,
 	      tls_verify := TLSVerify}) ->
@@ -358,25 +346,41 @@ unauthenticated_stream_features(#{lserver := LServer}) ->
 authenticated_stream_features(#{lserver := LServer}) ->
     ejabberd_hooks:run_fold(c2s_post_auth_features, LServer, [], [LServer]).
 
-sasl_mechanisms(Mechs, #{lserver := LServer}) ->
+sasl_mechanisms(Mechs, #{lserver := LServer} = State) ->
+    Type = ejabberd_auth:store_type(LServer),
     Mechs1 = ejabberd_config:get_option({disable_sasl_mechanisms, LServer}, []),
-    Mechs2 = case ejabberd_auth_anonymous:is_sasl_anonymous_enabled(LServer) of
-		 true -> Mechs1;
-		 false -> [<<"ANONYMOUS">>|Mechs1]
-	     end,
-    Mechs -- Mechs2.
+    %% I re-created it from cyrsasl ets magic, but I think it's wrong
+    %% TODO: need to check before 18.09 release
+    lists:filter(
+      fun(<<"ANONYMOUS">>) ->
+	      ejabberd_auth_anonymous:is_sasl_anonymous_enabled(LServer);
+	 (<<"DIGEST-MD5">>) -> Type == plain;
+	 (<<"SCRAM-SHA-1">>) -> Type /= external;
+	 (<<"PLAIN">>) -> true;
+	 (<<"X-OAUTH2">>) -> true;
+	 (<<"EXTERNAL">>) -> maps:get(tls_verify, State, false);
+	 (_) -> false
+      end, Mechs -- Mechs1).
 
-get_password_fun(#{lserver := LServer}) ->
+get_password_fun(_Mech, #{lserver := LServer}) ->
     fun(U) ->
 	    ejabberd_auth:get_password_with_authmodule(U, LServer)
     end.
 
-check_password_fun(#{lserver := LServer}) ->
+check_password_fun(<<"X-OAUTH2">>, #{lserver := LServer}) ->
+    fun(User, _AuthzId, Token) ->
+	    case ejabberd_oauth:check_token(
+		   User, LServer, [<<"sasl_auth">>], Token) of
+		true -> {true, ejabberd_oauth};
+		_ -> {false, ejabberd_oauth}
+	    end
+    end;
+check_password_fun(_Mech, #{lserver := LServer}) ->
     fun(U, AuthzId, P) ->
 	    ejabberd_auth:check_password_with_authmodule(U, AuthzId, LServer, P)
     end.
 
-check_password_digest_fun(#{lserver := LServer}) ->
+check_password_digest_fun(_Mech, #{lserver := LServer}) ->
     fun(U, AuthzId, P, D, DG) ->
 	    ejabberd_auth:check_password_with_authmodule(U, AuthzId, LServer, P, D, DG)
     end.
@@ -404,8 +408,8 @@ bind(R, #{user := U, server := S, access := Access, lang := Lang,
 		    {ok, State2};
 		deny ->
 		    ejabberd_hooks:run(forbidden_session_hook, LServer, [JID]),
-		    ?INFO_MSG("(~s) Forbidden c2s session for ~s",
-			      [xmpp_socket:pp(Socket), jid:encode(JID)]),
+		    ?WARNING_MSG("(~s) Forbidden c2s session for ~s",
+				 [xmpp_socket:pp(Socket), jid:encode(JID)]),
 		    Txt = <<"Access denied by service policy">>,
 		    {error, xmpp:err_not_allowed(Txt, Lang), State}
 	    end
@@ -440,12 +444,12 @@ handle_auth_success(User, Mech, AuthModule,
 handle_auth_failure(User, Mech, Reason,
 		    #{socket := Socket,
 		      ip := IP, lserver := LServer} = State) ->
-    ?INFO_MSG("(~s) Failed c2s ~s authentication ~sfrom ~s: ~s",
-	      [xmpp_socket:pp(Socket), Mech,
-	       if User /= <<"">> -> ["for ", User, "@", LServer, " "];
-		  true -> ""
-	       end,
-	       ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason]),
+    ?WARNING_MSG("(~s) Failed c2s ~s authentication ~sfrom ~s: ~s",
+		 [xmpp_socket:pp(Socket), Mech,
+		  if User /= <<"">> -> ["for ", User, "@", LServer, " "];
+		     true -> ""
+		  end,
+		  ejabberd_config:may_hide_data(misc:ip_to_list(IP)), Reason]),
     ejabberd_hooks:run_fold(c2s_auth_result, LServer, State, [false, User]).
 
 handle_unbinded_packet(Pkt, #{lserver := LServer} = State) ->
@@ -881,7 +885,7 @@ bounce_message_queue() ->
 -spec new_uniq_id() -> binary().
 new_uniq_id() ->
     iolist_to_binary(
-      [randoms:get_string(),
+      [p1_rand:get_string(),
        integer_to_binary(p1_time_compat:unique_integer([positive]))]).
 
 -spec get_conn_type(state()) -> c2s | c2s_tls | c2s_compressed | websocket |
@@ -920,7 +924,7 @@ change_shaper(#{shaper := ShaperName, ip := IP, lserver := LServer,
     Shaper = acl:access_matches(ShaperName,
 				#{usr => jid:split(JID), ip => IP},
 				LServer),
-    xmpp_stream_in:change_shaper(State, Shaper).
+    xmpp_stream_in:change_shaper(State, ejabberd_shaper:new(Shaper)).
 
 -spec format_reason(state(), term()) -> binary().
 format_reason(#{stop_reason := Reason}, _) ->
@@ -934,7 +938,7 @@ format_reason(_, {shutdown, _}) ->
 format_reason(_, _) ->
     <<"internal server error">>.
 
--spec get_certfile(binary()) -> file:filename_all().
+-spec get_certfile(binary()) -> file:filename_all() | undefined.
 get_certfile(LServer) ->
     case ejabberd_pkix:get_certfile(LServer) of
 	{ok, CertFile} ->
@@ -948,15 +952,7 @@ get_certfile(LServer) ->
 transform_listen_option(Opt, Opts) ->
     [Opt|Opts].
 
--type resource_conflict() :: setresource | closeold | closenew | acceptnew.
--spec opt_type(c2s_ciphers) -> fun((binary()) -> binary());
-	      (c2s_dhfile) -> fun((binary()) -> binary());
-	      (c2s_cafile) -> fun((binary()) -> binary());
-	      (c2s_protocol_options) -> fun(([binary()]) -> binary());
-	      (c2s_tls_compression) -> fun((boolean()) -> boolean());
-	      (resource_conflict) -> fun((resource_conflict()) -> resource_conflict());
-	      (disable_sasl_mechanisms) -> fun((binary() | [binary()]) -> [binary()]);
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(c2s_ciphers) -> fun iolist_to_binary/1;
 opt_type(c2s_dhfile) -> fun misc:try_read_file/1;
 opt_type(c2s_cafile) -> fun misc:try_read_file/1;
@@ -982,73 +978,54 @@ opt_type(_) ->
      c2s_protocol_options, c2s_tls_compression, resource_conflict,
      disable_sasl_mechanisms].
 
--spec listen_opt_type(access) -> fun((any()) -> any());
-		     (shaper) -> fun((any()) -> any());
-		     (certfile) -> fun((binary()) -> binary());
-		     (ciphers) -> fun((binary()) -> binary());
-		     (dhfile) -> fun((binary()) -> binary());
-		     (cafile) -> fun((binary()) -> binary());
-		     (protocol_options) -> fun(([binary()]) -> binary());
-		     (tls_compression) -> fun((boolean()) -> boolean());
-		     (tls) -> fun((boolean()) -> boolean());
-		     (starttls) -> fun((boolean()) -> boolean());
-		     (tls_verify) -> fun((boolean()) -> boolean());
-		     (zlib) -> fun((boolean()) -> boolean());
-		     (supervisor) -> fun((boolean()) -> boolean());
-		     (max_stanza_size) -> fun((timeout()) -> timeout());
-		     (max_fsm_queue) -> fun((timeout()) -> timeout());
-		     (stream_management) -> fun((boolean()) -> boolean());
-		     (inet) -> fun((boolean()) -> boolean());
-		     (inet6) -> fun((boolean()) -> boolean());
-		     (backlog) -> fun((timeout()) -> timeout());
-		     (atom()) -> [atom()].
-listen_opt_type(access) -> fun acl:access_rules_validator/1;
-listen_opt_type(shaper) -> fun acl:shaper_rules_validator/1;
 listen_opt_type(certfile = Opt) ->
     fun(S) ->
 	    ?WARNING_MSG("Listening option '~s' for ~s is deprecated, use "
 			 "'certfiles' global option instead", [Opt, ?MODULE]),
-	    ejabberd_pkix:add_certfile(S),
+	    ok = ejabberd_pkix:add_certfile(S),
 	    iolist_to_binary(S)
     end;
-listen_opt_type(ciphers) -> opt_type(c2s_ciphers);
-listen_opt_type(dhfile) -> opt_type(c2s_dhfile);
-listen_opt_type(cafile) -> opt_type(c2s_cafile);
-listen_opt_type(protocol_options) -> opt_type(c2s_protocol_options);
-listen_opt_type(tls_compression) -> opt_type(c2s_tls_compression);
-listen_opt_type(tls) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(starttls) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(starttls_required) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(tls_verify) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(zlib) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(supervisor) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(max_stanza_size) ->
-    fun(I) when is_integer(I), I>0 -> I;
-       (unlimited) -> infinity;
-       (infinity) -> infinity
+listen_opt_type(zlib) ->
+    fun(true) ->
+	    ejabberd:start_app(ezlib),
+	    true;
+       (false) ->
+	    false
     end;
-listen_opt_type(max_fsm_queue) ->
-    fun(I) when is_integer(I), I>0 -> I end;
 listen_opt_type(stream_management) ->
-    ?ERROR_MSG("listening option 'stream_management' is ignored: "
-	       "use mod_stream_mgmt module", []),
-    fun(B) when is_boolean(B) -> B end;
-listen_opt_type(inet) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(inet6) -> fun(B) when is_boolean(B) -> B end;
-listen_opt_type(backlog) ->
-    fun(I) when is_integer(I), I>0 -> I end;
-listen_opt_type(accept_interval) ->
-    fun(I) when is_integer(I), I>=0 -> I end;
+    fun(B) when is_boolean(B) ->
+	    ?ERROR_MSG("Listening option 'stream_management' is ignored: "
+		       "use mod_stream_mgmt module", []),
+	    B
+    end;
 listen_opt_type(O) ->
-    StreamOpts = mod_stream_mgmt:mod_options(ejabberd_config:get_myname()),
-    case lists:keyfind(O, 1, StreamOpts) of
-	false ->
-	    [access, shaper, certfile, ciphers, dhfile, cafile,
-	     protocol_options, tls, tls_compression, starttls,
-	     starttls_required, tls_verify, zlib, max_fsm_queue,
-	     backlog, inet, inet6, accept_interval];
-	_ ->
-	    ?ERROR_MSG("Listening option '~s' is ignored: use '~s' "
-		       "option from mod_stream_mgmt module", [O, O]),
-	    mod_stream_mgmt:mod_opt_type(O)
+    MgmtOpts = mod_stream_mgmt:mod_options(ejabberd_config:get_myname()),
+    case lists:keymember(O, 1, MgmtOpts) of
+	true ->
+	    fun(V) ->
+		    ?ERROR_MSG("Listening option '~s' is ignored: use '~s' "
+			       "option from mod_stream_mgmt module", [O, O]),
+		    (mod_stream_mgmt:mod_opt_type(O))(V)
+	    end
     end.
+
+listen_options() ->
+    [{access, all},
+     {shaper, none},
+     {certfile, undefined},
+     {ciphers, undefined},
+     {dhfile, undefined},
+     {cafile, undefined},
+     {protocol_options, undefined},
+     {tls, false},
+     {tls_compression, false},
+     {starttls, false},
+     {starttls_required, false},
+     {tls_verify, false},
+     {zlib, false},
+     {max_stanza_size, infinity},
+     {max_fsm_queue, 5000}|
+     mod_stream_mgmt:mod_options(ejabberd_config:get_myname())].

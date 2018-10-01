@@ -24,25 +24,28 @@
 %%%-------------------------------------------------------------------
 
 -module(ejabberd_sip).
+-behaviour(ejabberd_listener).
 
 -ifndef(SIP).
 -include("logger.hrl").
--export([socket_type/0, start/2, listen_opt_type/1]).
-log_error() ->
-    ?CRITICAL_MSG("ejabberd is not compiled with SIP support", []).
-socket_type() ->
-    log_error(),
-    raw.
-listen_opt_type(_) ->
-    log_error(),
-    [].
+-export([accept/1, start/2, start_link/2, listen_options/0]).
+fail() ->
+    ?CRITICAL_MSG("Listening module ~s is not available: "
+		  "ejabberd is not compiled with SIP support",
+		  [?MODULE]),
+    erlang:error(sip_not_compiled).
+accept(_) ->
+    fail().
+listen_options() ->
+    fail().
 start(_, _) ->
-    log_error(),
-    {error, sip_not_compiled}.
+    fail().
+start_link(_, _) ->
+    fail().
 -else.
 %% API
 -export([tcp_init/2, udp_init/2, udp_recv/5, start/2,
-	 socket_type/0, listen_opt_type/1]).
+	 start_link/2, accept/1, listen_options/0]).
 
 
 %%%===================================================================
@@ -62,8 +65,11 @@ udp_recv(Sock, Addr, Port, Data, Opts) ->
 start(Opaque, Opts) ->
     esip_socket:start(Opaque, Opts).
 
-socket_type() ->
-    raw.
+start_link({gen_tcp, Sock}, Opts) ->
+    esip_socket:start_link(Sock, Opts).
+
+accept(_) ->
+    ok.
 
 set_certfile(Opts) ->
     case lists:keymember(certfile, 1, Opts) of
@@ -83,19 +89,9 @@ set_certfile(Opts) ->
 	    end
     end.
 
-listen_opt_type(certfile) ->
-    fun(S) ->
-	    %% We cannot deprecate the option for now:
-	    %% I think SIP clients are too stupid to set SNI
-	    ejabberd_pkix:add_certfile(S),
-	    iolist_to_binary(S)
-    end;
-listen_opt_type(tls) ->
-    fun(B) when is_boolean(B) -> B end;
-listen_opt_type(accept_interval) ->
-    fun(I) when is_integer(I), I>=0 -> I end;
-listen_opt_type(_) ->
-    [tls, certfile, accept_interval].
+listen_options() ->
+    [{tls, false},
+     {certfile, undefined}].
 
 %%%===================================================================
 %%% Internal functions

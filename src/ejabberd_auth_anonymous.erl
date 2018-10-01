@@ -31,6 +31,7 @@
 
 -export([start/1,
 	 stop/1,
+         use_cache/1,
 	 allow_anonymous/1,
 	 is_sasl_anonymous_enabled/1,
 	 is_login_anonymous_enabled/1,
@@ -59,6 +60,9 @@ stop(Host) ->
 			  ?MODULE, register_connection, 100),
     ejabberd_hooks:delete(sm_remove_connection_hook, Host,
 			  ?MODULE, unregister_connection, 100).
+
+use_cache(_) ->
+    false.
 
 %% Return true if anonymous is allowed for host or false otherwise
 allow_anonymous(Host) ->
@@ -173,10 +177,7 @@ plain_password_required(_) ->
 store_type(_) ->
     external.
 
--spec opt_type(allow_multiple_connection) -> fun((boolean()) -> boolean());
-	      (anonymous_protocol) -> fun((sasl_anon | login_anon | both) ->
-						 sasl_anon | login_anon | both);
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(allow_multiple_connections) ->
     fun (V) when is_boolean(V) -> V end;
 opt_type(anonymous_protocol) ->

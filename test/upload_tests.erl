@@ -78,7 +78,7 @@ put_get_request(Config) ->
     lists:foreach(
       fun(NS) ->
 	      {GetURL, PutURL, _Filename, Size} = slot_request(Config, NS),
-	      Data = randoms:bytes(Size),
+	      Data = p1_rand:bytes(Size),
 	      put_request(Config, PutURL, Data),
 	      get_request(Config, GetURL, Data)
       end, namespaces()),
@@ -119,7 +119,7 @@ get_size(NS, _Config, []) ->
 slot_request(Config, NS) ->
     To = upload_jid(Config),
     Filename = filename(),
-    Size = randoms:uniform(1, 1024),
+    Size = p1_rand:uniform(1, 1024),
     case NS of
 	?NS_HTTP_UPLOAD_0 ->
 	    #iq{type = result,
@@ -149,13 +149,13 @@ slot_request(Config, NS) ->
 	    {GetURL, PutURL, Filename, Size}
     end.
 
-put_request(Config, URL0, Data) ->
+put_request(_Config, URL0, Data) ->
     ct:comment("Putting ~B bytes to ~s", [size(Data), URL0]),
     URL = binary_to_list(URL0),
     {ok, {{"HTTP/1.1", 201, _}, _, _}} =
 	httpc:request(put, {URL, [], ?CONTENT_TYPE, Data}, [], []).
 
-get_request(Config, URL0, Data) ->
+get_request(_Config, URL0, Data) ->
     ct:comment("Getting ~B bytes from ~s", [size(Data), URL0]),
     URL = binary_to_list(URL0),
     {ok, {{"HTTP/1.1", 200, _}, _, Body}} =
@@ -201,4 +201,4 @@ namespaces() ->
     [?NS_HTTP_UPLOAD_0, ?NS_HTTP_UPLOAD, ?NS_HTTP_UPLOAD_OLD].
 
 filename() ->
-    <<(randoms:get_string())/binary, ".png">>.
+    <<(p1_rand:get_string())/binary, ".png">>.

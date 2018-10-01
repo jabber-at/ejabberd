@@ -139,7 +139,7 @@ handle_cast(config_reloaded, #state{host_modules = HostModules} = State) ->
 		  NewModules = auth_modules(Host),
 		  start(Host, NewModules -- OldModules),
 		  stop(Host, OldModules -- NewModules),
-		  reload(Host, lists_intersection(OldModules, NewModules)),
+		  reload(Host, misc:intersection(OldModules, NewModules)),
 		  maps:put(Host, NewModules, Acc)
 	  end, HostModules, ejabberd_config:get_myhosts()),
     init_cache(NewHostModules),
@@ -245,7 +245,9 @@ check_password_with_authmodule(User, AuthzId, Server, Password, Digest, DigestGe
 			 (_, Acc) ->
 			      Acc
 		      end, false, auth_modules(LServer))
-	    end
+	    end;
+	_ ->
+	    false
     end.
 
 -spec set_password(binary(), binary(), password()) -> ok | {error, atom()}.
@@ -693,7 +695,7 @@ password_to_scram(Password) ->
 password_to_scram(#scram{} = Password, _IterationCount) ->
     Password;
 password_to_scram(Password, IterationCount) ->
-    Salt = randoms:bytes(?SALT_LENGTH),
+    Salt = p1_rand:bytes(?SALT_LENGTH),
     SaltedPassword = scram:salted_password(Password, Salt, IterationCount),
     StoredKey = scram:stored_key(scram:client_key(SaltedPassword)),
     ServerKey = scram:server_key(SaltedPassword),
@@ -834,12 +836,6 @@ validate_credentials(User, Server, Password) ->
 	    end
     end.
 
-lists_intersection(L1, L2) ->
-    lists:filter(
-      fun(E) ->
-              lists:member(E, L2)
-      end, L1).
-
 import_info() ->
     [{<<"users">>, 3}].
 
@@ -855,13 +851,7 @@ import(Server, {sql, _}, riak, <<"users">>, Fields) ->
 import(_LServer, {sql, _}, sql, <<"users">>, _) ->
     ok.
 
--spec opt_type(auth_method) -> fun((atom() | [atom()]) -> [atom()]);
-	      (auth_password_format) -> fun((plain | scram) -> plain | scram);
-	      (auth_use_cache) -> fun((boolean()) -> boolean());
-	      (auth_cache_missed) -> fun((boolean()) -> boolean());
-	      (auth_cache_life_time) -> fun((timeout()) -> timeout());
-	      (auth_cache_size) -> fun((timeout()) -> timeout());
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(auth_method) ->
     fun (V) when is_list(V) ->
 	    lists:map(fun(M) -> ejabberd_config:v_db(?MODULE, M) end, V);

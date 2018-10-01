@@ -344,9 +344,6 @@ try_register(User, Server, Password, SourceRaw, Lang) ->
 					{error, xmpp:err_not_allowed(Txt, Lang)};
 				    {error, not_allowed} ->
 					{error, xmpp:err_not_allowed()};
-				    {error, too_many_users} ->
-					Txt = <<"Too many users registered">>,
-					{error, xmpp:err_resource_constraint(Txt, Lang)};
 				    {error, _} ->
 					?ERROR_MSG("failed to register user "
 						   "~s@~s: ~p",
@@ -616,7 +613,9 @@ mod_opt_type({welcome_message, subject}) ->
 mod_opt_type({welcome_message, body}) ->
     fun iolist_to_binary/1;
 mod_opt_type(redirect_url) ->
-    fun iolist_to_binary/1.
+    fun(<<>>) -> <<>>;
+       (URL) -> misc:try_url(URL)
+    end.
 
 mod_options(_Host) ->
     [{access, all},
@@ -631,8 +630,7 @@ mod_options(_Host) ->
       [{subject, <<"">>},
        {body, <<"">>}]}].
 
--spec opt_type(registration_timeout) -> fun((timeout()) -> timeout());
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(registration_timeout) ->
     fun (TO) when is_integer(TO), TO > 0 -> TO;
 	(infinity) -> infinity;

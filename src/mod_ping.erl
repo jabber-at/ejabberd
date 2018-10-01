@@ -123,21 +123,22 @@ handle_cast({stop_ping, JID}, State) ->
     Timers = del_timer(JID, State#state.timers),
     {noreply, State#state{timers = Timers}};
 handle_cast({iq_reply, timeout, JID}, State) ->
-    Timers = del_timer(JID, State#state.timers),
     ejabberd_hooks:run(user_ping_timeout, State#state.host,
 		       [JID]),
-    case State#state.timeout_action of
-      kill ->
-	  #jid{user = User, server = Server,
-	       resource = Resource} =
-	      JID,
-	  case ejabberd_sm:get_session_pid(User, Server, Resource)
-	      of
-	    Pid when is_pid(Pid) -> ejabberd_c2s:close(Pid, ping_timeout);
-	    _ -> ok
-	  end;
-      _ -> ok
-    end,
+    Timers = case State#state.timeout_action of
+		 kill ->
+		     #jid{user = User, server = Server,
+			  resource = Resource} =
+			 JID,
+		     case ejabberd_sm:get_session_pid(User, Server, Resource)
+		     of
+			 Pid when is_pid(Pid) -> ejabberd_c2s:close(Pid, ping_timeout);
+			 _ -> ok
+		     end,
+		     del_timer(JID, State#state.timers);
+		 _ ->
+		     State#state.timers
+	     end,
     {noreply, State#state{timers = Timers}};
 handle_cast({iq_reply, #iq{}, _JID}, State) ->
     {noreply, State};
@@ -228,7 +229,7 @@ add_timer(JID, Interval, Timers) ->
     LJID = jid:tolower(JID),
     NewTimers = case maps:find(LJID, Timers) of
       {ok, OldTRef} ->
-		      cancel_timer(OldTRef),
+		      misc:cancel_timer(OldTRef),
           maps:remove(LJID, Timers);
       _ -> Timers
 		end,
@@ -241,17 +242,9 @@ del_timer(JID, Timers) ->
     LJID = jid:tolower(JID),
     case maps:find(LJID, Timers) of
       {ok, TRef} ->
-	  cancel_timer(TRef),
+	  misc:cancel_timer(TRef),
     maps:remove(LJID, Timers);
       _ -> Timers
-    end.
-
--spec cancel_timer(reference()) -> ok.
-cancel_timer(TRef) ->
-    case erlang:cancel_timer(TRef) of
-      false ->
-	  receive {timeout, TRef, _} -> ok after 0 -> ok end;
-      _ -> ok
     end.
 
 depends(_Host, _Opts) ->

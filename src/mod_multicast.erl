@@ -51,7 +51,7 @@
 		     ts :: integer()}).
 
 -record(dest, {jid_string :: binary() | none,
-	       jid_jid :: xmpp:jid(),
+	       jid_jid :: jid(),
 	       type :: to | cc | bcc,
 	       address :: address()}).
 
@@ -536,7 +536,7 @@ decide_action_groups(Groups) ->
 %%% Route packet
 %%%-------------------------
 
--spec route_packet(jid(), #dest{}, xmpp:stanza(), [addresses()], [addresses()]) -> 'ok'.
+-spec route_packet(jid(), #dest{}, stanza(), [addresses()], [addresses()]) -> 'ok'.
 route_packet(From, ToDest, Packet, Others, Addresses) ->
     Dests = case ToDest#dest.type of
 	      bcc -> [];
@@ -545,7 +545,7 @@ route_packet(From, ToDest, Packet, Others, Addresses) ->
     route_packet2(From, ToDest#dest.jid_string, Dests,
 		  Packet, {Others, Addresses}).
 
--spec route_packet_multicast(jid(), binary(), xmpp:stanza(), [#dest{}], [address()], #limits{}) -> 'ok'.
+-spec route_packet_multicast(jid(), binary(), stanza(), [#dest{}], [address()], #limits{}) -> 'ok'.
 route_packet_multicast(From, ToS, Packet, Dests,
 		       Addresses, Limits) ->
     Type_of_stanza = type_of_stanza(Packet),
@@ -557,7 +557,7 @@ route_packet_multicast(From, ToS, Packet, Dests,
 		      Addresses)
 	end, Fragmented_dests).
 
--spec route_packet2(jid(), binary(), [#dest{}], xmpp:stanza(), {[address()], [address()]} | [address()]) -> 'ok'.
+-spec route_packet2(jid(), binary(), [#dest{}], stanza(), {[address()], [address()]} | [address()]) -> 'ok'.
 route_packet2(From, ToS, Dests, Packet, Addresses) ->
     Els = case append_dests(Dests, Addresses) of
 	      [] ->
@@ -715,7 +715,7 @@ process_discoinfo_result2(From, FromS, LServiceS,
 	false ->
 	    case ST of
 		{wait_for_info, _ID} ->
-		    Random = randoms:get_string(),
+		    Random = p1_rand:get_string(),
 		    ID = <<RServer/binary, $/, Random/binary>>,
 		    send_query_items(FromS, LServiceS, ID),
 		    add_response(RServer, Response, {wait_for_items, ID});
@@ -784,7 +784,7 @@ process_discoitems_result(From, LServiceS, ID, #disco_items{items = Items}) ->
                         [] ->
                             add_response(RServer, not_supported, cached);
                         _ ->
-                            Random = randoms:get_string(),
+                            Random = p1_rand:get_string(),
                             ID2 = <<RServer/binary, $/, Random/binary>>,
                             [send_query_info(Item, LServiceS, ID2) || Item <- List],
                             add_response(RServer, Response,
@@ -859,7 +859,7 @@ search_server_on_cache(RServer, _LServerS, LServiceS, Maxmins) ->
     end.
 
 query_info(RServer, LServiceS, Response) ->
-    Random = randoms:get_string(),
+    Random = p1_rand:get_string(),
     ID = <<RServer/binary, $/, Random/binary>>,
     send_query_info(RServer, LServiceS, ID),
     add_response(RServer, Response, {wait_for_info, ID}).
@@ -1083,9 +1083,8 @@ depends(_Host, _Opts) ->
 
 mod_opt_type(access) ->
     fun acl:access_rules_validator/1;
-mod_opt_type(host) -> fun iolist_to_binary/1;
-mod_opt_type(hosts) ->
-    fun(L) -> lists:map(fun iolist_to_binary/1, L) end;
+mod_opt_type(host) -> fun ejabberd_config:v_host/1;
+mod_opt_type(hosts) -> fun ejabberd_config:v_hosts/1;
 mod_opt_type(name) -> fun iolist_to_binary/1;
 mod_opt_type({limits, Type}) when (Type == local) or (Type == remote) ->
     fun(L) ->

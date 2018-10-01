@@ -77,6 +77,17 @@
 %%% API
 %%%===================================================================
 start(Host, Opts) ->
+    case gen_mod:get_opt(db_type, Opts) of
+	mnesia ->
+	    ?WARNING_MSG("Mnesia backend for ~s is not recommended: "
+			 "it's limited to 2GB and often gets corrupted "
+			 "when reaching this limit. SQL backend is "
+			 "recommended. Namely, for small servers SQLite "
+			 "is a preferred choice because it's very easy "
+			 "to configure.", [?MODULE]);
+	_ ->
+	    ok
+    end,
     Mod = gen_mod:db_mod(Host, Opts, ?MODULE),
     Mod:init(Host, Opts),
     init_cache(Mod, Host, Opts),
@@ -358,7 +369,9 @@ user_send_packet(Acc) ->
       -> {stanza(), c2s_state()}.
 user_send_packet_strip_tag({#message{} = Pkt, #{jid := JID} = C2SState}) ->
     LServer = JID#jid.lserver,
-    {strip_my_stanza_id(Pkt, LServer), C2SState};
+    Pkt1 = xmpp:del_meta(Pkt, stanza_id),
+    Pkt2 = strip_my_stanza_id(Pkt1, LServer),
+    {Pkt2, C2SState};
 user_send_packet_strip_tag(Acc) ->
     Acc.
 
@@ -405,6 +418,8 @@ get_stanza_id(#message{meta = #{stanza_id := ID}}) ->
 
 -spec init_stanza_id(stanza(), binary()) -> stanza().
 init_stanza_id(#message{meta = #{stanza_id := _ID}} = Pkt, _LServer) ->
+    Pkt;
+init_stanza_id(#message{meta = #{from_offline := true}} = Pkt, _LServer) ->
     Pkt;
 init_stanza_id(Pkt, LServer) ->
     ID = p1_time_compat:system_time(micro_seconds),

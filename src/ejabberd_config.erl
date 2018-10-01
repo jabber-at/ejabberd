@@ -34,7 +34,7 @@
 	 prepare_opt_val/4, transform_options/1, collect_options/1,
 	 convert_to_yaml/1, convert_to_yaml/2, v_db/2,
 	 env_binary_to_list/2, opt_type/1, may_hide_data/1,
-	 is_elixir_enabled/0, v_dbs/1, v_dbs_mods/1,
+	 is_elixir_enabled/0, v_dbs/1, v_dbs_mods/1, v_host/1, v_hosts/1,
 	 default_db/1, default_db/2, default_ram_db/1, default_ram_db/2,
 	 default_queue_type/1, queue_dir/0, fsm_limit_opts/1,
 	 use_cache/1, cache_size/1, cache_missed/1, cache_life_time/1,
@@ -57,9 +57,10 @@
 -include("logger.hrl").
 -include("ejabberd_config.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/inet.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
--callback opt_type(atom()) -> function() | [atom()].
+-callback opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 -type bad_option() :: invalid_option | unknown_option.
 
 -spec start() -> ok | {error, bad_option()}.
@@ -75,7 +76,7 @@ start() ->
 	    UnixTime = p1_time_compat:system_time(seconds),
 	    SharedKey = case erlang:get_cookie() of
 			    nocookie ->
-				str:sha(randoms:get_string());
+				str:sha(p1_rand:get_string());
 			    Cookie ->
 				str:sha(misc:atom_to_binary(Cookie))
 			end,
@@ -115,7 +116,7 @@ start(Hosts, Opts) ->
     UnixTime = p1_time_compat:system_time(seconds),
     SharedKey = case erlang:get_cookie() of
 		    nocookie ->
-			str:sha(randoms:get_string());
+			str:sha(p1_rand:get_string());
 		    Cookie ->
 			str:sha(misc:atom_to_binary(Cookie))
 		end,
@@ -782,7 +783,23 @@ set_opts(State) ->
 	fun(#local_config{key = Key, value = Val}) ->
 		{Key, Val}
 	end, Opts)),
+    set_fqdn(),
     set_log_level().
+
+set_fqdn() ->
+    FQDNs = case get_option(fqdn, []) of
+		[] ->
+		    {ok, Hostname} = inet:gethostname(),
+		    case inet:gethostbyname(Hostname) of
+			{ok, #hostent{h_name = FQDN}} ->
+			    [iolist_to_binary(FQDN)];
+			{error, _} ->
+			    []
+		    end;
+		Domains ->
+		    Domains
+	      end,
+    xmpp:set_config([{fqdn, FQDNs}]).
 
 set_log_level() ->
     Level = get_option(loglevel, 4),
@@ -954,6 +971,33 @@ v_dbs_mods(Mod) ->
 				       (atom_to_binary(M, utf8))/binary>>, utf8)
 	      end, v_dbs(Mod)).
 
+-spec v_host(binary()) -> binary().
+v_host(Host) ->
+    hd(v_hosts([Host])).
+
+-spec v_hosts([binary()]) -> [binary()].
+v_hosts(Hosts) ->
+    ServerHosts = get_myhosts(),
+    lists:foldr(
+      fun(Host, Acc) ->
+	      case lists:member(Host, ServerHosts) of
+		  true ->
+		      ?ERROR_MSG("Failed to reuse route ~s because it's "
+				 "already registered on a virtual host",
+				 [Host]),
+		      erlang:error(badarg);
+		  false ->
+		      case lists:member(Host, Acc) of
+			  true ->
+			      ?ERROR_MSG("Host ~s is defined multiple times",
+					 [Host]),
+			      erlang:error(badarg);
+			  false ->
+			      [Host|Acc]
+		      end
+	      end
+      end, [], Hosts).
+
 -spec default_db(module()) -> atom().
 default_db(Module) ->
     default_db(global, Module).
@@ -1034,14 +1078,15 @@ validate_opts(#state{opts = Opts} = State, ModOpts) ->
 					NewVal ->
 					    In#local_config{value = NewVal}
 				    catch {invalid_syntax, Error} ->
-					    ?ERROR_MSG("Invalid value '~p' for "
-						       "option '~s': ~s",
-						       [Val, Opt, Error]),
+					    ?ERROR_MSG("Invalid value for "
+						       "option '~s' (~s): ~s",
+						       [Opt, Error,
+							misc:format_val({yaml, Val})]),
 					    erlang:error(invalid_option);
-					  _:_ ->
-					    ?ERROR_MSG("Invalid value '~p' for "
-						       "option '~s'",
-						       [Val, Opt]),
+					  _:R when R /= undef ->
+					    ?ERROR_MSG("Invalid value for "
+						       "option '~s': ~s",
+						       [Opt, misc:format_val({yaml, Val})]),
 					    erlang:error(invalid_option)
 				    end;
 				_ ->
@@ -1085,7 +1130,7 @@ get_version() ->
 -spec get_myhosts() -> [binary()].
 
 get_myhosts() ->
-    get_option(hosts).
+    get_option(hosts, [<<"localhost">>]).
 
 -spec get_myname() -> binary().
 
@@ -1245,7 +1290,7 @@ transform_terms(Terms) ->
             ejabberd_s2s,
             ejabberd_listener,
             ejabberd_sql_sup,
-            shaper,
+            ejabberd_shaper,
             ejabberd_s2s_out,
             acl,
             ejabberd_config],
@@ -1394,22 +1439,7 @@ emit_deprecation_warning(Module, NewModule) ->
 now_to_seconds({MegaSecs, Secs, _MicroSecs}) ->
     MegaSecs * 1000000 + Secs.
 
--spec opt_type(hide_sensitive_log_data) -> fun((boolean()) -> boolean());
-	      (hosts) -> fun(([binary()]) -> [binary()]);
-	      (language) -> fun((binary()) -> binary());
-	      (max_fsm_queue) -> fun((pos_integer()) -> pos_integer());
-	      (default_db) -> fun((atom()) -> atom());
-	      (default_ram_db) -> fun((atom()) -> atom());
-	      (loglevel) -> fun((0..5) -> 0..5);
-	      (queue_dir) -> fun((binary()) -> binary());
-	      (queue_type) -> fun((ram | file) -> ram | file);
-	      (use_cache) -> fun((boolean()) -> boolean());
-	      (cache_size) -> fun((timeout()) -> timeout());
-	      (cache_missed) -> fun((boolean()) -> boolean());
-	      (cache_life_time) -> fun((timeout()) -> timeout());
-	      (shared_key) -> fun((binary()) -> binary());
-	      (node_start) -> fun((non_neg_integer()) -> non_neg_integer());
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(hide_sensitive_log_data) ->
     fun (H) when is_boolean(H) -> H end;
 opt_type(hosts) ->
@@ -1452,10 +1482,16 @@ opt_type(node_start) ->
     fun(I) when is_integer(I), I>=0 -> I end;
 opt_type(validate_stream) ->
     fun(B) when is_boolean(B) -> B end;
+opt_type(fqdn) ->
+    fun(Domain) when is_binary(Domain) ->
+	    [Domain];
+       (Domains) ->
+	    [iolist_to_binary(Domain) || Domain <- Domains]
+    end;
 opt_type(_) ->
     [hide_sensitive_log_data, hosts, language, max_fsm_queue,
      default_db, default_ram_db, queue_type, queue_dir, loglevel,
-     use_cache, cache_size, cache_missed, cache_life_time,
+     use_cache, cache_size, cache_missed, cache_life_time, fqdn,
      shared_key, node_start, validate_stream, negotiation_timeout].
 
 -spec may_hide_data(any()) -> any().

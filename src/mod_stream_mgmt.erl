@@ -337,7 +337,7 @@ queue_find(Pred, Queue) ->
 %%% Internal functions
 %%%===================================================================
 -spec negotiate_stream_mgmt(xmpp_element(), state()) -> state().
-negotiate_stream_mgmt(Pkt, State) ->
+negotiate_stream_mgmt(Pkt, #{lang := Lang} = State) ->
     Xmlns = xmpp:get_ns(Pkt),
     case Pkt of
 	#sm_enable{} ->
@@ -345,10 +345,10 @@ negotiate_stream_mgmt(Pkt, State) ->
 	_ when is_record(Pkt, sm_a);
 	       is_record(Pkt, sm_r);
 	       is_record(Pkt, sm_resume) ->
-	    Err = #sm_failed{reason = 'unexpected-request', xmlns = Xmlns},
-	    send(State, Err);
-	_ ->
-	    Err = #sm_failed{reason = 'bad-request', xmlns = Xmlns},
+	    Txt = <<"Stream management is not enabled">>,
+	    Err = #sm_failed{reason = 'unexpected-request',
+			     text = xmpp:mk_text(Txt, Lang),
+			     xmlns = Xmlns},
 	    send(State, Err)
     end.
 
@@ -363,10 +363,9 @@ perform_stream_mgmt(Pkt, #{mgmt_xmlns := Xmlns, lang := Lang} = State) ->
 		    handle_a(State, Pkt);
 		_ when is_record(Pkt, sm_enable);
 		       is_record(Pkt, sm_resume) ->
+		    Txt = <<"Stream management is already enabled">>,
 		    send(State, #sm_failed{reason = 'unexpected-request',
-					   xmlns = Xmlns});
-		_ ->
-		    send(State, #sm_failed{reason = 'bad-request',
+					   text = xmpp:mk_text(Txt, Lang),
 					   xmlns = Xmlns})
 	    end;
 	_ ->
@@ -447,8 +446,8 @@ handle_resume(#{user := User, lserver := LServer,
 		      [xmpp_socket:pp(Socket), jid:encode(JID)]),
 	    {ok, State5};
 	{error, El, Msg} ->
-	    ?INFO_MSG("Cannot resume session for ~s@~s: ~s",
-		      [User, LServer, Msg]),
+	    ?WARNING_MSG("Cannot resume session for ~s@~s: ~s",
+			 [User, LServer, Msg]),
 	    {error, send(State, El)}
     end.
 
@@ -682,6 +681,8 @@ inherit_session_state(#{user := U, server := S,
 			    {error, <<"Previous session PID is dead">>};
 			  exit:{normal, _} ->
 			    {error, <<"Previous session PID has exited">>};
+			  exit:{killed, _} ->
+			    {error, <<"Previous session PID has been killed">>};
 			  exit:{timeout, _} ->
 			    ejabberd_sm:close_session(OldSID, U, S, R),
 			    ejabberd_c2s:stop(OldPID),
@@ -716,7 +717,7 @@ send(#{mod := Mod} = State, Pkt) ->
 
 -spec restart_pending_timer(state(), non_neg_integer()) -> state().
 restart_pending_timer(#{mgmt_pending_timer := TRef} = State, NewTimeout) ->
-    cancel_timer(TRef),
+    misc:cancel_timer(TRef),
     NewTRef = erlang:start_timer(timer:seconds(NewTimeout), self(),
 				 pending_timeout),
     State#{mgmt_pending_timer => NewTRef};
@@ -725,21 +726,10 @@ restart_pending_timer(State, _NewTimeout) ->
 
 -spec cancel_ack_timer(state()) -> state().
 cancel_ack_timer(#{mgmt_ack_timer := TRef} = State) ->
-    cancel_timer(TRef),
+    misc:cancel_timer(TRef),
     maps:remove(mgmt_ack_timer, State);
 cancel_ack_timer(State) ->
     State.
-
--spec cancel_timer(reference()) -> ok.
-cancel_timer(TRef) ->
-    case erlang:cancel_timer(TRef) of
-	false ->
-	    receive {timeout, TRef, _} -> ok
-	    after 0 -> ok
-	    end;
-	_ ->
-	    ok
-    end.
 
 -spec bounce_message_queue() -> ok.
 bounce_message_queue() ->

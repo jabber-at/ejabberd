@@ -143,10 +143,14 @@ do_start(Level) ->
     LogRotateSize = get_integer_env(log_rotate_size, 10*1024*1024),
     LogRotateCount = get_integer_env(log_rotate_count, 1),
     LogRateLimit = get_integer_env(log_rate_limit, 100),
+    ConsoleLevel = case get_lager_version() >= "3.6.0" of
+		       true -> [{level, Level}];
+		       false -> Level
+		   end,
     application:set_env(lager, error_logger_hwm, LogRateLimit),
     application:set_env(
       lager, handlers,
-      [{lager_console_backend, Level},
+      [{lager_console_backend, ConsoleLevel},
        {lager_file_backend, [{file, ConsoleLog}, {level, Level}, {date, LogRotateDate},
                              {count, LogRotateCount}, {size, LogRotateSize}]},
        {lager_file_backend, [{file, ErrorLog}, {level, error}, {date, LogRotateDate},
@@ -214,6 +218,10 @@ set(LogLevel) when is_integer(LogLevel) ->
                       ok
               end, gen_event:which_handlers(lager_event))
     end,
+    case LogLevel of
+	5 -> xmpp:set_config([{debug, true}]);
+	_ -> ok
+    end,
     {module, lager};
 set({_LogLevel, _}) ->
     error_logger:error_msg("custom loglevels are not supported for 'lager'"),
@@ -247,4 +255,11 @@ get_lager_handlers() ->
             [];
         Result ->
             Result
+    end.
+
+get_lager_version() ->
+    Apps = application:loaded_applications(),
+    case lists:keyfind(lager, 1, Apps) of
+	{_, _, Vsn} -> Vsn;
+	false -> "0.0.0"
     end.
