@@ -71,7 +71,7 @@ get_spec(Host) ->
 
 -spec config_reloaded() -> ok.
 config_reloaded() ->
-    lists:foreach(fun start_host/1, ejabberd_config:get_myhosts()).
+    lists:foreach(fun reload_host/1, ejabberd_config:get_myhosts()).
 
 -spec start_host(binary()) -> ok.
 start_host(Host) ->
@@ -96,6 +96,10 @@ stop_host(Host) ->
     supervisor:delete_child(?MODULE, SupName),
     ok.
 
+-spec reload_host(binary()) -> ok.
+reload_host(Host) ->
+    ejabberd_sql_sup:reload(Host).
+
 %% Returns {true, App} if we have configured sql for the given host
 needs_sql(Host) ->
     LHost = jid:nameprep(Host),
@@ -108,9 +112,7 @@ needs_sql(Host) ->
         undefined -> false
     end.
 
--type sql_type() :: mysql | pgsql | sqlite | mssql | odbc.
--spec opt_type(sql_type) -> fun((sql_type()) -> sql_type());
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(sql_type) ->
     fun (mysql) -> mysql;
 	(pgsql) -> pgsql;

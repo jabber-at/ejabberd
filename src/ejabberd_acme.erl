@@ -3,7 +3,8 @@
 -behaviour(ejabberd_config).
 
 %% ejabberdctl commands
--export([get_certificates/1,
+-export([get_commands_spec/0,
+	 get_certificates/1,
 	 renew_certificates/0,
 	 list_certificates/1,
 	 revoke_certificate/1]).
@@ -119,7 +120,7 @@ get_commands_spec() ->
 			args = [],
 			result = {certificates, string}},
      #ejabberd_commands{name = list_certificates, tags = [acme],
-			desc = "Lists all curently handled certificates and "
+			desc = "Lists all currently handled certificates and "
 			       "their respective domains in {plain|verbose} format",
 			module = ?MODULE, function = list_certificates,
 			args_desc = ["Whether to print the whole certificate "
@@ -150,7 +151,8 @@ get_certificates(Domains) ->
 		throw:Throw ->
 		    Throw;
 		E:R ->
-		    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+                    St = erlang:get_stacktrace(),
+		    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 		    {error, get_certificates}
 	    end;
 	false ->
@@ -242,7 +244,8 @@ get_certificate(CAUrl, DomainName, PrivateKey) ->
 	throw:Throw ->
 	    Throw;
 	E:R ->
-	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+            St = erlang:get_stacktrace(),
+	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 	    {error, DomainName, get_certificate}
     end.
 
@@ -381,7 +384,8 @@ renew_certificates() ->
 	throw:Throw ->
 	    Throw;
 	E:R ->
-	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+            St = erlang:get_stacktrace(),
+	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 	    {error, get_certificates}
     end.
 
@@ -446,7 +450,8 @@ list_certificates(Verbose) ->
 		throw:Throw ->
 		    Throw;
 		E:R ->
-		    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+                    St = erlang:get_stacktrace(),
+		    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 		    {error, list_certificates}
 	    end;
 	false ->
@@ -488,7 +493,8 @@ format_certificate(DataCert, Verbose) ->
 	end
     catch
 	E:R ->
-	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+            St = erlang:get_stacktrace(),
+	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 	    fail_format_certificate(DomainName)
     end.
 
@@ -613,7 +619,8 @@ revoke_certificates(DomainOrFile) ->
 	throw:Throw ->
 	    Throw;
 	E:R ->
-	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+            St = erlang:get_stacktrace(),
+	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 	    {error, revoke_certificate}
     end.	
 
@@ -1117,7 +1124,8 @@ save_certificate({ok, DomainName, Cert}) ->
 	throw:Throw ->
 	    Throw;
 	E:R ->
-	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, erlang:get_stacktrace()]), 
+            St = erlang:get_stacktrace(),
+	    ?ERROR_MSG("Unknown ~p:~p, ~p", [E, R, St]),
 	    {error, DomainName, saving}
     end.
 
@@ -1214,15 +1222,12 @@ generate_key() ->
 %% Option Parsing Code
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec opt_type(acme) -> fun((acme_config()) -> (acme_config()));
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(acme) ->
     fun(L) ->
 	    lists:map(
 	      fun({ca_url, URL}) ->
-		      URL1 = binary_to_list(URL),
-		      {ok, _} = http_uri:parse(URL1),
-		      {ca_url, URL1};
+		      {ca_url, misc:try_url(URL)};
 		 ({contact, Contact}) ->
 		      [<<_, _/binary>>, <<_, _/binary>>] =
 			  binary:split(Contact, <<":">>),

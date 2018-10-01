@@ -1138,8 +1138,14 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 	{set, #pubsub{subscribe = #ps_subscribe{node = Node, jid = JID},
 		      options = Options, _ = undefined}} ->
 	    Config = case Options of
-			 #ps_options{xdata = XData} ->
+			 #ps_options{xdata = XData, jid = undefined, node = <<>>} ->
 			     decode_subscribe_options(XData, Lang);
+			 #ps_options{xdata = _XData, jid = #jid{}} ->
+			     Txt = <<"Attribute 'jid' is not allowed here">>,
+			     {error, xmpp:err_bad_request(Txt, Lang)};
+			 #ps_options{xdata = _XData} ->
+			     Txt = <<"Attribute 'node' is not allowed here">>,
+			     {error, xmpp:err_bad_request(Txt, Lang)};
 			 _ ->
 			     []
 		     end,
@@ -1165,6 +1171,10 @@ iq_pubsub(Host, Access, #iq{from = From, type = IQType, lang = Lang,
 	{get, #pubsub{affiliations = {Node, _}, _ = undefined}} ->
 	    Plugins = config(serverhost(Host), plugins),
 	    get_affiliations(Host, Node, From, Plugins);
+	{_, #pubsub{options = #ps_options{jid = undefined}, _ = undefined}} ->
+	    {error, extended_error(xmpp:err_bad_request(), err_jid_required())};
+	{_, #pubsub{options = #ps_options{node = <<>>}, _ = undefined}} ->
+	    {error, extended_error(xmpp:err_bad_request(), err_nodeid_required())};
 	{get, #pubsub{options = #ps_options{node = Node, subid = SubId, jid = JID},
 		      _ = undefined}} ->
 	    get_options(Host, Node, JID, SubId, Lang);
@@ -1468,7 +1478,7 @@ create_node(Host, ServerHost, Node, Owner, Type) ->
 create_node(Host, ServerHost, <<>>, Owner, Type, Access, Configuration) ->
     case lists:member(<<"instant-nodes">>, plugin_features(Host, Type)) of
 	true ->
-	    Node = randoms:get_string(),
+	    Node = p1_rand:get_string(),
 	    case create_node(Host, ServerHost, Node, Owner, Type, Access, Configuration) of
 		{result, _} ->
 		    {result, #pubsub{create = Node}};
@@ -3847,9 +3857,8 @@ purge_offline(Host, LJID, Node) ->
 mod_opt_type(access_createnode) -> fun acl:access_rules_validator/1;
 mod_opt_type(db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 mod_opt_type(name) -> fun iolist_to_binary/1;
-mod_opt_type(host) -> fun iolist_to_binary/1;
-mod_opt_type(hosts) ->
-    fun (L) -> lists:map(fun iolist_to_binary/1, L) end;
+mod_opt_type(host) -> fun ejabberd_config:v_host/1;
+mod_opt_type(hosts) -> fun ejabberd_config:v_hosts/1;
 mod_opt_type(ignore_pep_from_offline) ->
     fun (A) when is_boolean(A) -> A end;
 mod_opt_type(last_item_cache) ->

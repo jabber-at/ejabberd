@@ -33,10 +33,10 @@
 %% API
 -export([start_link/1, get_proc/1, get_connection/1, q/1, qp/1, format_error/1]).
 %% Commands
--export([multi/1, get/1, set/2, del/1,
+-export([multi/1, get/1, set/2, del/1, info/1,
 	 sadd/2, srem/2, smembers/1, sismember/2, scard/1,
 	 hget/2, hset/3, hdel/2, hlen/1, hgetall/1, hkeys/1,
-	 subscribe/1, publish/2]).
+	 subscribe/1, publish/2, script_load/1, evalsha/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -61,6 +61,9 @@
 -type redis_reply() :: binary() | [binary()].
 -type redis_command() :: [binary()].
 -type redis_pipeline() :: [redis_command()].
+-type redis_info() :: server | clients | memory | persistence |
+		      stats | replication | cpu | commandstats |
+		      cluster | keyspace | default | all.
 -type state() :: #state{}.
 
 -export_type([error_reason/0]).
@@ -316,6 +319,40 @@ publish(Channel, Data) ->
 	    tr_enq(Cmd, Stack)
     end.
 
+-spec script_load(iodata()) -> {ok, binary()} | redis_error().
+script_load(Data) ->
+    case erlang:get(?TR_STACK) of
+	undefined ->
+	    q([<<"SCRIPT">>, <<"LOAD">>, Data]);
+	_ ->
+	    erlang:error(transaction_unsupported)
+    end.
+
+-spec evalsha(binary(), [iodata()], [iodata()]) -> {ok, binary()} | redis_error().
+evalsha(SHA, Keys, Args) ->
+    case erlang:get(?TR_STACK) of
+	undefined ->
+	    q([<<"EVALSHA">>, SHA, length(Keys)|Keys ++ Args]);
+	_ ->
+	    erlang:error(transaction_unsupported)
+    end.
+
+-spec info(redis_info()) -> {ok, [{atom(), binary()}]} | redis_error().
+info(Type) ->
+    case erlang:get(?TR_STACK) of
+	undefined ->
+	    case q([<<"INFO">>, misc:atom_to_binary(Type)]) of
+		{ok, Info} ->
+		    Lines = binary:split(Info, <<"\r\n">>, [global]),
+		    KVs = [binary:split(Line, <<":">>) || Line <- Lines],
+		    {ok, [{misc:binary_to_atom(K), V} || [K, V] <- KVs]};
+		{error, _} = Err ->
+		    Err
+	    end;
+	_ ->
+	    erlang:error(transaction_unsupported)
+    end.
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -437,7 +474,7 @@ connect(#state{num = Num}) ->
 		erlang:error(Why)
 	end
     catch _:Reason ->
-	    Timeout = randoms:uniform(
+	    Timeout = p1_rand:uniform(
 			min(10, ejabberd_redis_sup:get_pool_size())),
 	    ?ERROR_MSG("Redis connection #~p at ~s:~p has failed: ~p; "
 		       "reconnecting in ~p seconds",
@@ -502,7 +539,7 @@ log_error(Cmd, Reason) ->
 
 -spec get_rnd_id() -> pos_integer().
 get_rnd_id() ->
-    randoms:round_robin(ejabberd_redis_sup:get_pool_size() - 1) + 2.
+    p1_rand:round_robin(ejabberd_redis_sup:get_pool_size() - 1) + 2.
 
 -spec get_result([{error, atom() | binary()} | {ok, iodata()}]) ->
 			{ok, [redis_reply()]} | {error, binary()}.

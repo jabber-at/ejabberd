@@ -361,7 +361,7 @@ build_summary_room(Name, Host, Pid) ->
     {<<Name/binary, "@", Host/binary>>,
 	 misc:atom_to_binary(Public),
      Participants
-    }.	  
+    }.
 
 muc_register_nick(Nick, FromBinary, ServerHost) ->
     Host = find_host(ServerHost),
@@ -424,9 +424,7 @@ web_page_main(_, #request{path=[<<"muc">>], lang = Lang} = _Request) ->
     Res = [?XCT(<<"h1">>, <<"Multi-User Chat">>),
 	   ?XCT(<<"h3">>, <<"Statistics">>),
 	   ?XAE(<<"table">>, [],
-		[?XE(<<"tbody">>, [?TDTD(<<"Total rooms">>, OnlineRoomsNumber),
-				   ?TDTD(<<"Permanent rooms">>, mnesia:table_info(muc_room, size)),
-				   ?TDTD(<<"Registered nicknames">>, mnesia:table_info(muc_registered, size))
+		[?XE(<<"tbody">>, [?TDTD(<<"Total rooms">>, OnlineRoomsNumber)
 				  ])
 		]),
 	   ?XE(<<"ul">>, [?LI([?ACT(<<"rooms">>, <<"List of rooms">>)])])
@@ -952,6 +950,13 @@ format_room_option(OptionString, ValueString) ->
 		subject_author ->ValueString;
 		presence_broadcast ->misc:expr_to_term(ValueString);
 		max_users -> binary_to_integer(ValueString);
+		voice_request_min_interval -> binary_to_integer(ValueString);
+		vcard -> ValueString;
+		vcard_xupdate when ValueString /= <<"undefined">>,
+				   ValueString /= <<"external">> ->
+		    ValueString;
+		lang -> ValueString;
+		pubsub -> ValueString;
 		_ -> misc:binary_to_atom(ValueString)
 	    end,
     {Option, Value}.

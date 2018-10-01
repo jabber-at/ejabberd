@@ -84,7 +84,7 @@
          max_rooms_discoitems = 100 :: non_neg_integer(),
 	 queue_type = ram :: ram | file,
          default_room_opts = [] :: list(),
-         room_shaper = none :: shaper:shaper()}).
+         room_shaper = none :: ejabberd_shaper:shaper()}).
 
 -type muc_room_opts() :: [{atom(), any()}].
 -callback init(binary(), gen_mod:opts()) -> any().
@@ -106,7 +106,7 @@
 -callback unregister_online_user(binary(), ljid(), binary(), binary()) -> any().
 -callback count_online_rooms_by_user(binary(), binary(), binary()) -> non_neg_integer().
 -callback get_online_rooms_by_user(binary(), binary(), binary()) -> [{binary(), binary()}].
--callback get_subscribed_rooms(binary(), binary(), jid()) -> [ljid()] | [].
+-callback get_subscribed_rooms(binary(), binary(), jid()) -> [{ljid(), [binary()]}] | [].
 
 %%====================================================================
 %% API
@@ -295,6 +295,15 @@ handle_cast({reload, ServerHost, NewOpts, OldOpts}, #state{hosts = OldHosts}) ->
 	      ejabberd_router:unregister_route(OldHost),
 	      unregister_iq_handlers(OldHost)
       end, OldHosts -- NewHosts),
+    lists:foreach(
+      fun(Host) ->
+	      lists:foreach(
+		fun({_, _, Pid}) when node(Pid) == node() ->
+			Pid ! config_reloaded;
+		   (_) ->
+			ok
+		end, get_online_rooms(ServerHost, Host))
+      end, misc:intersection(NewHosts, OldHosts)),
     {noreply, NewState};
 handle_cast(Msg, State) ->
     ?WARNING_MSG("unexpected cast: ~p", [Msg]),
@@ -568,7 +577,7 @@ process_muc_unique(#iq{type = set, lang = Lang} = IQ) ->
 process_muc_unique(#iq{from = From, type = get,
 		       sub_els = [#muc_unique{}]} = IQ) ->
     Name = str:sha(term_to_binary([From, p1_time_compat:timestamp(),
-				      randoms:get_string()])),
+				      p1_rand:get_string()])),
     xmpp:make_iq_result(IQ, #muc_unique{name = Name}).
 
 -spec process_mucsub(iq()) -> iq().
@@ -579,8 +588,8 @@ process_mucsub(#iq{type = get, from = From, to = To,
 		   sub_els = [#muc_subscriptions{}]} = IQ) ->
     Host = To#jid.lserver,
     ServerHost = ejabberd_router:host_of_route(Host),
-    RoomJIDs = get_subscribed_rooms(ServerHost, Host, From),
-    xmpp:make_iq_result(IQ, #muc_subscriptions{list = RoomJIDs});
+    Subs = get_subscribed_rooms(ServerHost, Host, From),
+    xmpp:make_iq_result(IQ, #muc_subscriptions{list = Subs});
 process_mucsub(#iq{lang = Lang} = IQ) ->
     Txt = <<"No module is handling this query">>,
     xmpp:make_error(IQ, xmpp:err_service_unavailable(Txt, Lang)).
@@ -710,14 +719,15 @@ get_subscribed_rooms(ServerHost, Host, From) ->
 	    lists:flatmap(
 	      fun({Name, _, Pid}) ->
 		      case p1_fsm:sync_send_all_state_event(Pid, {is_subscribed, BareFrom}) of
-			  true -> [jid:make(Name, Host)];
+			  {true, Nodes} ->
+				[#muc_subscription{jid = jid:make(Name, Host), events = Nodes}];
 			  false -> []
 		      end;
 		 (_) ->
 		      []
 	      end, Rooms);
 	V ->
-	    V
+	    [#muc_subscription{jid = Jid, events = Nodes} || {Jid, Nodes} <- V]
     end.
 
 get_nick(ServerHost, Host, From) ->
@@ -880,10 +890,9 @@ mod_opt_type(db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 mod_opt_type(ram_db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 mod_opt_type(history_size) ->
     fun (I) when is_integer(I), I >= 0 -> I end;
-mod_opt_type(host) -> fun iolist_to_binary/1;
+mod_opt_type(host) -> fun ejabberd_config:v_host/1;
 mod_opt_type(name) -> fun iolist_to_binary/1;
-mod_opt_type(hosts) ->
-    fun (L) -> lists:map(fun iolist_to_binary/1, L) end;
+mod_opt_type(hosts) -> fun ejabberd_config:v_hosts/1;
 mod_opt_type(max_room_desc) ->
     fun (infinity) -> infinity;
 	(I) when is_integer(I), I > 0 -> I
@@ -994,7 +1003,7 @@ mod_options(Host) ->
      {max_room_id, infinity},
      {max_room_name, infinity},
      {max_rooms_discoitems, 100},
-     {max_user_conferences, 10},
+     {max_user_conferences, 100},
      {max_users, 200},
      {max_users_admin_threshold, 5},
      {max_users_presence, 1000},
@@ -1014,7 +1023,7 @@ mod_options(Host) ->
        {allow_visitor_status,true},
        {anonymous,true},
        {captcha_protected,false},
-       {lang, ejabberd_config:get_mylang()},
+       {lang,<<>>},
        {logging,false},
        {members_by_default,true},
        {members_only,false},

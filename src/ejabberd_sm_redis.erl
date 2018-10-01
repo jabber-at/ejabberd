@@ -27,12 +27,11 @@
 -define(GEN_SERVER, p1_server).
 -endif.
 -behaviour(?GEN_SERVER).
-
 -behaviour(ejabberd_sm).
 
 -export([init/0, set_session/1, delete_session/1,
 	 get_sessions/0, get_sessions/1, get_sessions/2,
-	 cache_nodes/1]).
+	 cache_nodes/1, clean_table/1, clean_table/0]).
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2,
 	 terminate/2, code_change/3, start_link/0]).
@@ -41,6 +40,7 @@
 -include("logger.hrl").
 
 -define(SM_KEY, <<"ejabberd:sm">>).
+-define(MIN_REDIS_VERSION, <<"3.2.0">>).
 -record(state, {}).
 
 %%%===================================================================
@@ -70,10 +70,14 @@ set_session(Session) ->
     SIDKey = sid_to_key(Session#session.sid),
     ServKey = server_to_key(element(2, Session#session.us)),
     USSIDKey = us_sid_to_key(Session#session.us, Session#session.sid),
+    NodeHostKey = node_host_to_key(node(), element(2, Session#session.us)),
     case ejabberd_redis:multi(
 	   fun() ->
 		   ejabberd_redis:hset(USKey, SIDKey, T),
 		   ejabberd_redis:hset(ServKey, USSIDKey, T),
+		   ejabberd_redis:hset(NodeHostKey,
+				       <<USKey/binary, "||", SIDKey/binary>>,
+				       USSIDKey),
 		   ejabberd_redis:publish(
 		     ?SM_KEY, term_to_binary({delete, Session#session.us}))
 	   end) of
@@ -89,10 +93,13 @@ delete_session(#session{sid = SID} = Session) ->
     SIDKey = sid_to_key(SID),
     ServKey = server_to_key(element(2, Session#session.us)),
     USSIDKey = us_sid_to_key(Session#session.us, SID),
+    NodeHostKey = node_host_to_key(node(), element(2, Session#session.us)),
     case ejabberd_redis:multi(
 	   fun() ->
 		   ejabberd_redis:hdel(USKey, [SIDKey]),
 		   ejabberd_redis:hdel(ServKey, [USSIDKey]),
+		   ejabberd_redis:hdel(NodeHostKey,
+				       [<<USKey/binary, "||", SIDKey/binary>>]),
 		   ejabberd_redis:publish(
 		     ?SM_KEY,
 		     term_to_binary({delete, Session#session.us}))
@@ -136,8 +143,10 @@ get_sessions(LUser, LServer) ->
 %%%===================================================================
 init([]) ->
     ejabberd_redis:subscribe([?SM_KEY]),
-    clean_table(),
-    {ok, #state{}}.
+    case clean_table() of
+	ok -> {ok, #state{}};
+	{error, Why} -> {stop, Why}
+    end.
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -168,10 +177,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 us_to_key({LUser, LServer}) ->
-    <<"ejabberd:sm:", LUser/binary, "@", LServer/binary>>.
+    <<(?SM_KEY)/binary, ":", LUser/binary, "@", LServer/binary>>.
 
 server_to_key(LServer) ->
-    <<"ejabberd:sm:", LServer/binary>>.
+    <<(?SM_KEY)/binary, ":", LServer/binary>>.
 
 us_sid_to_key(US, SID) ->
     term_to_binary({US, SID}).
@@ -179,33 +188,75 @@ us_sid_to_key(US, SID) ->
 sid_to_key(SID) ->
     term_to_binary(SID).
 
+node_session_deletion_cursor(Node, Host) ->
+    NodeName = node_host_to_key(Node, Host),
+    <<NodeName/binary, ":deletioncursor">>.
+
+node_host_to_key(Node, Host) when is_atom(Node) ->
+    NodeBin = atom_to_binary(node(), utf8),
+    node_host_to_key(NodeBin, Host);
+node_host_to_key(NodeBin, Host) ->
+    HostKey = server_to_key(Host),
+    <<HostKey/binary, ":node:", NodeBin/binary>>.
+
 decode_session_list(Vals) ->
   [binary_to_term(Val) || {_, Val} <- Vals].
 
 clean_table() ->
-    ?DEBUG("Cleaning Redis SM table...", []),
+    clean_table(node()).
+
+clean_table(Node) when is_atom(Node) ->
+    clean_table(atom_to_binary(Node, utf8));
+clean_table(Node) ->
+    ?DEBUG("Cleaning Redis SM table... ", []),
     try
 	lists:foreach(
-	  fun(LServer) ->
-		  ServKey = server_to_key(LServer),
-		  {ok, Vals} = ejabberd_redis:hkeys(ServKey),
-		  {ok, _} =
-		      ejabberd_redis:multi(
-			fun() ->
-				lists:foreach(
-				  fun(USSIDKey) ->
-					  {US, SID} = binary_to_term(USSIDKey),
-					  if node(element(2, SID)) == node() ->
-						  USKey = us_to_key(US),
-						  SIDKey = sid_to_key(SID),
-						  ejabberd_redis:hdel(ServKey, [USSIDKey]),
-						  ejabberd_redis:hdel(USKey, [SIDKey]);
-					     true ->
-						  ok
-					  end
-				  end, Vals)
-			end)
+	  fun(Host) ->
+		  ok = clean_node_sessions(Node, Host)
 	  end, ejabberd_sm:get_vh_by_backend(?MODULE))
-    catch _:{badmatch, {error, _}} ->
-	    ?ERROR_MSG("failed to clean redis c2s sessions", [])
+    catch _:{badmatch, {error, _} = Err} ->
+	    ?ERROR_MSG("Failed to clean Redis SM table", []),
+	    Err
+    end.
+
+clean_node_sessions(Node, Host) ->
+    case load_script() of 
+        {ok, SHA} ->
+            clean_node_sessions(Node, Host, SHA);
+        Err ->
+            Err
+    end.
+
+clean_node_sessions(Node, Host, SHA) ->
+    Keys = [node_host_to_key(Node, Host),
+	    server_to_key(Host),
+	    node_session_deletion_cursor(Node, Host)],
+    case ejabberd_redis:evalsha(SHA, Keys, [1000]) of
+	{ok, <<"0">>} ->
+	    ok;
+	{ok, _Cursor} ->
+	    clean_node_sessions(Node, Host, SHA);
+	{error, _} = Err ->
+	    Err
+    end.
+
+load_script() ->
+    case misc:read_lua("redis_sm.lua") of
+	{ok, Data} ->
+	    case ejabberd_redis:info(server) of
+		{ok, Info} ->
+		    case proplists:get_value(redis_version, Info) of
+			V when V >= ?MIN_REDIS_VERSION ->
+			    ejabberd_redis:script_load(Data);
+			V ->
+			    ?CRITICAL_MSG("Unsupported Redis version: ~s. "
+					  "The version must be ~s or above",
+					  [V, ?MIN_REDIS_VERSION]),
+			    {error, unsupported_redis_version}
+		    end;
+		{error, _} = Err ->
+		    Err
+	    end;
+	{error, _} = Err ->
+	    Err
     end.

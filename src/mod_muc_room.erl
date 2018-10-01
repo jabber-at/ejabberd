@@ -122,7 +122,7 @@ start_link(Host, ServerHost, Access, Room, HistorySize, RoomShaper, Opts, QueueT
 init([Host, ServerHost, Access, Room, HistorySize,
       RoomShaper, Creator, _Nick, DefRoomOpts, QueueType]) ->
     process_flag(trap_exit, true),
-    Shaper = shaper:new(RoomShaper),
+    Shaper = ejabberd_shaper:new(RoomShaper),
     RoomQueue = room_queue_new(ServerHost, Shaper, QueueType),
     State = set_affiliation(Creator, owner,
 	    #state{host = Host, server_host = ServerHost,
@@ -141,7 +141,7 @@ init([Host, ServerHost, Access, Room, HistorySize,
     {ok, normal_state, State1};
 init([Host, ServerHost, Access, Room, HistorySize, RoomShaper, Opts, QueueType]) ->
     process_flag(trap_exit, true),
-    Shaper = shaper:new(RoomShaper),
+    Shaper = ejabberd_shaper:new(RoomShaper),
     RoomQueue = room_queue_new(ServerHost, Shaper, QueueType),
     State = set_opts(Opts, #state{host = Host,
 				  server_host = ServerHost,
@@ -169,7 +169,7 @@ normal_state({route, <<"">>,
 				       * 1000000),
 	    Size = element_size(Packet),
 	    {MessageShaper, MessageShaperInterval} =
-		shaper:update(Activity#activity.message_shaper, Size),
+		ejabberd_shaper:update(Activity#activity.message_shaper, Size),
 	    if Activity#activity.message /= undefined ->
 		    ErrText = <<"Traffic rate limit is exceeded">>,
 		    Err = xmpp:err_resource_constraint(ErrText, Lang),
@@ -178,7 +178,7 @@ normal_state({route, <<"">>,
 	       Now >= Activity#activity.message_time + MinMessageInterval,
 	       MessageShaperInterval == 0 ->
 		    {RoomShaper, RoomShaperInterval} =
-			shaper:update(StateData#state.room_shaper, Size),
+			ejabberd_shaper:update(StateData#state.room_shaper, Size),
 		    RoomQueueEmpty = case StateData#state.room_queue of
 					 undefined -> true;
 					 RQ -> p1_queue:is_empty(RQ)
@@ -546,7 +546,7 @@ handle_sync_event(get_subscribers, _From, StateName, StateData) ->
     {reply, {ok, JIDs}, StateName, StateData};
 handle_sync_event({muc_subscribe, From, Nick, Nodes}, _From,
 		  StateName, StateData) ->
-    IQ = #iq{type = set, id = randoms:get_string(),
+    IQ = #iq{type = set, id = p1_rand:get_string(),
 	     from = From, sub_els = [#muc_subscribe{nick = Nick,
 						    events = Nodes}]},
     Config = StateData#state.config,
@@ -572,7 +572,7 @@ handle_sync_event({muc_subscribe, From, Nick, Nodes}, _From,
 	    {reply, {error, get_error_text(Err)}, StateName, StateData}
     end;
 handle_sync_event({muc_unsubscribe, From}, _From, StateName, StateData) ->
-    IQ = #iq{type = set, id = randoms:get_string(),
+    IQ = #iq{type = set, id = p1_rand:get_string(),
 	     from = From, sub_els = [#muc_unsubscribe{}]},
     case process_iq_mucsub(From, IQ, StateData) of
 	{result, _, NewState} ->
@@ -583,7 +583,12 @@ handle_sync_event({muc_unsubscribe, From}, _From, StateName, StateData) ->
 	    {reply, {error, get_error_text(Err)}, StateName, StateData}
     end;
 handle_sync_event({is_subscribed, From}, _From, StateName, StateData) ->
-    IsSubs = ?DICT:is_key(jid:split(From), StateData#state.subscribers),
+    IsSubs = case (?DICT):find(jid:split(From), StateData#state.subscribers) of
+	{ok, #subscriber{nodes = Nodes}} ->
+	    {true, Nodes};
+	error ->
+	    false
+    end,
     {reply, IsSubs, StateName, StateData};
 handle_sync_event(_Event, _From, StateName,
 		  StateData) ->
@@ -678,6 +683,19 @@ handle_info({iq_reply, timeout, IQ}, StateName, StateData) ->
     Err = xmpp:err_recipient_unavailable(Txt, IQ#iq.lang),
     ejabberd_router:route_error(IQ, Err),
     {next_state, StateName, StateData};
+handle_info(config_reloaded, StateName, StateData) ->
+    Max = gen_mod:get_module_opt(StateData#state.server_host,
+				 mod_muc, history_size),
+    History1 = StateData#state.history,
+    Q1 = History1#lqueue.queue,
+    Q2 = case p1_queue:len(Q1) of
+	     Len when Len > Max ->
+		 lqueue_cut(Q1, Len-Max);
+	     _ ->
+		 Q1
+	 end,
+    History2 = History1#lqueue{queue = Q2, max = Max},
+    {next_state, StateName, StateData#state{history = History2}};
 handle_info(_Info, StateName, StateData) ->
     {next_state, StateName, StateData}.
 
@@ -766,7 +784,8 @@ process_groupchat_message(#message{from = From, lang = Lang} = Packet, StateData
 			 drop ->
 			     {next_state, normal_state, StateData};
 			 NewPacket1 ->
-			     NewPacket = xmpp:remove_subtag(NewPacket1, #nick{}),
+			     NewPacket = xmpp:put_meta(xmpp:remove_subtag(NewPacket1, #nick{}),
+				 muc_sender_real_jid, From),
 			     Node = if Subject == [] -> ?NS_MUCSUB_NODES_MESSAGES;
 				       true -> ?NS_MUCSUB_NODES_SUBJECT
 				    end,
@@ -841,7 +860,7 @@ process_normal_message(From, #message{lang = Lang} = Pkt, StateData) ->
 	{ok, [#muc_invite{}|_] = Invitations} ->
 	    lists:foldl(
 	      fun(Invitation, AccState) ->
-		      process_invitation(From, Invitation, Lang, AccState)
+		      process_invitation(From, Pkt, Invitation, Lang, AccState)
 	      end, StateData, Invitations);
 	{ok, [{role, participant}]} ->
 	    process_voice_request(From, Pkt, StateData);
@@ -854,9 +873,9 @@ process_normal_message(From, #message{lang = Lang} = Pkt, StateData) ->
 	    StateData
     end.
 
--spec process_invitation(jid(), muc_invite(), binary(), state()) -> state().
-process_invitation(From, Invitation, Lang, StateData) ->
-    IJID = route_invitation(From, Invitation, Lang, StateData),
+-spec process_invitation(jid(), message(), muc_invite(), binary(), state()) -> state().
+process_invitation(From, Pkt, Invitation, Lang, StateData) ->
+    IJID = route_invitation(From, Pkt, Invitation, Lang, StateData),
     Config = StateData#state.config,
     case Config#config.members_only of
 	true ->
@@ -1503,7 +1522,7 @@ get_max_users_admin_threshold(StateData) ->
     gen_mod:get_module_opt(StateData#state.server_host,
 			   mod_muc, max_users_admin_threshold).
 
--spec room_queue_new(binary(), shaper:shaper(), _) -> p1_queue:queue().
+-spec room_queue_new(binary(), ejabberd_shaper:shaper(), _) -> p1_queue:queue().
 room_queue_new(ServerHost, Shaper, QueueType) ->
     HaveRoomShaper = Shaper /= none,
     HaveMessageShaper = gen_mod:get_module_opt(
@@ -1533,10 +1552,10 @@ get_user_activity(JID, StateData) ->
       {ok, _P, A} -> A;
       error ->
 	  MessageShaper =
-	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
+	      ejabberd_shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
 						mod_muc, user_message_shaper)),
 	  PresenceShaper =
-	      shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
+	      ejabberd_shaper:new(gen_mod:get_module_opt(StateData#state.server_host,
 						mod_muc, user_presence_shaper)),
 	  #activity{message_shaper = MessageShaper,
 		    presence_shaper = PresenceShaper}
@@ -1575,10 +1594,10 @@ store_user_activity(JID, UserActivity, StateData) ->
 			   of
 			 true ->
 			     {_, MessageShaperInterval} =
-				 shaper:update(UserActivity#activity.message_shaper,
+				 ejabberd_shaper:update(UserActivity#activity.message_shaper,
 					       100000),
 			     {_, PresenceShaperInterval} =
-				 shaper:update(UserActivity#activity.presence_shaper,
+				 ejabberd_shaper:update(UserActivity#activity.presence_shaper,
 					       100000),
 			     Delay = lists:max([MessageShaperInterval,
 						PresenceShaperInterval,
@@ -1620,7 +1639,7 @@ prepare_room_queue(StateData) ->
 	  Packet = Activity#activity.message,
 	  Size = element_size(Packet),
 	  {RoomShaper, RoomShaperInterval} =
-	      shaper:update(StateData#state.room_shaper, Size),
+	      ejabberd_shaper:update(StateData#state.room_shaper, Size),
 	  erlang:send_after(RoomShaperInterval, self(),
 			    process_room_queue),
 	  StateData#state{room_shaper = RoomShaper};
@@ -1629,7 +1648,7 @@ prepare_room_queue(StateData) ->
 	  {_Nick, Packet} = Activity#activity.presence,
 	  Size = element_size(Packet),
 	  {RoomShaper, RoomShaperInterval} =
-	      shaper:update(StateData#state.room_shaper, Size),
+	      ejabberd_shaper:update(StateData#state.room_shaper, Size),
 	  erlang:send_after(RoomShaperInterval, self(),
 			    process_room_queue),
 	  StateData#state{room_shaper = RoomShaper};
@@ -2152,7 +2171,9 @@ send_initial_presences_and_messages(From, Nick, Presence, NewState, OldState) ->
 send_self_presence(JID, State) ->
     AvatarHash = (State#state.config)#config.vcard_xupdate,
     DiscoInfo = make_disco_info(JID, State),
-    DiscoHash = mod_caps:compute_disco_hash(DiscoInfo, sha),
+    Extras = iq_disco_info_extras(<<"en">>, State, true),
+    DiscoInfo1 = DiscoInfo#disco_info{xdata = [Extras]},
+    DiscoHash = mod_caps:compute_disco_hash(DiscoInfo1, sha),
     Els1 = [#caps{hash = <<"sha-1">>,
 		  node = ejabberd_config:get_uri(),
 		  version = DiscoHash}],
@@ -2162,7 +2183,7 @@ send_self_presence(JID, State) ->
 		   Els1
 	   end,
     ejabberd_router:route(#presence{from = State#state.jid, to = JID,
-				    id = randoms:get_string(),
+				    id = p1_rand:get_string(),
 				    sub_els = Els2}).
 
 -spec send_initial_presence(jid(), state(), state()) -> ok.
@@ -2465,7 +2486,7 @@ send_affiliation(JID, Affiliation, StateData) ->
     Item = #muc_item{jid = JID,
 		     affiliation = Affiliation,
 		     role = none},
-    Message = #message{id = randoms:get_string(),
+    Message = #message{id = p1_rand:get_string(),
 		       sub_els = [#muc_user{items = [Item]}]},
     Users = get_users_and_subscribers(StateData),
     Recipients = case (StateData#state.config)#config.anonymous of
@@ -2794,9 +2815,9 @@ process_item_change(Item, SD, UJID) ->
 			undefined ->
 				<<"">>
 		end,
+                St = erlang:get_stacktrace(),
 		?ERROR_MSG("failed to set item ~p~s: ~p",
-		       [Item, FromSuffix,
-			{E, {R, erlang:get_stacktrace()}}]),
+		       [Item, FromSuffix, {E, {R, St}}]),
 	    {error, xmpp:err_internal_server_error()}
     end.
 
@@ -2841,8 +2862,13 @@ find_changed_items(UJID, UAffiliation, URole,
     TAffiliation = get_affiliation(JID, StateData),
     TRole = get_role(JID, StateData),
     ServiceAf = get_service_affiliation(JID, StateData),
+    UIsSubscriber = is_subscriber(UJID, StateData),
+    URole1 = case {URole, UIsSubscriber} of
+	{none, true} -> subscriber;
+	{UR, _} -> UR
+    end,
     CanChangeRA = case can_change_ra(UAffiliation,
-				     URole,
+				     URole1,
 				     TAffiliation,
 				     TRole, RoleOrAff, RoleOrAffValue,
 				     ServiceAf) of
@@ -2962,8 +2988,18 @@ can_change_ra(_FAffiliation, _FRole, _TAffiliation,
 can_change_ra(_FAffiliation, moderator, _TAffiliation,
 	      visitor, role, none, _ServiceAf) ->
     true;
+can_change_ra(FAffiliation, subscriber, _TAffiliation,
+	      visitor, role, none, _ServiceAf)
+    when (FAffiliation == owner) or
+	   (FAffiliation == admin) ->
+    true;
 can_change_ra(_FAffiliation, moderator, _TAffiliation,
 	      visitor, role, participant, _ServiceAf) ->
+    true;
+can_change_ra(FAffiliation, subscriber, _TAffiliation,
+	      visitor, role, participant, _ServiceAf)
+    when (FAffiliation == owner) or
+	   (FAffiliation == admin) ->
     true;
 can_change_ra(FAffiliation, _FRole, _TAffiliation,
 	      visitor, role, moderator, _ServiceAf)
@@ -2973,8 +3009,18 @@ can_change_ra(FAffiliation, _FRole, _TAffiliation,
 can_change_ra(_FAffiliation, moderator, _TAffiliation,
 	      participant, role, none, _ServiceAf) ->
     true;
+can_change_ra(FAffiliation, subscriber, _TAffiliation,
+	      participant, role, none, _ServiceAf)
+    when (FAffiliation == owner) or
+	   (FAffiliation == admin) ->
+    true;
 can_change_ra(_FAffiliation, moderator, _TAffiliation,
 	      participant, role, visitor, _ServiceAf) ->
+    true;
+can_change_ra(FAffiliation, subscriber, _TAffiliation,
+	      participant, role, visitor, _ServiceAf)
+    when (FAffiliation == owner) or
+	   (FAffiliation == admin) ->
     true;
 can_change_ra(FAffiliation, _FRole, _TAffiliation,
 	      participant, role, moderator, _ServiceAf)
@@ -3004,6 +3050,24 @@ can_change_ra(_FAffiliation, _FRole, admin, moderator,
     false;
 can_change_ra(admin, _FRole, _TAffiliation, moderator,
 	      role, participant, _ServiceAf) ->
+    true;
+can_change_ra(owner, moderator, TAffiliation,
+	      moderator, role, none, _ServiceAf)
+    when TAffiliation /= owner ->
+    true;
+can_change_ra(owner, subscriber, TAffiliation,
+	      moderator, role, none, _ServiceAf)
+    when TAffiliation /= owner ->
+    true;
+can_change_ra(admin, moderator, TAffiliation,
+	      moderator, role, none, _ServiceAf)
+    when (TAffiliation /= owner) and
+         (TAffiliation /= admin) ->
+    true;
+can_change_ra(admin, subscriber, TAffiliation,
+	      moderator, role, none, _ServiceAf)
+    when (TAffiliation /= owner) and
+         (TAffiliation /= admin) ->
     true;
 can_change_ra(_FAffiliation, _FRole, _TAffiliation,
 	      _TRole, role, _Value, _ServiceAf) ->
@@ -3479,7 +3543,7 @@ send_config_change_info(New, #state{config = Old} = StateData) ->
 		      send_self_presence(JID, StateData#state{config = New})
 	      end, ?DICT:to_list(StateData#state.users)),
 	    Message = #message{type = groupchat,
-			       id = randoms:get_string(),
+			       id = p1_rand:get_string(),
 			       sub_els = [#muc_user{status_codes = Codes}]},
 	    send_wrapped_multiple(StateData#state.jid,
 			  get_users_and_subscribers(StateData),
@@ -3834,10 +3898,11 @@ process_iq_disco_info(From, #iq{type = get, lang = Lang,
     try
 	true = mod_caps:is_valid_node(Node),
 	DiscoInfo = make_disco_info(From, StateData),
-	Hash = mod_caps:compute_disco_hash(DiscoInfo, sha),
-	Node = <<(ejabberd_config:get_uri())/binary, $#, Hash/binary>>,
 	Extras = iq_disco_info_extras(Lang, StateData, true),
-	{result, DiscoInfo#disco_info{node = Node, xdata = [Extras]}}
+	DiscoInfo1 = DiscoInfo#disco_info{xdata = [Extras]},
+	Hash = mod_caps:compute_disco_hash(DiscoInfo1, sha),
+	Node = <<(ejabberd_config:get_uri())/binary, $#, Hash/binary>>,
+	{result, DiscoInfo1#disco_info{node = Node}}
     catch _:{badmatch, _} ->
 	    Txt = <<"Invalid node name">>,
 	    {error, xmpp:err_item_not_found(Txt, Lang)}
@@ -4033,11 +4098,11 @@ process_iq_mucsub(From, #iq{type = get, lang = Lang,
     FAffiliation = get_affiliation(From, StateData),
     FRole = get_role(From, StateData),
     if FRole == moderator; FAffiliation == owner; FAffiliation == admin ->
-	    JIDs = dict:fold(
-		     fun(_, #subscriber{jid = J}, Acc) ->
-			     [J|Acc]
+	    Subs = dict:fold(
+		     fun(_, #subscriber{jid = J, nodes = Nodes}, Acc) ->
+			     [#muc_subscription{jid = J, events = Nodes}|Acc]
 		     end, [], StateData#state.subscribers),
-	    {result, #muc_subscriptions{list = JIDs}, StateData};
+	    {result, #muc_subscriptions{list = Subs}, StateData};
        true ->
 	    Txt = <<"Moderator privileges required">>,
 	    {error, xmpp:err_forbidden(Txt, Lang)}
@@ -4170,8 +4235,8 @@ check_invitation(From, Invitations, Lang, StateData) ->
 	    {error, xmpp:err_not_allowed(Txt, Lang)}
     end.
 
--spec route_invitation(jid(), muc_invite(), binary(), state()) -> jid().
-route_invitation(From, Invitation, Lang, StateData) ->
+-spec route_invitation(jid(), message(), muc_invite(), binary(), state()) -> jid().
+route_invitation(From, Pkt, Invitation, Lang, StateData) ->
     #muc_invite{to = JID, reason = Reason} = Invitation,
     Invite = Invitation#muc_invite{to = undefined, from = From},
     Password = case (StateData#state.config)#config.password_protected of
@@ -4210,10 +4275,12 @@ route_invitation(From, Invitation, Lang, StateData) ->
 		   type = normal,
 		   body = xmpp:mk_text(Body),
 		   sub_els = [XUser, XConference]},
-    ejabberd_hooks:run(muc_invite, StateData#state.server_host,
-		       [StateData#state.jid, StateData#state.config,
-			From, JID, Reason]),
-    ejabberd_router:route(Msg),
+    Msg2 = ejabberd_hooks:run_fold(muc_invite,
+				   StateData#state.server_host,
+				   Msg,
+				   [StateData#state.jid, StateData#state.config,
+				    From, JID, Reason, Pkt]),
+    ejabberd_router:route(Msg2),
     JID.
 
 %% Handle a message sent to the room by a non-participant.
@@ -4324,7 +4391,7 @@ send_subscriptions_change_notifications(From, Nick, Type, State) ->
 				    items = #ps_items{
 					node = ?NS_MUCSUB_NODES_SUBSCRIBERS,
 					items = [#ps_item{
-					    id = randoms:get_string(),
+					    id = p1_rand:get_string(),
 					    sub_els = [Payload]}]}}]},
 			    ejabberd_router:route(xmpp:set_from_to(Packet, From, JID));
 			false ->
@@ -4367,7 +4434,7 @@ send_wrapped(From, To, Packet, Node, State) ->
 				true ->
 				    ejabberd_router:route(
 				      #presence{from = State#state.jid, to = To,
-						id = randoms:get_string(),
+						id = p1_rand:get_string(),
 						type = unavailable});
 				false ->
 				    ok
@@ -4389,7 +4456,7 @@ wrap(From, To, Packet, Node) ->
 		     items = #ps_items{
 				node = Node,
 				items = [#ps_item{
-					    id = randoms:get_string(),
+					    id = p1_rand:get_string(),
 					    sub_els = [El]}]}}]}.
 
 %% -spec send_multiple(jid(), binary(), [#user{}], stanza()) -> ok.

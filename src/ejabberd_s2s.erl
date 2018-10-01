@@ -95,8 +95,9 @@ start_link() ->
 route(Packet) ->
     try do_route(Packet)
     catch E:R ->
+            St = erlang:get_stacktrace(),
             ?ERROR_MSG("failed to route packet:~n~s~nReason = ~p",
-                       [xmpp:pp(Packet), {E, {R, erlang:get_stacktrace()}}])
+                       [xmpp:pp(Packet), {E, {R, St}}])
     end.
 
 clean_temporarily_blocked_table() ->
@@ -707,19 +708,7 @@ get_s2s_state(S2sPid) ->
 	    end,
     [{s2s_pid, S2sPid} | Infos].
 
--type use_starttls() :: boolean() | optional | required | required_trusted.
--spec opt_type(route_subdomains) -> fun((s2s | local) -> s2s | local);
-	      (s2s_access) -> fun((any()) -> any());
-	      (s2s_ciphers) -> fun((binary()) -> binary());
-	      (s2s_dhfile) -> fun((binary()) -> binary());
-	      (s2s_cafile) -> fun((binary()) -> binary());
-	      (s2s_protocol_options) -> fun(([binary()]) -> binary());
-	      (s2s_tls_compression) -> fun((boolean()) -> boolean());
-	      (s2s_use_starttls) -> fun((use_starttls()) -> use_starttls());
-	      (s2s_zlib) -> fun((boolean()) -> boolean());
-	      (s2s_timeout) -> fun((timeout()) -> timeout());
-	      (s2s_queue_type) -> fun((ram | file) -> ram | file);
-	      (atom()) -> [atom()].
+-spec opt_type(atom()) -> fun((any()) -> any()) | [atom()].
 opt_type(route_subdomains) ->
     fun (s2s) -> s2s;
 	(local) -> local
@@ -749,7 +738,12 @@ opt_type(s2s_use_starttls) ->
 	    required_trusted
     end;
 opt_type(s2s_zlib) ->
-    fun(B) when is_boolean(B) -> B end;
+    fun(true) ->
+	    ejabberd:start_app(ezlib),
+	    true;
+       (false) ->
+	    false
+    end;
 opt_type(s2s_timeout) ->
     fun(I) when is_integer(I), I >= 0 -> timer:seconds(I);
        (infinity) -> infinity;

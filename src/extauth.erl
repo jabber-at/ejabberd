@@ -82,7 +82,12 @@ prog_name(Host) ->
 
 -spec pool_name(binary()) -> atom().
 pool_name(Host) ->
-    list_to_atom("extauth_pool_" ++ binary_to_list(Host)).
+    case ejabberd_config:get_option({extauth_pool_name, Host}) of
+	undefined ->
+	    list_to_atom("extauth_pool_" ++ binary_to_list(Host));
+	Name ->
+	    list_to_atom("extauth_pool_" ++ binary_to_list(Name))
+    end.
 
 -spec worker_name(atom(), integer()) -> atom().
 worker_name(Pool, N) ->
@@ -186,7 +191,7 @@ call_port(Server, Args, Timeout) ->
     StartTime = p1_time_compat:monotonic_time(milli_seconds),
     Pool = pool_name(Server),
     PoolSize = pool_size(Server),
-    I = randoms:round_robin(PoolSize),
+    I = p1_rand:round_robin(PoolSize),
     Cmd = str:join(Args, <<":">>),
     do_call(Cmd, I, I + PoolSize, Pool, PoolSize,
 	    StartTime + Timeout, StartTime).
