@@ -176,6 +176,15 @@ Index: ejabberd/src/ejabberd_s2s.erl
  
  -include("ejabberd_commands.hrl").
  
+@@ -66,7 +66,7 @@
+ 
+ -define(PKIXIMPLICIT, 'OTP-PUB-KEY').
+ 
+--include("XmppAddr.hrl").
++-include_lib("p1_xmpp/include/XmppAddr.hrl").
+ 
+ -define(DEFAULT_MAX_S2S_CONNECTIONS_NUMBER, 1).
+ 
 Index: ejabberd/src/ejabberd_s2s_in.erl
 ===================================================================
 --- ejabberd.orig/src/ejabberd_s2s_in.erl
