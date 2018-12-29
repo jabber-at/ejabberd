@@ -55,6 +55,7 @@ start(normal, _Args) ->
 		    ejabberd_system_monitor:start(),
 		    register_elixir_config_hooks(),
 		    ejabberd_cluster:wait_for_sync(infinity),
+		    ejabberd_hooks:run(ejabberd_started, []),
 		    {T2, _} = statistics(wall_clock),
 		    ?INFO_MSG("ejabberd ~s is started in the node ~p in ~.2fs",
 			      [ejabberd_config:get_version(),
@@ -76,6 +77,7 @@ start(_, _) ->
 %% This function is called when an application is about to be stopped,
 %% before shutting down the processes of the application.
 prep_stop(State) ->
+    ejabberd_hooks:run(ejabberd_stopping, []),
     ejabberd_listener:stop_listeners(),
     ejabberd_sm:stop(),
     gen_mod:stop_modules(),
@@ -153,6 +155,7 @@ start_apps() ->
     ejabberd:start_app(p1_utils),
     ejabberd:start_app(fast_yaml),
     ejabberd:start_app(fast_tls),
+    ejabberd:start_app(pkix),
     ejabberd:start_app(xmpp),
     ejabberd:start_app(cache_tab),
     ejabberd:start_app(eimp).

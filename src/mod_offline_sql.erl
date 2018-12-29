@@ -48,7 +48,7 @@ store_message(#offline_msg{us = {LUser, LServer}} = M) ->
     From = M#offline_msg.from,
     To = M#offline_msg.to,
     Packet = xmpp:set_from_to(M#offline_msg.packet, From, To),
-    NewPacket = xmpp_util:add_delay_info(
+    NewPacket = misc:add_delay_info(
 		  Packet, jid:make(LServer),
 		  M#offline_msg.timestamp,
 		  <<"Offline Storage">>),
@@ -90,8 +90,17 @@ remove_expired_messages(_LServer) ->
 remove_old_messages(Days, LServer) ->
     case ejabberd_sql:sql_query(
 	   LServer,
-	   ?SQL("DELETE FROM spool"
-                " WHERE created_at < NOW() - INTERVAL %(Days)d DAY")) of
+           fun(pgsql, _) ->
+                   ejabberd_sql:sql_query_t(
+                     ?SQL("DELETE FROM spool"
+                          " WHERE created_at <"
+                          " NOW() - INTERVAL '%(Days)d DAY'"));
+              (_, _) ->
+                   ejabberd_sql:sql_query_t(
+                     ?SQL("DELETE FROM spool"
+                          " WHERE created_at < NOW() - INTERVAL %(Days)d DAY"))
+              end)
+        of
 	{updated, N} ->
 	    ?INFO_MSG("~p message(s) deleted from offline spool", [N]);
 	_Error ->
@@ -198,7 +207,7 @@ export(_Server) ->
 	      try xmpp:decode(El, ?NS_CLIENT, [ignore_els]) of
 		  Packet ->
 		      Packet1 = xmpp:set_from_to(Packet, From, To),
-		      Packet2 = xmpp_util:add_delay_info(
+		      Packet2 = misc:add_delay_info(
 				  Packet1, jid:make(LServer),
 				  TimeStamp, <<"Offline Storage">>),
 		      XML = fxml:element_to_binary(xmpp:encode(Packet2)),

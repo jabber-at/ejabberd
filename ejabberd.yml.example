@@ -36,7 +36,8 @@ log_rotate_count: 1
 log_rate_limit: 100
 
 certfiles:
-  - "/etc/letsencrypt/live/*/*.pem"
+  - "/etc/letsencrypt/live/localhost/fullchain.pem"
+  - "/etc/letsencrypt/live/localhost/privkey.pem"
 
 listen:
   -
@@ -64,6 +65,11 @@ listen:
     web_admin: true
     captcha: true
     tls: true
+  -
+    port: 5280
+    ip: "::"
+    module: ejabberd_http
+    web_admin: true
 
 s2s_use_starttls: optional
 
@@ -178,13 +184,16 @@ modules:
   mod_ping: {}
   mod_privacy: {}
   mod_private: {}
+  mod_proxy65:
+    access: local
+    max_connections: 5
   mod_pubsub:
     access_createnode: pubsub_createnode
     plugins:
       - "flat"
       - "pep"
     force_node_config:
-      ## Comment out the following lines to enable OMEMO support
+      ## Change from "whitelist" to "open" to enable OMEMO support
       ## See https://github.com/processone/ejabberd/issues/2425
       "eu.siacs.conversations.axolotl.*":
         access_model: whitelist

@@ -169,8 +169,6 @@ convert_data(Host, "roster", User, [Data]) ->
 	  end, Data),
     lists:foreach(fun mod_roster:set_roster/1, Rosters);
 convert_data(Host, "private", User, [Data]) ->
-    LUser = jid:nodeprep(User),
-    LServer = jid:nameprep(Host),
     PrivData = lists:flatmap(
 		 fun({_TagXMLNS, Raw}) ->
 			 case deserialize(Raw) of
@@ -181,7 +179,7 @@ convert_data(Host, "private", User, [Data]) ->
 				 []
 			 end
 		 end, Data),
-    mod_private:set_data(LUser, LServer, PrivData);
+    mod_private:set_data(jid:make(User, Host), PrivData);
 convert_data(Host, "vcard", User, [Data]) ->
     LServer = jid:nameprep(Host),
     case deserialize(Data) of
@@ -191,7 +189,11 @@ convert_data(Host, "vcard", User, [Data]) ->
 	    ok
     end;
 convert_data(_Host, "config", _User, [Data]) ->
-    RoomJID = jid:decode(proplists:get_value(<<"jid">>, Data, <<"">>)),
+    RoomJID1 = case proplists:get_value(<<"jid">>, Data, not_found) of
+	not_found -> proplists:get_value(<<"_jid">>, Data, room_jid_not_found);
+	A when is_binary(A) -> A
+    end,
+    RoomJID = jid:decode(RoomJID1),
     Config = proplists:get_value(<<"_data">>, Data, []),
     RoomCfg = convert_room_config(Data),
     case proplists:get_bool(<<"persistent">>, Config) of
@@ -360,9 +362,11 @@ convert_room_config(Data) ->
 		end,
     [{affiliations, convert_room_affiliations(Data)},
      {allow_change_subj, proplists:get_bool(<<"changesubject">>, Config)},
+     {mam, proplists:get_bool(<<"archiving">>, Config)},
      {description, proplists:get_value(<<"description">>, Config, <<"">>)},
      {members_only,	proplists:get_bool(<<"members_only">>, Config)},
      {moderated, proplists:get_bool(<<"moderated">>, Config)},
+     {persistent, proplists:get_bool(<<"persistent">>, Config)},
      {anonymous, Anonymous}] ++ Pass ++ Subj.
 
 convert_privacy_item({_, Item}) ->

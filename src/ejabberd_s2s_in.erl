@@ -135,16 +135,16 @@ process_closed(#{server := LServer} = State, Reason) ->
 %%%===================================================================
 %%% xmpp_stream_in callbacks
 %%%===================================================================
-tls_options(#{tls_options := TLSOpts, server_host := LServer}) ->
+tls_options(#{tls_options := TLSOpts, lserver := LServer}) ->
     ejabberd_s2s:tls_options(LServer, TLSOpts).
 
-tls_required(#{server_host := LServer}) ->
+tls_required(#{lserver := LServer}) ->
     ejabberd_s2s:tls_required(LServer).
 
-tls_enabled(#{server_host := LServer}) ->
+tls_enabled(#{lserver := LServer}) ->
     ejabberd_s2s:tls_enabled(LServer).
 
-compress_methods(#{server_host := LServer}) ->
+compress_methods(#{lserver := LServer}) ->
     case ejabberd_s2s:zlib_enabled(LServer) of
 	true -> [<<"zlib">>];
 	false -> []
@@ -181,14 +181,14 @@ handle_auth_success(RServer, Mech, _AuthModule,
     ?INFO_MSG("(~s) Accepted inbound s2s ~s authentication ~s -> ~s (~s)",
 	      [xmpp_socket:pp(Socket), Mech, RServer, LServer,
 	       ejabberd_config:may_hide_data(misc:ip_to_list(IP))]),
-    State1 = case ejabberd_s2s:allow_host(ServerHost, RServer) of
+    State1 = case ejabberd_s2s:allow_host(LServer, RServer) of
 		 true ->
 		     AuthDomains1 = sets:add_element(RServer, AuthDomains),
 		     State0 = change_shaper(State, RServer),
 		     State0#{auth_domains => AuthDomains1};
 		 false ->
 		     State
-	   end,
+	     end,
     ejabberd_hooks:run_fold(s2s_in_auth_result, ServerHost, State1, [true, RServer]).
 
 handle_auth_failure(RServer, Mech, Reason,
@@ -221,7 +221,7 @@ handle_authenticated_packet(Pkt0, #{ip := {IP, _}} = State) ->
 	    case Pkt1 of
 		drop -> ok;
 		_ -> ejabberd_router:route(Pkt1)
-    end,
+	    end,
 	    State2;
 	{error, Err} ->
 	    send(State, Err)
@@ -249,9 +249,9 @@ init([State, Opts]) ->
 		    (_) -> false
 		 end, Opts),
     TLSOpts2 = case proplists:get_bool(tls_compression, Opts) of
-                   false -> [compression_none | TLSOpts1];
-                   true -> TLSOpts1
-    end,
+		   false -> [compression_none | TLSOpts1];
+		   true -> TLSOpts1
+	       end,
     Timeout = ejabberd_config:negotiation_timeout(),
     State1 = State#{tls_options => TLSOpts2,
 		    auth_domains => sets:new(),
@@ -327,7 +327,7 @@ check_to(#jid{lserver = LServer}, _State) ->
     ejabberd_router:is_my_route(LServer).
 
 -spec set_idle_timeout(state()) -> state().
-set_idle_timeout(#{server_host := LServer,
+set_idle_timeout(#{lserver := LServer,
 		   established := true} = State) ->
     Timeout = ejabberd_s2s:get_idle_timeout(LServer),
     xmpp_stream_in:set_timeout(State, Timeout);
@@ -344,8 +344,8 @@ listen_opt_type(certfile = Opt) ->
     fun(S) ->
 	    ?WARNING_MSG("Listening option '~s' for ~s is deprecated, use "
 			 "'certfiles' global option instead", [Opt, ?MODULE]),
-	    ok = ejabberd_pkix:add_certfile(S),
-	    iolist_to_binary(S)
+	    {ok, File} = ejabberd_pkix:add_certfile(S),
+	    File
     end.
 
 listen_options() ->
