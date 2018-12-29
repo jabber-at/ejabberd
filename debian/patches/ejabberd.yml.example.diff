@@ -7,7 +7,7 @@ Index: ejabberd/ejabberd.yml.example
 ===================================================================
 --- ejabberd.orig/ejabberd.yml.example
 +++ ejabberd/ejabberd.yml.example
-@@ -29,15 +29,30 @@
+@@ -29,16 +29,31 @@
  hosts:
    - "localhost"
  
@@ -21,7 +21,8 @@ Index: ejabberd/ejabberd.yml.example
 +log_rotate_count: 0
  
  certfiles:
-   - "/etc/letsencrypt/live/*/*.pem"
+   - "/etc/letsencrypt/live/localhost/fullchain.pem"
+   - "/etc/letsencrypt/live/localhost/privkey.pem"
  
 +## TLS configuration
 +define_macro:
@@ -42,7 +43,7 @@ Index: ejabberd/ejabberd.yml.example
  listen:
    -
      port: 5222
-@@ -47,6 +62,7 @@
+@@ -48,6 +63,7 @@
      shaper: c2s_shaper
      access: c2s
      starttls_required: true
@@ -50,12 +51,18 @@ Index: ejabberd/ejabberd.yml.example
    -
      port: 5269
      ip: "::"
-@@ -64,8 +80,21 @@
+@@ -65,13 +81,26 @@
      web_admin: true
      captcha: true
      tls: true
 +    protocol_options: 'TLS_OPTIONS'
-+
+   -
+     port: 5280
+     ip: "::"
+     module: ejabberd_http
+     web_admin: true
+ 
+-s2s_use_starttls: optional
 +## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text
 +## password storage (see auth_password_format option).
 +disable_sasl_mechanisms: 
@@ -66,14 +73,13 @@ Index: ejabberd/ejabberd.yml.example
 +
 +## Store the plain passwords or hashed for SCRAM:
 +auth_password_format: scram
- 
--s2s_use_starttls: optional
++
 +## Full path to a script that generates the image.
-+## captcha_cmd: "/usr/share/ejabberd/captcha.sh"
++## captcha_cmd: "/usr/share/ejabberd/captcha.sh
  
  acl:
    local:
-@@ -104,9 +133,9 @@
+@@ -110,9 +139,9 @@
    "admin access":
      who:
        - access:
@@ -86,7 +92,7 @@ Index: ejabberd/ejabberd.yml.example
        - oauth:
          - scope: "ejabberd:admin"
          - access:
-@@ -150,12 +179,16 @@
+@@ -156,12 +185,16 @@
    mod_carboncopy: {}
    mod_client_state: {}
    mod_configure: {}
@@ -103,8 +109,8 @@ Index: ejabberd/ejabberd.yml.example
    mod_mam:
      ## Mnesia is limited to 2GB, better to use an SQL backend
      ## For small servers SQLite is a good fit and is very easy
-@@ -187,7 +220,7 @@
-       ## Comment out the following lines to enable OMEMO support
+@@ -196,7 +229,7 @@
+       ## Change from "whitelist" to "open" to enable OMEMO support
        ## See https://github.com/processone/ejabberd/issues/2425
        "eu.siacs.conversations.axolotl.*":
 -        access_model: whitelist
@@ -112,7 +118,7 @@ Index: ejabberd/ejabberd.yml.example
        ## Avoid buggy clients to make their bookmarks public
        "storage:bookmarks":
          access_model: whitelist
-@@ -204,6 +237,7 @@
+@@ -213,6 +246,7 @@
      versioning: true
    mod_s2s_dialback: {}
    mod_shared_roster: {}

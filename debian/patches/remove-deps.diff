@@ -7,27 +7,27 @@ Index: ejabberd/rebar.config
 ===================================================================
 --- ejabberd.orig/rebar.config
 +++ ejabberd/rebar.config
-@@ -18,65 +18,6 @@
+@@ -18,66 +18,6 @@
  %%%
  %%%----------------------------------------------------------------------
  
--{deps, [{lager, ".*", {git, "https://github.com/erlang-lager/lager",
--                       {tag, {if_version_above, "17", "3.6.5", "3.2.1"}}}},
+-{deps, [{lager, ".*", {git, "https://github.com/erlang-lager/lager", "3.6.7"}},
 -        {p1_utils, ".*", {git, "https://github.com/processone/p1_utils", {tag, "1.0.13"}}},
--        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.16"}}},
--        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.25"}}},
+-        {cache_tab, ".*", {git, "https://github.com/processone/cache_tab", {tag, "1.0.17"}}},
+-        {fast_tls, ".*", {git, "https://github.com/processone/fast_tls", {tag, "1.0.26"}}},
 -        {stringprep, ".*", {git, "https://github.com/processone/stringprep", {tag, "1.0.14"}}},
 -        {fast_xml, ".*", {git, "https://github.com/processone/fast_xml", {tag, "1.1.34"}}},
--        {xmpp, ".*", {git, "https://github.com/processone/xmpp", {tag, "1.2.5"}}},
+-        {xmpp, ".*", {git, "https://github.com/processone/xmpp", {tag, "1.2.8"}}},
 -        {fast_yaml, ".*", {git, "https://github.com/processone/fast_yaml", {tag, "1.0.17"}}},
 -        {jiffy, ".*", {git, "https://github.com/davisp/jiffy", {tag, "0.14.8"}}},
 -        {p1_oauth2, ".*", {git, "https://github.com/processone/p1_oauth2", {tag, "0.6.3"}}},
+-	{pkix, ".*", {git, "https://github.com/processone/pkix", {tag, "1.0.0"}}},
 -        {jose, ".*", {git, "https://github.com/potatosalad/erlang-jose", {tag, "1.8.4"}}},
--        {eimp, ".*", {git, "https://github.com/processone/eimp", {tag, "1.0.8"}}},
--        {if_var_true, stun, {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.25"}}}},
--        {if_var_true, sip, {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.26"}}}},
+-        {eimp, ".*", {git, "https://github.com/processone/eimp", {tag, "1.0.9"}}},
+-        {if_var_true, stun, {stun, ".*", {git, "https://github.com/processone/stun", {tag, "1.0.26"}}}},
+-        {if_var_true, sip, {esip, ".*", {git, "https://github.com/processone/esip", {tag, "1.0.27"}}}},
 -        {if_var_true, mysql, {p1_mysql, ".*", {git, "https://github.com/processone/p1_mysql",
--                                               {tag, "1.0.7"}}}},
+-                                               {tag, "1.0.8"}}}},
 -        {if_var_true, pgsql, {p1_pgsql, ".*", {git, "https://github.com/processone/p1_pgsql",
 -                                               {tag, "1.1.6"}}}},
 -        {if_var_true, sqlite, {sqlite3, ".*", {git, "https://github.com/processone/erlang-sqlite3",
@@ -49,7 +49,7 @@ Index: ejabberd/rebar.config
 -        {if_var_true, tools, {luerl, ".*", {git, "https://github.com/rvirding/luerl",
 -                                            {tag, "v0.3"}}}},
 -        {if_var_true, tools, {meck, "0.8.*", {git, "https://github.com/eproxus/meck",
--                                              {tag, "0.8.4"}}}},
+-                                              {tag, "0.8.12"}}}},
 -        {if_var_true, redis, {eredis, ".*", {git, "https://github.com/wooga/eredis",
 -                                             {tag, "v1.0.8"}}}}]}.
 -
@@ -69,11 +69,12 @@ Index: ejabberd/rebar.config
 -                  epam,
 -                  ezlib,
 -                  eimp,
+-                  pkix,
 -                  iconv]}}.
  
  {erl_first_files, ["src/ejabberd_sql_pt.erl", "src/ejabberd_config.erl",
  		   "src/gen_mod.erl", "src/mod_muc_room.erl",
-@@ -84,9 +25,6 @@
+@@ -85,9 +25,6 @@
  
  {erl_opts, [nowarn_deprecated_function,
              {i, "include"},
@@ -83,7 +84,7 @@ Index: ejabberd/rebar.config
              {if_var_false, debug, no_debug_info},
              {if_var_true, debug, debug_info},
              {if_var_true, sip, {d, 'SIP'}},
-@@ -143,24 +81,12 @@
+@@ -141,24 +78,12 @@
                     {if_var_false, redis, "(\"eredis\":_/_)"}]}.
  
  {eunit_compile_opts, [{i, "tools"},
