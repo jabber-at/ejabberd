@@ -69,7 +69,8 @@
 		default_host,
 		custom_headers,
 		trail = <<>>,
-		addr_re
+		addr_re,
+		sock_peer_name = none
 	       }).
 
 -define(XHTML_DOCTYPE,
@@ -143,6 +144,7 @@ init({SockMod, Socket}, Opts) ->
 		 true -> [{[], ejabberd_xmlrpc}];
 		 false -> []
 	     end,
+    SockPeer =  proplists:get_value(sock_peer_name, Opts, none),
     DefinedHandlers = proplists:get_value(request_handlers, Opts, []),
     RequestHandlers = DefinedHandlers ++ Captcha ++ Register ++
         Admin ++ Bind ++ XMLRPC,
@@ -159,6 +161,7 @@ init({SockMod, Socket}, Opts) ->
 		   custom_headers = CustomHeaders,
 		   options = Opts,
 		   request_handlers = RequestHandlers,
+		   sock_peer_name = SockPeer,
 		   addr_re = RE},
     try receive_headers(State) of
         V -> V
@@ -411,11 +414,11 @@ extract_path_query(#state{request_method = Method,
     when Method =:= 'GET' orelse
 	   Method =:= 'HEAD' orelse
 	     Method =:= 'DELETE' orelse Method =:= 'OPTIONS' ->
-    case catch url_decode_q_split(Path) of
-	{'EXIT', _} -> {State, false};
-	{NPath, Query} ->
-	    LPath = normalize_path([NPE
-				    || NPE <- str:tokens(path_decode(NPath), <<"/">>)]),
+    case catch url_decode_q_split_normalize(Path) of
+	{'EXIT', Error} ->
+	    ?DEBUG("Error decoding URL '~p': ~p", [Path, Error]),
+	    {State, false};
+	{LPath, Query} ->
 	    LQuery = case catch parse_urlencoded(Query) of
 			 {'EXIT', _Reason} -> [];
 			 LQ -> LQ
@@ -429,11 +432,11 @@ extract_path_query(#state{request_method = Method,
 			  sockmod = _SockMod,
 			  socket = _Socket} = State)
   when (Method =:= 'POST' orelse Method =:= 'PUT') andalso Len>0 ->
-    case catch url_decode_q_split(Path) of
-        {'EXIT', _} -> {State, false};
-        {NPath, _Query} ->
-            LPath = normalize_path(
-		      [NPE || NPE <- str:tokens(path_decode(NPath), <<"/">>)]),
+    case catch url_decode_q_split_normalize(Path) of
+	{'EXIT', Error} ->
+	    ?DEBUG("Error decoding URL '~p': ~p", [Path, Error]),
+	    {State, false};
+        {LPath, _Query} ->
 	    case Method of
 		'PUT' ->
 		    {State, {LPath, [], Trail}};
@@ -463,6 +466,7 @@ process_request(#state{request_method = Method,
 		       request_version = Version,
 		       sockmod = SockMod,
 		       socket = Socket,
+		       sock_peer_name = SockPeer,
 		       options = Options,
 		       request_host = Host,
 		       request_port = Port,
@@ -481,13 +485,17 @@ process_request(#state{request_method = Method,
 	{State2, false} ->
 	    {State2, make_bad_request(State)};
 	{State2, {LPath, LQuery, Data}} ->
-	    PeerName =
-		case SockMod of
-		    gen_tcp ->
-			inet:peername(Socket);
-		    _ ->
-			SockMod:peername(Socket)
-		end,
+	    PeerName = case SockPeer of
+			   none ->
+			       case SockMod of
+				   gen_tcp ->
+				       inet:peername(Socket);
+				   _ ->
+				       SockMod:peername(Socket)
+			       end;
+			   {_, Peer} ->
+			       {ok, Peer}
+		       end,
             IPHere = case PeerName of
                          {ok, V} -> V;
                          {error, _} = E -> throw(E)
@@ -573,7 +581,7 @@ is_ipchain_trusted(UserIPs, Masks) ->
 		    lists:any(
 			fun({Mask, MaskLen}) ->
 			    acl:ip_matches_mask(IP2, Mask, MaskLen)
-			end, [{{127,0,0,1}, 8} | Masks]);
+			end, Masks);
 		_ ->
 		    false
 	    end
@@ -723,6 +731,12 @@ file_format_error(Reason) ->
 	"unknown POSIX error" -> atom_to_list(Reason);
 	Text -> Text
     end.
+
+url_decode_q_split_normalize(Path) ->
+    {NPath, Query} = url_decode_q_split(Path),
+    LPath = normalize_path([NPE
+		    || NPE <- str:tokens(path_decode(NPath), <<"/">>)]),
+    {LPath, Query}.
 
 % Code below is taken (with some modifications) from the yaws webserver, which
 % is distributed under the following license:
@@ -965,8 +979,8 @@ listen_opt_type(certfile = Opt) ->
     fun(S) ->
 	    ?WARNING_MSG("Listening option '~s' for ~s is deprecated, use "
 			 "'certfiles' global option instead", [Opt, ?MODULE]),
-	    ok = ejabberd_pkix:add_certfile(S),
-	    iolist_to_binary(S)
+	    {ok, File} = ejabberd_pkix:add_certfile(S),
+	    File
     end;
 listen_opt_type(captcha) ->
     fun(B) when is_boolean(B) -> B end;

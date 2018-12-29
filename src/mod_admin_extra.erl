@@ -560,8 +560,10 @@ get_commands_spec() ->
 			desc = "Push template roster from file to a user",
 			longdesc = "The text file must contain an erlang term: a list "
 			    "of tuples with username, servername, group and nick. Example:\n"
-			    "[{\"user1\", \"localhost\", \"Workers\", \"User 1\"},\n"
-			    " {\"user2\", \"localhost\", \"Workers\", \"User 2\"}].",
+			    "[{<<\"user1\">>, <<\"localhost\">>, <<\"Workers\">>, <<\"User 1\">>},\n"
+			    " {<<\"user2\">>, <<\"localhost\">>, <<\"Workers\">>, <<\"User 2\">>}].\n"
+			    "When using UTF8 character encoding add /utf8 to certain string. Example:\n"
+			    "[{<<\"user2\">>, <<\"localhost\">>, <<\"Workers\"/utf8>>, <<\"User 2\"/utf8>>}].",
 			module = ?MODULE, function = push_roster,
 			args = [{file, binary}, {user, binary}, {host, binary}],
 			args_example = [<<"/home/ejabberd/roster.txt">>, <<"user1">>, <<"localhost">>],
@@ -1152,8 +1154,7 @@ set_vcard_content(User, Server, Data, SomeContent) ->
 	 end,
     %% Build new vcard
     SubEl = {xmlel, <<"vCard">>, [{<<"xmlns">>,<<"vcard-temp">>}], A4},
-    mod_vcard:set_vcard(User, jid:nameprep(Server), SubEl),
-    ok.
+    mod_vcard:set_vcard(User, jid:nameprep(Server), SubEl).
 
 take_vcard_tel(TelType, [{xmlel, <<"TEL">>, _, SubEls}=OldEl | OldEls], NewEls, Taken) ->
     {Taken2, NewEls2} = case lists:keymember(TelType, 2, SubEls) of
@@ -1389,9 +1390,8 @@ private_set(Username, Host, ElementString) ->
 
 private_set2(Username, Host, Xml) ->
     NS = fxml:get_tag_attr_s(<<"xmlns">>, Xml),
-    mod_private:set_data(jid:nodeprep(Username), jid:nameprep(Host),
-			 [{NS, Xml}]),
-    ok.
+    JID = jid:make(Username, Host),
+    mod_private:set_data(JID, [{NS, Xml}]).
 
 %%%
 %%% Shared Roster Groups

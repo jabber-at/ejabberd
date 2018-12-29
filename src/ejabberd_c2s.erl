@@ -49,7 +49,7 @@
 -export([get_presence/1, set_presence/2, resend_presence/1, resend_presence/2,
 	 open_session/1, call/3, cast/2, send/2, close/1, close/2, stop/1,
 	 reply/2, copy_state/2, set_timeout/2, route/2,
-	 host_up/1, host_down/1]).
+	 host_up/1, host_down/1, send_ws_ping/1]).
 
 -include("xmpp.hrl").
 -include("logger.hrl").
@@ -136,6 +136,11 @@ send_error(#{lserver := LServer} = State, Pkt, Err) ->
 	{drop, State1} -> State1;
 	{Pkt1, State1} -> xmpp_stream_in:send_error(State1, Pkt1, Err)
     end.
+
+-spec send_ws_ping(pid()) -> ok;
+		  (state()) -> state().
+send_ws_ping(Ref) ->
+    xmpp_stream_in:send_ws_ping(Ref).
 
 -spec route(pid(), term()) -> boolean().
 route(Pid, Term) ->
@@ -633,7 +638,7 @@ route_probe_reply(From, #{jid := To,
     Subscription = get_subscription(To, From),
     if IsAnotherResource orelse
        Subscription == both orelse Subscription == from ->
-	    Packet = xmpp_util:add_delay_info(LastPres, To, TS),
+	    Packet = misc:add_delay_info(LastPres, To, TS),
 	    case privacy_check_packet(State, Packet, out) of
 		deny ->
 		    ok;
@@ -703,13 +708,11 @@ process_presence_out(#{lserver := LServer, jid := JID,
     end.
 
 -spec process_self_presence(state(), presence()) -> state().
-process_self_presence(#{ip := IP, conn := Conn, lserver := LServer,
-			auth_module := AuthMod, sid := SID,
+process_self_presence(#{lserver := LServer, sid := SID,
 			user := U, server := S,	resource := R} = State,
 		      #presence{type = unavailable} = Pres) ->
     Status = xmpp:get_text(Pres#presence.status),
-    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthMod}],
-    ejabberd_sm:unset_presence(SID, U, S, R, Status, Info),
+    ejabberd_sm:unset_presence(SID, U, S, R, Status),
     {Pres1, State1} = ejabberd_hooks:run_fold(
 			c2s_self_presence, LServer, {Pres, State}, []),
     State2 = broadcast_presence_unavailable(State1, Pres1),
@@ -727,13 +730,11 @@ process_self_presence(#{lserver := LServer} = State,
 process_self_presence(State, _Pres) ->
     State.
 
--spec update_priority(state(), presence()) -> ok.
-update_priority(#{ip := IP, conn := Conn, auth_module := AuthMod,
-		  sid := SID, user := U, server := S, resource := R},
+-spec update_priority(state(), presence()) -> ok | {error, notfound}.
+update_priority(#{sid := SID, user := U, server := S, resource := R},
 		Pres) ->
     Priority = get_priority_from_presence(Pres),
-    Info = [{ip, IP}, {conn, Conn}, {auth_module, AuthMod}],
-    ejabberd_sm:set_presence(SID, U, S, R, Priority, Pres, Info).
+    ejabberd_sm:set_presence(SID, U, S, R, Priority, Pres).
 
 -spec broadcast_presence_unavailable(state(), presence()) -> state().
 broadcast_presence_unavailable(#{jid := JID, pres_a := PresA} = State, Pres) ->
@@ -982,8 +983,8 @@ listen_opt_type(certfile = Opt) ->
     fun(S) ->
 	    ?WARNING_MSG("Listening option '~s' for ~s is deprecated, use "
 			 "'certfiles' global option instead", [Opt, ?MODULE]),
-	    ok = ejabberd_pkix:add_certfile(S),
-	    iolist_to_binary(S)
+	    {ok, File} = ejabberd_pkix:add_certfile(S),
+	    File
     end;
 listen_opt_type(starttls) -> fun(B) when is_boolean(B) -> B end;
 listen_opt_type(starttls_required) -> fun(B) when is_boolean(B) -> B end;

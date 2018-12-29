@@ -33,7 +33,7 @@
 	 start_listeners/0, start_listener/3, stop_listeners/0,
 	 stop_listener/2, add_listener/3, delete_listener/2,
 	 transform_options/1, validate_cfg/1, opt_type/1,
-	 config_reloaded/0]).
+	 config_reloaded/0, get_certfiles/0]).
 %% Legacy API
 -export([parse_listener_portip/2]).
 
@@ -63,12 +63,7 @@ init(_) ->
     ets:new(?MODULE, [named_table, public]),
     ejabberd_hooks:add(config_reloaded, ?MODULE, config_reloaded, 50),
     Listeners = ejabberd_config:get_option(listen, []),
-    case add_certfiles(Listeners) of
-	ok ->
-	    {ok, {{one_for_one, 10, 1}, listeners_childspec(Listeners)}};
-	{error, _} = Err ->
-	    Err
-    end.
+    {ok, {{one_for_one, 10, 1}, listeners_childspec(Listeners)}}.
 
 -spec listeners_childspec([listener()]) -> [supervisor:child_spec()].
 listeners_childspec(Listeners) ->
@@ -209,26 +204,49 @@ accept(ListenSocket, Module, Opts, Sup, Interval) ->
     NewInterval = check_rate_limit(Interval),
     case gen_tcp:accept(ListenSocket) of
 	{ok, Socket} ->
-	    case {inet:sockname(Socket), inet:peername(Socket)} of
-		{{ok, {Addr, Port}}, {ok, {PAddr, PPort}}} ->
-		    Receiver = case start_connection(Module, Socket, Opts, Sup) of
-				   {ok, RecvPid} ->
-				       RecvPid;
-				   _ ->
-				       gen_tcp:close(Socket),
-				       none
-			       end,
-		    ?INFO_MSG("(~p) Accepted connection ~s:~p -> ~s:~p",
-			      [Receiver,
-			       ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)),
-			       PPort, inet_parse:ntoa(Addr), Port]);
+	    case proplists:get_value(use_proxy_protocol, Opts, false) of
+		true ->
+		    case proxy_protocol:decode(gen_tcp, Socket, 10000) of
+			{error, Err} ->
+			    ?ERROR_MSG("(~w) Proxy protocol parsing failed: ~s",
+				       [ListenSocket, inet:format_error(Err)]),
+			    gen_tcp:close(Socket);
+			{{Addr, Port}, {PAddr, PPort}} = SP ->
+			    Opts2 = [{sock_peer_name, SP} | Opts],
+			    Receiver = case start_connection(Module, Socket, Opts2, Sup) of
+					   {ok, RecvPid} ->
+					       RecvPid;
+					   _ ->
+					       gen_tcp:close(Socket),
+					       none
+				       end,
+			    ?INFO_MSG("(~p) Accepted proxied connection ~s:~p -> ~s:~p",
+				      [Receiver,
+				       ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)),
+				       PPort, inet_parse:ntoa(Addr), Port])
+		    end;
 		_ ->
-		    gen_tcp:close(Socket)
+		    case {inet:sockname(Socket), inet:peername(Socket)} of
+			{{ok, {Addr, Port}}, {ok, {PAddr, PPort}}} ->
+			    Receiver = case start_connection(Module, Socket, Opts, Sup) of
+					   {ok, RecvPid} ->
+					       RecvPid;
+					   _ ->
+					       gen_tcp:close(Socket),
+					       none
+				       end,
+			    ?INFO_MSG("(~p) Accepted connection ~s:~p -> ~s:~p",
+				      [Receiver,
+				       ejabberd_config:may_hide_data(inet_parse:ntoa(PAddr)),
+				       PPort, inet_parse:ntoa(Addr), Port]);
+			_ ->
+			    gen_tcp:close(Socket)
+		    end
 	    end,
 	    accept(ListenSocket, Module, Opts, Sup, NewInterval);
 	{error, Reason} ->
 	    ?ERROR_MSG("(~w) Failed TCP accept: ~s",
-                       [ListenSocket, inet:format_error(Reason)]),
+		       [ListenSocket, inet:format_error(Reason)]),
 	    accept(ListenSocket, Module, Opts, Sup, NewInterval)
     end.
 
@@ -384,6 +402,16 @@ config_reloaded() ->
 	      end
       end, New).
 
+-spec get_certfiles() -> [binary()].
+get_certfiles() ->
+    lists:filtermap(
+      fun({_, _, Opts}) ->
+	      case proplists:get_value(certfile, Opts) of
+		  undefined -> false;
+		  Cert -> {true, Cert}
+	      end
+      end, ets:tab2list(?MODULE)).
+
 -spec report_socket_error(inet:posix(), endpoint(), module()) -> ok.
 report_socket_error(Reason, EndPoint, Module) ->
     ?ERROR_MSG("Failed to open socket at ~s for ~s: ~s",
@@ -431,20 +459,6 @@ check_rate_limit(Interval) ->
             timer:sleep(I)
     end,
     NewInterval.
-
--spec add_certfiles([listener()]) -> ok | {error, any()}.
-add_certfiles([{_, _, Opts}|Listeners]) ->
-    case lists:keyfind(certfile, 1, Opts) of
-	{_, Path} ->
-	    case ejabberd_pkix:add_certfile(Path) of
-		ok -> add_certfiles(Listeners);
-		{error, _} = Err -> Err
-	    end;
-	false ->
-	    add_certfiles(Listeners)
-    end;
-add_certfiles([]) ->
-    ok.
 
 transform_option({{Port, IP, Transport}, Mod, Opts}) ->
     IPStr = if is_tuple(IP) ->
@@ -652,12 +666,12 @@ listen_opt_type(supervisor) ->
     fun(B) when is_boolean(B) -> B end;
 listen_opt_type(certfile) ->
     fun(S) ->
-	    ok = ejabberd_pkix:add_certfile(S),
-	    iolist_to_binary(S)
+	    {ok, File} = ejabberd_pkix:add_certfile(S),
+	    File
     end;
 listen_opt_type(ciphers) -> fun iolist_to_binary/1;
 listen_opt_type(dhfile) -> fun misc:try_read_file/1;
-listen_opt_type(cafile) -> fun misc:try_read_file/1;
+listen_opt_type(cafile) -> fun ejabberd_pkix:try_certfile/1;
 listen_opt_type(protocol_options) ->
     fun (Options) -> str:join(Options, <<"|">>) end;
 listen_opt_type(tls_compression) ->
@@ -674,7 +688,9 @@ listen_opt_type(max_fsm_queue) ->
 listen_opt_type(shaper) ->
     fun acl:shaper_rules_validator/1;
 listen_opt_type(access) ->
-    fun acl:access_rules_validator/1.
+    fun acl:access_rules_validator/1;
+listen_opt_type(use_proxy_protocol) ->
+    fun(B) when is_boolean(B) -> B end.
 
 listen_options() ->
     [module, port,
@@ -684,6 +700,7 @@ listen_options() ->
      {inet6, false},
      {accept_interval, 0},
      {backlog, 5},
+     {use_proxy_protocol, false},
      {supervisor, true}].
 
 opt_type(listen) -> fun validate_cfg/1;
