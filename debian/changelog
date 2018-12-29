@@ -1,3 +1,9 @@
+ejabberd (1:18.12.1-1) unstable; urgency=medium
+
+  * New upstream version 18.12.1
+
+ -- Mathias Ertl <mati@jabber.at>  Sat, 29 Dec 2018 23:59:27 +0100
+
 ejabberd (1:18.09-1) unstable; urgency=medium
 
   * New upstream version 18.09
