@@ -4,6 +4,9 @@ ejabberd (1:18.12.1-1) unstable; urgency=medium
   * Rename XSBC-Orig-Maintainer to XSBC-Original-Maintainer to match the Debian
     Derivatives Guidelines
   * Updated Standards-Version: 4.3.0 (no changes needed)
+  * Updated Erlang dependencies
+  * Updated years in debian/copyright
+  * Updated debian/docs
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 29 Dec 2018 23:59:27 +0100
 
