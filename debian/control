@@ -1,6 +1,6 @@
 Source: ejabberd
 Maintainer: Mathias Ertl <mati@jabber.at>
-XSBC-Orig-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
+XSBC-Original-Maintainer: Ejabberd Packaging Team <ejabberd@deb.at>
 Section: net
 Priority: optional
 Build-Depends: debhelper (>= 11~),
@@ -10,12 +10,14 @@ Build-Depends: debhelper (>= 11~),
                rebar (>= 2.6.0),
                erlang-asn1,
                erlang-base,
+               erlang-base64url,
                erlang-crypto,
                erlang-dev (>= 1:19.2),
                erlang-eunit,
+               erlang-goldrush (>= 0.1.9),
                erlang-inets,
                erlang-jiffy (>= 0.14.8),
-               erlang-jose (>= 1.8.4),
+               erlang-jose,
                erlang-lager (>= 3.6.7),
                erlang-luerl (>= 1:0.3),
                erlang-mnesia,
@@ -38,10 +40,10 @@ Build-Depends: debhelper (>= 11~),
                erlang-p1-yaml (>= 1.0.17),
                erlang-p1-zlib (>= 1.0.4),
                erlang-parsetools,
-               erlang-redis-client (>= 1.1.0),
+               erlang-redis-client (>= 1.2.0),
                erlang-ssl,
                erlang-xmerl
-Standards-Version: 4.1.4
+Standards-Version: 4.3.0
 Vcs-Git: https://github.com/jabber-at/ejabberd.git
 Vcs-Browser: https://github.com/jabber-at/ejabberd/
 Homepage: https://www.ejabberd.im
@@ -55,8 +57,10 @@ Depends: adduser,
          lsb-base,
          erlang-base (>= 1:19.2) | ${erlang-abi:Depends},
          ${erlang:Depends},
+         erlang-base64url,
+         erlang-goldrush (>= 0.1.9),
          erlang-jiffy (>= 0.14.8),
-         erlang-jose (>= 1.8.4),
+         erlang-jose,
          erlang-lager (>= 3.6.7),
          erlang-os-mon (>= 1:19.2),
          erlang-p1-cache-tab (>= 1.0.17),
@@ -76,7 +80,7 @@ Suggests: apparmor,
           libunix-syslog-perl,
           imagemagick,
           yamllint,
-          ejabberd-contrib (>> 0.2017.07),
+          ejabberd-contrib (>= 0.2018),
           erlang-luerl (>= 1:0.3),
           erlang-p1-oauth2 (>= 0.6.3),
           erlang-p1-mysql (>= 1.0.8),
@@ -85,15 +89,13 @@ Suggests: apparmor,
           erlang-p1-sip (>= 1.0.27),
           erlang-p1-stun (>= 1:1.0.26),
           erlang-p1-sqlite3 (>= 1.1.6),
-          erlang-redis-client (>= 1.1.0)
+          erlang-redis-client (>= 1.2.0)
 Pre-Depends: openssl
-Breaks: ejabberd-contrib (<= 0.2017.07),
-        ejabberd-mod-http-upload
+Breaks: ejabberd-contrib (<= 0.2017.07)
 Provides: xmpp-server,
           stun-server,
           turn-server
-Replaces: ejabberd-contrib (<= 0.2015.08),
-          ejabberd-mod-http-upload
+Replaces: ejabberd-contrib (<= 0.2015.08)
 Description: distributed, fault-tolerant Jabber/XMPP server
  ejabberd is a Jabber/XMPP server written in Erlang, featuring:
   * distributed operation with load-balancing across a cluster;

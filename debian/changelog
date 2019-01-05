@@ -1,6 +1,9 @@
 ejabberd (1:18.12.1-1) unstable; urgency=medium
 
   * New upstream version 18.12.1
+  * Rename XSBC-Orig-Maintainer to XSBC-Original-Maintainer to match the Debian
+    Derivatives Guidelines
+  * Updated Standards-Version: 4.3.0 (no changes needed)
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 29 Dec 2018 23:59:27 +0100
 
