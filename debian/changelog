@@ -3,10 +3,15 @@ ejabberd (1:18.12.1-1) unstable; urgency=medium
   * New upstream version 18.12.1
   * Rename XSBC-Orig-Maintainer to XSBC-Original-Maintainer to match the Debian
     Derivatives Guidelines
-  * Updated Standards-Version: 4.3.0 (no changes needed)
-  * Updated Erlang dependencies
-  * Updated years in debian/copyright
-  * Updated debian/docs
+
+  Merge changes from upstream package
+    * Updated Standards-Version: 4.3.0 (no changes needed)
+    * Updated Erlang dependencies
+    * Updated years in debian/copyright
+    * Updated debian/docs
+    * Patched out ERL_EPMD_ADDRESS from /etc/default/ejabberd because it has
+      no effect since epmd is started via systemd. (Closes: #909914)
+      Thanks Matt Marjanovic for reporting!
 
  -- Mathias Ertl <mati@jabber.at>  Sat, 29 Dec 2018 23:59:27 +0100
 
