@@ -1,3 +1,2 @@
 ejabberd source: debian-watch-does-not-check-gpg-signature
 ejabberd source: testsuite-autopkgtest-missing
-ejabberd source: unknown-field-in-dsc orig-maintainer

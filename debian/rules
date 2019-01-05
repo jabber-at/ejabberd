@@ -94,7 +94,7 @@ override_dh_installdeb:
 .PHONY: override_dh_auto_clean
 override_dh_auto_clean:
 	rm -f Makefile config.log config.status vars.config priv/sql
-	rm -rf .rebar deps ebin include/XmppAddr.hrl src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
+	rm -rf .rebar deps ebin src/XmppAddr.asn1db src/XmppAddr.erl src/eldap_filter_yecc.erl src/ejabberd.app.src
 	rm -f debian/ejabberd.init debian/ejabberd.service ejabberd.init ejabberdctl.example ejabberd.service
 	sed -i 's/$(DEB_VERSION_UPSTREAM_REVISION)/$(DEB_VERSION_UPSTREAM)/' configure
 	dh_auto_clean

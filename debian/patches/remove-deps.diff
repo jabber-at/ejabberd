@@ -7,7 +7,7 @@ Index: ejabberd/rebar.config
 ===================================================================
 --- ejabberd.orig/rebar.config
 +++ ejabberd/rebar.config
-@@ -18,66 +18,6 @@
+@@ -18,47 +18,7 @@
  %%%
  %%%----------------------------------------------------------------------
  
@@ -38,7 +38,7 @@ Index: ejabberd/rebar.config
 -                                           {tag, "1.0.4"}}}},
 -        {if_var_true, riak, {riakc, ".*", {git, "https://github.com/processone/riak-erlang-client",
 -                                           {tag, {if_version_above, "19", "develop", "2.5.3"}}}}},
--        %% Elixir support, needed to run tests
+         %% Elixir support, needed to run tests
 -        {if_var_true, elixir, {elixir, ".*", {git, "https://github.com/elixir-lang/elixir",
 -                                              {tag, {if_version_above, "17", "v1.4.4", "v1.1.1"}}}}},
 -        %% TODO: When modules are fully migrated to new structure and mix, we will not need anymore rebar_elixir_plugin
@@ -52,29 +52,10 @@ Index: ejabberd/rebar.config
 -                                              {tag, "0.8.12"}}}},
 -        {if_var_true, redis, {eredis, ".*", {git, "https://github.com/wooga/eredis",
 -                                             {tag, "v1.0.8"}}}}]}.
--
--{if_var_true, latest_deps,
-- {floating_deps, [cache_tab,
--                  fast_tls,
--                  stringprep,
--                  fast_xml,
--                  esip,
--                  stun,
--                  fast_yaml,
--                  xmpp,
--                  p1_utils,
--                  p1_mysql,
--                  p1_pgsql,
--                  p1_oauth2,
--                  epam,
--                  ezlib,
--                  eimp,
--                  pkix,
--                  iconv]}}.
  
- {erl_first_files, ["src/ejabberd_sql_pt.erl", "src/ejabberd_config.erl",
- 		   "src/gen_mod.erl", "src/mod_muc_room.erl",
-@@ -85,9 +25,6 @@
+ {if_var_true, latest_deps,
+  {floating_deps, [cache_tab,
+@@ -85,9 +45,6 @@
  
  {erl_opts, [nowarn_deprecated_function,
              {i, "include"},
@@ -84,7 +65,7 @@ Index: ejabberd/rebar.config
              {if_var_false, debug, no_debug_info},
              {if_var_true, debug, debug_info},
              {if_var_true, sip, {d, 'SIP'}},
-@@ -141,24 +78,12 @@
+@@ -141,24 +98,12 @@
                     {if_var_false, redis, "(\"eredis\":_/_)"}]}.
  
  {eunit_compile_opts, [{i, "tools"},
